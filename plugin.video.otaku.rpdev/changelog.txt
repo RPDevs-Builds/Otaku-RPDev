@@ -1,3 +1,11 @@
+Changelog v5.3.5 (2026-10-24):
+- Artwork: updated official Otaku RPDev add-on icon
+- Core: automated memory compaction (malloc_trim + gc.collect) on playback exit to eliminate Android TV OOM crashes
+- Debrid: living-room Debrid Cloud browser supporting Real-Debrid, Premiumize, TorBox, and AllDebrid
+- Scrapers: eliminated thread churn in progress dialog and accelerated debrid worker thread cloning
+- SmartPlay: season pack continuity with stale filename stripping to prevent replaying previous episodes
+- UI: upcoming episode broadcast countdown badges and optional spoiler thumbnail shielding
+
 Changelog v5.3.4 (2026-10-18):
 - Otaku browser: fixed Airing Last, This, and Next season tabs (season query casing for the metadata API)
 - AnimePahe: fail soft when the search API returns no data; fixed invalid-JSON exception handling
