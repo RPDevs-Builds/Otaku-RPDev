@@ -1,3 +1,7 @@
+Changelog v5.3.6 (2026-10-24):
+- Artwork: updated official Otaku RPDev add-on poster art
+- Settings: moved Hide Spoiler Thumbnails and Shield Artwork Mode under Settings → General → Artwork Customization
+
 Changelog v5.3.5 (2026-10-24):
 - Artwork: updated official Otaku RPDev add-on icon
 - Core: automated memory compaction (malloc_trim + gc.collect) on playback exit to eliminate Android TV OOM crashes
