@@ -18,7 +18,7 @@ class Sources(BrowserBase):
 
     def get_sources(self, mal_id, episode):
         show = database.get_show(mal_id)
-        kodi_meta = pickle.loads(show.get('kodi_meta'))
+        kodi_meta = database.loads(show.get('kodi_meta'))
         title = kodi_meta.get('name')
         title = self._clean_title(title)
 
@@ -161,10 +161,9 @@ class Sources(BrowserBase):
                     # If we found sources for this language, continue to next language
                     if sources:
                         control.log(f"AniWave: Found {len(sources)} sources for '{lang}'")
-        except:
+        except Exception:
             import traceback
             traceback.print_exc()
-            pass
         return sources
 
     def _extract_aniwave_source(self, server_info, title, episode, headers):

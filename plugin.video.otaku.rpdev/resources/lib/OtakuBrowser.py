@@ -747,7 +747,7 @@ class OtakuBrowser(BrowserBase):
         self.database_update_show(mal_res, anilist_res)
 
         show_meta = database.get_show_meta(mal_id)
-        kodi_meta = pickle.loads(show_meta.get('art')) if show_meta else {}
+        kodi_meta = database.loads(show_meta.get('art')) if show_meta else {}
 
         title = None
         if mal_res:
@@ -1074,7 +1074,7 @@ class OtakuBrowser(BrowserBase):
         except Exception:
             pass
 
-        database.update_show(mal_id, pickle.dumps(kodi_meta))
+        database.update_show(mal_id, database.dumps(kodi_meta))
 
     def update_genre_settings(self):
         mal_res = database.get(self.get_mal_base_res, 24, f'{self._BASE_URL}/genres/anime')

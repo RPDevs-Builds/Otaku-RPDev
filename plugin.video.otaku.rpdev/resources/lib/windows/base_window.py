@@ -26,10 +26,10 @@ class BaseWindow(xbmcgui.WindowXMLDialog):
         if self._mal_id:
             show_data = database.get_show(self._mal_id)
             if show_data:
-                self.item_information = pickle.loads(show_data['kodi_meta'])
+                self.item_information = database.loads(show_data['kodi_meta'])
                 show_meta = database.get_show_meta(self._mal_id)
                 if show_meta:
-                    self.item_information.update(pickle.loads(show_meta.get('art')))
+                    self.item_information.update(database.loads(show_meta.get('art')))
             else:
                 self.item_information = {}
         elif item_type == 'playing_next':

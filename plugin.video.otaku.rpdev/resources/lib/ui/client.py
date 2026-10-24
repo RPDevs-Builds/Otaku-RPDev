@@ -25,6 +25,7 @@ import random
 import re
 import ssl
 import sys
+import threading
 import time
 import urllib.request
 import urllib.parse
@@ -45,6 +46,7 @@ CERT_FILE = TRANSLATEPATH('special://xbmc/system/certs/cacert.pem')
 _COOKIE_HEADER = "Cookie"
 _HEADER_RE = re.compile(r"^([\w\d-]+?)=(.*?)$")
 
+_session_lock = threading.Lock()
 _session_cookies = {}
 _session_openers = {}
 _session_timestamps = {}
@@ -91,13 +93,13 @@ def _get_ssl_context(verify=True):
 
 def _cleanup_old_sessions():
     """Clean up sessions older than timeout to prevent memory leaks"""
-    import time
     current_time = time.time()
-    expired_keys = [k for k, v in _session_timestamps.items() if current_time - v > _SESSION_TIMEOUT]
-    for key in expired_keys:
-        _session_cookies.pop(key, None)
-        _session_openers.pop(key, None)
-        _session_timestamps.pop(key, None)
+    with _session_lock:
+        expired_keys = [k for k, v in list(_session_timestamps.items()) if current_time - v > _SESSION_TIMEOUT]
+        for key in expired_keys:
+            _session_cookies.pop(key, None)
+            _session_openers.pop(key, None)
+            _session_timestamps.pop(key, None)
 
 
 def _get_cached_useragent(mobile=False):
@@ -160,7 +162,7 @@ class Response:
         if isinstance(self._raw_content, bytes):
             try:
                 return self._raw_content.decode('utf-8', errors='ignore')
-            except:
+            except UnicodeDecodeError:
                 return self._raw_content.decode('latin-1', errors='ignore')
         return self._raw_content or ''
 
@@ -303,12 +305,24 @@ def request(
 
             handlers += [NoRedirectHandler()]
 
-        # Build local opener with handlers (never mutate global urllib opener across threads)
-        opener = urllib.request.build_opener(*handlers) if handlers else urllib.request.build_opener()
-        if use_session and redirect is not False and proxy is None:
-            # Store opener for session reuse with timestamp
-            _session_openers[domain] = opener
-            _session_timestamps[domain] = time.time()
+        # Reuse existing session opener for domain when eligible, otherwise build a new local opener
+        can_use_session_opener = (use_session and redirect is not False and proxy is None and not tls_version)
+        opener = None
+        if can_use_session_opener:
+            with _session_lock:
+                opener = _session_openers.get(domain)
+                if opener is not None:
+                    _session_timestamps[domain] = time.time()
+                    for h in getattr(opener, 'handlers', ()):
+                        if isinstance(h, urllib.request.HTTPCookieProcessor):
+                            cookies = h.cookiejar
+                            break
+        if opener is None:
+            opener = urllib.request.build_opener(*handlers) if handlers else urllib.request.build_opener()
+            if can_use_session_opener:
+                with _session_lock:
+                    _session_openers[domain] = opener
+                    _session_timestamps[domain] = time.time()
 
         if url.startswith('//'):
             url = 'http:' + url
@@ -344,8 +358,12 @@ def request(
             _headers['Cookie'] = cookie
         else:
             # Check for session cookies first
-            if use_session and domain in _session_cookies:
-                _headers['Cookie'] = _session_cookies[domain]
+            session_cookie = None
+            if use_session:
+                with _session_lock:
+                    session_cookie = _session_cookies.get(domain)
+            if session_cookie:
+                _headers['Cookie'] = session_cookie
             else:
                 cpath = urllib.parse.urlparse(url).netloc
                 if control.pathExists(control.dataPath + cpath + '.txt'):
@@ -394,10 +412,7 @@ def request(
 
         try:
             # Use local/session opener so concurrent threads never clobber global urllib state
-            if use_session and redirect is not False and proxy is None and domain in _session_openers:
-                response = _session_openers[domain].open(req, timeout=int(timeout))
-            else:
-                response = opener.open(req, timeout=int(timeout))
+            response = opener.open(req, timeout=int(timeout))
         except urllib.error.HTTPError as e:
             if error is True:
                 response = e
@@ -814,7 +829,8 @@ def session_request(url, method='GET', data=None, headers=None, timeout=20, veri
         content, response_code, response_headers, request_headers, cookie, response_url = result
         # Store cookies for this domain
         if cookie:
-            _session_cookies[domain] = cookie
+            with _session_lock:
+                _session_cookies[domain] = cookie
         return content
     elif result:
         return result
@@ -824,9 +840,10 @@ def session_request(url, method='GET', data=None, headers=None, timeout=20, veri
 
 def clear_session():
     """Clear all session cookies and openers"""
-    global _session_cookies, _session_openers
-    _session_cookies.clear()
-    _session_openers.clear()
+    with _session_lock:
+        _session_cookies.clear()
+        _session_openers.clear()
+        _session_timestamps.clear()
     control.log("Session cache cleared")
 
 

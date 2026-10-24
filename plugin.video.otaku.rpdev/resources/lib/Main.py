@@ -330,13 +330,13 @@ def add_last_watched(items):
         show_row = database.get_show(mal_id)
         if not show_row:
             return items
-        kodi_meta = pickle.loads(show_row['kodi_meta'])
+        kodi_meta = database.loads(show_row['kodi_meta'])
 
         # Get extended artwork from shows_meta table
         show_meta = database.get_show_meta(mal_id)
         art = {}
         if show_meta and show_meta.get('art'):
-            art = pickle.loads(show_meta['art'])
+            art = database.loads(show_meta['art'])
 
         title = kodi_meta.get('title_userPreferred', '')
         episodes = kodi_meta.get('episodes', 0)
@@ -494,13 +494,13 @@ def save_to_watch_history(mal_id, episode=None, total_episodes=None):
         if not anime_data:
             return
 
-        kodi_meta = pickle.loads(anime_data['kodi_meta'])
+        kodi_meta = database.loads(anime_data['kodi_meta'])
 
         # Get extended artwork from shows_meta table
         show_meta = database.get_show_meta(mal_id)
         art = {}
         if show_meta and show_meta.get('art'):
-            art = pickle.loads(show_meta['art'])
+            art = database.loads(show_meta['art'])
 
         eps_count = int(total_episodes) if total_episodes else kodi_meta.get('episodes', 0)
         watched_ep = int(episode) if episode is not None else (existing_entry.get('last_watched_episode') if existing_entry else None)
@@ -740,7 +740,7 @@ def WATCH_HISTORY(payload, params):
                     show_data = database.get_show(mal_id)
                     if show_data:
                         try:
-                            s_meta = pickle.loads(show_data['kodi_meta'])
+                            s_meta = database.loads(show_data['kodi_meta'])
                             last_ep = s_meta.get('eps_watched')
                         except Exception:
                             pass
@@ -1333,15 +1333,15 @@ def PLAY(payload, params):
             MetaBrowser.get_anime_init(mal_id)
             episode_data = database.get_episode(mal_id, episode)
         if episode_data:
-            params = pickle.loads(episode_data['kodi_meta'])
+            params = database.loads(episode_data['kodi_meta'])
         else:
             # Fallback: build minimal params from show database
             # This ensures metadata is available even for episodes not yet indexed
             show_meta = database.get_show(mal_id)
             if show_meta:
-                kodi_meta = pickle.loads(show_meta['kodi_meta'])
+                kodi_meta = database.loads(show_meta['kodi_meta'])
                 show_art = database.get_show_meta(mal_id)
-                art = pickle.loads(show_art['art']) if show_art and show_art.get('art') else {}
+                art = database.loads(show_art['art']) if show_art and show_art.get('art') else {}
                 params = {
                     'info': {
                         'title': f"{kodi_meta.get('title_userPreferred', '')} - Episode {episode}",
@@ -1454,14 +1454,14 @@ def PLAY_MOVIE(payload, params):
         OtakuBrowser().get_anime_data(mal_id)
         anime_meta = database.get_show_meta(mal_id)
         anime_data = database.get_show(mal_id)
-        kodi_meta = pickle.loads(anime_data['kodi_meta'])
+        kodi_meta = database.loads(anime_data['kodi_meta'])
 
         params = {
             **kodi_meta,
             'info': kodi_meta,  # video info tags
             'image': {  # art fields for UI
                 k: (v[0] if isinstance(v, list) else v)
-                for k, v in pickle.loads(anime_meta['art']).items()
+                for k, v in database.loads(anime_meta['art']).items()
             }
         }
 
@@ -1763,7 +1763,7 @@ def MARKED_AS_WATCHED(payload, params):
     show = database.get_show(mal_id)
     if show:
         try:
-            kodi_meta = pickle.loads(show['kodi_meta'])
+            kodi_meta = database.loads(show['kodi_meta'])
             ep_int = int(episode) if str(episode).isdigit() else 1
             kodi_meta['eps_watched'] = max(int(kodi_meta.get('eps_watched') or 0), ep_int)
             database.update_kodi_meta(mal_id, kodi_meta)
@@ -1781,7 +1781,7 @@ def MARKED_AS_WATCHED(payload, params):
     else:
         title = ''
         if show:
-            kodi_meta = pickle.loads(show['kodi_meta'])
+            kodi_meta = database.loads(show['kodi_meta'])
             title = kodi_meta.get('title_userPreferred', '')
         control.notify(control.ADDON_NAME, f'{title} was Marked as Watched in {updated_names}')
         control.execute('Container.Refresh')
@@ -1817,7 +1817,7 @@ def MARKED_AS_UNWATCHED(payload, params):
     show = database.get_show(mal_id)
     if show:
         try:
-            kodi_meta = pickle.loads(show['kodi_meta'])
+            kodi_meta = database.loads(show['kodi_meta'])
             kodi_meta['eps_watched'] = target_ep
             database.update_kodi_meta(mal_id, kodi_meta)
         except Exception as e:
@@ -1853,7 +1853,7 @@ def MARKED_AS_UNWATCHED(payload, params):
         title = ''
         if show:
             try:
-                title = pickle.loads(show['kodi_meta']).get('title_userPreferred', '')
+                title = database.loads(show['kodi_meta']).get('title_userPreferred', '')
             except Exception:
                 title = ''
         control.notify(control.ADDON_NAME, f'{title} Marked as Unwatched in {updated_names}')
@@ -1882,7 +1882,7 @@ def MARK_PREVIOUS_WATCHED(payload, params):
     title = ''
     if show:
         try:
-            kodi_meta = pickle.loads(show['kodi_meta'])
+            kodi_meta = database.loads(show['kodi_meta'])
             title = kodi_meta.get('title_userPreferred', '')
         except Exception:
             title = ''
@@ -1909,7 +1909,7 @@ def MARK_PREVIOUS_WATCHED(payload, params):
     # Invalidate cached eps_watched in kodi_meta so UI repaints playcounts
     if show:
         try:
-            kodi_meta = pickle.loads(show['kodi_meta'])
+            kodi_meta = database.loads(show['kodi_meta'])
             kodi_meta['eps_watched'] = target_ep
             database.update_kodi_meta(mal_id, kodi_meta)
         except Exception as e:
@@ -1975,7 +1975,7 @@ def FANART_SELECT(payload, params):
     if not (episode := database.get_episode(mal_id)):
         MetaBrowser.get_anime_init(mal_id)
         episode = database.get_episode(mal_id)
-    fanart = pickle.loads(episode['kodi_meta'])['image']['fanart'] or []
+    fanart = database.loads(episode['kodi_meta'])['image']['fanart'] or []
     fanart_display = fanart + ["None", "Random (Default)"]
     fanart += ["None", ""]
     control.draw_items([utils.allocate_item(f, f'fanart/{mal_id}/{i}', False, False, [], f, {}, fanart=f, landscape=f) for i, f in enumerate(fanart_display)], '')
@@ -1987,7 +1987,7 @@ def FANART(payload: str, params: dict):
     mal_id = parts[0] if parts else ''
     select = parts[1] if len(parts) > 1 else '0'
     episode = database.get_episode(mal_id)
-    fanart = pickle.loads(episode['kodi_meta'])['image']['fanart'] or []
+    fanart = database.loads(episode['kodi_meta'])['image']['fanart'] or []
     fanart_display = fanart + ["None", "Random"]
     fanart += ["None", ""]
 
@@ -2806,7 +2806,7 @@ def PLAYBACK_OPTIONS(payload, params):
     # Get show information from database to build params
     show = database.get_show(mal_id)
     if show:
-        kodi_meta = pickle.loads(show['kodi_meta'])
+        kodi_meta = database.loads(show['kodi_meta'])
 
         # Build params similar to what get_video_info would return
         episode_params = {

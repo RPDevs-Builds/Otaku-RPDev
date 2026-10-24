@@ -61,7 +61,7 @@ def get_dub_data(mal_id: int = None, en_title: str = None):
                             try:
                                 control.log('Unsupported strptime format, using fromtimestamp', 'warning')
                                 dub_time = datetime.datetime.fromtimestamp(time.mktime(time.strptime(end_dt[:16], '%Y-%m-%dT%H:%M')))
-                            except:
+                            except Exception:
                                 continue
                         dub_time = str(dub_time.astimezone())[:16] if hasattr(dub_time, 'astimezone') else str(dub_time - datetime.timedelta(hours=5))[:16]
                         dub_list = [{"season": season, "episode": f'{i}', "release_time": dub_time} for i in range(int(ep_number1), int(ep_number2) + 1)]
@@ -74,7 +74,7 @@ def get_dub_data(mal_id: int = None, en_title: str = None):
                             try:
                                 control.log('Unsupported strptime format, using fromtimestamp', 'warning')
                                 dub_time = datetime.datetime.fromtimestamp(time.mktime(time.strptime(end_dt[:16], '%Y-%m-%dT%H:%M')))
-                            except:
+                            except Exception:
                                 continue
                         dub_time = str(dub_time.astimezone())[:16] if hasattr(dub_time, 'astimezone') else str(dub_time - datetime.timedelta(hours=5))[:16]
                         dub_list.append({"season": season, "episode": ep_number, "release_time": dub_time})

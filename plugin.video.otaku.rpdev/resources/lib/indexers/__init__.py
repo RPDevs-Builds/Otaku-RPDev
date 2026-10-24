@@ -7,7 +7,7 @@ from resources.lib.ui import database, control, utils
 
 
 def parse_episodes(res, eps_watched, dub_data=None):
-    parsed = pickle.loads(res['kodi_meta'])
+    parsed = database.loads(res['kodi_meta'])
     if eps_watched and int(eps_watched) >= res['number']:
         parsed['info']['playcount'] = 1
     if control.getBool('interface.cleantitles') and parsed['info'].get('playcount') != 1:
@@ -70,7 +70,7 @@ def process_dub(mal_id, ename):
             data = {"dub_data": dub_data}
             database.update_show_data(mal_id, data, update_time)
     else:
-        dub_data = pickle.loads(show_data['data'])['dub_data']
+        dub_data = database.loads(show_data['data'])['dub_data']
     return dub_data
 
 
@@ -79,7 +79,7 @@ def get_diff(episodes_0):
     update_time = datetime.date.today().isoformat()
     try:
         last_updated = datetime.datetime.strptime(episodes_0.get('last_updated'), "%Y-%m-%d")
-    except:
+    except Exception:
         import time
         control.log('Unsupported strptime using fromtimestamp', 'warning')
         last_updated = datetime.datetime.fromtimestamp(time.mktime(time.strptime(episodes_0.get('last_updated'), '%Y-%m-%d')))
@@ -103,7 +103,7 @@ def should_hide_unaired_episode(aired_date_str):
         # Parse the aired date with fallback for compatibility
         try:
             aired_date = datetime.datetime.strptime(aired_date_str[:10], '%Y-%m-%d')
-        except:
+        except Exception:
             import time
             aired_date = datetime.datetime.fromtimestamp(time.mktime(time.strptime(aired_date_str[:10], '%Y-%m-%d')))
 
@@ -123,7 +123,7 @@ def update_database(mal_id, update_time, res, url, image, info, season, episode,
     banner = None
 
     parsed = utils.allocate_item(title, f"play/{url}", False, True, [], image, info, fanart, poster, landscape, banner, clearart, clearlogo)
-    kodi_meta = pickle.dumps(parsed)
+    kodi_meta = database.dumps(parsed)
     if not episodes or len(episodes) <= episode or kodi_meta != episodes[episode - 1]['kodi_meta']:
         database.update_episode(mal_id, season, episode, update_time, kodi_meta, filler, anidb_ep_id)
 

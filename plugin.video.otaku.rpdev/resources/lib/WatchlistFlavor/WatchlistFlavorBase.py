@@ -175,7 +175,7 @@ class WatchlistFlavorBase:
 
         # Get artwork from show meta database
         show_meta = database.get_show_meta(mal_id) if mal_id else None
-        art = pickle.loads(show_meta['art']) if show_meta else {}
+        art = database.loads(show_meta['art']) if show_meta else {}
 
         # Fanart
         fanart = art.get('fanart', poster)

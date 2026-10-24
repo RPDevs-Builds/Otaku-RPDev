@@ -597,7 +597,7 @@ class MalBrowser(BrowserBase):
             self.database_update_show(res)
 
         show_meta = database.get_show_meta(mal_id)
-        kodi_meta = pickle.loads(show_meta.get('art')) if show_meta else {}
+        kodi_meta = database.loads(show_meta.get('art')) if show_meta else {}
 
         title = res[self.title_lang] or res['title']
         rating = res.get('rating')
@@ -718,7 +718,7 @@ class MalBrowser(BrowserBase):
         if res.get('trailer') and res['trailer'].get('youtube_id'):
             kodi_meta['trailer'] = f"plugin://plugin.video.youtube/play/?video_id={res['trailer']['youtube_id']}"
 
-        database.update_show(mal_id, pickle.dumps(kodi_meta))
+        database.update_show(mal_id, database.dumps(kodi_meta))
 
     def update_genre_settings(self):
         res = database.get(self.get_base_res, 24, f'{self._BASE_URL}/genres/anime')

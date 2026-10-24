@@ -103,7 +103,7 @@ class Sources(BrowserBase):
     def _movie_queries(self, mal_id, search_titles):
         try:
             row = database.get_show(mal_id)
-            meta = pickle.loads(row['kodi_meta']) if row and row.get('kodi_meta') else {}
+            meta = database.loads(row['kodi_meta']) if row and row.get('kodi_meta') else {}
             year = (meta.get('year') or '') or ''
             if not year and meta.get('start_date'):
                 year = str(meta['start_date']).split('-')[0]

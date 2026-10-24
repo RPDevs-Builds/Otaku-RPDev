@@ -83,7 +83,7 @@ class ANIDBAPI:
     def parse_episode_view(res, mal_id, season, poster, fanart, clearart, clearlogo, eps_watched, update_time, tvshowtitle, dub_data, filler_data, episodes=None):
         if indexers.should_hide_unaired_episode(res.get('airdate', '')):
             return None
-        kodi_meta = pickle.loads(database.get_show(mal_id)['kodi_meta'])
+        kodi_meta = database.loads(database.get_show(mal_id)['kodi_meta'])
         episode = res['episode']
         url = f"{mal_id}/{episode}"
         title = res.get('title', f"Episode {episode}")
@@ -179,8 +179,8 @@ class ANIDBAPI:
         if not anidb_id:
             return []
 
-        kodi_meta = pickle.loads(database.get_show(mal_id)['kodi_meta'])
-        kodi_meta.update(pickle.loads(show_meta['art']))
+        kodi_meta = database.loads(database.get_show(mal_id)['kodi_meta'])
+        kodi_meta.update(database.loads(show_meta['art']))
         fanart = kodi_meta.get('fanart')
         poster = kodi_meta.get('poster')
         # Handle clearart - support both string (new) and list (legacy) formats

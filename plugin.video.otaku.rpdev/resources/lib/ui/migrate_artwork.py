@@ -57,8 +57,8 @@ def migrate_artwork_database():
 
                 try:
                     # Unpickle existing art data
-                    art = pickle.loads(art_blob)
-                    meta_ids = pickle.loads(meta_ids_blob)
+                    art = database.loads(art_blob)
+                    meta_ids = database.loads(meta_ids_blob)
 
                     original_size = len(art_blob)
                     updated = False
@@ -125,7 +125,7 @@ def migrate_artwork_database():
 
                     # Update database if changes were made
                     if updated:
-                        new_art_blob = pickle.dumps(art)
+                        new_art_blob = database.dumps(art)
                         new_size = len(new_art_blob)
 
                         cursor.execute(

@@ -73,7 +73,7 @@ def load_video_from_url(in_url):
                                          response.headers.get('Referer'))
     except urllib.error.URLError:
         return None  # Dead link, Skip result
-    except:
+    except Exception:
         raise
 
     return None
@@ -362,7 +362,7 @@ def __extract_goload(url, page_content, referer=None):
         response = client.get(eurl)
         try:
             response = json.loads(response.text).get('data')
-        except:
+        except Exception:
             return
         if response:
             result = _decrypt(response, keys[1], iv)

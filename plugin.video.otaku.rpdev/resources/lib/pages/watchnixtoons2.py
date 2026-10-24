@@ -93,18 +93,19 @@ class Sources(BrowserBase):
                     time.sleep(self.request_delay - time_since_last)
 
             wco_session = self._get_wco_session()
+            verify_ssl = control.getBool('general.verify_ssl')
             if method.upper() == 'POST':
                 if json_data is not None:
                     resp = wco_session.post(
-                        url, json_data=json_data, headers=my_headers, timeout=timeout, verify=False
+                        url, json_data=json_data, headers=my_headers, timeout=timeout, verify=verify_ssl
                     )
                 else:
                     resp = wco_session.post(
-                        url, data=data, headers=my_headers, timeout=timeout, verify=False
+                        url, data=data, headers=my_headers, timeout=timeout, verify=verify_ssl
                     )
             else:
                 resp = wco_session.get(
-                    url, headers=my_headers, timeout=timeout, verify=False
+                    url, headers=my_headers, timeout=timeout, verify=verify_ssl
                 )
 
             with self._rate_lock:
@@ -142,7 +143,7 @@ class Sources(BrowserBase):
 
         show = database.get_show(mal_id)
         database_meta = database.get_mappings(mal_id, 'mal_id')
-        kodi_meta = pickle.loads(show.get('kodi_meta'))
+        kodi_meta = database.loads(show.get('kodi_meta'))
         season = database.get_episode(mal_id)['season']
         anime_media_episodes = database_meta.get('anime_media_episodes', {})
         global_media_episodes = database_meta.get('global_media_episodes', {})
@@ -417,12 +418,13 @@ class Sources(BrowserBase):
             'Accept': 'video/webm,video/ogg,video/*;q=0.9,application/ogg;q=0.7,audio/*;q=0.6,*/*;q=0.5',
         }
         current = url
+        verify_ssl = control.getBool('general.verify_ssl')
         for _ in range(10):
             result = client.request(
                 current,
                 headers=headers,
                 redirect=False,
-                verify=False,
+                verify=verify_ssl,
                 error=True,
                 output='extended',
                 timeout=10,

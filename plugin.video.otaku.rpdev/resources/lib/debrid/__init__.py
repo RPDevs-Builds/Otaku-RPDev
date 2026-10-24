@@ -27,32 +27,32 @@ class Debrid:
     def torrentCacheCheck(self, torrent_list, mal_id=None, episode=None, media_type=None, rescrape=False):
         enabled_debrids = control.enabled_debrid()
         if enabled_debrids['realdebrid']:
-            t = threading.Thread(target=self.real_debrid_worker, args=(_clone_torrents(torrent_list), mal_id, episode, media_type, rescrape))
+            t = threading.Thread(target=self.real_debrid_worker, args=(_clone_torrents(torrent_list), mal_id, episode, media_type, rescrape), daemon=True)
             t.start()
             self.threads.append(t)
 
         if enabled_debrids['debridlink']:
-            t = threading.Thread(target=self.debrid_link_worker, args=(_clone_torrents(torrent_list),))
+            t = threading.Thread(target=self.debrid_link_worker, args=(_clone_torrents(torrent_list),), daemon=True)
             self.threads.append(t)
             t.start()
 
         if enabled_debrids['premiumize']:
-            t = threading.Thread(target=self.premiumize_worker, args=(_clone_torrents(torrent_list),))
+            t = threading.Thread(target=self.premiumize_worker, args=(_clone_torrents(torrent_list),), daemon=True)
             t.start()
             self.threads.append(t)
 
         if enabled_debrids['alldebrid']:
-            t = threading.Thread(target=self.all_debrid_worker, args=(_clone_torrents(torrent_list), mal_id, episode, media_type, rescrape))
+            t = threading.Thread(target=self.all_debrid_worker, args=(_clone_torrents(torrent_list), mal_id, episode, media_type, rescrape), daemon=True)
             t.start()
             self.threads.append(t)
 
         if enabled_debrids['torbox']:
-            t = threading.Thread(target=self.torbox_worker, args=(_clone_torrents(torrent_list),))
+            t = threading.Thread(target=self.torbox_worker, args=(_clone_torrents(torrent_list),), daemon=True)
             t.start()
             self.threads.append(t)
 
         if enabled_debrids['easydebrid']:
-            t = threading.Thread(target=self.easydebrid_worker, args=(_clone_torrents(torrent_list),))
+            t = threading.Thread(target=self.easydebrid_worker, args=(_clone_torrents(torrent_list),), daemon=True)
             t.start()
             self.threads.append(t)
 
@@ -111,7 +111,7 @@ class Debrid:
                 for h in unknown_hashes:
                     status = 'True' if h in external_cached else 'False'
                     hashes_to_cache.append((h, status))
-                threading.Thread(target=debrid_cache.set_cached_hashes, args=(hashes_to_cache, 'ad')).start()
+                threading.Thread(target=debrid_cache.set_cached_hashes, args=(hashes_to_cache, 'ad'), daemon=True).start()
 
         all_cached = db_cached | external_cached
         for torrent in torrent_list:
@@ -155,7 +155,7 @@ class Debrid:
                 for h in unknown_hashes:
                     status = 'True' if h in external_cached else 'False'
                     hashes_to_cache.append((h, status))
-                threading.Thread(target=debrid_cache.set_cached_hashes, args=(hashes_to_cache, 'rd')).start()
+                threading.Thread(target=debrid_cache.set_cached_hashes, args=(hashes_to_cache, 'rd'), daemon=True).start()
 
         all_cached = db_cached | external_cached
         for torrent in torrent_list:

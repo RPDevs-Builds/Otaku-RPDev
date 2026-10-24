@@ -265,7 +265,7 @@ class KitsuWLF(WatchlistFlavorBase):
             if is_watchlist_cache_valid(self._NAME, 'current'):
                 current_cached = get_watchlist_cache(self._NAME, 'current')
                 if current_cached:
-                    current_items = [pickle.loads(x['data']) for x in current_cached]
+                    current_items = [database.loads(x['data']) for x in current_cached]
                     next_up_data = []
                     for item in current_items:
                         res = item.get('entry') or {}
@@ -295,7 +295,7 @@ class KitsuWLF(WatchlistFlavorBase):
             return []
 
         # Deserialize only the current page items
-        items = [pickle.loads(item['data']) for item in cached_items]
+        items = [database.loads(item['data']) for item in cached_items]
 
         return self.process_watchlist_view(items, next_up, f'watchlist_status_type_pages/kitsu/{status}', page, offset, per_page, total_count, paging_enabled)
 
@@ -628,7 +628,7 @@ class KitsuWLF(WatchlistFlavorBase):
 
         # Art/Images
         show_meta = database.get_show_meta(mal_id)
-        kodi_meta = pickle.loads(show_meta.get('art')) if show_meta else {}
+        kodi_meta = database.loads(show_meta.get('art')) if show_meta else {}
         poster_image = eres["attributes"].get('posterImage') or {}
         image = poster_image.get('large') or poster_image.get('original')
         poster = image

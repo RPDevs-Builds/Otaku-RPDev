@@ -48,7 +48,7 @@ class SourceSelect(BaseWindow):
         else:
             show = database.get_show(actionArgs.get('mal_id'))
             if show:
-                kodi_meta = pickle.loads(show.get('kodi_meta'))
+                kodi_meta = database.loads(show.get('kodi_meta'))
                 self.setProperty('item.info.plot', kodi_meta.get('plot'))
                 self.setProperty('item.info.rating', str(kodi_meta.get('rating', {}).get('score')))
                 self.setProperty('item.info.aired', kodi_meta.get('start_date') or '')

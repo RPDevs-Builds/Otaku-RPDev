@@ -94,7 +94,7 @@ def get_sources(mal_id, episode, media_type, rescrape=False, source_select=False
     from resources.lib import pages
     if not (show := database.get_show(mal_id)):
         show = BROWSER.get_anime(mal_id)
-    kodi_meta = pickle.loads(show['kodi_meta'])
+    kodi_meta = database.loads(show['kodi_meta'])
 
     # Pre-fetch season and part once so scrapers don't each do redundant DB lookups
     episode_data = database.get_episode(mal_id)
@@ -182,7 +182,7 @@ def get_next_up_meta(mal_id, episode_num):
             # Episodes are 1-indexed, list is 0-indexed
             ep_data = episodes[episode_num - 1] if episode_num <= len(episodes) else None
             if ep_data:
-                kodi_meta = pickle.loads(ep_data.get('kodi_meta', b''))
+                kodi_meta = database.loads(ep_data.get('kodi_meta', b''))
                 if kodi_meta:
                     info = kodi_meta.get('info', {})
                     image = kodi_meta.get('image', {})

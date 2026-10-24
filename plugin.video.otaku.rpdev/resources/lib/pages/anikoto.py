@@ -17,7 +17,7 @@ class Sources(BrowserBase):
         if not show:
             return []
 
-        kodi_meta = pickle.loads(show.get('kodi_meta'))
+        kodi_meta = database.loads(show.get('kodi_meta'))
         title = self._clean_title(kodi_meta.get('name') or '')
 
         try:

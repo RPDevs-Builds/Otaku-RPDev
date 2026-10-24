@@ -812,7 +812,7 @@ class AnimeScheduleCalendar:
             # Convert from UTC to user's local timezone
             dt = dt.astimezone()
             return dt.strftime('%A')
-        except:
+        except Exception:
             return episode_date
 
     def _format_episode_date(self, episode_date):
@@ -833,7 +833,7 @@ class AnimeScheduleCalendar:
             # Convert from UTC to user's local timezone
             dt = dt.astimezone()
             return dt.strftime('%d %b')
-        except:
+        except Exception:
             return episode_date
 
     def _format_episode_time(self, episode_date):
@@ -854,7 +854,7 @@ class AnimeScheduleCalendar:
             # Convert from UTC to user's local timezone
             dt = dt.astimezone()
             return dt.strftime('%I:%M %p')
-        except:
+        except Exception:
             return episode_date
 
     def _format_countdown(self, episode_date):
@@ -892,7 +892,7 @@ class AnimeScheduleCalendar:
                 return f"{days}d {hours}h {minutes}m"
             else:
                 return f"{hours}h {minutes}m"
-        except:
+        except Exception:
             return 'TBA'
 
     def _format_streams(self, streams):

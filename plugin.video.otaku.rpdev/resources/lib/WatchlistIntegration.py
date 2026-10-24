@@ -106,7 +106,7 @@ def WATCHLIST_TO_EP(payload, params):
         show_meta = database.get_show(mal_id)
         if not show_meta:
             return control.exit_code()
-    kodi_meta = pickle.loads(show_meta['kodi_meta'])
+    kodi_meta = database.loads(show_meta['kodi_meta'])
     kodi_meta['eps_watched'] = int(eps_watched) if str(eps_watched).isdigit() else eps_watched
     database.update_kodi_meta(mal_id, kodi_meta)
 
@@ -134,7 +134,7 @@ def CONTEXT_MENU(payload, params):
         control.ok_dialog(control.ADDON_NAME, 'No Watchlist Enabled: \n\nPlease Enable a Watchlist before using the Watchlist Manager')
         return control.exit_code()
 
-    kodi_meta = pickle.loads(show['kodi_meta'])
+    kodi_meta = database.loads(show['kodi_meta'])
     title = kodi_meta['title_userPreferred']
 
     # Build watchlist choices with labels

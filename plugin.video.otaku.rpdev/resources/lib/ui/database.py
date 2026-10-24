@@ -18,9 +18,15 @@ Maintenance  - Cache clearing helpers
 """
 
 import ast
+import atexit
+import builtins
 import hashlib
+import io
+import json
+import os
 import pickle
 import re
+import threading
 import time
 
 import xbmcgui
@@ -31,8 +37,69 @@ from resources.lib.ui import control
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-#  SQL - SQLite Context Manager (WAL-mode concurrent access)
+#  Safe Serialization (JSON Primary + Restricted Unpickler Legacy Fallback)
 # ═══════════════════════════════════════════════════════════════════════════
+
+_SAFE_PICKLE_BUILTINS = frozenset({
+    'set', 'frozenset', 'slice', 'complex', 'bytearray', 'bytes',
+    'dict', 'list', 'tuple', 'str', 'int', 'float', 'bool',
+})
+
+
+class _SafeUnpickler(pickle.Unpickler):
+    """Restricted unpickler for legacy SQLite blobs that blocks arbitrary code execution."""
+
+    def find_class(self, module, name):
+        if module in ('builtins', '__builtin__') and name in _SAFE_PICKLE_BUILTINS:
+            return getattr(builtins, name)
+        raise pickle.UnpicklingError(f"Blocked unsafe pickle global: {module}.{name}")
+
+
+def _json_default(obj):
+    if isinstance(obj, (set, frozenset)):
+        return list(obj)
+    if isinstance(obj, (bytes, bytearray)):
+        return obj.decode('utf-8', errors='replace')
+    raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
+
+
+def dumps(obj):
+    """Serialize *obj* to UTF-8 JSON bytes for SQLite storage."""
+    if isinstance(obj, (bytes, bytearray)):
+        return bytes(obj)
+    try:
+        return json.dumps(obj, ensure_ascii=False, default=_json_default).encode('utf-8')
+    except (TypeError, ValueError):
+        return pickle.dumps(obj)
+
+
+def loads(blob):
+    """Safely deserialize a SQLite blob (UTF-8 JSON or legacy restricted pickle)."""
+    if blob is None or blob == b'' or blob == '':
+        return {}
+    if isinstance(blob, (dict, list)):
+        return blob
+    if isinstance(blob, (bytes, bytearray)):
+        # Pickle protocols 2..5 start with 0x80
+        if blob[:1] == b'\x80':
+            return _SafeUnpickler(io.BytesIO(blob)).load()
+        try:
+            return json.loads(blob.decode('utf-8'))
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            return _SafeUnpickler(io.BytesIO(blob)).load()
+    if isinstance(blob, str):
+        try:
+            return json.loads(blob)
+        except json.JSONDecodeError:
+            return _SafeUnpickler(io.BytesIO(blob.encode('latin-1'))).load()
+    return {}
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  SQL - Thread-Local Pooled SQLite Context Manager (WAL-mode concurrent)
+# ═══════════════════════════════════════════════════════════════════════════
+
+_thread_local = threading.local()
 
 
 def _dict_factory(cursor, row):
@@ -40,8 +107,41 @@ def _dict_factory(cursor, row):
     return {col[0]: row[idx] for idx, col in enumerate(cursor.description)}
 
 
+def _get_thread_conns():
+    conns = getattr(_thread_local, 'conns', None)
+    if conns is None:
+        conns = {}
+        _thread_local.conns = conns
+    return conns
+
+
+def close_thread_connections(path=None):
+    """Close cached SQLite connections for the current thread."""
+    conns = getattr(_thread_local, 'conns', None)
+    if not conns:
+        return
+    if path is not None:
+        target = os.path.abspath(path)
+        entry = conns.pop(target, None)
+        if entry:
+            try:
+                entry[0].close()
+            except Exception:
+                pass
+    else:
+        for _, (conn, _) in list(conns.items()):
+            try:
+                conn.close()
+            except Exception:
+                pass
+        conns.clear()
+
+
+atexit.register(close_thread_connections)
+
+
 class SQL:
-    """SQLite context manager with optimized PRAGMAs.
+    """Thread-local pooled SQLite context manager with optimized PRAGMAs.
 
     WAL journal mode allows concurrent readers without locking.
     isolation_level=None enables autocommit for faster writes.
@@ -60,36 +160,69 @@ class SQL:
         self._cursor = None
 
     def __enter__(self):
-        if not xbmcvfs.exists(control.dataPath):
+        abs_path = os.path.abspath(self.path)
+        info_path = os.path.abspath(control.infoDB) if getattr(control, 'infoDB', None) else ''
+        is_readonly = (abs_path == info_path)
+
+        if not is_readonly and not xbmcvfs.exists(control.dataPath):
             xbmcvfs.mkdirs(control.dataPath)
+
+        conns = _get_thread_conns()
+        st_ino = None
+        if os.path.exists(abs_path):
+            try:
+                st_ino = os.stat(abs_path).st_ino
+            except OSError:
+                st_ino = None
+
+        if abs_path in conns:
+            cached_conn, cached_ino = conns[abs_path]
+            if st_ino is None or (cached_ino is not None and st_ino != cached_ino):
+                try:
+                    cached_conn.close()
+                except Exception:
+                    pass
+                conns.pop(abs_path, None)
+
         try:
-            self._conn = dbapi2.connect(self.path, timeout=self.timeout, isolation_level=None)
-            self._conn.row_factory = _dict_factory
-            self._conn.execute("PRAGMA foreign_keys = ON")
-            self._conn.execute("PRAGMA synchronous = NORMAL")
-            self._conn.execute("PRAGMA journal_mode = WAL")
-            self._conn.execute("PRAGMA mmap_size = 268435456")
+            if abs_path not in conns:
+                conn = dbapi2.connect(self.path, timeout=self.timeout, isolation_level=None)
+                conn.row_factory = _dict_factory
+                if not is_readonly:
+                    conn.execute("PRAGMA foreign_keys = ON")
+                    conn.execute("PRAGMA synchronous = NORMAL")
+                    conn.execute("PRAGMA journal_mode = WAL")
+                    conn.execute("PRAGMA mmap_size = 16777216")
+                if os.path.exists(abs_path):
+                    try:
+                        st_ino = os.stat(abs_path).st_ino
+                    except OSError:
+                        st_ino = None
+                conns[abs_path] = (conn, st_ino)
+
+            self._conn = conns[abs_path][0]
             self._cursor = self._conn.cursor()
             return self._cursor
         except Exception:
-            if self._conn is not None:
-                try:
-                    self._conn.close()
-                except Exception:
-                    pass
-                self._conn = None
+            close_thread_connections(self.path)
+            self._conn = None
             raise
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         try:
             if self._cursor is not None:
                 self._cursor.close()
-            if self._conn is not None:
-                self._conn.close()
         except Exception:
             pass
 
         if exc_type:
+            try:
+                if self._conn is not None and getattr(self._conn, 'in_transaction', False):
+                    self._conn.rollback()
+            except Exception:
+                pass
+            close_thread_connections(self.path)
+
             if exc_type is OperationalError:
                 import traceback
                 control.log('database OperationalError', level='error')
@@ -362,12 +495,22 @@ def get_show_meta(mal_id):
         return cur.fetchone()
 
 
+_VALID_SYNC_TABLES = frozenset({'shows', 'episodes', 'shows_meta', 'show_data'})
+_IDENTIFIER_RE = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
+
+
+def _validate_identifier(name):
+    if not isinstance(name, str) or not _IDENTIFIER_RE.match(name):
+        raise ValueError(f"Invalid SQL identifier: {name!r}")
+    return name
+
+
 def update_show_meta(mal_id, meta_ids, art):
     with SQL(control.malSyncDB) as cur:
         cur.execute('PRAGMA foreign_keys=OFF')
         cur.execute(
             'REPLACE INTO shows_meta (mal_id, meta_ids, art) VALUES (?, ?, ?)',
-            (mal_id, pickle.dumps(meta_ids), pickle.dumps(art)))
+            (mal_id, dumps(meta_ids), dumps(art)))
         cur.execute('PRAGMA foreign_keys=ON')
         cur.connection.commit()
 
@@ -376,11 +519,12 @@ def update_kodi_meta(mal_id, kodi_meta):
     with SQL(control.malSyncDB) as cur:
         cur.execute(
             'UPDATE shows SET kodi_meta=? WHERE mal_id=?',
-            (pickle.dumps(kodi_meta), mal_id))
+            (dumps(kodi_meta), mal_id))
         cur.connection.commit()
 
 
 def add_mapping_id(mal_id, column, value):
+    _validate_identifier(column)
     with SQL(control.malSyncDB) as cur:
         cur.execute(
             f'UPDATE shows SET {column}=? WHERE mal_id=?', (value, mal_id))
@@ -399,7 +543,7 @@ def update_show_data(mal_id, data, last_updated=''):
         cur.execute(
             'REPLACE INTO show_data '
             '(mal_id, data, last_updated) VALUES (?, ?, ?)',
-            (mal_id, pickle.dumps(data), last_updated))
+            (mal_id, dumps(data), last_updated))
         cur.execute('PRAGMA foreign_keys=ON')
         cur.connection.commit()
 
@@ -438,6 +582,7 @@ def update_episode(mal_id, season, number, update_time, kodi_meta,
 
 
 def update_episode_column(mal_id, episode, column, value):
+    _validate_identifier(column)
     with SQL(control.malSyncDB) as cur:
         cur.execute(
             f'UPDATE episodes SET {column}=? WHERE mal_id=? AND number=?',
@@ -463,6 +608,7 @@ def update_episode_batch(episode_batch):
 # ═══════════════════════════════════════════════════════════════════════════
 
 def get_mappings(anime_id, send_id):
+    _validate_identifier(send_id)
     with SQL(control.mappingDB) as cur:
         cur.execute(
             f'SELECT * FROM anime WHERE {send_id}=?', (anime_id,))
@@ -471,6 +617,7 @@ def get_mappings(anime_id, send_id):
 
 
 def get_unique_ids(anime_id, send_id):
+    _validate_identifier(send_id)
     with SQL(control.mappingDB) as cur:
         cur.execute(
             f'SELECT mal_id, mal_dub_id, anilist_id, kitsu_id, anidb_id, '
@@ -494,6 +641,7 @@ def get_unique_ids(anime_id, send_id):
 
 
 def get_mal_ids(anime_id, send_id):
+    _validate_identifier(send_id)
     with SQL(control.mappingDB) as cur:
         cur.execute(
             f'SELECT * FROM anime WHERE {send_id}=?', (anime_id,))
@@ -501,12 +649,19 @@ def get_mal_ids(anime_id, send_id):
 
 
 def get_info(api_name):
-    with SQL(control.infoDB) as cur:
-        cur.execute('SELECT * FROM info WHERE api_name=?', (api_name,))
-        return cur.fetchone()
+    row = None
+    try:
+        with SQL(control.infoDB) as cur:
+            cur.execute('SELECT * FROM info WHERE api_name=?', (api_name,))
+            row = cur.fetchone()
+    except Exception:
+        pass
+    return row or {'api_name': api_name, 'client_id': '', 'client_secret': '', 'api_key': ''}
 
 
 def remove_from_database(table, mal_id):
+    if table not in _VALID_SYNC_TABLES:
+        raise ValueError(f"Invalid sync table: {table!r}")
     with SQL(control.malSyncDB) as cur:
         cur.execute(f'DELETE FROM {table} WHERE mal_id=?', (mal_id,))
         cur.connection.commit()
@@ -556,7 +711,7 @@ def save_watchlist_cache(service, status, items):
     """Replace all cache entries for a service / status pair."""
     now = int(time.time())
     rows = [
-        (service, status, _extract_mal_id(service, item), idx, pickle.dumps(item), now)
+        (service, status, _extract_mal_id(service, item), idx, dumps(item), now)
         for idx, item in enumerate(items)
     ]
     with SQL(control.malSyncDB) as cur:
@@ -670,7 +825,7 @@ def save_anilist_enrichment_batch(data_list):
         return
     now = int(time.time())
     rows = [
-        (int(item['idMal']), pickle.dumps(item), now)
+        (int(item['idMal']), dumps(item), now)
         for item in data_list if item.get('idMal')
     ]
     if not rows:
@@ -698,7 +853,7 @@ def get_anilist_enrichment_batch(mal_ids, max_age_hours=168):
             [int(m) for m in mal_ids] + [cutoff])
         for row in cur.fetchall():
             try:
-                result[row['mal_id']] = pickle.loads(row['data'])
+                result[row['mal_id']] = loads(row['data'])
             except Exception:
                 pass
     return result
@@ -721,12 +876,23 @@ _SEARCH_TYPES = (
 )
 
 
+def _validate_search_type(media_type):
+    if media_type not in _SEARCH_TYPES:
+        raise ValueError(f"Invalid search history table: {media_type!r}")
+    return media_type
+
+
 def _ensure_search_tables(cur):
+    tag = f"{control.searchHistoryDB}:search_tables"
+    if tag in _tables_ready:
+        return
     for t in _SEARCH_TYPES:
         cur.execute(f'CREATE TABLE IF NOT EXISTS {t} (value TEXT UNIQUE)')
+    _tables_ready.add(tag)
 
 
 def getSearchHistory(media_type):
+    _validate_search_type(media_type)
     with SQL(control.searchHistoryDB) as cur:
         _ensure_search_tables(cur)
         cur.execute(f'SELECT * FROM {media_type}')
@@ -738,6 +904,7 @@ def getSearchHistory(media_type):
 
 
 def addSearchHistory(search_string, media_type):
+    _validate_search_type(media_type)
     with SQL(control.searchHistoryDB) as cur:
         _ensure_search_tables(cur)
         cur.execute(
@@ -754,12 +921,14 @@ def clearSearchHistory():
             cur.execute(f'DROP TABLE IF EXISTS {t}')
         cur.execute("VACUUM")
         cur.connection.commit()
+    _tables_ready.discard(f"{control.searchHistoryDB}:search_tables")
     control.refresh()
     control.notify(
         control.ADDON_NAME, "Search History has been cleared", time=5000)
 
 
 def clearSearchCatagory(media_type):
+    _validate_search_type(media_type)
     if not control.yesno_dialog(
             control.ADDON_NAME, "Clear search history?"):
         return
@@ -774,6 +943,7 @@ def clearSearchCatagory(media_type):
 
 
 def remove_search(table, value):
+    _validate_search_type(table)
     norm = value.strip()
     with SQL(control.searchHistoryDB) as cur:
         cur.execute(f'DELETE FROM {table} WHERE value=?', (norm,))

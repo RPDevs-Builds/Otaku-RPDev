@@ -24,7 +24,7 @@ class Sources(BrowserBase):
     def get_sources(self, mal_id, episode):
         control.log(f"AnimeKAI: Getting sources for MAL ID {mal_id}, Episode {episode}")
         show = database.get_show(mal_id)
-        kodi_meta = pickle.loads(show.get('kodi_meta'))
+        kodi_meta = database.loads(show.get('kodi_meta'))
         title = kodi_meta.get('name')
         title = self._clean_title(title)
 

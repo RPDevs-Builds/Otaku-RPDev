@@ -235,7 +235,7 @@ class MyAnimeListWLF(WatchlistFlavorBase):
             return []
 
         # Deserialize cached items
-        items = [pickle.loads(item['data']) for item in cached_items]
+        items = [database.loads(item['data']) for item in cached_items]
 
         return self._process_status_view(items, f'watchlist_status_type_pages/mal/{status}', page, offset, per_page, total_count, paging_enabled)
 
@@ -319,7 +319,7 @@ class MyAnimeListWLF(WatchlistFlavorBase):
             if is_watchlist_cache_valid(self._NAME, status):
                 cached = get_watchlist_cache(self._NAME, status)
                 if cached:
-                    all_data = [pickle.loads(x['data']) for x in cached]
+                    all_data = [database.loads(x['data']) for x in cached]
 
             if not all_data:
                 # Fetch all "watching" items sorted by last updated (most recently watched first)
@@ -378,7 +378,7 @@ class MyAnimeListWLF(WatchlistFlavorBase):
             return []
 
         # Deserialize cached items
-        items = [pickle.loads(item['data']) for item in cached_items]
+        items = [database.loads(item['data']) for item in cached_items]
 
         # Collect metadata for all MAL IDs
         mal_ids = [item['node']['id'] for item in items]
@@ -628,7 +628,7 @@ class MyAnimeListWLF(WatchlistFlavorBase):
 
         # Art/Images
         show_meta = database.get_show_meta(mal_id)
-        kodi_meta = pickle.loads(show_meta.get('art')) if show_meta else {}
+        kodi_meta = database.loads(show_meta.get('art')) if show_meta else {}
         image = res['node']['main_picture'].get('large', res['node']['main_picture']['medium']) if res['node'].get('main_picture') else None
         poster = image
         fanart = kodi_meta.get('fanart', image)

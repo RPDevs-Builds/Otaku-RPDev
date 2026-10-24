@@ -58,7 +58,7 @@ class Sources(BrowserBase):
         # Batch/Complete series search (only for finished shows)
         if status in ["FINISHED", "Finished Airing"]:
             query2 = '%s "Batch"|"Complete Series"' % show
-            episodes = pickle.loads(database.get_show(mal_id)['kodi_meta'])['episodes']
+            episodes = database.loads(database.get_show(mal_id)['kodi_meta'])['episodes']
             if episodes:
                 query2 += f'|"01-{episode_zfill}"|"01~{episode_zfill}"|"01 - {episode_zfill}"|"01 ~ {episode_zfill}"|"E{episode_zfill}"|"Episode {episode_zfill}"'
             if season_zfill:

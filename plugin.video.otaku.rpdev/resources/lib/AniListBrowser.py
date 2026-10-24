@@ -1261,7 +1261,7 @@ class AniListBrowser(BrowserBase):
             self.database_update_show(res)
 
         show_meta = database.get_show_meta(mal_id)
-        kodi_meta = pickle.loads(show_meta.get('art')) if show_meta else {}
+        kodi_meta = database.loads(show_meta.get('art')) if show_meta else {}
 
         title = res['title'][self.title_lang] or res['title']['romaji']
 
@@ -1441,7 +1441,7 @@ class AniListBrowser(BrowserBase):
         except (KeyError, TypeError):
             pass
 
-        database.update_show(mal_id, pickle.dumps(kodi_meta))
+        database.update_show(mal_id, database.dumps(kodi_meta))
 
     def get_genres(self, page, format):
         query = '''

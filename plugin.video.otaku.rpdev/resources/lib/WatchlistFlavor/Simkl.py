@@ -151,7 +151,7 @@ class SimklWLF(WatchlistFlavorBase):
 
         # Deserialize cached items
         import pickle
-        items = [pickle.loads(item['data']) for item in cached_items]
+        items = [database.loads(item['data']) for item in cached_items]
 
         # Apply sorting on raw items before slicing to current page
         sort_idx = int(self.sort)
@@ -266,7 +266,7 @@ class SimklWLF(WatchlistFlavorBase):
             return []
 
         # Deserialize cached items
-        items = [pickle.loads(item['data']) for item in cached_items]
+        items = [database.loads(item['data']) for item in cached_items]
 
         # Collect metadata for all MAL IDs
         mal_ids = [anime['show']['ids']['mal'] for anime in items if anime['show']['ids'].get('mal')]
@@ -371,7 +371,7 @@ class SimklWLF(WatchlistFlavorBase):
         dub = True if mal_dub and mal_dub.get(str(mal_id)) else False
 
         show = database.get_show(mal_id)
-        kodi_meta = pickle.loads(show['kodi_meta']) if show else {}
+        kodi_meta = database.loads(show['kodi_meta']) if show else {}
 
         # Title logic: prefer AniList for title_lang support, fallback to Simkl
         title = res['show']['title']
@@ -484,7 +484,7 @@ class SimklWLF(WatchlistFlavorBase):
         # Art/Images
         image = f'https://wsrv.nl/?url=https://simkl.in/posters/{res["show"]["poster"]}_m.jpg'
         show_meta = database.get_show_meta(mal_id)
-        kodi_meta = pickle.loads(show_meta.get('art')) if show_meta else {}
+        kodi_meta = database.loads(show_meta.get('art')) if show_meta else {}
         poster = image
         fanart = kodi_meta.get('fanart', image)
         # AniList fallback for missing images

@@ -15,7 +15,7 @@ class Sources(BrowserBase):
 
     def get_sources(self, mal_id, episode):
         show = database.get_show(mal_id)
-        kodi_meta = pickle.loads(show.get('kodi_meta'))
+        kodi_meta = database.loads(show.get('kodi_meta'))
         srcs = ['sub', 'dub']
         if control.getInt('general.source') == 1:
             srcs.remove('dub')
@@ -89,7 +89,7 @@ class Sources(BrowserBase):
                     ep_src = database.get(self._get_request, 8, ep_url, headers={'Referer': playbunny})
                     try:
                         ep_src = json.loads(ep_src)
-                    except:
+                    except (TypeError, ValueError):
                         return sources
                     src = ep_src.get('sources')
                     if src:

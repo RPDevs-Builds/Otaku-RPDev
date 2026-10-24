@@ -1,3 +1,11 @@
+Changelog v5.4.3 (2026-10-24):
+- Batch 6 Architecture, Resource & Security Hardening
+- SQLite Resource Management: added thread-local SQLite connection pooling (one PRAGMA initialization per thread), reduced mmap_size from 256MB to 16MB for low-RAM Android TV stability, and prevented WAL file creation on static read-only info.db
+- Security & Safe Serialization: replaced raw pickle.dumps/pickle.loads across all 36 modules with UTF-8 JSON database.dumps/database.loads backed by a restricted _SafeUnpickler for legacy row compatibility
+- SQL Injection Hardening: enforced strict table-name and column-identifier whitelisting across dynamic SQL queries and cached search history table initialization
+- Concurrency & Scraper Resilience: guaranteed remainingProviders cleanup via try/finally across all scraper workers, set daemon=True on all scraper and debrid worker threads, and fixed HTTP client session opener reuse with thread locking
+- Code Standards: eliminated all 16 remaining bare except clauses across the codebase (PEP 8 E722) and respected general.verify_ssl in WatchNixtoons2
+
 Changelog v5.4.2 (2026-10-24):
 - Batches 4 & 5 Audit & UX Enhancements
 - Context Menu: normalized movie/show context menu routing for marked as watched/unwatched and refresh handling

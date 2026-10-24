@@ -173,7 +173,7 @@ class WatchlistFlavor:
         kodi_episodes = None
         finished_airing = False
         if show:
-            kodi_meta = pickle.loads(show['kodi_meta'])
+            kodi_meta = database.loads(show['kodi_meta'])
             kodi_episodes = kodi_meta.get('episodes')
             status = kodi_meta.get('status')
             finished_airing = status in ['Finished Airing', 'FINISHED']

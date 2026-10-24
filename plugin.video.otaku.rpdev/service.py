@@ -290,7 +290,7 @@ def load_settings():
 
             if control.homeWindow.getProperty(prop_name) != val_str:
                 control.homeWindow.setProperty(prop_name, val_str)
-        except:
+        except Exception:
             pass
 
 

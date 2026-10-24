@@ -43,13 +43,13 @@ class Sources(BrowserBase):
         # Retrieve anidb info for the show and episode
         show_meta = database.get_show_meta(mal_id)
         if show_meta:
-            meta_ids = pickle.loads(show_meta['meta_ids'])
+            meta_ids = database.loads(show_meta['meta_ids'])
             self.anidb_id = meta_ids.get('anidb_id')
             if not self.anidb_id:
                 ids = SIMKLAPI().get_mapping_ids_from_simkl(mal_id, 'mal_id')
                 if ids:
                     self.anidb_id = meta_ids['anidb_id'] = ids['anidb']
-                    database.update_show_meta(mal_id, meta_ids, pickle.loads(show_meta['art']))
+                    database.update_show_meta(mal_id, meta_ids, database.loads(show_meta['art']))
         if self.anidb_id:
             episode_meta = database.get_episode(mal_id, episode)
             if episode_meta:
@@ -81,7 +81,7 @@ class Sources(BrowserBase):
         # Batch/complete series search for finished shows
         if status in ["FINISHED", "Finished Airing"]:
             batch_terms = ["Batch", "Complete Series"]
-            episodes_info = pickle.loads(database.get_show(mal_id)['kodi_meta'])['episodes']
+            episodes_info = database.loads(database.get_show(mal_id)['kodi_meta'])['episodes']
             episode_formats = []
             if episodes_info:
                 episode_formats = [f'01-{episode_zfill}', f'01~{episode_zfill}', f'01 - {episode_zfill}', f'01 ~ {episode_zfill}']
@@ -168,13 +168,13 @@ class Sources(BrowserBase):
         # For movies we now use process_animetosho_movie
         show_meta = database.get_show_meta(mal_id)
         if show_meta:
-            meta_ids = pickle.loads(show_meta['meta_ids'])
+            meta_ids = database.loads(show_meta['meta_ids'])
             self.anidb_id = meta_ids.get('anidb_id')
             if not self.anidb_id:
                 ids = SIMKLAPI().get_mapping_ids_from_simkl(mal_id, 'mal_id')
                 if ids:
                     self.anidb_id = meta_ids['anidb_id'] = ids['anidb']
-                    database.update_show_meta(mal_id, meta_ids, pickle.loads(show_meta['art']))
+                    database.update_show_meta(mal_id, meta_ids, database.loads(show_meta['art']))
 
         query = self._clean_title(show)
         params = {

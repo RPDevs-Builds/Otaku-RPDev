@@ -77,7 +77,7 @@ class Sources(GetSources):
 
     @staticmethod
     def _start_worker(fn):
-        t = threading.Thread(target=fn)
+        t = threading.Thread(target=fn, daemon=True)
         t.start()
         return t
 
@@ -181,62 +181,93 @@ class Sources(GetSources):
         return self.return_data
 
     def _torrent_sources_worker(self, provider, query, mal_id, episode, status, media_type, rescrape, season, part):
-        mod, cache_key = _TORRENT_MODULES[provider]
-        get_sources = mod.Sources().get_sources
-        call_args = (query, mal_id, episode, status, media_type, season, part)
-        if rescrape:
-            all_sources = get_sources(*call_args, rescrape=True)
-        else:
-            all_sources = database.get(get_sources, 8, *call_args, key=cache_key)
-        if all_sources is None:
-            all_sources = {'cached': [], 'uncached': []}
-        self.torrentUnCacheSources += all_sources['uncached']
-        self.torrentCacheSources += all_sources['cached']
-        self.torrentSources += all_sources['cached'] + all_sources['uncached']
-        self.remainingProviders.remove(provider)
+        try:
+            mod, cache_key = _TORRENT_MODULES[provider]
+            get_sources = mod.Sources().get_sources
+            call_args = (query, mal_id, episode, status, media_type, season, part)
+            if rescrape:
+                all_sources = get_sources(*call_args, rescrape=True)
+            else:
+                all_sources = database.get(get_sources, 8, *call_args, key=cache_key)
+            if not all_sources:
+                all_sources = {'cached': [], 'uncached': []}
+            self.torrentUnCacheSources += all_sources.get('uncached', [])
+            self.torrentCacheSources += all_sources.get('cached', [])
+            self.torrentSources += all_sources.get('cached', []) + all_sources.get('uncached', [])
+        except Exception as e:
+            control.log(f"Error in torrent worker '{provider}': {e}", 'error')
+        finally:
+            if provider in self.remainingProviders:
+                self.remainingProviders.remove(provider)
 
     def _hoster_sources_worker(self, hoster, query, mal_id, episode, status, media_type, rescrape, season, part):
-        mod, cache_key, _, merge_mode = _HOSTER_MODULES[hoster]
-        get_sources = mod.Sources().get_sources
-        call_args = (query, mal_id, episode, status, media_type, season, part)
-        if rescrape:
-            all_sources = get_sources(*call_args)
-        else:
-            all_sources = database.get(get_sources, 8, *call_args, key=cache_key)
-        if all_sources is None:
-            all_sources = {'cached': [], 'uncached': []}
-        if merge_mode == 'cached_only':
-            self.hosterSources += all_sources['cached']
-        else:
-            self.torrentUnCacheSources += all_sources['uncached']
-            self.torrentCacheSources += all_sources['cached']
-            self.torrentSources += all_sources['cached'] + all_sources['uncached']
-        self.remainingProviders.remove(hoster)
+        try:
+            mod, cache_key, _, merge_mode = _HOSTER_MODULES[hoster]
+            get_sources = mod.Sources().get_sources
+            call_args = (query, mal_id, episode, status, media_type, season, part)
+            if rescrape:
+                all_sources = get_sources(*call_args)
+            else:
+                all_sources = database.get(get_sources, 8, *call_args, key=cache_key)
+            if not all_sources:
+                all_sources = {'cached': [], 'uncached': []}
+            if merge_mode == 'cached_only':
+                self.hosterSources += all_sources.get('cached', [])
+            else:
+                self.torrentUnCacheSources += all_sources.get('uncached', [])
+                self.torrentCacheSources += all_sources.get('cached', [])
+                self.torrentSources += all_sources.get('cached', []) + all_sources.get('uncached', [])
+        except Exception as e:
+            control.log(f"Error in hoster worker '{hoster}': {e}", 'error')
+        finally:
+            if hoster in self.remainingProviders:
+                self.remainingProviders.remove(hoster)
 
     def _embed_sources_worker(self, pid, mod, cache_key, skip_prefix, needs_media_type, mal_id, episode, media_type, rescrape):
-        get_sources = mod.Sources().get_sources
-        if needs_media_type:
-            if rescrape:
-                src = get_sources(mal_id, episode, media_type)
+        try:
+            get_sources = mod.Sources().get_sources
+            if needs_media_type:
+                if rescrape:
+                    src = get_sources(mal_id, episode, media_type)
+                else:
+                    src = database.get(get_sources, 8, mal_id, episode, media_type, key=cache_key)
             else:
-                src = database.get(get_sources, 8, mal_id, episode, media_type, key=cache_key)
-        else:
-            if rescrape:
-                src = get_sources(mal_id, episode)
-            else:
-                src = database.get(get_sources, 8, mal_id, episode, key=cache_key)
-        self.embedSources += src
-        if skip_prefix:
-            self._apply_embed_skip(skip_prefix, src)
-        self.remainingProviders.remove(pid)
+                if rescrape:
+                    src = get_sources(mal_id, episode)
+                else:
+                    src = database.get(get_sources, 8, mal_id, episode, key=cache_key)
+            if not src:
+                src = []
+            self.embedSources += src
+            if skip_prefix:
+                self._apply_embed_skip(skip_prefix, src)
+        except Exception as e:
+            control.log(f"Error in embed worker '{pid}': {e}", 'error')
+        finally:
+            if pid in self.remainingProviders:
+                self.remainingProviders.remove(pid)
 
     def user_local_inspection(self, query, mal_id, episode, season):
-        self.local_files += localfiles.Sources().get_sources(query, mal_id, episode, season)
-        self.remainingProviders.remove('Local Inspection')
+        try:
+            res = localfiles.Sources().get_sources(query, mal_id, episode, season)
+            if res:
+                self.local_files += res
+        except Exception as e:
+            control.log(f"Error in local inspection worker: {e}", 'error')
+        finally:
+            if 'Local Inspection' in self.remainingProviders:
+                self.remainingProviders.remove('Local Inspection')
 
     def user_cloud_inspection(self, query, mal_id, episode, season):
-        self.cloud_files += debrid_cloudfiles.Sources().get_sources(query, mal_id, episode, season)
-        self.remainingProviders.remove('Cloud Inspection')
+        try:
+            res = debrid_cloudfiles.Sources().get_sources(query, mal_id, episode, season)
+            if res:
+                self.cloud_files += res
+        except Exception as e:
+            control.log(f"Error in cloud inspection worker: {e}", 'error')
+        finally:
+            if 'Cloud Inspection' in self.remainingProviders:
+                self.remainingProviders.remove('Cloud Inspection')
 
     def _apply_embed_skip(self, prefix, sources):
         for x in sources:

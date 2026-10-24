@@ -249,7 +249,7 @@ class AniListWLF(WatchlistFlavorBase):
             return []
 
         # Deserialize cached items
-        entries = [pickle.loads(item['data']) for item in cached_items]
+        entries = [database.loads(item['data']) for item in cached_items]
 
         # If sorting by title, sort manually alphabetically.
         if int(self.sort) == 0:
@@ -347,7 +347,7 @@ class AniListWLF(WatchlistFlavorBase):
             return []
 
         # Deserialize cached items
-        entries = [pickle.loads(item['data']) for item in cached_items]
+        entries = [database.loads(item['data']) for item in cached_items]
         get_meta.collect_meta(entries)
 
         # Process each anime to build next up episode items
@@ -540,7 +540,7 @@ class AniListWLF(WatchlistFlavorBase):
             info['cast'] = cast
 
         show_meta = database.get_show_meta(mal_id)
-        kodi_meta = pickle.loads(show_meta.get('art')) if show_meta else {}
+        kodi_meta = database.loads(show_meta.get('art')) if show_meta else {}
         image = res['coverImage']['extraLarge']
         base = {
             "name": '%s - %d/%d' % (title, progress, res['episodes'] if res['episodes'] else 0),

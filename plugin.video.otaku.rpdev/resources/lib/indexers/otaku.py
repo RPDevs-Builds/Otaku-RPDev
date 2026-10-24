@@ -50,7 +50,7 @@ class OtakuAPI:
         try:
             total_count = res.get('meta', {}).get('count', len(res_data) * 2)
             total_pages = (total_count // 20) + (1 if total_count % 20 else 0)
-        except:
+        except Exception:
             # Fallback: fetch until no 'next' link
             total_pages = 10  # Conservative estimate
 
@@ -277,7 +277,7 @@ class OtakuAPI:
                     kitsu_meta = ep
                     break
 
-        kodi_meta = pickle.loads(database.get_show(mal_id)['kodi_meta'])
+        kodi_meta = database.loads(database.get_show(mal_id)['kodi_meta'])
         episode = res.get('mal_id', res.get('episode'))
         url = f"{mal_id}/{episode}"
 
@@ -470,8 +470,8 @@ class OtakuAPI:
         return all_results
 
     def get_episodes(self, mal_id, show_meta):
-        kodi_meta = pickle.loads(database.get_show(mal_id)['kodi_meta'])
-        kodi_meta.update(pickle.loads(show_meta['art']))
+        kodi_meta = database.loads(database.get_show(mal_id)['kodi_meta'])
+        kodi_meta.update(database.loads(show_meta['art']))
         fanart = kodi_meta.get('fanart')
         poster = kodi_meta.get('poster')
         # Handle clearart - support both string (new) and list (legacy) formats
