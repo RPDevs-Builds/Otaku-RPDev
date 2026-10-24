@@ -1,0 +1,58 @@
+name: Release & Package Otaku RPDev
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Validate Python Syntax
+        run: |
+          python3 -m compileall plugin.video.otaku.rpdev context.otaku.rpdev
+
+      - name: Extract Version
+        id: get_version
+        run: |
+          VERSION=$(python3 -c "import xml.etree.ElementTree as ET; print(ET.parse('plugin.video.otaku.rpdev/addon.xml').getroot().get('version'))")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Addon Version: $VERSION"
+
+      - name: Package Addon Zip
+        run: |
+          VERSION="${{ steps.get_version.outputs.version }}"
+          mkdir -p dist
+          python3 - << EOF
+          import os, zipfile
+          version = "$VERSION"
+          addon_id = "plugin.video.otaku.rpdev"
+          zip_name = f"dist/{addon_id}-{version}.zip"
+          with zipfile.ZipFile(zip_name, 'w', compression=zipfile.ZIP_DEFLATED) as zf:
+              for root, dirs, files in os.walk(addon_id):
+                  dirs[:] = [d for d in dirs if d != '__pycache__' and not d.startswith('.')]
+                  for f in files:
+                      if f.endswith('.pyc') or f.endswith('.pyo') or f.startswith('.'):
+                          continue
+                      full_p = os.path.join(root, f)
+                      zf.write(full_p, full_p)
+          print(f"Created {zip_name}: {os.path.getsize(zip_name):,} bytes")
+          EOF
+
+      - name: Upload Zip to Release Assets
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.zip
