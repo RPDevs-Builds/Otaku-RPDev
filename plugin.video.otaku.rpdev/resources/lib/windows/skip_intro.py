@@ -62,6 +62,6 @@ class SkipIntro(BaseWindow):
             # BACKSPACE / ESCAPE
             self.close()
 
-        if actionID == 7:
-            # ENTER
-            self.handle_action(actionID)
+        if actionID in (7, 100):
+            # ENTER / SELECT
+            self.handle_action(self.getFocusId())

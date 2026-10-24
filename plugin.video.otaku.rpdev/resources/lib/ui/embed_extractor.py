@@ -193,7 +193,10 @@ def __extract_okru(url, page_content, referer=None):
     aurl = "http://www.ok.ru/dk"
     data = {'cmd': 'videoPlayerMetadata', 'mid': media_id}
     data = urllib.parse.urlencode(data)
-    html = client.post(aurl, data=data)
+    res = client.post(aurl, data=data)
+    if not res:
+        return
+    html = res.text if hasattr(res, 'text') else str(res)
     json_data = json.loads(html)
     if 'error' in json_data:
         return
@@ -241,7 +244,8 @@ def __extract_fusevideo(url, page_content, referer=None):
     r = re.findall(r'<script\s*src="([^"]+)', page_content)
     if r:
         jurl = r[-1]
-        js = client.get(jurl, referer=url)
+        res = client.get(jurl, referer=url)
+        js = res.text if hasattr(res, 'text') else str(res or '')
         match = re.search(r'n\s*=\s*atob\("([^"]+)', js)
         if match:
             jd = base64.b64decode(match.group(1)).decode('utf-8')
@@ -263,8 +267,9 @@ def __extract_dood(url, page_content, referer=None):
         host, media_id = re.findall(pattern, url)[0]
         token = match.group(2)
         nurl = 'https://{0}{1}'.format(host, match.group(1))
-        html = client.get(nurl, referer=url)
-        if html:
+        res = client.get(nurl, referer=url)
+        if res:
+            html = res.text if hasattr(res, 'text') else str(res)
             headers = {'User-Agent': _EDGE_UA,
                        'Referer': url}
             return dood_decode(html) + token + str(int(time.time() * 1000)) + __append_headers(headers)
@@ -622,7 +627,7 @@ __register_extractor(["https://dood.wf/",
 __register_extractor(["https://gogo-stream.com/",
                       "https://gogo-play.net/",
                       "https://streamani.net/",
-                      "https://goload.one/"
+                      "https://goload.one/",
                       "https://goload.io/",
                       "https://goload.pro/",
                       "https://gogohd.net/",

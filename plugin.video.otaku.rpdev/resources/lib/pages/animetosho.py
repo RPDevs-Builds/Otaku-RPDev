@@ -199,26 +199,49 @@ class Sources(BrowserBase):
             rex = r'(magnet:)+[^"]*'
             list_ = []
             for entry in soup_all:
+                link_div = entry.find('div', class_='link')
+                if not link_div or not link_div.a:
+                    continue
+                name = link_div.a.text.strip()
+
+                mag_tag = entry.find('a', {'href': re.compile(rex)})
+                magnet = mag_tag.get('href') if mag_tag else ''
+
+                dllink_tag = entry.find('a', class_='dllink')
+                torrent = dllink_tag.get('href') if dllink_tag else ''
+
+                if not magnet and not torrent:
+                    continue
+
+                size_div = entry.find('div', class_='size')
+                size = size_div.text.strip() if size_div else 'NA'
+
                 list_item = {
-                    'name': entry.find('div', class_='link').a.text,
-                    'magnet': entry.find('a', {'href': re.compile(rex)}).get('href'),
-                    'size': entry.find('div', class_='size').text,
+                    'name': name,
+                    'magnet': magnet,
+                    'size': size,
                     'downloads': 0,
-                    'torrent': entry.find('a', class_='dllink').get('href')
+                    'torrent': torrent
                 }
                 try:
-                    list_item['seeders'] = int(re.match(r'Seeders: (\d+)', entry.find('span', {'title': re.compile(r'Seeders')}).get('title')).group(1))
-                except AttributeError:
+                    seeder_span = entry.find('span', {'title': re.compile(r'Seeders')})
+                    list_item['seeders'] = int(re.match(r'Seeders: (\d+)', seeder_span.get('title')).group(1)) if seeder_span else -1
+                except (AttributeError, TypeError, ValueError):
                     list_item['seeders'] = -1
 
-                try:
-                    list_item['hash'] = re.match(r'https://animetosho.org/storage/torrent/([^/]+)', list_item['torrent']).group(1)
-                except AttributeError:
+                list_item['hash'] = ''
+                if list_item['torrent']:
+                    tor_match = re.match(r'https://animetosho.org/storage/torrent/([^/]+)', list_item['torrent'])
+                    if tor_match:
+                        list_item['hash'] = tor_match.group(1)
+                if not list_item['hash'] and list_item['magnet']:
                     try:
                         hash_32 = re.search(r'btih:(\w+)&tr=http', list_item['magnet']).group(1)
                         list_item['hash'] = base64.b16encode(base64.b32decode(hash_32)).decode().lower()
-                    except AttributeError:
-                        continue
+                    except Exception:
+                        pass
+                if not list_item['hash']:
+                    continue
 
                 list_.append(list_item)
 
@@ -249,26 +272,49 @@ class Sources(BrowserBase):
             rex = r'(magnet:)+[^"]*'
             list_ = []
             for entry in soup_all:
+                link_div = entry.find('div', class_='link')
+                if not link_div or not link_div.a:
+                    continue
+                name = link_div.a.text.strip()
+
+                mag_tag = entry.find('a', {'href': re.compile(rex)})
+                magnet = mag_tag.get('href') if mag_tag else ''
+
+                dllink_tag = entry.find('a', class_='dllink')
+                torrent = dllink_tag.get('href') if dllink_tag else ''
+
+                if not magnet and not torrent:
+                    continue
+
+                size_div = entry.find('div', class_='size')
+                size = size_div.text.strip() if size_div else 'NA'
+
                 list_item = {
-                    'name': entry.find('div', class_='link').a.text,
-                    'magnet': entry.find('a', {'href': re.compile(rex)}).get('href'),
-                    'size': entry.find('div', class_='size').text,
+                    'name': name,
+                    'magnet': magnet,
+                    'size': size,
                     'downloads': 0,
-                    'torrent': entry.find('a', class_='dllink').get('href')
+                    'torrent': torrent
                 }
                 try:
-                    list_item['seeders'] = int(re.match(r'Seeders: (\d+)', entry.find('span', {'title': re.compile(r'Seeders')}).get('title')).group(1))
-                except AttributeError:
+                    seeder_span = entry.find('span', {'title': re.compile(r'Seeders')})
+                    list_item['seeders'] = int(re.match(r'Seeders: (\d+)', seeder_span.get('title')).group(1)) if seeder_span else -1
+                except (AttributeError, TypeError, ValueError):
                     list_item['seeders'] = -1
 
-                try:
-                    list_item['hash'] = re.match(r'https://animetosho.org/storage/torrent/([^/]+)', list_item['torrent']).group(1)
-                except AttributeError:
+                list_item['hash'] = ''
+                if list_item['torrent']:
+                    tor_match = re.match(r'https://animetosho.org/storage/torrent/([^/]+)', list_item['torrent'])
+                    if tor_match:
+                        list_item['hash'] = tor_match.group(1)
+                if not list_item['hash'] and list_item['magnet']:
                     try:
                         hash_32 = re.search(r'btih:(\w+)&tr=http', list_item['magnet']).group(1)
                         list_item['hash'] = base64.b16encode(base64.b32decode(hash_32)).decode().lower()
-                    except AttributeError:
-                        continue
+                    except Exception:
+                        pass
+                if not list_item['hash']:
+                    continue
 
                 list_.append(list_item)
 

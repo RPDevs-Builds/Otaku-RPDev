@@ -391,9 +391,9 @@ class WatchlistFlavorBase:
             except (KeyError, TypeError):
                 pass
 
-        # MPAA
-        if anilist_res.get('countryOfOrigin'):
-            data['mpaa'] = anilist_res['countryOfOrigin']
+        # MPAA: only tag R-18 if adult, otherwise preserve original rating from source
+        if anilist_res.get('isAdult'):
+            data['mpaa'] = 'R-18'
 
         # Next airing episode (for unaired episode filtering)
         if anilist_res.get('nextAiringEpisode') and anilist_res['nextAiringEpisode'].get('episode'):

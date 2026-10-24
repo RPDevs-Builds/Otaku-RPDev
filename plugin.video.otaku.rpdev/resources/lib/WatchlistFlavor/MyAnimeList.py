@@ -204,6 +204,20 @@ class MyAnimeListWLF(WatchlistFlavorBase):
                     all_data.reverse()
 
                 save_watchlist_cache(self._NAME, status, all_data)
+                if status == 'watching':
+                    next_up_data = []
+                    for item in all_data:
+                        eps_watched = item['list_status'].get('num_episodes_watched') or 0
+                        total_eps = item['node'].get('num_episodes') or 0
+                        if total_eps > 0 and eps_watched >= total_eps:
+                            continue
+                        next_up_data.append(item)
+                    next_up_data.sort(
+                        key=lambda x: x['list_status'].get('updated_at') or '',
+                        reverse=True
+                    )
+                    if next_up_data:
+                        save_watchlist_cache(self._NAME, 'next_up', next_up_data)
 
         # If cache_only, we're done - raw data is cached
         if cache_only:
@@ -301,27 +315,33 @@ class MyAnimeListWLF(WatchlistFlavorBase):
         cache_status = 'next_up'
 
         if not is_watchlist_cache_valid(self._NAME, cache_status):
-            # Fetch all "watching" items sorted by last updated (most recently watched first)
-            params = {
-                "status": status,
-                "sort": "list_updated_at",  # Sort by last activity for Next Up
-                "limit": 1000,
-                "offset": 0,
-                "fields": ','.join(fields),
-                "nsfw": True
-            }
-            url = f'{self._URL}/users/@me/animelist'
             all_data = []
+            if is_watchlist_cache_valid(self._NAME, status):
+                cached = get_watchlist_cache(self._NAME, status)
+                if cached:
+                    all_data = [pickle.loads(x['data']) for x in cached]
 
-            r = client.get(url, headers=self.__headers(), params=params)
-            results = r.json() if r else {}
-            all_data.extend(results.get('data', []))
+            if not all_data:
+                # Fetch all "watching" items sorted by last updated (most recently watched first)
+                params = {
+                    "status": status,
+                    "sort": "list_updated_at",  # Sort by last activity for Next Up
+                    "limit": 1000,
+                    "offset": 0,
+                    "fields": ','.join(fields),
+                    "nsfw": True
+                }
+                url = f'{self._URL}/users/@me/animelist'
 
-            # Fetch remaining pages
-            while results.get('paging', {}).get('next'):
-                r = client.get(results['paging']['next'], headers=self.__headers())
+                r = client.get(url, headers=self.__headers(), params=params)
                 results = r.json() if r else {}
                 all_data.extend(results.get('data', []))
+
+                # Fetch remaining pages
+                while results.get('paging', {}).get('next'):
+                    r = client.get(results['paging']['next'], headers=self.__headers())
+                    results = r.json() if r else {}
+                    all_data.extend(results.get('data', []))
 
             # Filter: Shows that have a valid next episode to watch
             # Includes shows with 0 progress (Episode 1 is their next up)

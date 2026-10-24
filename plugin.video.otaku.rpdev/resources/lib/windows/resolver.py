@@ -168,12 +168,27 @@ class Resolver(BaseWindow):
 
                 if verified_linkinfo:
                     self.return_data['linkinfo'] = verified_linkinfo
+                    self.return_data['source'] = i
+                    self.return_data['candidate_index'] = idx
                     if i.get('subs'):
                         self.return_data['sub'] = i['subs']
                     break
                 else:
                     control.log(f"Resolver: candidate {i.get('provider')} failed prefetch/verification, advancing to next candidate", level='warning')
                     self.return_data['link'] = None
+
+        if not self.return_data.get('linkinfo'):
+            # If this was a cached season pack that failed unrestrict, clear cache and rescrape
+            if len(sources) == 1 and sources[0].get('_cached_season_pack'):
+                control.log("Resolver: Cached season pack unrestrict failed, clearing and rescraping", level='info')
+                episode_data = database.get_episode(self.mal_id)
+                season = episode_data.get('season') if episode_data else None
+                database.clear_season_pack(self.mal_id, season)
+                from resources.lib import MetaBrowser
+                fresh_sources = MetaBrowser.get_sources(self.mal_id, self.episode, self.media_type, rescrape=True, silent=True)
+                if fresh_sources:
+                    self.sources = fresh_sources
+                    return self.resolve(fresh_sources)
 
         if self.return_data.get('linkinfo'):
             ffprobe_chapters.attach_to_linkinfo(self.return_data['linkinfo'])
@@ -287,7 +302,38 @@ class Resolver(BaseWindow):
 
         self.close()
 
+        if self.abort:
+            failed_source = self.return_data.get('source', {}) if isinstance(self.return_data, dict) else {}
+            # If the failed source was a cached season pack, clear pack and rescrape
+            if failed_source.get('_cached_season_pack'):
+                control.log("Resolver: Playback startup failed for cached season pack, rescraping", level='warning')
+                episode_data = database.get_episode(self.mal_id)
+                season = episode_data.get('season') if episode_data else None
+                database.clear_season_pack(self.mal_id, season)
+                from resources.lib import MetaBrowser
+                fresh_sources = MetaBrowser.get_sources(self.mal_id, self.episode, self.media_type, rescrape=True, silent=True)
+                if fresh_sources:
+                    self.abort = False
+                    self.sources = fresh_sources
+                    self.resolve(fresh_sources)
+                    return
+
+            cand_idx = self.return_data.get('candidate_index', 0) if isinstance(self.return_data, dict) else 0
+            remaining = self.sources[cand_idx + 1:] if self.sources and cand_idx + 1 < len(self.sources) else []
+            if remaining:
+                control.log(f"Resolver: Playback startup failed, advancing to next candidate ({len(remaining)} left)", level='info')
+                self.abort = False
+                self.resolve(remaining)
+                return
+
         if not self.abort:
+            # If the playing source is a season pack, save it for future fast-path reuse
+            resolved_source = self.return_data.get('source') if isinstance(self.return_data, dict) else None
+            if resolved_source and source_utils.is_season_pack(resolved_source):
+                episode_data = database.get_episode(self.mal_id)
+                season = episode_data.get('season') if episode_data else None
+                database.set_season_pack(self.mal_id, season, resolved_source)
+
             link_info = self.return_data.get('linkinfo') or {}
             ch = link_info.get('chapters') if isinstance(link_info, dict) else None
             player.WatchlistPlayer().handle_player(

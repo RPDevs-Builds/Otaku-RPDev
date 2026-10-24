@@ -161,32 +161,33 @@ class AllDebrid:
         if not magnet_data or 'magnets' not in magnet_data or not magnet_data['magnets']:
             return None
         magnet_id = magnet_data['magnets'][0]['id']
-        status_data = self.magnet_status(magnet_id)
-        if not status_data or 'magnets' not in status_data or 'files' not in status_data['magnets']:
-            self.delete_magnet(magnet_id)
-            return None
-        details = status_data['magnets']['files']
-        folder_details = []
-        for x in details:
-            self.collect_files(x, folder_details)
+        resolved_link = None
+        try:
+            status_data = self.magnet_status(magnet_id)
+            if not status_data or 'magnets' not in status_data or 'files' not in status_data['magnets']:
+                return None
+            details = status_data['magnets']['files']
+            folder_details = []
+            for x in details:
+                self.collect_files(x, folder_details)
 
-        if episode:
-            selected_file = source_utils.get_best_match('path', folder_details, str(episode), pack_select, filename)
-            if selected_file is not None:
-                resolved_link = self.resolve_hoster(selected_file['link'])
-                if self.autodelete:
-                    self.delete_magnet(magnet_id)
-                return resolved_link
+            if not folder_details:
+                return None
 
-        selected_file = folder_details[0]['link']
+            if episode:
+                selected_file = source_utils.get_best_match('path', folder_details, str(episode), pack_select, filename)
+                if selected_file and selected_file.get('link'):
+                    resolved_link = self.resolve_hoster(selected_file['link'])
+                    return resolved_link
 
-        if selected_file is None:
-            return
-
-        resolved_link = self.resolve_hoster(selected_file)
-        if self.autodelete:
-            self.delete_magnet(magnet_id)
-        return resolved_link
+            if not resolved_link and folder_details:
+                first_link = folder_details[0].get('link')
+                if first_link:
+                    resolved_link = self.resolve_hoster(first_link)
+            return resolved_link
+        finally:
+            if not resolved_link or self.autodelete:
+                self.delete_magnet(magnet_id)
 
     def resolve_cloud(self, source, pack_select):
         pass

@@ -233,6 +233,14 @@ def merge_artwork(fanart_art, tmdb_art, tvdb_art, fanart_limit=1,
     if fanart_images:
         merged['fanart'] = fanart_images[:fanart_limit]  # Apply limit
 
+    # Merge posters (2:3 portrait)
+    poster_images = []
+    poster_images.extend(fanart_art.get('poster', []))
+    poster_images.extend(tmdb_art.get('poster', []))
+    poster_images.extend(tvdb_art.get('poster', []))
+    if poster_images:
+        merged['poster'] = poster_images[:1]
+
     # Merge thumbs/landscape if enabled - always limit to 1 (users only need one thumbnail)
     if landscape_enabled:
         thumb_images = []

@@ -11,6 +11,7 @@ Monitor          - Playback error detection with grace period
 """
 
 import time
+import threading
 import xbmc
 import xbmcgui
 import pickle
@@ -310,8 +311,9 @@ class WatchlistPlayer(player):
 
         playnext_enabled = control.getBool('smartplay.playingnextdialog')
         playnext_time = control.getInt('playingnext.time') if playnext_enabled else 0
-        outro_enabled = (playnext_time > 0) or self.skipoutro_aniskip_auto
+        outro_enabled = (playnext_time > 0) or self.skipoutro_aniskip_auto or (self.skipoutro_aniskip and self.skipoutro_start > 0)
         outro_handled = not outro_enabled
+        prescrape_triggered = False
 
         while self.isPlaying() and not (intro_handled and self.updated and outro_handled):
             self.current_time = int(self.getTime())
@@ -330,11 +332,15 @@ class WatchlistPlayer(player):
                         PlayerDialogs().show_skip_intro(self.skipintro_aniskip, intro_end)
                     intro_handled = True
 
-            # 2. Watched Percentage check
-            if not self.updated and self.total_time > 0:
+            # 2. Watched Percentage check & 70% Background Pre-Scraping
+            if self.total_time > 0:
                 watched_percentage = (self.current_time / self.total_time) * 100
-                if watched_percentage > self.update_percent:
+                if not self.updated and watched_percentage > self.update_percent:
                     self._update_watched_progress()
+
+                if not prescrape_triggered and watched_percentage >= 70:
+                    prescrape_triggered = True
+                    self._trigger_background_prescrape()
 
             # 3. Outro Skip & Playing Next check
             if not outro_handled and self.total_time > 0:
@@ -345,13 +351,58 @@ class WatchlistPlayer(player):
                         control.log(f'Auto-skipped outro: {self.skipoutro_start}-{self.skipoutro_end}')
                     outro_handled = True
                 elif self._should_show_dialog(time_remaining, playnext_time):
-                    if self.skipoutro_aniskip and not self.skipoutro_aniskip_auto:
-                        PlayerDialogs().display_dialog(True, self.skipoutro_end)
-                    elif not self.skipoutro_aniskip and playnext_time > 0:
-                        PlayerDialogs().display_dialog(False, 0)
-                    outro_handled = True
+                    if control.getBool('smartplay.binge_mode', default=False):
+                        try:
+                            cur_ep = int(self.episode)
+                            next_ep_str = f"Episode {cur_ep + 1}"
+                        except (ValueError, TypeError):
+                            next_ep_str = "Next Episode"
+                        control.notify(control.ADDON_NAME, f"Up Next: {next_ep_str}...", sound=False)
+                        if self.skipoutro_aniskip and self.skipoutro_end > 0:
+                            self.seekTime(self.skipoutro_end)
+                        outro_handled = True
+                    else:
+                        if self.skipoutro_aniskip and not self.skipoutro_aniskip_auto:
+                            PlayerDialogs().display_dialog(True, self.skipoutro_end)
+                        elif not self.skipoutro_aniskip and playnext_time > 0:
+                            PlayerDialogs().display_dialog(False, 0)
+                        outro_handled = True
 
             xbmc.sleep(2000)
+
+    def _trigger_background_prescrape(self):
+        """Pre-warm scraper cache for the next episode in background at ~70% playback"""
+        try:
+            if not self.mal_id or getattr(self, 'media_type', None) == 'movie':
+                return
+            try:
+                current_ep = int(self.episode)
+            except (ValueError, TypeError):
+                return
+            next_ep = current_ep + 1
+
+            episode_data = database.get_episode(self.mal_id)
+            season = episode_data.get('season') if episode_data else None
+
+            # If a cached season pack already covers next_ep, no background scraping is needed
+            cached_pack = database.get_season_pack(self.mal_id, season)
+            if cached_pack and source_utils.season_pack_covers_episode(cached_pack, next_ep):
+                control.log(f"Player: Pre-scrape bypassed — cached season pack covers ep {next_ep}", level='info')
+                return
+
+            def prescrape_worker():
+                try:
+                    control.log(f"Player: Background pre-scraping ep {next_ep} for {self.mal_id}", level='info')
+                    from resources.lib import MetaBrowser
+                    MetaBrowser.get_sources(self.mal_id, next_ep, 'show', rescrape=False, source_select=False, silent=True)
+                except Exception as e:
+                    control.log(f"Player: Pre-scrape background task error: {e}", level='warning')
+
+            t = threading.Thread(target=prescrape_worker, name="Otaku-PreScrapeThread")
+            t.daemon = True
+            t.start()
+        except Exception as e:
+            control.log(f"Player: Failed to launch pre-scrape: {e}", level='warning')
 
     def _should_show_dialog(self, time_remaining, playnext_time):
         """Determine if we should show a dialog - simplified"""

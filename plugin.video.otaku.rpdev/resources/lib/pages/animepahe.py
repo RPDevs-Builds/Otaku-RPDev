@@ -20,11 +20,17 @@ class Sources(BrowserBase):
     }
 
     def _build_source(self, item, title, episode, embed_hosts):
-        data_src = item.get('data-src') + f'|Referer={self._BASE_URL}'
-        if not data_src or not any(host in data_src.lower() for host in embed_hosts):
+        raw_src = item.get('data-src') or ''
+        if not raw_src:
+            return None
+        data_src = raw_src + f'|Referer={self._BASE_URL}'
+        if not any(host in data_src.lower() for host in embed_hosts):
             return None
 
-        qual = int(item.get('data-resolution'))
+        try:
+            qual = int(item.get('data-resolution') or 0)
+        except (ValueError, TypeError):
+            qual = 0
         if qual <= 577:
             quality = 1
         elif qual <= 721:
@@ -143,11 +149,11 @@ class Sources(BrowserBase):
 
     def _process_ap(self, slug, title, episode):
         sources = []
-        e_num = int(episode)
-        big_series = e_num > 30
-        page = 1
-        if big_series:
-            page += int(e_num / 30)
+        try:
+            e_num = int(episode)
+        except (ValueError, TypeError):
+            e_num = 1
+        page = max(1, 1 + ((e_num - 1) // 30))
 
         params = {
             'm': 'release',

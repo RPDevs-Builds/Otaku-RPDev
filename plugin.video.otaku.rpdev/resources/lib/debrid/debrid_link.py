@@ -4,8 +4,8 @@ from resources.lib.ui import client, control, source_utils, database
 
 class DebridLink:
     def __init__(self):
-        api_info = database.get_info('Debrid-Link')
-        self.ClientID = api_info['client_id']
+        api_info = database.get_info('Debrid-Link') or {}
+        self.ClientID = api_info.get('client_id', '')
         self.USER_AGENT = 'Otaku'
         self.token = control.getSetting('debridlink.token')
         self.refresh = control.getSetting('debridlink.refresh')
@@ -128,23 +128,35 @@ class DebridLink:
         r = client.post(url, data=postData, headers=self.headers())
         return r.json().get('value') if r else None
 
+    def delete_magnet(self, magnet_id):
+        url = f'{self.api_url}/seedbox/{magnet_id}/remove'
+        return client.delete(url, headers=self.headers())
+
     def resolve_single_magnet(self, hash_, magnet, episode, pack_select, filename=None):
         magnet_data = self.addMagnet(magnet)
         if not magnet_data or 'files' not in magnet_data:
             return None
-        files = magnet_data['files']
-        folder_details = [{'link': x['downloadUrl'], 'path': x['name']} for x in files]
-        if episode:
-            selected_file = source_utils.get_best_match('path', folder_details, episode, pack_select, filename)
-            if selected_file is not None:
-                return selected_file['link']
+        magnet_id = magnet_data.get('id')
+        selected_link = None
+        try:
+            files = magnet_data.get('files', [])
+            folder_details = [{'link': x.get('downloadUrl'), 'path': x.get('name')} for x in files if x.get('downloadUrl')]
+            if episode and folder_details:
+                selected_file = source_utils.get_best_match('path', folder_details, episode, pack_select, filename)
+                if selected_file and selected_file.get('link'):
+                    selected_link = selected_file['link']
+                    return selected_link
 
-        sources = [(item.get('size'), item.get('downloadUrl'))for item in files if any(item.get('name').lower().endswith(x) for x in ['avi', 'mp4', 'mkv'])]
+            sources = [(item.get('size') or 0, item.get('downloadUrl')) for item in files if item.get('downloadUrl') and any(str(item.get('name', '')).lower().endswith(x) for x in ['avi', 'mp4', 'mkv'])]
 
-        selected_file = max(sources)[1]
-        if selected_file is None:
-            return
-        return selected_file
+            if sources:
+                selected_link = max(sources)[1]
+            elif folder_details:
+                selected_link = folder_details[0].get('link')
+            return selected_link
+        finally:
+            if magnet_id and (not selected_link or self.autodelete):
+                self.delete_magnet(magnet_id)
 
     def get_torrent_status(self, magnet):
         """

@@ -37,12 +37,16 @@ def getArt(meta_ids, mtype, limit=None):
                 backdrops = res['backdrops'][:limit] if limit else res['backdrops']
                 items = [backgroundPath + item['file_path'] for item in backdrops if item.get('file_path')]
                 art['fanart'] = items
+                # Language-tagged backdrops make clean 16:9 landscape thumbnails
+                lang_backdrops = [backgroundPath + item['file_path'] for item in res['backdrops'] if item.get('file_path') and item.get('iso_639_1') in ('en', 'ja')]
+                if lang_backdrops:
+                    art['thumb'] = lang_backdrops[:1]
 
-            # Posters are for thumbnails (portrait images)
+            # Posters are 2:3 portrait images
             if res.get('posters'):
                 posters = res['posters'][:limit] if limit else res['posters']
                 items = [thumbPath + item['file_path'] for item in posters if item.get('file_path')]
-                art['thumb'] = items
+                art['poster'] = items
 
             # Logos are clearlogos (transparent PNG title/logo images)
             if res.get('logos'):

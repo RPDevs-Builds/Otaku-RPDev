@@ -134,18 +134,37 @@ class KitsuWLF(WatchlistFlavorBase):
         ]
         return actions
 
+    def _sort_items(self, items):
+        sort_key = int(self.sort)
+        title_lang = self.__get_title_lang()
+        if sort_key == 0:  # Anime Title
+            items.sort(key=lambda x: (x.get('anime') or {}).get('attributes', {}).get('titles', {}).get(title_lang, (x.get('anime') or {}).get('attributes', {}).get('canonicalTitle', '')).lower())
+        elif sort_key == 1:  # User Score
+            items.sort(key=lambda x: x['entry']['attributes'].get('ratingTwenty') or 0, reverse=True)
+        elif sort_key == 2:  # Progress
+            items.sort(key=lambda x: x['entry']['attributes'].get('progress') or 0, reverse=True)
+        elif sort_key == 3:  # Last Updated
+            items.sort(key=lambda x: x['entry']['attributes'].get('progressedAt') or '', reverse=True)
+        elif sort_key == 4:  # Last Added
+            items.sort(key=lambda x: x['entry']['attributes'].get('startedAt') or '', reverse=True)
+
+        if int(self.order) == 1:
+            items.reverse()
+        return items
+
     def get_watchlist_status(self, status, next_up, offset, page, cache_only=False):
         # Check for remote changes before using cache
         self._should_refresh_cache()
 
         from resources.lib.ui.database import (
             get_watchlist_cache, save_watchlist_cache,
-            is_watchlist_cache_valid
+            is_watchlist_cache_valid, get_watchlist_cache_count
         )
 
         paging_enabled = control.getBool('interface.watchlist.paging')
         per_page = control.getInt('interface.perpage.watchlist') if paging_enabled else 1000
         offset = int(offset) if offset else 0
+        cache_key = 'next_up' if next_up else status
 
         # Check cache validity
         if not is_watchlist_cache_valid(self._NAME, status):
@@ -225,45 +244,58 @@ class KitsuWLF(WatchlistFlavorBase):
                             })
 
             if all_data:
+                self._sort_items(all_data)
                 save_watchlist_cache(self._NAME, status, all_data)
+                if status == 'current':
+                    next_up_data = []
+                    for item in all_data:
+                        res = item.get('entry') or {}
+                        eres = item.get('anime') or {}
+                        progress = res.get('attributes', {}).get('progress') or 0
+                        total_eps = eres.get('attributes', {}).get('episodeCount') or 0
+                        if total_eps > 0 and progress >= total_eps:
+                            continue
+                        next_up_data.append(item)
+                    next_up_data.sort(key=lambda x: (x.get('entry', {}).get('attributes', {}).get('progressedAt') or x.get('entry', {}).get('attributes', {}).get('updatedAt') or ''), reverse=True)
+                    if next_up_data:
+                        save_watchlist_cache(self._NAME, 'next_up', next_up_data)
+
+        # If next_up requested but not populated, derive from current cache if valid
+        if next_up and not is_watchlist_cache_valid(self._NAME, 'next_up'):
+            if is_watchlist_cache_valid(self._NAME, 'current'):
+                current_cached = get_watchlist_cache(self._NAME, 'current')
+                if current_cached:
+                    current_items = [pickle.loads(x['data']) for x in current_cached]
+                    next_up_data = []
+                    for item in current_items:
+                        res = item.get('entry') or {}
+                        eres = item.get('anime') or {}
+                        progress = res.get('attributes', {}).get('progress') or 0
+                        total_eps = eres.get('attributes', {}).get('episodeCount') or 0
+                        if total_eps > 0 and progress >= total_eps:
+                            continue
+                        next_up_data.append(item)
+                    next_up_data.sort(key=lambda x: (x.get('entry', {}).get('attributes', {}).get('progressedAt') or x.get('entry', {}).get('attributes', {}).get('updatedAt') or ''), reverse=True)
+                    if next_up_data:
+                        save_watchlist_cache(self._NAME, 'next_up', next_up_data)
 
         # If cache_only, we're done - raw data is cached
         if cache_only:
             return []
 
-        # Read ALL items from cache
-        cached_items = get_watchlist_cache(self._NAME, status)
+        # Read only the current page items from SQLite using LIMIT and OFFSET
+        total_count = get_watchlist_cache_count(self._NAME, cache_key)
+
+        if paging_enabled and per_page > 0:
+            cached_items = get_watchlist_cache(self._NAME, cache_key, limit=per_page, offset=offset)
+        else:
+            cached_items = get_watchlist_cache(self._NAME, cache_key)
 
         if not cached_items:
             return []
 
-        # Deserialize cached items
+        # Deserialize only the current page items
         items = [pickle.loads(item['data']) for item in cached_items]
-
-        # Client-side sort ALL items based on current sort setting
-        # This ensures sort changes take effect without needing a cache rebuild
-        sort_key = int(self.sort)
-        title_lang = self.__get_title_lang()
-        if sort_key == 0:  # Anime Title
-            items.sort(key=lambda x: (x.get('anime') or {}).get('attributes', {}).get('titles', {}).get(title_lang, (x.get('anime') or {}).get('attributes', {}).get('canonicalTitle', '')).lower())
-        elif sort_key == 1:  # User Score
-            items.sort(key=lambda x: x['entry']['attributes'].get('ratingTwenty') or 0, reverse=True)
-        elif sort_key == 2:  # Progress
-            items.sort(key=lambda x: x['entry']['attributes'].get('progress') or 0, reverse=True)
-        elif sort_key == 3:  # Last Updated
-            items.sort(key=lambda x: x['entry']['attributes'].get('progressedAt') or '', reverse=True)
-        elif sort_key == 4:  # Last Added
-            items.sort(key=lambda x: x['entry']['attributes'].get('startedAt') or '', reverse=True)
-
-        # Apply order reversal (sort defaults are "natural" order; reverse for descending)
-        if int(self.order) == 1:
-            items.reverse()
-
-        total_count = len(items)
-
-        # Slice for paging
-        if paging_enabled and per_page > 0:
-            items = items[offset:offset + per_page]
 
         return self.process_watchlist_view(items, next_up, f'watchlist_status_type_pages/kitsu/{status}', page, offset, per_page, total_count, paging_enabled)
 

@@ -52,7 +52,7 @@ class MalBrowser(BrowserBase):
         self.title_lang = ['title', 'title_english'][control.getInt("titlelanguage")]
         self.perpage = control.getInt('interface.perpage.general.mal')
         self.year_type = control.getInt('contentyear.menu') if control.getBool('contentyear.bool') else 0
-        self.season_type = control.getInt('contentseason.menu') if control.getBool('contentseason.bool') else ''
+        self.season_type = control.getInt('contentseason.menu') if control.getBool('contentseason.bool') else -1
         self.format_in_type = ['tv', 'movie', 'tv_special', 'special', 'ova', 'ona', 'music'][control.getInt('contentformat.menu')] if control.getBool('contentformat.bool') else ''
         self.status = ['airing', 'complete', 'upcoming'][control.getInt('contentstatus.menu.mal')] if control.getBool('contentstatus.bool') else ''
         self.rating = ['g', 'pg', 'pg13', 'r17', 'r', 'rx'][control.getInt('contentrating.menu.mal')] if control.getBool('contentrating.bool') else ''
@@ -85,18 +85,18 @@ class MalBrowser(BrowserBase):
         date = datetime.datetime.today()
         year = date.year
         month = date.month
-        seasons = ['WINTER', 'SPRING', 'SUMMER', 'FALL']
+        seasons = ['winter', 'spring', 'summer', 'fall']
         season_start_dates = {
-            'WINTER': datetime.date(year, 1, 1),
-            'SPRING': datetime.date(year, 4, 1),
-            'SUMMER': datetime.date(year, 7, 1),
-            'FALL': datetime.date(year, 10, 1)
+            'winter': datetime.date(year, 1, 1),
+            'spring': datetime.date(year, 4, 1),
+            'summer': datetime.date(year, 7, 1),
+            'fall': datetime.date(year, 10, 1)
         }
         season_end_dates = {
-            'WINTER': datetime.date(year, 3, 31),
-            'SPRING': datetime.date(year, 6, 30),
-            'SUMMER': datetime.date(year, 9, 30),
-            'FALL': datetime.date(year, 12, 31)
+            'winter': datetime.date(year, 3, 31),
+            'spring': datetime.date(year, 6, 30),
+            'summer': datetime.date(year, 9, 30),
+            'fall': datetime.date(year, 12, 31)
         }
 
         if self.year_type:
@@ -107,27 +107,27 @@ class MalBrowser(BrowserBase):
                 return None, None, None, None, None, None, None, None, None, None, None, None, None, None
 
         season = None
-        if self.season_type:
+        if self.season_type > -1:
             if 0 <= self.season_type < 4:
                 season = seasons[self.season_type]
                 if period == "next":
                     next_season_index = (self.season_type + 1) % 4
                     season = seasons[next_season_index]
-                    if season == 'WINTER':
+                    if season == 'winter':
                         year += 1
                 elif period == "last":
                     last_season_index = (self.season_type - 1) % 4
                     season = seasons[last_season_index]
-                    if season == 'FALL' and month <= 3:
+                    if season == 'fall' and month <= 3:
                         year -= 1
         else:
             if period == "next":
                 season = seasons[int((month - 1) / 3 + 1) % 4]
-                if season == 'WINTER':
+                if season == 'winter':
                     year += 1
             elif period == "last":
                 season = seasons[int((month - 1) / 3 - 1) % 4]
-                if season == 'FALL' and month <= 3:
+                if season == 'fall' and month <= 3:
                     year -= 1
             else:
                 season = seasons[int((month - 1) / 3)]
@@ -140,7 +140,7 @@ class MalBrowser(BrowserBase):
 
         last_season_index = (seasons.index(season) - 1) % 4
         last_season = seasons[last_season_index]
-        last_season_year = year if last_season != 'FALL' or month > 3 else year - 1
+        last_season_year = year if last_season != 'fall' or month > 3 else year - 1
         season_start_date_last = season_start_dates[last_season].replace(year=last_season_year)
         season_end_date_last = season_end_dates[last_season].replace(year=last_season_year)
 
@@ -149,7 +149,7 @@ class MalBrowser(BrowserBase):
 
         next_season_index = (seasons.index(season) + 1) % 4
         next_season = seasons[next_season_index]
-        next_season_year = year if next_season != 'WINTER' else year + 1
+        next_season_year = year if next_season != 'winter' else year + 1
         season_start_date_next = season_start_dates[next_season].replace(year=next_season_year)
         season_end_date_next = season_end_dates[next_season].replace(year=next_season_year)
 
@@ -636,7 +636,7 @@ class MalBrowser(BrowserBase):
             if isinstance(res.get('scored_by'), int):
                 info['rating']['votes'] = res['scored_by']
 
-        if res.get('trailer'):
+        if res.get('trailer') and res['trailer'].get('youtube_id'):
             info['trailer'] = f"plugin://plugin.video.youtube/play/?video_id={res['trailer']['youtube_id']}"
 
         dub = True if mal_dub and mal_dub.get(str(mal_id)) else False
@@ -715,7 +715,7 @@ class MalBrowser(BrowserBase):
             if isinstance(res.get('scored_by'), int):
                 kodi_meta['rating']['votes'] = res['scored_by']
 
-        if res.get('trailer'):
+        if res.get('trailer') and res['trailer'].get('youtube_id'):
             kodi_meta['trailer'] = f"plugin://plugin.video.youtube/play/?video_id={res['trailer']['youtube_id']}"
 
         database.update_show(mal_id, pickle.dumps(kodi_meta))

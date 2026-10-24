@@ -54,6 +54,38 @@ def get_video_info(li: xbmcgui.ListItem) -> dict:
     return params
 
 
+def _extract_watch_target(path: str, plugin: str) -> str:
+    """Extracts '/mal_id/episode' from various plugin URL schemes safely without index errors."""
+    clean_path = path.split('?', 1)[0]
+    if plugin in clean_path:
+        sub = clean_path.split(plugin, 1)[1].strip('/')
+    else:
+        sub = clean_path.strip('/')
+
+    parts = [p for p in sub.split('/') if p]
+    if not parts:
+        return "/1/1"
+
+    if parts[0] == 'play_movie' and len(parts) >= 2:
+        return f"/{parts[1]}/1"
+    if parts[0] in ('play', 'play_oot', 'play_al', 'play_mal', 'watchlist_to_ep') and len(parts) >= 3:
+        return f"/{parts[1]}/{parts[2]}"
+    if parts[0] in ('play', 'play_oot', 'play_al', 'play_mal', 'animes') and len(parts) >= 2:
+        return f"/{parts[1]}/1"
+
+    if len(parts) >= 2 and parts[1].isdigit():
+        ep = parts[2] if len(parts) >= 3 and parts[2].isdigit() else "1"
+        return f"/{parts[1]}/{ep}"
+
+    if parts[0].isdigit():
+        ep = parts[1] if len(parts) >= 2 and parts[1].isdigit() else "1"
+        return f"/{parts[0]}/{ep}"
+
+    if f'{plugin}/play' in clean_path:
+        return clean_path.split(f'{plugin}/play', 1)[1]
+    return f"/{'/'.join(parts)}"
+
+
 def main():
     arg = sys.argv[1]
     item = sys.listitem
@@ -94,14 +126,14 @@ def main():
         path = path.split(plugin, 1)[1]
         xbmc.executebuiltin(f"RunPlugin({plugin}/watchlist_manager{path})")
     elif arg == 'markedaswatched':
-        path = path.split(f'{plugin}/play', 1)[1]
-        xbmc.executebuiltin(f"RunPlugin({plugin}/marked_as_watched{path})")
+        target = _extract_watch_target(path, plugin)
+        xbmc.executebuiltin(f"RunPlugin({plugin}/marked_as_watched{target})")
     elif arg == 'markedasunwatched':
-        path = path.split(f'{plugin}/play', 1)[1]
-        xbmc.executebuiltin(f"RunPlugin({plugin}/marked_as_unwatched{path})")
+        target = _extract_watch_target(path, plugin)
+        xbmc.executebuiltin(f"RunPlugin({plugin}/marked_as_unwatched{target})")
     elif arg == 'markpreviouswatched':
-        path = path.split(f'{plugin}/play', 1)[1]
-        xbmc.executebuiltin(f"RunPlugin({plugin}/mark_previous_watched{path})")
+        target = _extract_watch_target(path, plugin)
+        xbmc.executebuiltin(f"RunPlugin({plugin}/mark_previous_watched{target})")
     elif arg == 'clearcache':
         xbmc.executebuiltin(f"RunPlugin({plugin}/clear_cache)")
     elif arg == 'fanartselect':

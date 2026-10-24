@@ -1,3 +1,7 @@
+Changelog v1.0.37 (2026-10-24)
+- Fix movie context menu routing for marked as watched/unwatched
+- Safe target extraction for show, episode, and watchlist URLs without index errors
+
 Changelog v1.0.36 (2026-10-24)
 - Add 'Mark Episodes Up To Here as Watched' context menu item
 - Add 'Mark as Unwatched WatchList' context menu item

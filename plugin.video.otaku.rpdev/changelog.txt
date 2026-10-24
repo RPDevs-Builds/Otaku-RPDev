@@ -1,3 +1,15 @@
+Changelog v5.4.2 (2026-10-24):
+- Batches 4 & 5 Audit & UX Enhancements
+- Context Menu: normalized movie/show context menu routing for marked as watched/unwatched and refresh handling
+- Browsers & Artwork: fixed Winter=0 season truthiness and Jikan season casing, guarded trailer youtube_ids, separated 2:3 vertical posters from 16:9 landscape thumbs, cached TVDB /v4/login token, and preserved mpaa age ratings
+- Debrid Cleanup: guaranteed uncached magnet cloud cleanup on failed lookups in Real-Debrid, AllDebrid, and Debrid-Link (with new delete_magnet method)
+- Scraper Hardening: deduplicated MegaPlay source extraction in HiAnime (66% less HTTP traffic), fixed AnimePahe episode 30/60/90 page math, null-safe Usenet entry parsing in AnimeTosho, and fixed missing comma/Response parsing in embed_extractor
+- Watchlist Performance: added SQL-level pre-pagination slicing to Kitsu and MyAnimeList watchlists with instant Next Up derivation
+- Smart Play Failover: automated season pack rescraping on unrestrict failure and auto-advancing across ranked candidates on Kodi player startup abort
+- Watch History Springboard: added Ep X/Y badges and quick context actions (Play Next Episode, Resume Episode, Browse Episodes, Clear Last Watched) to Main Menu Last Watched
+- Zero-Click Binge Mode & Pre-Scraping: background scraper pre-warming at 70% playback progress and zero-click seamless auto-advance at outros
+- Remote Control Action Fix: fixed PlayingNext and SkipIntro remote Select/Enter action handling via getFocusId()
+
 Changelog v5.4.1 (2026-10-24):
 - My Debrid Cloud: added 'Delete from Cloud' context menu action for video files in root and inside folders across all debrid providers
 - My Debrid Cloud: added 'Create New Folder' (blank directory & nested subdirectory creation) via directory action row and context menu

@@ -54,7 +54,7 @@ class OtakuBrowser(BrowserBase):
         self.title_lang = ['title', 'title_english'][control.getInt("titlelanguage")]
         self.perpage = control.getInt('interface.perpage.general.mal')
         self.year_type = control.getInt('contentyear.menu') if control.getBool('contentyear.bool') else 0
-        self.season_type = control.getInt('contentseason.menu') if control.getBool('contentseason.bool') else ''
+        self.season_type = control.getInt('contentseason.menu') if control.getBool('contentseason.bool') else -1
         self.format_in_type = ['tv', 'movie', 'tv_special', 'special', 'ova', 'ona', 'music'][control.getInt('contentformat.menu')] if control.getBool('contentformat.bool') else ''
         self.status = ['airing', 'complete', 'upcoming'][control.getInt('contentstatus.menu.mal')] if control.getBool('contentstatus.bool') else ''
         self.rating = ['g', 'pg', 'pg13', 'r17', 'r', 'rx'][control.getInt('contentrating.menu.mal')] if control.getBool('contentrating.bool') else ''
@@ -164,7 +164,7 @@ class OtakuBrowser(BrowserBase):
                 return None, None, None, None, None, None, None, None, None, None, None, None, None, None
 
         season = None
-        if self.season_type:
+        if self.season_type > -1:
             if 0 <= self.season_type < 4:
                 season = seasons[self.season_type]
                 if period == "next":
@@ -804,7 +804,7 @@ class OtakuBrowser(BrowserBase):
                 info_rating['votes'] = total_votes
 
         trailer = None
-        if mal_res and mal_res.get('trailer'):
+        if mal_res and mal_res.get('trailer') and mal_res['trailer'].get('youtube_id'):
             trailer = f"plugin://plugin.video.youtube/play/?video_id={mal_res['trailer']['youtube_id']}"
         elif anilist_res and anilist_res.get('trailer'):
             try:
@@ -1064,7 +1064,7 @@ class OtakuBrowser(BrowserBase):
             pass
 
         try:
-            if mal_res and mal_res.get('trailer'):
+            if mal_res and mal_res.get('trailer') and mal_res['trailer'].get('youtube_id'):
                 kodi_meta['trailer'] = f"plugin://plugin.video.youtube/play/?video_id={mal_res['trailer']['youtube_id']}"
             elif anilist_res and anilist_res.get('trailer'):
                 if anilist_res['trailer']['site'] == 'youtube':

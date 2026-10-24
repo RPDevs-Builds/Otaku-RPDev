@@ -323,13 +323,14 @@ def add_my_cloud(items):
 
 
 def add_last_watched(items):
-    # # Check if last watched feature is enabled
-    # if not control.getBool("interface.show_last_watched"):
-    #     return items
-
     mal_id = control.getSetting("addon.last_watched")
+    if not mal_id:
+        return items
     try:
-        kodi_meta = pickle.loads(database.get_show(mal_id)['kodi_meta'])
+        show_row = database.get_show(mal_id)
+        if not show_row:
+            return items
+        kodi_meta = pickle.loads(show_row['kodi_meta'])
 
         # Get extended artwork from shows_meta table
         show_meta = database.get_show_meta(mal_id)
@@ -337,39 +338,75 @@ def add_last_watched(items):
         if show_meta and show_meta.get('art'):
             art = pickle.loads(show_meta['art'])
 
-        last_watched = "%s: [I]%s[/I]" % (control.lang(30000), kodi_meta['title_userPreferred'])
+        title = kodi_meta.get('title_userPreferred', '')
+        episodes = kodi_meta.get('episodes', 0)
+
+        # Lookup last watched episode from watch_history or kodi_meta
+        last_ep = None
+        if control.pathExists(control.watch_history_json):
+            try:
+                with open(control.watch_history_json, 'r', encoding='utf-8') as f:
+                    hdata = json.load(f)
+                    for entry in hdata.get('history', []):
+                        emid = str(entry.get('UniqueIDs', {}).get('mal_id') or entry.get('mal_id') or '')
+                        if emid == str(mal_id):
+                            last_ep = entry.get('last_watched_episode')
+                            break
+            except Exception:
+                pass
+
+        if last_ep is None and kodi_meta.get('eps_watched'):
+            try:
+                last_ep = int(kodi_meta['eps_watched'])
+            except (ValueError, TypeError):
+                pass
+
+        if last_ep is not None:
+            if episodes and episodes > 1:
+                badge = f" [COLOR dodgerblue]Ep {last_ep}/{episodes}[/COLOR]"
+            else:
+                badge = f" [COLOR dodgerblue]Ep {last_ep}[/COLOR]"
+        else:
+            badge = ""
+
+        last_watched = "%s: [I]%s[/I]%s" % (control.lang(30000), title, badge)
         info = {
             'UniqueIDs': {
                 'mal_id': mal_id,
                 **database.get_unique_ids(mal_id, 'mal_id')
             },
-            'title': kodi_meta.get('title_userPreferred', ''),
+            'title': f"{title}{badge}",
             'plot': kodi_meta.get('plot', ''),
             'mpaa': kodi_meta.get('mpaa', ''),
             'duration': kodi_meta.get('duration', 0),
             'genre': kodi_meta.get('genre', []),
             'studio': kodi_meta.get('studio', []),
             'status': kodi_meta.get('status', ''),
-            'mediatype': 'tvshow',
+            'mediatype': 'movie' if episodes == 1 else 'tvshow',
             'rating': kodi_meta.get('rating', {}),
             'cast': kodi_meta.get('cast', []),
             'country': kodi_meta.get('country', []),
             'trailer': kodi_meta.get('trailer', ''),
             'year': kodi_meta.get('year', ''),
             'premiered': kodi_meta.get('premiered', ''),
-            'episodes': kodi_meta.get('episodes', 0),
+            'episodes': episodes,
         }
 
         # Simple movie detection: if episodes == 1, treat as movie
-        episodes = kodi_meta.get('episodes', 0)
         if episodes == 1:
             url = f'play_movie/{mal_id}/'
-            info['mediatype'] = 'movie'
         else:
-            url = f'animes/{mal_id}/'
+            click_action = control.getInt('interface.watchhistory.click')  # 0: open list, 1: play next, 2: resume last
+            target_ep = last_ep if last_ep else 1
+            next_ep = (last_ep + 1) if (last_ep is not None and (not episodes or last_ep < episodes)) else (last_ep or 1)
+            if click_action == 1:
+                url = f'play/{mal_id}/{next_ep}'
+            elif click_action == 2:
+                url = f'play/{mal_id}/{target_ep}'
+            else:
+                url = f'animes/{mal_id}/'
 
         # Merge artwork from shows_meta into kodi_meta for the tuple
-        # This way the menu processing code can access the extended artwork
         artwork_meta = dict(kodi_meta)
         artwork_meta['poster'] = art.get('poster') or kodi_meta.get('poster', '')
         artwork_meta['fanart'] = art.get('fanart', '')
@@ -378,12 +415,13 @@ def add_last_watched(items):
         artwork_meta['clearlogo'] = art.get('clearlogo', '')
         artwork_meta['clearart'] = art.get('clearart', '')
         artwork_meta['landscape'] = art.get('landscape', '')
+        artwork_meta['last_watched_episode'] = last_ep
 
         # Return tuple with special marker for last_watched items
         items.append(('LAST_WATCHED_ITEM', last_watched, url, artwork_meta.get('poster', ''), info, artwork_meta))
 
-    except TypeError:
-        pass
+    except Exception as e:
+        control.log(f"Error adding last watched: {e}", level='warning')
 
     return items
 
@@ -698,6 +736,14 @@ def WATCH_HISTORY(payload, params):
                 title = entry.get('title', '')
                 episodes = entry.get('episodes', 0)
                 last_ep = entry.get('last_watched_episode')
+                if last_ep is None:
+                    show_data = database.get_show(mal_id)
+                    if show_data:
+                        try:
+                            s_meta = pickle.loads(show_data['kodi_meta'])
+                            last_ep = s_meta.get('eps_watched')
+                        except Exception:
+                            pass
 
                 display_title = title
                 if show_dub_badge and mal_dub.get(str(mal_id)):
@@ -1738,6 +1784,7 @@ def MARKED_AS_WATCHED(payload, params):
             kodi_meta = pickle.loads(show['kodi_meta'])
             title = kodi_meta.get('title_userPreferred', '')
         control.notify(control.ADDON_NAME, f'{title} was Marked as Watched in {updated_names}')
+        control.execute('Container.Refresh')
     control.exit_code()
 
 
@@ -2000,6 +2047,22 @@ def _finalize_menu_list_items(menu_items):
     for item in menu_items:
         if len(item) == 6 and item[0] == 'LAST_WATCHED_ITEM':
             _, name, url, image, info, kodi_meta = item
+            mal_id = info.get('UniqueIDs', {}).get('mal_id') or ''
+            episodes = kodi_meta.get('episodes', 0)
+            last_ep = kodi_meta.get('last_watched_episode')
+
+            cm = []
+            if episodes == 1:
+                cm.append(('Play Movie', f'PlayMedia(plugin://{control.ADDON_ID}/play_movie/{mal_id}/)'))
+            else:
+                target_ep = last_ep if last_ep else 1
+                next_ep = (last_ep + 1) if (last_ep is not None and (not episodes or last_ep < episodes)) else (last_ep or 1)
+                cm.append((f'Play Next Episode ({next_ep})', f'PlayMedia(plugin://{control.ADDON_ID}/play/{mal_id}/{next_ep})'))
+                if last_ep:
+                    cm.append((f'Resume Episode ({target_ep})', f'PlayMedia(plugin://{control.ADDON_ID}/play/{mal_id}/{target_ep})'))
+                cm.append(('Browse Episodes', f'ActivateWindow(Videos,plugin://{control.ADDON_ID}/animes/{mal_id}/)'))
+            cm.append(('Clear Last Watched', f'RunPlugin(plugin://{control.ADDON_ID}/clear_last_watched)'))
+
             base = {
                 'name': name,
                 'url': url,
@@ -2018,11 +2081,11 @@ def _finalize_menu_list_items(menu_items):
             if kodi_meta.get('clearlogo'):
                 clearlogo = kodi_meta['clearlogo']
                 base['clearlogo'] = random.choice(clearlogo) if isinstance(clearlogo, list) else clearlogo
-            episodes = kodi_meta.get('episodes', 0)
-            is_folder = episodes != 1
-            is_playable = episodes == 1
+            click_action = control.getInt('interface.watchhistory.click')
+            is_folder = episodes != 1 and click_action == 0
+            is_playable = episodes == 1 or click_action in (1, 2)
             processed.append(utils.allocate_item(
-                base['name'], base['url'], is_folder, is_playable, [],
+                base['name'], base['url'], is_folder, is_playable, cm,
                 base['image'], base['info'],
                 fanart=base.get('fanart'),
                 poster=base.get('poster'),
@@ -2232,6 +2295,13 @@ def CLEAR_WATCH_HISTORY(payload, params):
     control.refresh()
     if not silent:
         control.notify(f'{control.ADDON_NAME}: Watch History', 'Watch History Successfully Cleared', sound=False)
+
+
+@Route('clear_last_watched')
+def CLEAR_LAST_WATCHED(payload, params):
+    control.setSetting("addon.last_watched", "")
+    control.notify(control.ADDON_NAME, "Cleared Last Watched")
+    control.refresh()
 
 
 @Route('remove_watch_history/*')

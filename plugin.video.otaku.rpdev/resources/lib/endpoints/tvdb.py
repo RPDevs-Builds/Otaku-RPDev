@@ -1,3 +1,4 @@
+import time
 from resources.lib.ui import client, control, database
 
 api_info = database.get_info('TVDB')
@@ -6,17 +7,33 @@ baseUrl = "https://api4.thetvdb.com/v4"
 lang = ['eng', 'jpn']
 language = ["jpn", 'eng'][control.getInt("titlelanguage")]
 
+_cached_token = None
+_token_expiry = 0
 
-def get_auth_token():
-    """Get authentication token for TVDB API v4"""
-    if not api_key:
-        return None
 
+def _fetch_tvdb_token(key):
     headers = {'Content-Type': 'application/json'}
-    data = {'apikey': api_key}
+    data = {'apikey': key}
     response = client.post(f'{baseUrl}/login', json_data=data, headers=headers)
     res = control.safe_json(response)
     return res.get('data', {}).get('token')
+
+
+def get_auth_token():
+    """Get cached authentication token for TVDB API v4"""
+    global _cached_token, _token_expiry
+    if not api_key:
+        return None
+
+    now = time.time()
+    if _cached_token and now < _token_expiry:
+        return _cached_token
+
+    token = database.get(_fetch_tvdb_token, 24, api_key)
+    if token:
+        _cached_token = token
+        _token_expiry = now + 82800  # 23 hours
+    return token
 
 
 def searchByTitle(title, mtype):
@@ -74,6 +91,7 @@ def getArt(meta_ids, mtype, limit=None):
 
     if artworks:
         fanart_images = []
+        poster_images = []
         thumb_images = []
         clearart_images = []
         clearlogo_images = []
@@ -100,11 +118,11 @@ def getArt(meta_ids, mtype, limit=None):
                     if limit is None or len(fanart_images) < limit:
                         fanart_images.append(image_url)
 
-            # Posters
+            # Posters (2:3 portrait)
             elif artwork_type in [2, 14]:  # 2=Series Poster, 14=Movie Poster
                 if artwork_lang in lang or not artwork_lang:
-                    if limit is None or len(thumb_images) < limit:
-                        thumb_images.append(image_url)
+                    if limit is None or len(poster_images) < limit:
+                        poster_images.append(image_url)
 
             # Clear Art
             elif artwork_type in [22, 24]:  # 22=Series ClearArt, 24=Movie ClearArt
@@ -122,6 +140,8 @@ def getArt(meta_ids, mtype, limit=None):
         # Add to art dict
         if fanart_images:
             art['fanart'] = fanart_images
+        if poster_images:
+            art['poster'] = poster_images
         if thumb_images:
             art['thumb'] = thumb_images
         if clearart_images:

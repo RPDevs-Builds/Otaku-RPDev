@@ -55,10 +55,19 @@ class Sources(BrowserBase):
             control.log(f"HiAnime: Could not resolve show '{title}' on hianime.ms")
             return []
 
+        def fetch_lang_res(lang):
+            embed_url = self._megaplay_embed_url(meta, lang)
+            return lang, extract_megaplay_sources(embed_url, self._BASE_URL)
+
+        lang_results = dict(utils.parallel_process(langs, fetch_lang_res))
+
         tasks = []
         for lang in langs:
+            res = lang_results.get(lang)
+            if not res or not res.get('sources'):
+                continue
             for server in enabled:
-                tasks.append((server, lang, meta, title, ep_num))
+                tasks.append((server, lang, res, meta, title, ep_num))
 
         results = utils.parallel_process(tasks, self._extract_server_source)
         sources = [src for src in results if src]
@@ -352,10 +361,8 @@ class Sources(BrowserBase):
         return subs
 
     def _extract_server_source(self, task):
-        server, lang, meta, title, episode = task
+        server, lang, res, meta, title, episode = task
         try:
-            embed_url = self._megaplay_embed_url(meta, lang)
-            res = extract_megaplay_sources(embed_url, self._BASE_URL)
             play_referer = self._VIDNEST_REF
             if server == 'ayame':
                 sub_fetch_base = self._PROXY_AYAME
