@@ -1,3 +1,7 @@
+Changelog v5.3.7 (2026-10-24):
+- Settings: moved Enable Next Up and Next Up Watchlist from Watchlist to Menu Customization
+- Settings: moved Show My Debrid Cloud from General to Menu Customization
+
 Changelog v5.3.6 (2026-10-24):
 - Artwork: updated official Otaku RPDev add-on poster art
 - Settings: moved Hide Spoiler Thumbnails and Shield Artwork Mode under Settings → General → Artwork Customization
