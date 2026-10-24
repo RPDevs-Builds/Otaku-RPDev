@@ -176,24 +176,43 @@ class WatchlistPlayer(player):
     def getWatchedPercent(self):
         return (self.current_time / self.total_time) * 100 if self.total_time != 0 else 0
 
-    def onWatchedPercent(self):
-        if not self._watchlist_update:
+    def _update_watched_progress(self):
+        """Update local SQLite eps_watched and remote watchlist trackers once threshold is reached."""
+        if self.updated:
             return
+        self.updated = True
+        try:
+            show_meta = database.get_show(self.mal_id)
+            if show_meta and show_meta.get('kodi_meta'):
+                kodi_meta = pickle.loads(show_meta['kodi_meta'])
+                current_watched = int(kodi_meta.get('eps_watched') or 0) if str(kodi_meta.get('eps_watched') or 0).isdigit() else 0
+                if int(self.episode or 1) > current_watched:
+                    kodi_meta['eps_watched'] = int(self.episode or 1)
+                    database.update_kodi_meta(self.mal_id, kodi_meta)
+        except Exception as e:
+            control.log(f'Failed to update local eps_watched: {e}', 'warning')
 
+        try:
+            from resources.lib import Main
+            Main.save_to_watch_history(self.mal_id, self.episode)
+        except Exception as e:
+            control.log(f'Failed to update watch history on watched percent: {e}', 'warning')
+
+        if self._watchlist_update:
+            any_completed = self._watchlist_update(self.mal_id, self.episode)
+            if any_completed:
+                xbmc.sleep(3000)
+                service.sync_watchlist(True)
+
+    def onWatchedPercent(self):
         while self.isPlaying() and not self.updated:
             self.current_time = self.getTime()
             watched_percentage = (self.current_time / self.total_time) * 100 if self.total_time != 0 else 0
 
             if watched_percentage > self.update_percent:
-                any_completed = self._watchlist_update(self.mal_id, self.episode)
-                self.updated = True
-
-                # Sync completed watchlists if any flavor was auto-completed
-                if any_completed:
-                    xbmc.sleep(3000)
-                    service.sync_watchlist(True)
+                self._update_watched_progress()
                 break
-            xbmc.sleep(10000)  # Check every 10 seconds instead of 5
+            xbmc.sleep(5000)
 
     def keepAlive(self):
         # Monitor the Playback with optimized wait
@@ -230,20 +249,22 @@ class WatchlistPlayer(player):
             control.clearGlobalProp('script.trakt.ids')
             control.setGlobalProp('script.trakt.ids', json.dumps(unique_ids))
 
-        # Optimized menu refresh logic - only refresh if actually changed
+        # Always record current show & episode in watch history
         previous_last_watched = control.getSetting('addon.last_watched')
         current_mal_id = str(self.mal_id)
+        try:
+            from resources.lib import Main
+            Main.save_to_watch_history(self.mal_id, self.episode)
+        except Exception as e:
+            control.log(f'Failed to save watch history: {e}', 'warning')
 
         if previous_last_watched != current_mal_id:
             control.setSetting('addon.last_watched', current_mal_id)
             control.log(f'Last watched changed from {previous_last_watched} to {current_mal_id}')
-            # Add to watch history
-            from resources.lib import Main
-            Main.save_to_watch_history(self.mal_id)
             # Defer refresh to avoid blocking playback
             control.setGlobalProp('otaku.menu.needs_refresh', 'true')
         else:
-            control.log(f'Last watched unchanged ({current_mal_id}) - skipping updates')
+            control.log(f'Last watched show unchanged ({current_mal_id}) - updated episode {self.episode} in watch history')
 
         # Continue with audio/subtitle setup which is needed immediately
         if self.type not in ['embed', 'direct']:
@@ -264,21 +285,15 @@ class WatchlistPlayer(player):
                 timeout -= 1
             self.process_ffprobe_chapter_skips()
 
-            # Handle skip intro functionality
-            self._handle_skip_intro()
-
-            # Handle watchlist updates for episodes
-            self.onWatchedPercent()
-
-            # Handle outro/playing next functionality
-            self._handle_outro_and_playing_next()
+            # Unified playback monitoring loop: handles intro skip, watched %, and outro/playing next concurrently
+            self._run_unified_episode_monitor()
         else:
             self.onWatchedPercent()
 
-        # Optimized playback monitoring with longer sleep intervals
+        # Continue monitoring until playback finishes
         while self.isPlaying():
             self.current_time = int(self.getTime())
-            xbmc.sleep(10000)  # Reduced frequency from 5s to 10s
+            xbmc.sleep(5000)
 
         # Cleanup
         if self._monitor:
@@ -286,73 +301,57 @@ class WatchlistPlayer(player):
 
     # ── Skip Intro / Outro / Playing Next ──────────────────────────────
 
-    def _handle_skip_intro(self):
-        """Handle skip intro functionality with fallbacks - optimized"""
-        # Only proceed if skip intro dialog is enabled OR auto-skip is enabled
-        if not (control.getBool('smartplay.skipintrodialog') or self.skipintro_aniskip_auto):
-            return
-
-        # Wait for skip times to be processed (with timeout)
-        timeout = 30  # 30 iterations = 3 seconds max
-        while not self._skip_processed and timeout > 0:
-            xbmc.sleep(100)
-            timeout -= 1
-
-        # Determine intro times and whether we have aniskip data
-        intro_start = self.skipintro_start if self.skipintro_aniskip else control.getInt('skipintro.delay') or 1
+    def _run_unified_episode_monitor(self):
+        """Unified monitoring loop for intro skip, watched percent, and outro/playing next."""
+        intro_enabled = control.getBool('smartplay.skipintrodialog') or self.skipintro_aniskip_auto
+        intro_start = self.skipintro_start if self.skipintro_aniskip else (control.getInt('skipintro.delay') or 1)
         intro_end = self.skipintro_end if self.skipintro_aniskip else intro_start + (control.getInt('skipintro.duration') * 60)
+        intro_handled = not intro_enabled
 
-        if not self.skipintro_aniskip:
-            control.log('Using default intro skip times - no aniskip data found')
-
-        # Optimized monitoring - check less frequently
-        while self.isPlaying():
-            self.current_time = int(self.getTime())
-            if self.current_time > intro_end:
-                break
-            elif self.current_time > intro_start:
-                # Auto skip ONLY if enabled AND we have aniskip data
-                if self.skipintro_aniskip_auto and self.skipintro_aniskip:
-                    self.seekTime(intro_end)
-                    control.log(f'Auto-skipped intro: {intro_start}-{intro_end}')
-                else:
-                    # Show skip intro dialog (works for both aniskip data and default times)
-                    PlayerDialogs().show_skip_intro(self.skipintro_aniskip, intro_end)
-                break
-            xbmc.sleep(2000)  # Check every 2 seconds instead of 1
-
-    def _handle_outro_and_playing_next(self):
-        """Handle outro skip and playing next functionality with fallbacks - optimized"""
-        # Get user's playing next setting
         playnext_enabled = control.getBool('smartplay.playingnextdialog')
         playnext_time = control.getInt('playingnext.time') if playnext_enabled else 0
+        outro_enabled = (playnext_time > 0) or self.skipoutro_aniskip_auto
+        outro_handled = not outro_enabled
 
-        # Proceed if: playnext is enabled OR outro auto-skip is enabled
-        if not (playnext_time > 0 or self.skipoutro_aniskip_auto):
-            return
-
-        while self.isPlaying():
+        while self.isPlaying() and not (intro_handled and self.updated and outro_handled):
             self.current_time = int(self.getTime())
-            time_remaining = self.total_time - self.current_time
+            if self.total_time <= 0:
+                self.total_time = int(self.getTotalTime())
 
-            # Handle auto skip outro (only if we have aniskip data)
-            if self.skipoutro_aniskip_auto and self.skipoutro_aniskip and self.current_time >= self.skipoutro_start and self.skipoutro_start > 0:
-                if self.skipoutro_end > 0:
-                    self.seekTime(self.skipoutro_end)
-                    control.log(f'Auto-skipped outro: {self.skipoutro_start}-{self.skipoutro_end}')
-                break
+            # 1. Intro Skip check
+            if not intro_handled:
+                if self.current_time > intro_end:
+                    intro_handled = True
+                elif self.current_time > intro_start:
+                    if self.skipintro_aniskip_auto and self.skipintro_aniskip:
+                        self.seekTime(intro_end)
+                        control.log(f'Auto-skipped intro: {intro_start}-{intro_end}')
+                    else:
+                        PlayerDialogs().show_skip_intro(self.skipintro_aniskip, intro_end)
+                    intro_handled = True
 
-            # Handle dialog display
-            elif self._should_show_dialog(time_remaining, playnext_time):
-                if self.skipoutro_aniskip and not self.skipoutro_aniskip_auto:
-                    # Show skip outro dialog
-                    PlayerDialogs().display_dialog(True, self.skipoutro_end)
-                elif not self.skipoutro_aniskip and playnext_time > 0:
-                    # Show regular playing next dialog
-                    PlayerDialogs().display_dialog(False, 0)
-                break
+            # 2. Watched Percentage check
+            if not self.updated and self.total_time > 0:
+                watched_percentage = (self.current_time / self.total_time) * 100
+                if watched_percentage > self.update_percent:
+                    self._update_watched_progress()
 
-            xbmc.sleep(5000)  # Check every 5 seconds
+            # 3. Outro Skip & Playing Next check
+            if not outro_handled and self.total_time > 0:
+                time_remaining = self.total_time - self.current_time
+                if self.skipoutro_aniskip_auto and self.skipoutro_aniskip and self.current_time >= self.skipoutro_start and self.skipoutro_start > 0:
+                    if self.skipoutro_end > 0:
+                        self.seekTime(self.skipoutro_end)
+                        control.log(f'Auto-skipped outro: {self.skipoutro_start}-{self.skipoutro_end}')
+                    outro_handled = True
+                elif self._should_show_dialog(time_remaining, playnext_time):
+                    if self.skipoutro_aniskip and not self.skipoutro_aniskip_auto:
+                        PlayerDialogs().display_dialog(True, self.skipoutro_end)
+                    elif not self.skipoutro_aniskip and playnext_time > 0:
+                        PlayerDialogs().display_dialog(False, 0)
+                    outro_handled = True
+
+            xbmc.sleep(2000)
 
     def _should_show_dialog(self, time_remaining, playnext_time):
         """Determine if we should show a dialog - simplified"""
@@ -425,7 +424,8 @@ class WatchlistPlayer(player):
                         break
                 else:
                     # If no default audio stream is found, set to the first available audio stream
-                    self.setAudioStream(audio_streams[0]['index'])
+                    if audio_streams:
+                        self.setAudioStream(audio_streams[0]['index'])
 
             # Set preferred subtitle stream
             subtitle_int = None
@@ -487,7 +487,8 @@ class WatchlistPlayer(player):
 
             # Enable and Disable Subtitles based on audio streams
             if len(audio_streams) == 1:
-                if "jpn" not in audio_streams:
+                single_lang = audio_streams[0].get('language', '')
+                if single_lang != "jpn":
                     if control.getBool('general.dubsubtitles'):
                         if preferred_subtitle_lang == "none":
                             self.showSubtitles(False)
@@ -495,8 +496,7 @@ class WatchlistPlayer(player):
                             self.showSubtitles(True)
                     else:
                         self.showSubtitles(False)
-
-                if "eng" not in audio_streams:
+                elif single_lang != "eng":
                     if preferred_subtitle_lang == "none":
                         self.showSubtitles(False)
                     else:

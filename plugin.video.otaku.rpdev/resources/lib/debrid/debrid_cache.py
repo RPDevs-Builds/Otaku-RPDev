@@ -51,14 +51,20 @@ def get_cached_hashes(hash_list):
         return []
     _ensure_debrid_cache_table()
     now = int(time.time())
-    placeholders = ', '.join('?' for _ in hash_list)
+    results = []
     with database.SQL(control.cacheFile) as cur:
-        cur.execute(
-            f'SELECT hash, debrid, cached FROM debrid_cache '
-            f'WHERE hash IN ({placeholders}) AND expires > ?',
-            hash_list + [now]
-        )
-        return cur.fetchall() or []
+        for i in range(0, len(hash_list), 500):
+            chunk = hash_list[i:i + 500]
+            placeholders = ', '.join('?' for _ in chunk)
+            cur.execute(
+                f'SELECT hash, debrid, cached FROM debrid_cache '
+                f'WHERE hash IN ({placeholders}) AND expires > ?',
+                chunk + [now]
+            )
+            rows = cur.fetchall()
+            if rows:
+                results.extend(rows)
+    return results
 
 
 def set_cached_hashes(hash_status_list, debrid):
@@ -211,7 +217,7 @@ def _dmm_check_cache(hash_list, imdb_id, collector):
             'imdbId': imdb_id,
             'hashes': clean_hashes
         }
-        response = client.post(url, json=data, timeout=7)
+        response = client.post(url, json_data=data, timeout=7)
         if response and response.ok:
             available = response.json().get('available', [])
             for f in available:

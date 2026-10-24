@@ -8,7 +8,7 @@ from resources.lib.pages import (
     nyaa, animetosho, nekobt, torrentio, debrid_cloudfiles, easynews,
     animepahe, anikoto, animixplay, hianime, watchnixtoons2, localfiles
 )
-from resources.lib.ui import control, database
+from resources.lib.ui import control, database, source_utils
 from resources.lib.windows.get_sources_window import GetSources
 from resources.lib.windows import sort_select
 
@@ -185,7 +185,7 @@ class Sources(GetSources):
         get_sources = mod.Sources().get_sources
         call_args = (query, mal_id, episode, status, media_type, season, part)
         if rescrape:
-            all_sources = get_sources(*call_args)
+            all_sources = get_sources(*call_args, rescrape=True)
         else:
             all_sources = database.get(get_sources, 8, *call_args, key=cache_key)
         if all_sources is None:
@@ -263,34 +263,39 @@ class Sources(GetSources):
         filter_option = control.getInt('general.fileFilter')
 
         def _get_size_in_gb(item):
+            size_gb = None
             byte_size = item.get('byte_size')
             if byte_size and isinstance(byte_size, (int, float)) and byte_size > 0:
-                return byte_size / (1024.0 ** 3)
-            raw_size = item.get('size')
-            if not raw_size or not isinstance(raw_size, str):
-                return None
-            raw_size = raw_size.strip()
-            if raw_size.upper() in ('NA', 'N/A', 'UNKNOWN', 'NONE', ''):
-                return None
-            match = re.search(r'([\d.]+)\s*([KMGTP]?B)', raw_size, re.IGNORECASE)
-            if not match:
-                return None
-            try:
-                num = float(match.group(1))
-            except (ValueError, TypeError):
-                return None
-            unit = match.group(2).upper()
-            if unit == 'TB':
-                return num * 1024.0
-            elif unit == 'GB':
-                return num
-            elif unit == 'MB':
-                return num / 1024.0
-            elif unit == 'KB':
-                return num / (1024.0 ** 2)
-            elif unit == 'B':
-                return num / (1024.0 ** 3)
-            return num
+                size_gb = byte_size / (1024.0 ** 3)
+            else:
+                raw_size = item.get('size')
+                if raw_size and isinstance(raw_size, str):
+                    raw_size = raw_size.strip()
+                    if raw_size.upper() not in ('NA', 'N/A', 'UNKNOWN', 'NONE', ''):
+                        match = re.search(r'([\d.]+)\s*([KMGTP]?B)', raw_size, re.IGNORECASE)
+                        if match:
+                            try:
+                                num = float(match.group(1))
+                                unit = match.group(2).upper()
+                                if unit == 'TB':
+                                    size_gb = num * 1024.0
+                                elif unit == 'GB':
+                                    size_gb = num
+                                elif unit == 'MB':
+                                    size_gb = num / 1024.0
+                                elif unit == 'KB':
+                                    size_gb = num / (1024.0 ** 2)
+                                elif unit == 'B':
+                                    size_gb = num / (1024.0 ** 3)
+                                else:
+                                    size_gb = num
+                            except (ValueError, TypeError):
+                                size_gb = None
+            if size_gb is not None and media_type != 'movie' and source_utils.is_season_pack(item):
+                ep_range = source_utils.extract_episode_range(item.get('release_title') or '')
+                ep_count = max(1, ep_range[1] - ep_range[0] + 1) if ep_range else 12
+                size_gb = size_gb / ep_count
+            return size_gb
 
         if filter_option == 1:
             # web speed limit

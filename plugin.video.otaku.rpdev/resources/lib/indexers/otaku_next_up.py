@@ -338,18 +338,14 @@ class Otaku_Next_Up_API:
         return all_results
 
     def append_episodes(self, mal_id, episodes, eps_watched, poster, fanart, clearart, clearlogo, tvshowtitle, filler_data=None, dub_data=None):
-        update_time, diff = indexers.get_diff(episodes[-1])
+        _, diff = indexers.get_diff(episodes[-1])
         if diff > control.getInt('interface.check.updates'):
-            result = self.get_episode_meta(mal_id)
-            season = episodes[0]['season']
-            mapfunc2 = partial(self.parse_episode_view, mal_id=mal_id, season=season, poster=poster, fanart=fanart, clearart=clearart, clearlogo=clearlogo, eps_watched=eps_watched, update_time=update_time, tvshowtitle=tvshowtitle, dub_data=dub_data, filler_data=filler_data, episodes=episodes)
-            # Parallelize episode parsing
-            all_results = utils.parallel_process(result, mapfunc2)
-            all_results = [r for r in all_results if r is not None]
-        else:
-            mapfunc1 = partial(indexers.parse_episodes, eps_watched=eps_watched, dub_data=dub_data)
-            # Parallelize episode parsing
-            all_results = utils.parallel_process(episodes, mapfunc1)
+            all_results = self.process_episode_view(mal_id, poster, fanart, clearart, clearlogo, eps_watched, tvshowtitle, dub_data, filler_data)
+            if all_results:
+                return all_results
+        mapfunc1 = partial(indexers.parse_episodes, eps_watched=eps_watched, dub_data=dub_data)
+        # Parallelize episode parsing
+        all_results = utils.parallel_process(episodes, mapfunc1)
         return all_results
 
     def get_episodes(self, mal_id, show_meta):

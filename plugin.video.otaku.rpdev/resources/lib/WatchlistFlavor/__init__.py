@@ -197,6 +197,7 @@ class WatchlistFlavor:
                 # Per-flavor completion detection using each service's own total episode count
                 entry = flavor.get_watchlist_anime_entry(mal_id)
                 total = entry.get('total_episodes') if entry else None
+                current_status = entry.get('status') if entry else None
 
                 # DEBUG: Log what each API returns for total_episodes
                 # control.print(f'[DEBUG] {flavor.flavor_name}: API total_episodes={total}, kodi_meta fallback={kodi_episodes}, entry={entry}')
@@ -211,8 +212,9 @@ class WatchlistFlavor:
                     control.log(f'Auto-completed {flavor.flavor_name} (ep {episode}/{total})')
                 else:
                     mapped = WatchlistFlavor._STATUS_MAP['watching'].get(flavor.flavor_name, 'watching')
-                    flavor.update_list_status(mal_id, mapped)
-                    control.log(f'Set watching on {flavor.flavor_name} (ep {episode}/{total})')
+                    if current_status not in (mapped, 'REPEATING'):
+                        flavor.update_list_status(mal_id, mapped)
+                        control.log(f'Set watching on {flavor.flavor_name} (ep {episode}/{total})')
 
             except Exception as e:
                 control.log(f'Failed to update on {flavor.flavor_name}: {e}', 'warning')
@@ -282,10 +284,11 @@ class WatchlistFlavor:
             except Exception as e:
                 control.log(f'Failed to sync completed for {flavor.flavor_name}: {e}', 'warning')
 
-        # Write merged completed data from all flavors once
-        with open(control.completed_json, 'w') as file:
-            json.dump(merged_completed, file)
-        control.log(f'Wrote {len(merged_completed)} total completed entries to completed.json')
+        # Write merged completed data from all flavors once (only when non-empty to prevent wiping on transient errors)
+        if merged_completed:
+            with open(control.completed_json, 'w') as file:
+                json.dump(merged_completed, file)
+            control.log(f'Wrote {len(merged_completed)} total completed entries to completed.json')
         return synced
 
     # ==================== Single-Flavor Methods (for Watchlist Manager) ====================

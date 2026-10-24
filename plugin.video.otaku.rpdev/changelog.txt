@@ -1,3 +1,10 @@
+Changelog v5.4.0 (2026-10-24):
+- Debrid Cloud & Cache: fixed Real-Debrid, AllDebrid, and TorBox cloud playback/imports, DMM cache check payload, and SQLite 500-item batching
+- Player & Resolver: unified episode monitor loop, fixed single-track dub subtitle override, synced local eps_watched + Watch History on completion, and hardened resolver header/art handling
+- Database: hardened SQL context manager, atomic batch transactions, WAL-safe database rebuild, and Tier-1 RAM cache generation invalidation
+- Watchlist & Metadata: fixed Simkl/AniList watchlist mutations, REPEATING status preservation, pre-pagination slicing, multi-provider append_episodes refresh, and AnimeSchedule cour season mapping
+- Scrapers & HTTP Client: normalized season pack sizes per episode in size filters, propagated rescrape to debrid cache checks, and made HTTP client SSL/opener handling thread-safe
+
 Changelog v5.3.9 (2026-10-24):
 - Context Menu: restored 'Mark Episodes Up To Here as Watched' action
 - Context Menu: added 'Mark as Unwatched WatchList' action with instant UI refresh

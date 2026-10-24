@@ -128,8 +128,8 @@ def get_cloud_items(provider, folder_id=None):
                     })
 
         elif provider == 'torbox':
-            from resources.lib.debrid.torbox import Torbox
-            tb = Torbox()
+            from resources.lib.debrid.torbox import TorBox
+            tb = TorBox()
             if not folder_id:
                 torrents = tb.list_torrents() or []
                 for t in torrents:
@@ -195,22 +195,45 @@ def get_cloud_items(provider, folder_id=None):
             else:
                 match = next((t for t in torrents if str(t.get('id')) == str(folder_id)), None)
                 if match:
-                    for link_entry in match.get('links', []):
-                        fname = link_entry.get('filename', '')
-                        if not source_utils.is_file_ext_valid(fname):
-                            continue
-                        fsize = link_entry.get('size', 0)
-                        link = link_entry.get('link', '')
-                        size_badge = f"[{format_bytes(fsize)}]"
-                        items.append({
-                            'name': f"{size_badge} {fname}",
-                            'title': fname,
-                            'id': folder_id,
-                            'file_ref': link,
-                            'provider': 'alldebrid',
-                            'is_folder': False,
-                            'size': format_bytes(fsize)
-                        })
+                    raw_files = match.get('files', [])
+                    if raw_files:
+                        folder_details = []
+                        for x in raw_files:
+                            ad.collect_files(x, folder_details)
+                        for f in folder_details:
+                            path = f.get('path', '')
+                            fname = path.rsplit('/', 1)[-1] if '/' in path else path
+                            if not source_utils.is_file_ext_valid(fname):
+                                continue
+                            fsize = f.get('size', 0)
+                            link = f.get('link', '')
+                            size_badge = f"[{format_bytes(fsize)}]"
+                            items.append({
+                                'name': f"{size_badge} {fname}",
+                                'title': fname,
+                                'id': folder_id,
+                                'file_ref': link,
+                                'provider': 'alldebrid',
+                                'is_folder': False,
+                                'size': format_bytes(fsize)
+                            })
+                    else:
+                        for link_entry in match.get('links', []):
+                            fname = link_entry.get('filename', '')
+                            if not source_utils.is_file_ext_valid(fname):
+                                continue
+                            fsize = link_entry.get('size', 0)
+                            link = link_entry.get('link', '')
+                            size_badge = f"[{format_bytes(fsize)}]"
+                            items.append({
+                                'name': f"{size_badge} {fname}",
+                                'title': fname,
+                                'id': folder_id,
+                                'file_ref': link,
+                                'provider': 'alldebrid',
+                                'is_folder': False,
+                                'size': format_bytes(fsize)
+                            })
 
     except Exception as e:
         control.log(f"Error fetching {provider} cloud items: {str(e)}", "error")
@@ -224,6 +247,8 @@ def resolve_stream_url(provider, item_id, file_ref):
         if provider == 'realdebrid':
             from resources.lib.debrid.real_debrid import RealDebrid
             res = RealDebrid().resolve_hoster(file_ref)
+            if isinstance(res, str) and res:
+                return res
             if res and isinstance(res, dict):
                 return res.get('download')
 
@@ -238,12 +263,14 @@ def resolve_stream_url(provider, item_id, file_ref):
                     return item.get('link')
 
         elif provider == 'torbox':
-            from resources.lib.debrid.torbox import Torbox
-            return Torbox().request_dl_link(item_id, file_ref)
+            from resources.lib.debrid.torbox import TorBox
+            return TorBox().request_dl_link(item_id, int(file_ref))
 
         elif provider == 'alldebrid':
             from resources.lib.debrid.all_debrid import AllDebrid
             res = AllDebrid().resolve_hoster(file_ref)
+            if isinstance(res, str) and res:
+                return res
             if res and isinstance(res, dict):
                 return res.get('data', {}).get('link') or res.get('link')
 
@@ -263,8 +290,8 @@ def delete_cloud_item(provider, item_id):
             from resources.lib.debrid.premiumize import Premiumize
             return Premiumize().delete_torrent(item_id)
         elif provider == 'torbox':
-            from resources.lib.debrid.torbox import Torbox
-            return Torbox().delete_torrent(item_id)
+            from resources.lib.debrid.torbox import TorBox
+            return TorBox().delete_torrent(item_id)
         elif provider == 'alldebrid':
             from resources.lib.debrid.all_debrid import AllDebrid
             return AllDebrid().delete_magnet(item_id)

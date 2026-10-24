@@ -59,11 +59,12 @@ class AniListWLF(WatchlistFlavorBase):
 
         r = client.post(self._URL, headers=self.__headers(), json_data={'query': query, 'variables': variables})
         results = r.json() if r else None
-        if results is None:
+        user = (results or {}).get('data', {}).get('User') if results else None
+        if not user or not user.get('id'):
             control.setSetting('anilist.token', '')
             control.setSetting('anilist.username', '')
             return
-        userId = results['data']['User']['id']
+        userId = user['id']
         login_data = {
             'userid': str(userId)
         }
@@ -186,8 +187,8 @@ class AniListWLF(WatchlistFlavorBase):
         '''
 
         variables = {
-            'userId': int(self.user_id),
-            'username': self.username,
+            'userId': int(self.user_id) if self.user_id else None,
+            'userName': self.username,
             'status': status,
             'type': 'ANIME',
             'sort': self.__get_sort(),
@@ -249,7 +250,6 @@ class AniListWLF(WatchlistFlavorBase):
 
         # Deserialize cached items
         entries = [pickle.loads(item['data']) for item in cached_items]
-        get_meta.collect_meta(entries)
 
         # If sorting by title, sort manually alphabetically.
         if int(self.sort) == 0:
@@ -263,14 +263,17 @@ class AniListWLF(WatchlistFlavorBase):
         if int(self.order) == 1:
             entries.reverse()
 
+        total_count = len(entries)
+        if paging_enabled and per_page > 0:
+            entries = entries[offset:offset + per_page]
+
+        get_meta.collect_meta(entries)
+
         # Map to views
         all_results = list(map(self.base_watchlist_status_view, entries))
         all_results = [r for r in all_results if r is not None]
 
-        # Slice to page AFTER sorting
         if paging_enabled and per_page > 0:
-            total_count = len(all_results)
-            all_results = all_results[offset:offset + per_page]
             has_next = (offset + per_page) < total_count
             all_results += self.handle_paging(has_next, f'watchlist_status_type_pages/anilist/{status}/{offset + per_page}', page)
 
@@ -487,7 +490,7 @@ class AniListWLF(WatchlistFlavorBase):
             'status': res.get('status'),
             'mediatype': 'tvshow',
             'country': [res.get('countryOfOrigin', '')],
-            'studio': [x['node'].get('name') for x in res['studios'].get('edges')]
+            'studio': [x['node'].get('name') for x in ((res.get('studios') or {}).get('edges') or []) if x and x.get('node')]
         }
 
         if res['episodes'] != 0 and progress == res['episodes']:
@@ -514,21 +517,27 @@ class AniListWLF(WatchlistFlavorBase):
             info['plot'] = desc
 
         try:
-            start_date = res.get('startDate')
-            info['aired'] = '{}-{:02}-{:02}'.format(start_date['year'], start_date['month'], start_date['day'])
-        except TypeError:
+            start_date = res.get('startDate') or {}
+            if start_date.get('year'):
+                info['aired'] = '{}-{:02}-{:02}'.format(
+                    int(start_date['year']),
+                    int(start_date.get('month') or 1),
+                    int(start_date.get('day') or 1)
+                )
+        except (TypeError, ValueError):
             pass
 
         cast = []
-        try:
-            for i, x in enumerate(res['characters']['edges']):
+        for i, x in enumerate((res.get('characters') or {}).get('edges') or []):
+            try:
                 role = x['node']['name']['userPreferred']
                 actor = x['voiceActors'][0]['name']['userPreferred']
                 actor_hs = x['voiceActors'][0]['image'].get('large')
                 cast.append({'name': actor, 'role': role, 'thumbnail': actor_hs, 'index': i})
-                info['cast'] = cast
-        except IndexError:
-            pass
+            except (IndexError, KeyError, TypeError):
+                continue
+        if cast:
+            info['cast'] = cast
 
         show_meta = database.get_show_meta(mal_id)
         kodi_meta = pickle.loads(show_meta.get('art')) if show_meta else {}
@@ -631,8 +640,8 @@ class AniListWLF(WatchlistFlavorBase):
         '''
 
         variables = {
-            'userId': int(self.user_id),
-            'username': self.username,
+            'userId': int(self.user_id) if self.user_id else None,
+            'userName': self.username,
             'status': status,
             'type': 'ANIME',
             'sort': self.__get_sort()
@@ -670,8 +679,8 @@ class AniListWLF(WatchlistFlavorBase):
         anilist_id = self._get_mapping_id(mal_id, 'anilist_id')
         if not anilist_id:
             return False
-        if anilist_id.startswith('http'):
-            anilist_id = anilist_id.split('/')[-1]
+        if str(anilist_id).startswith('http'):
+            anilist_id = str(anilist_id).split('/')[-1]
         query = '''
         mutation ($mediaId: Int, $status: MediaListStatus) {
             SaveMediaListEntry (mediaId: $mediaId, status: $status) {
@@ -749,7 +758,8 @@ class AniListWLF(WatchlistFlavorBase):
         anilist_id = self._get_mapping_id(mal_id, 'anilist_id')
         if not anilist_id:
             return False
-        media_entry = self.get_watchlist_anime_info(anilist_id)['data']['Media']['mediaListEntry']
+        info_res = self.get_watchlist_anime_info(anilist_id) or {}
+        media_entry = ((info_res.get('data') or {}).get('Media') or {}).get('mediaListEntry')
         if media_entry:
             list_id = media_entry['id']
         else:

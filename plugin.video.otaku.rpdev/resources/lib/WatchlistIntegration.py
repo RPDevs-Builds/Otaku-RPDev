@@ -102,9 +102,12 @@ def WATCHLIST_TO_EP(payload, params):
         mal_id, eps_watched, extra = payload_list
     show_meta = database.get_show(mal_id)
     if not show_meta:
-        show_meta = BROWSER.get_anime(mal_id)
+        BROWSER.get_anime(mal_id)
+        show_meta = database.get_show(mal_id)
+        if not show_meta:
+            return control.exit_code()
     kodi_meta = pickle.loads(show_meta['kodi_meta'])
-    kodi_meta['eps_watched'] = eps_watched
+    kodi_meta['eps_watched'] = int(eps_watched) if str(eps_watched).isdigit() else eps_watched
     database.update_kodi_meta(mal_id, kodi_meta)
 
     anime_general, content_type = MetaBrowser.get_anime_init(mal_id)
@@ -120,7 +123,10 @@ def CONTEXT_MENU(payload, params):
     path, mal_id, eps_watched = payload_list
 
     if not (show := database.get_show(mal_id)):
-        show = BROWSER.get_anime(mal_id)
+        BROWSER.get_anime(mal_id)
+        show = database.get_show(mal_id)
+        if not show:
+            return control.exit_code()
 
     # Get all enabled watchlists
     enabled = control.enabled_watchlists()

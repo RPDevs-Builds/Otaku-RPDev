@@ -60,6 +60,34 @@ _USERAGENT_CACHE_TTL = 3600  # 1 hour
 _request_count = 0
 _CLEANUP_EVERY_N_REQUESTS = 128
 
+_VERIFIED_SSL_CONTEXT = None
+_UNVERIFIED_SSL_CONTEXT = None
+
+
+def _get_ssl_context(verify=True):
+    """Return a cached SSLContext for verified or unverified requests without mutating global ssl defaults."""
+    global _VERIFIED_SSL_CONTEXT, _UNVERIFIED_SSL_CONTEXT
+    if not verify:
+        if _UNVERIFIED_SSL_CONTEXT is None:
+            ctx = ssl._create_unverified_context()
+            try:
+                ctx.set_alpn_protocols(['http/1.1'])
+            except BaseException:
+                pass
+            _UNVERIFIED_SSL_CONTEXT = ctx
+        return _UNVERIFIED_SSL_CONTEXT
+    if _VERIFIED_SSL_CONTEXT is None:
+        try:
+            ctx = ssl.create_default_context(cafile=CERT_FILE)
+        except BaseException:
+            ctx = ssl.create_default_context()
+        try:
+            ctx.set_alpn_protocols(['http/1.1'])
+        except BaseException:
+            pass
+        _VERIFIED_SSL_CONTEXT = ctx
+    return _VERIFIED_SSL_CONTEXT
+
 
 def _cleanup_old_sessions():
     """Clean up sessions older than timeout to prevent memory leaks"""
@@ -216,8 +244,6 @@ def request(
         if proxy is not None:
             handlers += [urllib.request.ProxyHandler(
                 {'http': '%s' % proxy}), urllib.request.HTTPHandler]
-            opener = urllib.request.build_opener(*handlers)
-            opener = urllib.request.install_opener(opener)
 
         if params is not None:
             if isinstance(params, dict):
@@ -227,19 +253,10 @@ def request(
         if output == 'cookie' or output == 'extended' or not close:
             cookies = http.cookiejar.LWPCookieJar()
             handlers += [urllib.request.HTTPHandler(),
-                         urllib.request.HTTPSHandler(),
                          urllib.request.HTTPCookieProcessor(cookies)]
-            opener = urllib.request.build_opener(*handlers)
-            opener = urllib.request.install_opener(opener)
 
         if output == 'elapsed':
             start_time = time.time() * 1000
-
-        try:
-            import platform
-            node = platform.uname()[1]
-        except BaseException:
-            node = ''
 
         # Enhanced SSL/TLS handling with multiple protocol support (WNT2-style)
         ssl_context_created = False
@@ -264,45 +281,34 @@ def request(
                 control.log(f"TLS override failed: {str(e)}")
 
         if not ssl_context_created:
-            if verify is False and sys.version_info >= (2, 7, 12):
-                try:
-                    ssl_context = ssl._create_unverified_context()
-                    ssl._create_default_https_context = ssl._create_unverified_context
-                    ssl_context.set_alpn_protocols(['http/1.1'])
-                    handlers += [urllib.request.HTTPSHandler(context=ssl_context)]
-                    ssl_context_created = True
-                except BaseException:
-                    pass
+            try:
+                ssl_context = _get_ssl_context(verify=bool(verify))
+                handlers += [urllib.request.HTTPSHandler(context=ssl_context)]
+                ssl_context_created = True
+            except BaseException:
+                pass
 
-            if not ssl_context_created and verify and ((2, 7, 8) < sys.version_info < (2, 7, 12)
-                                                       or node == 'XboxOne'):
-                try:
-                    ssl_context = ssl.create_default_context()
-                    ssl_context.check_hostname = False
-                    ssl_context.verify_mode = ssl.CERT_NONE
-                    ssl_context.set_alpn_protocols(['http/1.1'])
-                    handlers += [urllib.request.HTTPSHandler(context=ssl_context)]
-                    ssl_context_created = True
-                except BaseException:
-                    pass
-            elif not ssl_context_created:
-                try:
-                    ssl_context = ssl.create_default_context(cafile=CERT_FILE)
-                    ssl_context.set_alpn_protocols(['http/1.1'])
-                    handlers += [urllib.request.HTTPSHandler(context=ssl_context)]
-                    ssl_context_created = True
-                except BaseException:
-                    pass
+        if redirect is False:
+            class NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+                def http_error_302(self, req, fp, code, msg, headers):
+                    infourl = urllib.response.addinfourl(fp, headers, req.full_url)
+                    if sys.version_info < (3, 9, 0):
+                        infourl.status = code
+                        infourl.code = code
+                    return infourl
+                http_error_300 = http_error_302
+                http_error_301 = http_error_302
+                http_error_303 = http_error_302
+                http_error_307 = http_error_302
 
-        # Build opener with handlers
-        if handlers:
-            opener = urllib.request.build_opener(*handlers)
-            if use_session:
-                # Store opener for session reuse with timestamp
-                _session_openers[domain] = opener
-                _session_timestamps[domain] = time.time()
-            else:
-                urllib.request.install_opener(opener)
+            handlers += [NoRedirectHandler()]
+
+        # Build local opener with handlers (never mutate global urllib opener across threads)
+        opener = urllib.request.build_opener(*handlers) if handlers else urllib.request.build_opener()
+        if use_session and redirect is not False and proxy is None:
+            # Store opener for session reuse with timestamp
+            _session_openers[domain] = opener
+            _session_timestamps[domain] = time.time()
 
         if url.startswith('//'):
             url = 'http:' + url
@@ -355,22 +361,6 @@ def request(
         elif compression and limit is None:
             _headers['Accept-Encoding'] = 'gzip'
 
-        if redirect is False:
-            class NoRedirectHandler(urllib.request.HTTPRedirectHandler):
-                def http_error_302(self, req, fp, code, msg, headers):
-                    infourl = urllib.response.addinfourl(fp, headers, req.full_url)
-                    if sys.version_info < (3, 9, 0):
-                        infourl.status = code
-                        infourl.code = code
-                    return infourl
-                http_error_300 = http_error_302
-                http_error_301 = http_error_302
-                http_error_303 = http_error_302
-                http_error_307 = http_error_302
-
-            opener = urllib.request.build_opener(NoRedirectHandler())
-            urllib.request.install_opener(opener)
-
         url = byteify(url.replace(' ', '%20'))
         req = urllib.request.Request(url)
 
@@ -403,11 +393,11 @@ def request(
         _add_request_header(req, _headers)
 
         try:
-            # Use session opener if available
-            if use_session and domain in _session_openers:
+            # Use local/session opener so concurrent threads never clobber global urllib state
+            if use_session and redirect is not False and proxy is None and domain in _session_openers:
                 response = _session_openers[domain].open(req, timeout=int(timeout))
             else:
-                response = urllib.request.urlopen(req, timeout=int(timeout))
+                response = opener.open(req, timeout=int(timeout))
         except urllib.error.HTTPError as e:
             if error is True:
                 response = e
@@ -420,7 +410,7 @@ def request(
                     f.close()
                 else:
                     result = e.read()
-                result = result.decode('latin-1', errors='ignore')
+                result = result.decode('utf-8', errors='ignore')
                 error_code = e.code
 
                 # Enhanced Cloudflare 403 handling with TLS retry (WNT2-style)
@@ -451,6 +441,12 @@ def request(
 
                     # If TLS retries fail, give up
                     control.log("All TLS bypass attempts failed")
+                    if output == 'extended':
+                        try:
+                            err_headers = dict([(item[0].title(), item[1]) for item in list(e.info().items())])
+                        except BaseException:
+                            err_headers = {}
+                        return (result, str(error_code), err_headers, _headers, '', getattr(e, 'url', url))
                     if not error:
                         return None
 
@@ -461,18 +457,36 @@ def request(
                         cf_cookie, cf_ua = cfcookie().get(netloc, timeout)
                         if cf_cookie is None:
                             control.log('%s has an unsolvable Cloudflare challenge.' % (netloc))
+                            if output == 'extended':
+                                try:
+                                    err_headers = dict([(item[0].title(), item[1]) for item in list(e.info().items())])
+                                except BaseException:
+                                    err_headers = {}
+                                return (result, str(error_code), err_headers, _headers, '', getattr(e, 'url', url))
                             if not error:
                                 return None
                         _headers['Cookie'] = cf_cookie
                         _headers['User-Agent'] = cf_ua
                         req = urllib.request.Request(url, data=post)
                         _add_request_header(req, _headers)
-                        response = urllib.request.urlopen(req, timeout=int(timeout))
+                        response = opener.open(req, timeout=int(timeout))
                     else:
                         control.log('%s has a Cloudflare challenge.' % (netloc))
+                        if output == 'extended':
+                            try:
+                                err_headers = dict([(item[0].title(), item[1]) for item in list(e.info().items())])
+                            except BaseException:
+                                err_headers = {}
+                            return (result, str(error_code), err_headers, _headers, '', getattr(e, 'url', url))
                         if not error:
                             return None
                 else:
+                    if output == 'extended':
+                        try:
+                            err_headers = dict([(item[0].title(), item[1]) for item in list(e.info().items())])
+                        except BaseException:
+                            err_headers = {}
+                        return (result, str(error_code), err_headers, _headers, '', getattr(e, 'url', url))
                     if error is True:
                         return result
                     else:
@@ -490,11 +504,13 @@ def request(
                     _headers['User-Agent'] = ddg_ua
                     req = urllib.request.Request(url, data=post)
                     _add_request_header(req, _headers)
-                    response = urllib.request.urlopen(req, timeout=int(timeout))
+                    response = opener.open(req, timeout=int(timeout))
                 else:
                     control.log('%s has a DDoS-Guard challenge.' % (netloc))
                     if not error:
                         return None
+            elif output == 'extended':
+                response = e
             elif output == '':
                 control.log('Request-HTTPError (%s): %s' % (e.code, url))
                 if not error:

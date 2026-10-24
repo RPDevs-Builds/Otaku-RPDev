@@ -153,6 +153,26 @@ class SimklWLF(WatchlistFlavorBase):
         import pickle
         items = [pickle.loads(item['data']) for item in cached_items]
 
+        # Apply sorting on raw items before slicing to current page
+        sort_idx = int(self.sort)
+        if sort_idx == 0:  # anime_title
+            items.sort(key=lambda x: (x.get('show', {}).get('title') or '').lower())
+        elif sort_idx == 1:  # user_rating (integer 1-10, or None)
+            items.sort(key=lambda x: x.get('user_rating') or 0, reverse=True)
+        elif sort_idx == 2:  # progress (watched / total)
+            items.sort(key=lambda x: (x.get('watched_episodes_count') or 0) / (x.get('total_episodes_count') or 1), reverse=True)
+        elif sort_idx == 3:  # last_watched (ISO 8601 timestamp)
+            items.sort(key=lambda x: x.get('last_watched_at') or "", reverse=True)
+        elif sort_idx == 4:  # last_added (ISO 8601 timestamp)
+            items.sort(key=lambda x: x.get('added_to_watchlist_at') or "", reverse=True)
+
+        if int(self.order) == 1:
+            items.reverse()
+
+        total_count = len(items)
+        if paging_enabled and per_page > 0:
+            items = items[offset:offset + per_page]
+
         # Fetch AniList data for current page items only (fast for small batches)
         mal_ids = [anime['show']['ids']['mal'] for anime in items if anime['show']['ids'].get('mal')]
         mal_id_dicts = [{'mal_id': mid} for mid in mal_ids]
@@ -175,25 +195,7 @@ class SimklWLF(WatchlistFlavorBase):
 
         all_results = list(filter(None, map(viewfunc, items)))
 
-        # Apply sorting
-        if int(self.sort) == 0:  # anime_title
-            all_results = sorted(all_results, key=lambda x: x['info']['title'].lower() if x['info'].get('title') else '')
-        elif int(self.sort) == 1:    # user_rating (integer 1-10, or None)
-            all_results = sorted(all_results, key=lambda x: x['info'].get('user_rating') or 0, reverse=True)
-        elif int(self.sort) == 2:    # progress (watched / total)
-            all_results = sorted(all_results, key=lambda x: (x['info'].get('watched_episodes_count') or 0) / (x['info'].get('total_episodes_count') or 1), reverse=True)
-        elif int(self.sort) == 3:    # last_watched (ISO 8601 timestamp)
-            all_results = sorted(all_results, key=lambda x: x['info'].get('last_watched') or "", reverse=True)
-        elif int(self.sort) == 4:    # last_added (ISO 8601 timestamp)
-            all_results = sorted(all_results, key=lambda x: x['info'].get('last_added') or "", reverse=True)
-
-        if int(self.order) == 1:
-            all_results.reverse()
-
-        # Slice to page AFTER sorting
         if paging_enabled and per_page > 0:
-            total_count = len(all_results)
-            all_results = all_results[offset:offset + per_page]
             has_next = (offset + per_page) < total_count
             all_results += self.handle_paging(has_next, f'watchlist_status_type_pages/simkl/{status}/{offset + per_page}', page)
 
@@ -339,7 +341,7 @@ class SimklWLF(WatchlistFlavorBase):
             'show_title': show_title,
             'total_eps': total_eps,
             'poster': poster,
-            'is_movie': total_eps == 1,
+            'is_movie': (res.get('anime_type') == 'movie' or (anilist_res and anilist_res.get('format') == 'MOVIE')) and total_eps == 1,
             'year': year,
         }
 
@@ -545,7 +547,8 @@ class SimklWLF(WatchlistFlavorBase):
             clearlogo = kodi_meta['clearlogo']
             base['clearlogo'] = random.choice(clearlogo) if isinstance(clearlogo, list) else clearlogo
 
-        if res["total_episodes_count"] == 1:
+        is_movie = (res.get('anime_type') == 'movie' or (anilist_res and anilist_res.get('format') == 'MOVIE')) and res.get("total_episodes_count") == 1
+        if is_movie:
             base['url'] = f'play_movie/{mal_id}/'
             base['info']['mediatype'] = 'movie'
             return utils.parse_view(base, False, True, dub)
@@ -617,7 +620,8 @@ class SimklWLF(WatchlistFlavorBase):
         r = client.post(f'{self._URL}/sync/add-to-list', headers=self.__headers(), json_data=data)
         if r:
             r = r.json()
-            if not r['not_found']['shows'] or not r['not_found']['shows']:
+            not_found = r.get('not_found', {})
+            if not not_found.get('shows') and not not_found.get('movies'):
                 clear_watchlist_cache(self._NAME)  # Clear all statuses since item moved
                 if status == 'completed' and r.get('added', {}).get('shows', [{}])[0].get('to') == 'watching':
                     return 'watching'
@@ -637,7 +641,8 @@ class SimklWLF(WatchlistFlavorBase):
         r = client.post(f'{self._URL}/sync/history', headers=self.__headers(), json_data=data)
         if r:
             r = r.json()
-            if not r['not_found']['shows'] or not r['not_found']['movies']:
+            not_found = r.get('not_found', {})
+            if not not_found.get('shows') and not not_found.get('movies'):
                 clear_watchlist_cache(self._NAME)  # Clear cache to reflect progress
                 return True
         return False
@@ -659,7 +664,8 @@ class SimklWLF(WatchlistFlavorBase):
         r = client.post(url, headers=self.__headers(), json_data=data)
         if r:
             r = r.json()
-            if not r['not_found']['shows'] or not r['not_found']['movies']:
+            not_found = r.get('not_found', {})
+            if not not_found.get('shows') and not not_found.get('movies'):
                 clear_watchlist_cache(self._NAME)  # Clear cache to reflect score
                 return True
         return False
@@ -676,7 +682,8 @@ class SimklWLF(WatchlistFlavorBase):
         r = client.post(f"{self._URL}/sync/history/remove", headers=self.__headers(), json_data=data)
         if r:
             r = r.json()
-            if not r['not_found']['shows'] or not r['not_found']['movies']:
+            not_found = r.get('not_found', {})
+            if not not_found.get('shows') and not not_found.get('movies'):
                 clear_watchlist_cache(self._NAME)  # Clear cache after deletion
                 return True
         return False

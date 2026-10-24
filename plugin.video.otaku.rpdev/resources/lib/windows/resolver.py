@@ -1,3 +1,4 @@
+import re
 import time
 import xbmcgui
 import xbmcplugin
@@ -75,7 +76,6 @@ class Resolver(BaseWindow):
         self.resolve(self.sources)
 
     def reorder_sources(self, sources):
-        import re
         if len(sources) > 1 and not self.source_select:
             lp = control.getSetting('last_played_source') or ''
             # remove any [HASH] blocks (e.g. [E5A85899])
@@ -239,7 +239,7 @@ class Resolver(BaseWindow):
             control.set_videotags(item, self.params)
 
         art = self._build_art_dict(use_params=False)
-        if isinstance(art, str):
+        if isinstance(art, dict):
             item.setArt(art)
 
         # Get the clean URL from item (hooks may have stripped headers)
@@ -336,7 +336,7 @@ class Resolver(BaseWindow):
             api = api()
             hash_ = source['hash']
             magnet = f"magnet:?xt=urn:btih:{hash_}"
-            stream_link = {}
+            stream_link = None
 
             if source['type'] == 'torrent':
                 filename = source.get('filename')
@@ -371,8 +371,8 @@ class Resolver(BaseWindow):
         url = link
         headers = {}
         if '|' in url:
-            url, hdrs = url.split('|')
-            headers = dict([item.split('=') for item in hdrs.split('&')])
+            url, hdrs = url.split('|', 1)
+            headers = dict([item.split('=', 1) for item in hdrs.split('&') if '=' in item])
             for header in headers:
                 headers[header] = urllib.parse.unquote_plus(headers[header])
 

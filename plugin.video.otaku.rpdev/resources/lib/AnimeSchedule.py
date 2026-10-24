@@ -69,20 +69,20 @@ class AnimeScheduleCalendar:
                 control.log("AnimESchedule token not found, cannot fetch timetables", "warning")
                 return []
 
-            # Get current year and week
+            # Get current year and week (use ISO year for timetable week numbers at year boundaries)
             today = datetime.datetime.now()
             year = today.year
-            week = today.isocalendar()[1]
+            iso_year, week, _ = today.isocalendar()
 
-            # Determine current season
+            # Determine current anime cour season (Jan-Mar: winter, Apr-Jun: spring, Jul-Sep: summer, Oct-Dec: fall)
             month = today.month
-            if month in [12, 1, 2]:
+            if month in [1, 2, 3]:
                 season = 'winter'
-            elif month in [3, 4, 5]:
+            elif month in [4, 5, 6]:
                 season = 'spring'
-            elif month in [6, 7, 8]:
+            elif month in [7, 8, 9]:
                 season = 'summer'
-            else:  # 9, 10, 11
+            else:  # 10, 11, 12
                 season = 'fall'
 
             # STEP 1: Fetch timetables and collect unique routes
@@ -94,7 +94,7 @@ class AnimeScheduleCalendar:
             for release_type in types:
                 timetable_requests.append({
                     'func': self._fetch_timetable,
-                    'args': (release_type, year, week),
+                    'args': (release_type, iso_year, week),
                     'kwargs': {}
                 })
 

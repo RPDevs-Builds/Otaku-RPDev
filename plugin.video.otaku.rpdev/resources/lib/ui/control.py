@@ -322,6 +322,7 @@ def _evict_setting(settingid):
     """Evict all cached variants of a setting key."""
     for prefix in ('s_', 'gs_', 'b_', 'i_', 'n_'):
         _settings_cache.pop(f'{prefix}{settingid}', None)
+    homeWindow.clearProperty(f'{ADDON_ID}_{settingid}')
 
 
 def setSetting(settingid, value):
@@ -357,21 +358,25 @@ def setNumber(settingid, value):
 def setStringList(settingid, value):
     """Set setting as list of strings"""
     settings.setStringList(settingid, value)
+    homeWindow.clearProperty(f'{ADDON_ID}_{settingid}')
 
 
 def setBoolList(settingid, value):
     """Set setting as list of booleans"""
     settings.setBoolList(settingid, value)
+    homeWindow.clearProperty(f'{ADDON_ID}_{settingid}')
 
 
 def setIntList(settingid, value):
     """Set setting as list of integers"""
     settings.setIntList(settingid, value)
+    homeWindow.clearProperty(f'{ADDON_ID}_{settingid}')
 
 
 def setNumberList(settingid, value):
     """Set setting as list of numbers"""
     settings.setNumberList(settingid, value)
+    homeWindow.clearProperty(f'{ADDON_ID}_{settingid}')
 
 
 def clearSettingsCache():
@@ -637,7 +642,15 @@ def xbmc_add_dir(name, url, art, info, draw_cm, bulk_add, isfolder, isplayable, 
     if info:
         set_videotags(liz, info)
     if draw_cm:
-        cm = [(x[0], f'RunPlugin(plugin://{ADDON_ID}/{x[1]}/{url})') for x in draw_cm]
+        cm = [
+            (
+                x[0],
+                x[1]
+                if x[1].startswith(('RunPlugin(', 'PlayMedia(', 'Container.', 'ActivateWindow('))
+                else f'RunPlugin(plugin://{ADDON_ID}/{x[1]}/{url})'
+            )
+            for x in draw_cm
+        ]
         liz.addContextMenuItems(cm)
     # Check new artwork.fanart setting (inverted logic from old fanart_disable)
     if bulk_prefs is not None:

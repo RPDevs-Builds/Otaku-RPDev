@@ -32,6 +32,9 @@ class SyncDatabase:
     def __init__(self):
         self.activites = None
 
+        # --- create every table the addon needs ---
+        self._create_all_tables()
+
         # ─── April Fools' Day: Set browser.api to anilist on April 1st ───
         today = datetime.now()
         if today.month == 4 and today.day == 1:
@@ -39,10 +42,7 @@ class SyncDatabase:
             if april_fools_flag != str(today.year):
                 control.setSetting('browser.api', 'anilist')
                 control.setSetting('april_fools_day', str(today.year))
-                SyncDatabase().re_build_database(True)
-
-        # --- create every table the addon needs ---
-        self._create_all_tables()
+                self.re_build_database(True)
 
         # --- version check ---
         self.last_meta_update = self.SCHEMA_VERSION
@@ -306,8 +306,21 @@ class SyncDatabase:
         service.update_mappings_db()
         service.update_dub_json()
 
-        with open(control.malSyncDB, 'w'):
-            pass
+        try:
+            with SQL(control.malSyncDB) as cur:
+                for tbl in (
+                    'episodes', 'shows_meta', 'show_data', 'shows',
+                    'watchlist_cache', 'watchlist_activity',
+                    'anilist_enrichment', 'activities'
+                ):
+                    cur.execute(f'DROP TABLE IF EXISTS {tbl}')
+                cur.execute('VACUUM')
+                cur.connection.commit()
+        except Exception:
+            import xbmcvfs
+            for suffix in ('', '-wal', '-shm'):
+                if xbmcvfs.exists(control.malSyncDB + suffix):
+                    xbmcvfs.delete(control.malSyncDB + suffix)
 
         self._create_all_tables()
         self.set_base_activites()

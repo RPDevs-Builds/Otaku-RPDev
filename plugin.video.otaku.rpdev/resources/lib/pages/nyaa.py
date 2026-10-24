@@ -16,10 +16,12 @@ class Sources(BrowserBase):
         self.cached = []
         self.uncached = []
         self.sources = []
+        self.rescrape = False
 
-    def get_sources(self, query, mal_id, episode, status, media_type, season=None, part=None):
+    def get_sources(self, query, mal_id, episode, status, media_type, season=None, part=None, rescrape=False):
         query = self._clean_title(query).replace('-', ' ')
         self.media_type = media_type
+        self.rescrape = rescrape
         if media_type == 'movie':
             return self.get_movie_sources(query, mal_id)
 
@@ -176,7 +178,7 @@ class Sources(BrowserBase):
 
             filtered_list = source_utils.filter_sources('nyaa', list_, mal_id, int(season_zfill), int(episode_zfill), part)
 
-            cache_list, uncashed_list_ = Debrid().torrentCacheCheck(filtered_list, mal_id=mal_id, episode=episode_zfill, media_type=self.media_type)
+            cache_list, uncashed_list_ = Debrid().torrentCacheCheck(filtered_list, mal_id=mal_id, episode=episode_zfill, media_type=self.media_type, rescrape=self.rescrape)
             cache_list = sorted(cache_list, key=lambda k: k['downloads'], reverse=True)
 
             uncashed_list = [i for i in uncashed_list_ if i['seeders'] > 0]
@@ -189,6 +191,7 @@ class Sources(BrowserBase):
                 mapfunc2 = partial(self.parse_nyaa_view, episode=episode_zfill, cached=False)
                 all_results += utils.parallel_process(uncashed_list, mapfunc2)
             return all_results
+        return []
 
     def process_nyaa_movie(self, url, params, mal_id):
         response = client.get(url, params=params)
@@ -219,7 +222,7 @@ class Sources(BrowserBase):
 
             filtered_list = source_utils.filter_sources('nyaa', list_, mal_id)
 
-            cache_list, uncashed_list_ = Debrid().torrentCacheCheck(filtered_list, mal_id=mal_id, episode='1', media_type='movie')
+            cache_list, uncashed_list_ = Debrid().torrentCacheCheck(filtered_list, mal_id=mal_id, episode='1', media_type='movie', rescrape=self.rescrape)
             cache_list = sorted(cache_list, key=lambda k: k['downloads'], reverse=True)
 
             uncashed_list = [i for i in uncashed_list_ if i['seeders'] > 0]
@@ -232,6 +235,7 @@ class Sources(BrowserBase):
                 mapfunc2 = partial(self.parse_nyaa_view, episode=1, cached=False)
                 all_results += utils.parallel_process(uncashed_list, mapfunc2)
             return all_results
+        return []
 
     @staticmethod
     def parse_nyaa_view(res, episode, cached=True):

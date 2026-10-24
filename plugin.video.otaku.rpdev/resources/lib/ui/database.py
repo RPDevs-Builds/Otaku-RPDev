@@ -56,6 +56,8 @@ class SQL:
     def __init__(self, path, timeout=30):
         self.path = path
         self.timeout = timeout
+        self._conn = None
+        self._cursor = None
 
     def __enter__(self):
         if not xbmcvfs.exists(control.dataPath):
@@ -64,12 +66,18 @@ class SQL:
             self._conn = dbapi2.connect(self.path, timeout=self.timeout, isolation_level=None)
             self._conn.row_factory = _dict_factory
             self._conn.execute("PRAGMA foreign_keys = ON")
-            self._conn.execute("PRAGMA synchronous = OFF")
+            self._conn.execute("PRAGMA synchronous = NORMAL")
             self._conn.execute("PRAGMA journal_mode = WAL")
             self._conn.execute("PRAGMA mmap_size = 268435456")
             self._cursor = self._conn.cursor()
             return self._cursor
         except Exception:
+            if self._conn is not None:
+                try:
+                    self._conn.close()
+                except Exception:
+                    pass
+                self._conn = None
             raise
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -96,16 +104,30 @@ class SQL:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-#  Memory Cache - Kodi Window Properties with Expiry
+#  Memory Cache - Kodi Window Properties with Expiry & Generation Counter
 # ═══════════════════════════════════════════════════════════════════════════
 
 _window = xbmcgui.Window(10000)
-_MEM_PREFIX = 'otaku_test_'
+_MEM_GEN_PROP = f'{control.ADDON_ID}_cache_gen'
+
+
+def _get_mem_prefix():
+    gen = _window.getProperty(_MEM_GEN_PROP) or '0'
+    return f'{control.ADDON_ID}_c{gen}_'
+
+
+def _bump_mem_generation():
+    try:
+        gen = int(_window.getProperty(_MEM_GEN_PROP) or '0') + 1
+    except ValueError:
+        gen = int(time.time())
+    _window.setProperty(_MEM_GEN_PROP, str(gen))
 
 
 def _mem_get(key):
     """Return parsed data or *None* if missing / expired."""
-    raw = _window.getProperty(_MEM_PREFIX + key)
+    prefix = _get_mem_prefix()
+    raw = _window.getProperty(prefix + key)
     if not raw:
         return None
     try:
@@ -114,19 +136,19 @@ def _mem_get(key):
             return ast.literal_eval(raw[sep + 1:])
     except Exception:
         pass
-    _window.clearProperty(_MEM_PREFIX + key)
+    _window.clearProperty(prefix + key)
     return None
 
 
 def _mem_set(key, value_repr, hours):
     """Store *value_repr* (a ``repr()`` string) with an expiry of *hours*."""
     expires = int(time.time() + hours * 3600)
-    _window.setProperty(_MEM_PREFIX + key, f"{expires}|{value_repr}")
+    _window.setProperty(_get_mem_prefix() + key, f"{expires}|{value_repr}")
 
 
 def _mem_del(key):
     """Remove a single key from the RAM cache."""
-    _window.clearProperty(_MEM_PREFIX + key)
+    _window.clearProperty(_get_mem_prefix() + key)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -199,6 +221,7 @@ def get(function, duration, *args, **kwargs):
 
     # --- Tier 2: SQLite ---
     _init_cache_table()
+    row = None
     with SQL(control.cacheFile) as cur:
         cur.execute('SELECT value, date FROM cache WHERE key=?', (key,))
         row = cur.fetchone()
@@ -297,6 +320,7 @@ def cache_remove(key):
 
 def cache_clear():
     """Wipe general cache, watchlist cache, activity, and enrichment data."""
+    _bump_mem_generation()
     with SQL(control.cacheFile) as cur:
         cur.execute("DROP TABLE IF EXISTS cache")
         cur.execute("VACUUM")
@@ -531,18 +555,22 @@ def get_watchlist_cache_last_updated(service, status):
 def save_watchlist_cache(service, status, items):
     """Replace all cache entries for a service / status pair."""
     now = int(time.time())
+    rows = [
+        (service, status, _extract_mal_id(service, item), idx, pickle.dumps(item), now)
+        for idx, item in enumerate(items)
+    ]
     with SQL(control.malSyncDB) as cur:
+        cur.execute('BEGIN IMMEDIATE')
         cur.execute(
             'DELETE FROM watchlist_cache WHERE service=? AND status=?',
             (service, status))
-        for idx, item in enumerate(items):
-            cur.execute(
+        if rows:
+            cur.executemany(
                 'INSERT INTO watchlist_cache '
                 '(service, status, mal_id, item_order, data, last_updated) '
                 'VALUES (?, ?, ?, ?, ?, ?)',
-                (service, status, _extract_mal_id(service, item),
-                 idx, pickle.dumps(item), now))
-        cur.connection.commit()
+                rows)
+        cur.execute('COMMIT')
 
 
 def _extract_mal_id(service, item):
@@ -621,11 +649,12 @@ def clear_watchlist_activity(service=None):
 
 def get_all_watchlist_mal_ids():
     """All unique MAL IDs across every cached watchlist entry."""
+    rows = []
     with SQL(control.malSyncDB) as cur:
         cur.execute(
             'SELECT DISTINCT mal_id FROM watchlist_cache '
             'WHERE mal_id IS NOT NULL')
-        rows = cur.fetchall()
+        rows = cur.fetchall() or []
     result = []
     for row in rows:
         try:
@@ -640,16 +669,19 @@ def save_anilist_enrichment_batch(data_list):
     if not data_list:
         return
     now = int(time.time())
+    rows = [
+        (int(item['idMal']), pickle.dumps(item), now)
+        for item in data_list if item.get('idMal')
+    ]
+    if not rows:
+        return
     with SQL(control.malSyncDB) as cur:
-        for item in data_list:
-            mal_id = item.get('idMal')
-            if not mal_id:
-                continue
-            cur.execute(
-                'REPLACE INTO anilist_enrichment '
-                '(mal_id, data, last_updated) VALUES (?, ?, ?)',
-                (int(mal_id), pickle.dumps(item), now))
-        cur.connection.commit()
+        cur.execute('BEGIN IMMEDIATE')
+        cur.executemany(
+            'REPLACE INTO anilist_enrichment '
+            '(mal_id, data, last_updated) VALUES (?, ?, ?)',
+            rows)
+        cur.execute('COMMIT')
 
 
 def get_anilist_enrichment_batch(mal_ids, max_age_hours=168):
@@ -778,6 +810,7 @@ def get_season_pack(mal_id, season=1):
     if mem is not None:
         return mem
     _init_cache_table()
+    row = None
     with SQL(control.cacheFile) as cur:
         cur.execute('SELECT value, date FROM cache WHERE key=?', (key,))
         row = cur.fetchone()
@@ -806,6 +839,7 @@ def clear_season_pack(mal_id=None, season=None):
                 _mem_del(f"season_pack_{mal_id}_{s}")
         else:
             cur.execute("DELETE FROM cache WHERE key LIKE 'season_pack_%'")
+            _bump_mem_generation()
         cur.connection.commit()
 
 
@@ -840,6 +874,7 @@ def get_last_played_source(mal_id):
     if mem is not None:
         return mem
     _init_cache_table()
+    row = None
     with SQL(control.cacheFile) as cur:
         cur.execute('SELECT value, date FROM cache WHERE key=?', (key,))
         row = cur.fetchone()

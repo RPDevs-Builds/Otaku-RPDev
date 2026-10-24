@@ -103,9 +103,9 @@ def prefetch_watchlist():
     # Map flavor to all its status names
     status_map = {
         'mal': ['watching', 'completed', 'on_hold', 'dropped', 'plan_to_watch'],
-        'anilist': ['CURRENT', 'COMPLETED', 'PAUSED', 'DROPPED', 'PLANNING', 'REWATCHING'],
+        'anilist': ['CURRENT', 'COMPLETED', 'PAUSED', 'DROPPED', 'PLANNING', 'REPEATING'],
         'kitsu': ['current', 'completed', 'on_hold', 'dropped', 'planned'],
-        'simkl': ['watching', 'completed', 'on_hold', 'dropped', 'plantowatch']
+        'simkl': ['watching', 'completed', 'hold', 'dropped', 'plantowatch']
     }
 
     try:
@@ -199,7 +199,7 @@ def getChangeLog():
 
 
 def getInstructions():
-    instructions_path = os.path.join(control.ADDON_PATH, 'instructions.txt')
+    instructions_path = os.path.join(control.ADDON_PATH, 'Instructions.txt')
 
     with open(instructions_path, encoding='utf-8') as instructions_file:
         instructions_text = instructions_file.read()
@@ -300,7 +300,8 @@ class Monitor(xbmc.Monitor):
 
     def onSettingsChanged(self):
         control.log('Setting Changed - Updating Settings Cache')
-        load_settings()
+        if control.getBool('general.kodi.cache'):
+            load_settings()
         control.process_context()
 
 
@@ -336,5 +337,4 @@ if __name__ == "__main__":
     # Prefetch airing calendar in background thread (non-blocking)
     threading.Thread(target=prefetch_calendar, daemon=True).start()
     control.log('##################  MAINTENANCE COMPLETE ######################')
-    if control.getBool('general.kodi.cache'):
-        Monitor().waitForAbort()
+    Monitor().waitForAbort()

@@ -15,6 +15,7 @@ class Sources(BrowserBase):
         self.uncached = []
         self.sources = []
         self.media_id = None
+        self.rescrape = False
 
     @staticmethod
     def _parse_titles(query):
@@ -124,9 +125,10 @@ class Sources(BrowserBase):
             size /= 1024
         return f'{size:.2f} PB'
 
-    def get_sources(self, query, mal_id, episode, status, media_type, season=None, part=None):
+    def get_sources(self, query, mal_id, episode, status, media_type, season=None, part=None, rescrape=False):
         query = self._clean_title(query).replace('-', ' ')
         self.media_type = media_type
+        self.rescrape = rescrape
         titles = self._parse_titles(query)
         control.log(f"nekoBT: Parsed titles: {titles}")
 
@@ -276,7 +278,7 @@ class Sources(BrowserBase):
             return []
 
         # Single debrid cache check for all results
-        cache_list, uncached_list_ = Debrid().torrentCacheCheck(combined, mal_id=mal_id, episode=episode_zfill, media_type='episode')
+        cache_list, uncached_list_ = Debrid().torrentCacheCheck(combined, mal_id=mal_id, episode=episode_zfill, media_type='episode', rescrape=self.rescrape)
         cache_list = sorted(cache_list, key=lambda k: k['downloads'], reverse=True)
         uncached_list = [i for i in uncached_list_ if i['seeders'] > 0]
         uncached_list = sorted(uncached_list, key=lambda k: k['seeders'], reverse=True)
@@ -361,7 +363,7 @@ class Sources(BrowserBase):
         list_ = self._results_to_list(results)
         filtered_list = source_utils.filter_sources('nekobt', list_, mal_id)
 
-        cache_list, uncached_list_ = Debrid().torrentCacheCheck(filtered_list, mal_id=mal_id, episode='1', media_type='movie')
+        cache_list, uncached_list_ = Debrid().torrentCacheCheck(filtered_list, mal_id=mal_id, episode='1', media_type='movie', rescrape=self.rescrape)
         cache_list = sorted(cache_list, key=lambda k: k['downloads'], reverse=True)
 
         uncached_list = [i for i in uncached_list_ if i['seeders'] > 0]
