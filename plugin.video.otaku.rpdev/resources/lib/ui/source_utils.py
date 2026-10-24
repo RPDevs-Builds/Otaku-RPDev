@@ -742,9 +742,13 @@ def video_ext():
     global _VIDEO_EXTENSIONS_CACHE
     if _VIDEO_EXTENSIONS_CACHE is None:
         try:
-            raw = xbmc.getSupportedMedia('video').split('|')
-            _VIDEO_EXTENSIONS_CACHE = frozenset(ext.lower() for ext in raw if ext and ext != '.zip')
+            media_str = xbmc.getSupportedMedia('video')
+            if isinstance(media_str, str) and media_str:
+                raw = media_str.split('|')
+                _VIDEO_EXTENSIONS_CACHE = frozenset(ext.lower() for ext in raw if ext and ext != '.zip')
         except Exception:
+            pass
+        if not _VIDEO_EXTENSIONS_CACHE:
             _VIDEO_EXTENSIONS_CACHE = frozenset({
                 '.mkv', '.mp4', '.avi', '.mov', '.wmv', '.m4v', '.webm',
                 '.flv', '.vob', '.ogv', '.ts', '.m2ts', '.mts'

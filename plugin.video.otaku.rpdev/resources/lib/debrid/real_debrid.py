@@ -7,8 +7,8 @@ class RealDebrid:
     def __init__(self):
         self.ClientID = control.getSetting('realdebrid.client_id')
         if self.ClientID == '':
-            api_info = database.get_info('Real-Debrid')
-            self.ClientID = api_info['client_id']
+            api_info = database.get_info('Real-Debrid') or {}
+            self.ClientID = api_info.get('client_id', '')
         self.ClientSecret = control.getSetting('realdebrid.secret')
         self.token = control.getSetting('realdebrid.token')
         self.refresh = control.getSetting('realdebrid.refresh')

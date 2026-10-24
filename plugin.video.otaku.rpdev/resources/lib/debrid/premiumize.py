@@ -5,8 +5,8 @@ from resources.lib.ui import source_utils, client, control, database
 
 class Premiumize:
     def __init__(self):
-        api_info = database.get_info('Premiumize')
-        self.client_id = api_info['client_id']
+        api_info = database.get_info('Premiumize') or {}
+        self.client_id = api_info.get('client_id', '')
         self.token = control.getSetting('premiumize.token')
         self.addtocloud = control.getBool('premiumize.addToCloud')
         self.autodelete = control.getBool('premiumize.autodelete')
@@ -95,9 +95,59 @@ class Premiumize:
         return r.json()['content'] if r else None
 
     def list_folder(self, folderid=None):
-        params = {'id': folderid} if folderid else None
+        params = {'id': folderid} if (folderid and folderid != 'root') else None
         r = client.get(f"{self.base_url}/folder/list", headers=self.headers(), params=params)
-        return r.json()['content'] if r else None
+        data = r.json() if r else {}
+        return data.get('content', []) if isinstance(data, dict) else []
+
+    def get_root_folder_id(self):
+        r = client.get(f"{self.base_url}/folder/list", headers=self.headers())
+        data = r.json() if r else {}
+        return data.get('folder_id') if isinstance(data, dict) else None
+
+    def item_details(self, item_id):
+        r = client.get(f"{self.base_url}/item/details", headers=self.headers(), params={'id': item_id})
+        return r.json() if r else None
+
+    def create_folder(self, name, parent_id=None):
+        data = {'name': name}
+        if parent_id and parent_id != 'root':
+            data['parent_id'] = parent_id
+        r = client.post(f"{self.base_url}/folder/create", headers=self.headers(), data=data)
+        return r.json() if r else None
+
+    def rename_folder(self, folder_id, name):
+        data = {'id': folder_id, 'name': name}
+        r = client.post(f"{self.base_url}/folder/rename", headers=self.headers(), data=data)
+        return r.json() if r else None
+
+    def rename_item(self, item_id, name):
+        data = {'id': item_id, 'name': name}
+        r = client.post(f"{self.base_url}/item/rename", headers=self.headers(), data=data)
+        return r.json() if r else None
+
+    def delete_folder(self, folder_id):
+        data = {'id': folder_id}
+        r = client.post(f"{self.base_url}/folder/delete", headers=self.headers(), data=data)
+        return r.json() if r else None
+
+    def delete_item(self, item_id):
+        data = {'id': item_id}
+        r = client.post(f"{self.base_url}/item/delete", headers=self.headers(), data=data)
+        return r.json() if r else None
+
+    def move_items(self, target_folder_id, file_ids=None, folder_ids=None):
+        if not target_folder_id or target_folder_id == 'root':
+            target_folder_id = self.get_root_folder_id()
+        if not target_folder_id:
+            return None
+        data = [('id', target_folder_id)]
+        for fid in (file_ids or []):
+            data.append(('files[]', fid))
+        for flid in (folder_ids or []):
+            data.append(('folders[]', flid))
+        r = client.post(f"{self.base_url}/folder/paste", headers=self.headers(), data=data)
+        return r.json() if r else None
 
     def hash_check(self, hashlist):
         if not hashlist:

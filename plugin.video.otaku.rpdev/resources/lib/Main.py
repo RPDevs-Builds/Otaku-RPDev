@@ -2359,30 +2359,63 @@ def _draw_cloud_directory(provider, folder_id=None):
     if control.HANDLE < 0:
         target = f"my_cloud/{provider}/{folder_id}" if folder_id else f"my_cloud/{provider}"
         return control.execute(f"Container.Update({control.addon_url(target)})")
-    from resources.lib.debrid import debrid_cloud
-    raw_items = debrid_cloud.get_cloud_items(provider, folder_id)
-    if not raw_items:
-        control.draw_items([], 'files')
-        return
-
     from urllib import parse
-    list_items = []
+    from resources.lib.debrid import debrid_cloud
+
+    curr_folder = folder_id if (folder_id and folder_id != 'root') else 'root'
+    raw_items = debrid_cloud.get_cloud_items(provider, None if curr_folder == 'root' else curr_folder)
+
+    create_url = f"cloud_create_folder/{provider}/{curr_folder}"
+    create_cm = [('Create New Folder', f'RunPlugin(plugin://{control.ADDON_ID}/{create_url})')]
+    create_item = utils.allocate_item(
+        "[COLOR limegreen][+ Create New Folder][/COLOR]",
+        create_url,
+        False,
+        False,
+        create_cm,
+        'tools.png',
+        {
+            'title': 'Create New Folder',
+            'plot': f"Create a new blank directory in your {provider.capitalize()} cloud.",
+            'mediatype': 'files'
+        }
+    )
+    list_items = [create_item]
+
     for itm in raw_items:
         is_folder = itm.get('is_folder', False)
+        item_type = itm.get('item_type', 'folder' if is_folder else 'file')
         title = itm.get('name', 'Unknown')
-        cm = []
+        clean_title = itm.get('title', title)
+        file_ref = itm.get('file_ref', '')
+        size_str = itm.get('size', 'Unknown')
+
+        q_params = parse.urlencode({
+            'item_type': item_type,
+            'file_ref': file_ref,
+            'title': clean_title,
+            'size': size_str,
+            'parent_id': curr_folder,
+        })
+
+        cm = [
+            ('Rename', f'RunPlugin(plugin://{control.ADDON_ID}/cloud_rename_item/{provider}/{itm["id"]}?{q_params})'),
+            ('Move to Folder...', f'RunPlugin(plugin://{control.ADDON_ID}/cloud_move_item/{provider}/{itm["id"]}?{q_params})'),
+            ('Create New Folder', f'RunPlugin(plugin://{control.ADDON_ID}/cloud_create_folder/{provider}/{curr_folder})'),
+            ('Delete from Cloud', f'RunPlugin(plugin://{control.ADDON_ID}/delete_cloud_item/{provider}/{itm["id"]}?{q_params})'),
+        ]
+
         if is_folder:
             url = f"my_cloud/{provider}/{itm['id']}"
             is_playable = False
-            cm.append(('Delete from Cloud', f'RunPlugin(plugin://{control.ADDON_ID}/delete_cloud_item/{provider}/{itm["id"]})'))
         else:
-            ref_encoded = parse.quote(itm.get('file_ref', ''), safe='')
+            ref_encoded = parse.quote(file_ref, safe='')
             url = f"play_cloud_file/{provider}/{itm['id']}/{ref_encoded}"
             is_playable = True
 
         info = {
-            'title': itm.get('title', title),
-            'plot': f"Provider: {provider.capitalize()}\nSize: {itm.get('size', 'Unknown')}",
+            'title': clean_title,
+            'plot': f"Provider: {provider.capitalize()}\nSize: {size_str}",
             'mediatype': 'video' if not is_folder else 'files'
         }
         item_obj = utils.allocate_item(title, url, is_folder, is_playable, cm, 'tools.png', info)
@@ -2448,6 +2481,133 @@ def PLAY_CLOUD_FILE(payload, params):
     xbmcplugin.setResolvedUrl(control.HANDLE, True, item)
 
 
+@Route('cloud_create_folder/*')
+def CLOUD_CREATE_FOLDER(payload, params):
+    from resources.lib.debrid import debrid_cloud
+    parts = [p for p in payload.strip('/').split('/') if p]
+    if not parts:
+        return
+    provider = parts[0]
+    parent_id = parts[1] if len(parts) > 1 else 'root'
+    folder_name = control.keyboard(f"{control.ADDON_NAME}: New Folder Name", "")
+    if not folder_name or not folder_name.strip():
+        return
+    if debrid_cloud.create_cloud_folder(provider, folder_name.strip(), parent_id):
+        control.notify(control.ADDON_NAME, f"Created folder: {folder_name.strip()}", icon=control.ADDON_ICON)
+        control.refresh()
+    else:
+        control.notify(control.ADDON_NAME, "Failed to create folder", icon=control.ADDON_ICON)
+
+
+@Route('cloud_rename_item/*')
+def CLOUD_RENAME_ITEM(payload, params):
+    from resources.lib.debrid import debrid_cloud
+    parts = [p for p in payload.strip('/').split('/') if p]
+    if len(parts) < 2:
+        return
+    provider = parts[0]
+    item_id = parts[1]
+    item_type = params.get('item_type', 'file')
+    file_ref = params.get('file_ref', '')
+    current_title = params.get('title', '')
+    new_name = control.keyboard(f"{control.ADDON_NAME}: Rename", current_title)
+    if not new_name or not new_name.strip() or new_name.strip() == current_title:
+        return
+    if debrid_cloud.rename_cloud_item(provider, item_id, new_name.strip(), item_type=item_type, file_ref=file_ref):
+        control.notify(control.ADDON_NAME, f"Renamed to: {new_name.strip()}", icon=control.ADDON_ICON)
+        control.refresh()
+    else:
+        control.notify(control.ADDON_NAME, "Failed to rename item", icon=control.ADDON_ICON)
+
+
+@Route('cloud_move_item/*')
+def CLOUD_MOVE_ITEM(payload, params):
+    from resources.lib.debrid import debrid_cloud
+    parts = [p for p in payload.strip('/').split('/') if p]
+    if len(parts) < 2:
+        return
+    provider = parts[0]
+    item_id = parts[1]
+    item_type = params.get('item_type', 'file')
+    file_ref = params.get('file_ref', '')
+    current_title = params.get('title', 'Item')
+    size_str = params.get('size', '')
+    origin_parent = params.get('parent_id', 'root') or 'root'
+
+    nav_stack = [('root', '/ (Root Directory)')]
+    target_folder_id = None
+    target_folder_label = None
+
+    while True:
+        curr_id, curr_label = nav_stack[-1]
+        subfolders = debrid_cloud.list_cloud_folders(
+            provider,
+            parent_id=curr_id,
+            exclude_folder_id=item_id if item_type == 'folder' else None
+        )
+        options = []
+        actions = []
+
+        if curr_id != origin_parent:
+            options.append(f"[COLOR limegreen]>> Move Here: {curr_label} <<[/COLOR]")
+            actions.append(('move_here', curr_id, curr_label))
+
+        options.append("[COLOR gold][+ Create New Folder Here & Move][/COLOR]")
+        actions.append(('create_and_move', curr_id, curr_label))
+
+        if len(nav_stack) > 1:
+            options.append(".. (Back to Parent Folder)")
+            actions.append(('back', None, None))
+
+        for sf in subfolders:
+            options.append(f"[COLOR deepskyblue][Folder][/COLOR] {sf['title']}")
+            actions.append(('open_folder', sf['id'], sf['title']))
+
+        heading = f"Move '{current_title}' — Location: {curr_label}"
+        choice = control.select_dialog(heading, options)
+        if choice is None or choice < 0 or choice >= len(actions):
+            return
+
+        act, act_id, act_label = actions[choice]
+        if act == 'move_here':
+            target_folder_id = act_id
+            target_folder_label = act_label
+            break
+        elif act == 'back':
+            nav_stack.pop()
+        elif act == 'open_folder':
+            nav_stack.append((act_id, act_label))
+        elif act == 'create_and_move':
+            new_folder_name = control.keyboard(f"{control.ADDON_NAME}: New Folder Name", "")
+            if not new_folder_name or not new_folder_name.strip():
+                continue
+            new_folder_name = new_folder_name.strip()
+            if debrid_cloud.create_cloud_folder(provider, new_folder_name, parent_id=curr_id):
+                updated_folders = debrid_cloud.list_cloud_folders(provider, parent_id=curr_id)
+                matched = next((f for f in reversed(updated_folders) if f['title'] == new_folder_name), None)
+                if matched:
+                    target_folder_id = matched['id']
+                    target_folder_label = matched['title']
+                    break
+            control.notify(control.ADDON_NAME, "Failed to create destination folder", icon=control.ADDON_ICON)
+            return
+
+    if target_folder_id is not None:
+        if debrid_cloud.move_cloud_item(
+            provider,
+            item_id,
+            target_folder_id,
+            item_type=item_type,
+            file_ref=file_ref,
+            title=current_title,
+            size=size_str
+        ):
+            control.notify(control.ADDON_NAME, f"Moved to {target_folder_label}", icon=control.ADDON_ICON)
+            control.refresh()
+        else:
+            control.notify(control.ADDON_NAME, "Failed to move item", icon=control.ADDON_ICON)
+
+
 @Route('delete_cloud_item/*')
 def DELETE_CLOUD_ITEM(payload, params):
     from resources.lib.debrid import debrid_cloud
@@ -2456,9 +2616,20 @@ def DELETE_CLOUD_ITEM(payload, params):
         return
     provider = parts[0]
     item_id = parts[1]
-    confirmed = control.yesno_dialog(control.ADDON_NAME, f"Delete this item from your {provider.capitalize()} cloud?")
+    item_type = params.get('item_type', 'folder')
+    file_ref = params.get('file_ref', '')
+    item_title = params.get('title', 'this item')
+    confirmed = control.yesno_dialog(
+        control.ADDON_NAME,
+        f"Delete '{item_title}' from your {provider.capitalize()} cloud?"
+    )
     if confirmed:
-        success = debrid_cloud.delete_cloud_item(provider, item_id)
+        success = debrid_cloud.delete_cloud_item(
+            provider,
+            item_id,
+            item_type=item_type,
+            file_ref=file_ref
+        )
         if success:
             control.notify(control.ADDON_NAME, "Item removed from cloud", icon=control.ADDON_ICON)
             control.refresh()

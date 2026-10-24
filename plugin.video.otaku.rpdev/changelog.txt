@@ -1,3 +1,10 @@
+Changelog v5.4.1 (2026-10-24):
+- My Debrid Cloud: added 'Delete from Cloud' context menu action for video files in root and inside folders across all debrid providers
+- My Debrid Cloud: added 'Create New Folder' (blank directory & nested subdirectory creation) via directory action row and context menu
+- My Debrid Cloud: added 'Rename' context menu action for both video files and folders
+- My Debrid Cloud: added interactive 'Move to Folder...' browser to move files and folders into subfolders (e.g., Archived) or back to Root
+- Premiumize Cloud: wired native REST API endpoints (/folder/create, /folder/rename, /folder/delete, /folder/paste, /item/rename, /item/delete)
+
 Changelog v5.4.0 (2026-10-24):
 - Debrid Cloud & Cache: fixed Real-Debrid, AllDebrid, and TorBox cloud playback/imports, DMM cache check payload, and SQLite 500-item batching
 - Player & Resolver: unified episode monitor loop, fixed single-track dub subtitle override, synced local eps_watched + Watch History on completion, and hardened resolver header/art handling
