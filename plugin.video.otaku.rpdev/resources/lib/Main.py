@@ -240,7 +240,6 @@ def _main_menu():
         (control.lang(30016), "top_100", 'top_100_anime.png', {}),
         (control.lang(30017), "genres", 'genres_&_tags.png', {}),
         (control.lang(30018), "search", 'search.png', {}),
-        (control.lang(30555), "my_cloud", 'tools.png', {}),
         (control.lang(30019), "tools", 'tools.png', {}),
     ]
 
@@ -1902,7 +1901,14 @@ def _collect_category_menu_items(menu_items_key, settings_key, extra_key_suffix)
     for item in get_menu_items(menu_items_key):
         if item[1] in enabled_ids:
             enabled_items.append(item)
-    return enabled_items
+    seen = set()
+    unique_items = []
+    for itm in enabled_items:
+        key = itm[2] if (len(itm) == 6 and itm[0] == 'LAST_WATCHED_ITEM') else itm[1]
+        if key not in seen:
+            seen.add(key)
+            unique_items.append(itm)
+    return unique_items
 
 
 def _finalize_menu_list_items(menu_items):
@@ -2068,7 +2074,7 @@ def TOOLS_MENU(payload, params):
     TOOLS_ITEMS = get_menu_items('tools')
 
     view_type = 'addons' if control.getBool('interface.content_type') else ''
-    control.draw_items([utils.allocate_item(name, url, False, False, [], image, info) for name, url, image, info in TOOLS_ITEMS], view_type)
+    control.draw_items([utils.allocate_item(name, url, (url == 'my_cloud'), False, [], image, info) for name, url, image, info in TOOLS_ITEMS], view_type)
 
 
 # ### Maintenance ###
@@ -2266,6 +2272,9 @@ def DOWNLOAD_MANAGER(payload, params):
 
 
 def _draw_cloud_directory(provider, folder_id=None):
+    if control.HANDLE < 0:
+        target = f"my_cloud/{provider}/{folder_id}" if folder_id else f"my_cloud/{provider}"
+        return control.execute(f"Container.Update({control.addon_url(target)})")
     from resources.lib.debrid import debrid_cloud
     raw_items = debrid_cloud.get_cloud_items(provider, folder_id)
     if not raw_items:
@@ -2301,6 +2310,8 @@ def _draw_cloud_directory(provider, folder_id=None):
 
 @multi_route('my_cloud', 'my_cloud/')
 def MY_CLOUD(payload, params):
+    if control.HANDLE < 0:
+        return control.execute(f"Container.Update({control.addon_url('my_cloud/')})")
     from resources.lib.debrid import debrid_cloud
     providers = debrid_cloud.get_active_providers()
     if not providers:
@@ -2658,11 +2669,11 @@ def SETUP_WIZARD(payload, params):
 
     # Yes selected
     if choice == 1:
-        control.setStringList('menu.mainmenu.config', ['last_watched', 'watch_history', 'next_up', 'airing_calendar', 'airing_last_season', 'airing_this_season', 'airing_next_season', 'movies', 'tv_shows', 'tv_shorts', 'specials', 'ovas', 'onas', 'music', 'trending', 'popular', 'voted', 'favourites', 'top_100', 'genres', 'search', 'tools'])
+        control.setStringList('menu.mainmenu.config', ['last_watched', 'watch_history', 'next_up', 'my_cloud', 'airing_calendar', 'airing_last_season', 'airing_this_season', 'airing_next_season', 'movies', 'tv_shows', 'tv_shorts', 'specials', 'ovas', 'onas', 'music', 'trending', 'popular', 'voted', 'favourites', 'top_100', 'genres', 'search', 'tools'])
 
     # No selected
     elif choice == 0:
-        control.setStringList('menu.mainmenu.config', ['last_watched', 'watch_history', 'next_up', 'airing_calendar', 'airing_last_season', 'airing_this_season', 'airing_next_season', 'trending', 'popular', 'voted', 'favourites', 'top_100', 'genres', 'search', 'tools'])
+        control.setStringList('menu.mainmenu.config', ['last_watched', 'watch_history', 'next_up', 'my_cloud', 'airing_calendar', 'airing_last_season', 'airing_this_season', 'airing_next_season', 'trending', 'popular', 'voted', 'favourites', 'top_100', 'genres', 'search', 'tools'])
 
     # Ask the user to select between Subs or Dubs
     # Here the button labels are:
