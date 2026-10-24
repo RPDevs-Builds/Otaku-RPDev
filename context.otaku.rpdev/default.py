@@ -96,6 +96,14 @@ def main():
     elif arg == 'markedaswatched':
         path = path.split(f'{plugin}/play', 1)[1]
         xbmc.executebuiltin(f"RunPlugin({plugin}/marked_as_watched{path})")
+    elif arg == 'markedasunwatched':
+        path = path.split(f'{plugin}/play', 1)[1]
+        xbmc.executebuiltin(f"RunPlugin({plugin}/marked_as_unwatched{path})")
+    elif arg == 'markpreviouswatched':
+        path = path.split(f'{plugin}/play', 1)[1]
+        xbmc.executebuiltin(f"RunPlugin({plugin}/mark_previous_watched{path})")
+    elif arg == 'clearcache':
+        xbmc.executebuiltin(f"RunPlugin({plugin}/clear_cache)")
     elif arg == 'fanartselect':
         path = path.split(plugin, 1)[1]
         xbmc.executebuiltin(f"Container.Update({plugin}/fanart_select{path})")

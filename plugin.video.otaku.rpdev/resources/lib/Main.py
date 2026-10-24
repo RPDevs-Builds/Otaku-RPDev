@@ -1713,6 +1713,17 @@ def MARKED_AS_WATCHED(payload, params):
         except Exception as e:
             control.log(f"Error saving to watch history: {e}", "warning")
 
+    # Invalidate cached eps_watched in kodi_meta so UI repaints playcounts
+    show = database.get_show(mal_id)
+    if show:
+        try:
+            kodi_meta = pickle.loads(show['kodi_meta'])
+            ep_int = int(episode) if str(episode).isdigit() else 1
+            kodi_meta['eps_watched'] = max(int(kodi_meta.get('eps_watched') or 0), ep_int)
+            database.update_kodi_meta(mal_id, kodi_meta)
+        except Exception as e:
+            control.log(f"Error updating kodi_meta: {e}", "warning")
+
     # Build notification showing updated watchlists
     enabled = control.enabled_watchlists()
     flavor_labels = {'anilist': 'AniList', 'kitsu': 'Kitsu', 'mal': 'MAL', 'simkl': 'Simkl'}
@@ -1722,12 +1733,85 @@ def MARKED_AS_WATCHED(payload, params):
         control.notify(control.ADDON_NAME, f'Episode #{episode} was Marked as Watched in {updated_names}')
         control.execute(f'ActivateWindow(Videos,plugin://{control.ADDON_ID}/watchlist_to_ep/{mal_id}/{episode})')
     else:
-        show = database.get_show(mal_id)
         title = ''
         if show:
             kodi_meta = pickle.loads(show['kodi_meta'])
             title = kodi_meta.get('title_userPreferred', '')
         control.notify(control.ADDON_NAME, f'{title} was Marked as Watched in {updated_names}')
+    control.exit_code()
+
+
+@multi_route(*_wildcard_browser_paths('marked_as_unwatched'))
+def MARKED_AS_UNWATCHED(payload, params):
+    from resources.lib.WatchlistIntegration import watchlist_update_episode
+    import service
+
+    parts = [p for p in payload.strip('/').split('/') if p]
+    if len(parts) >= 2:
+        mal_id, ep_str = parts[0], parts[1]
+    elif parts:
+        mal_id, ep_str = parts[0], '1'
+    else:
+        return
+
+    try:
+        current_ep = int(ep_str)
+        target_ep = max(0, current_ep - 1)
+    except (ValueError, TypeError):
+        current_ep = 1
+        target_ep = 0
+
+    any_completed = watchlist_update_episode(mal_id, target_ep)
+    if any_completed:
+        control.sleep(1000)
+        service.sync_watchlist(True)
+
+    # Invalidate cached eps_watched in kodi_meta so UI repaints playcounts
+    show = database.get_show(mal_id)
+    if show:
+        try:
+            kodi_meta = pickle.loads(show['kodi_meta'])
+            kodi_meta['eps_watched'] = target_ep
+            database.update_kodi_meta(mal_id, kodi_meta)
+        except Exception as e:
+            control.log(f"Error updating kodi_meta: {e}", "warning")
+
+    # If target_ep is 0, remove anime from watch history; otherwise update to target_ep
+    if target_ep == 0:
+        try:
+            if control.pathExists(control.watch_history_json):
+                with open(control.watch_history_json, 'r', encoding='utf-8') as f:
+                    history_data = json.load(f)
+                history_data['history'] = [
+                    h for h in history_data.get('history', [])
+                    if str(h.get('UniqueIDs', {}).get('mal_id') or h.get('mal_id')) != str(mal_id)
+                ]
+                with open(control.watch_history_json, 'w', encoding='utf-8') as f:
+                    json.dump(history_data, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            control.log(f"Error updating watch history on unwatch: {e}", "warning")
+    else:
+        try:
+            save_to_watch_history(mal_id, target_ep)
+        except Exception as e:
+            control.log(f"Error saving to watch history: {e}", "warning")
+
+    enabled = control.enabled_watchlists()
+    flavor_labels = {'anilist': 'AniList', 'kitsu': 'Kitsu', 'mal': 'MAL', 'simkl': 'Simkl'}
+    updated_names = ', '.join([flavor_labels.get(f, f.capitalize()) for f in enabled]) if enabled else 'Local History'
+
+    if len(parts) >= 2:
+        control.notify(control.ADDON_NAME, f'Episode #{current_ep} Marked as Unwatched in {updated_names}')
+    else:
+        title = ''
+        if show:
+            try:
+                title = pickle.loads(show['kodi_meta']).get('title_userPreferred', '')
+            except Exception:
+                title = ''
+        control.notify(control.ADDON_NAME, f'{title} Marked as Unwatched in {updated_names}')
+
+    control.execute('Container.Refresh')
     control.exit_code()
 
 

@@ -1,3 +1,10 @@
+Changelog v5.3.9 (2026-10-24):
+- Context Menu: restored 'Mark Episodes Up To Here as Watched' action
+- Context Menu: added 'Mark as Unwatched WatchList' action with instant UI refresh
+- Sync: keep local kodi_meta eps_watched and Watch History synchronized on watched/unwatched actions
+- Context Menu: added 'Clear Addon Cache' action
+- Requires context.otaku.rpdev v1.0.36
+
 Changelog v5.3.8 (2026-10-24):
 - Fix: resolved duplicate My Debrid Cloud item appearing in Main Menu
 - Fix: enabled folder navigation on My Debrid Cloud shortcut in Tools menu
