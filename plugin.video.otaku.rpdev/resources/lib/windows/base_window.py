@@ -7,6 +7,12 @@ from resources.lib.ui import control, database
 _artwork_cache = {}
 
 
+def clear_artwork_cache():
+    """Clear in-memory window artwork cache to release texture handles."""
+    global _artwork_cache
+    _artwork_cache.clear()
+
+
 class BaseWindow(xbmcgui.WindowXMLDialog):
     def __init__(self, xml_file, location, actionArgs=None):
         super().__init__(xml_file, location)
@@ -42,6 +48,10 @@ class BaseWindow(xbmcgui.WindowXMLDialog):
 
     def _set_window_properties(self):
         """Set window properties in a single method to reduce overhead"""
+        global _artwork_cache
+        if len(_artwork_cache) > 200:
+            _artwork_cache.clear()
+
         # Handle thumb with caching
         thumb = self.item_information.get('thumb')
         if thumb:

@@ -1,3 +1,6 @@
+Changelog v5.4.12 (2026-10-25):
+- v5.4.12: Pre-compiled regex constants, scraper circuit breaker, artwork cache purge, .ass subtitle detection & Debrid 429 backoff
+
 Changelog v5.4.11 (2026-10-25):
 - v5.4.11: Atomic persistence engine, SQLite WAL truncate, SSRF scheme validation, ETag 304 conditional updates & multi-Debrid failover
 

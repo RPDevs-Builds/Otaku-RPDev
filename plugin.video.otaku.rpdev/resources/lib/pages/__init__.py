@@ -40,6 +40,52 @@ _EMBED_MODULES = (
 )
 
 
+class ScraperCircuitBreaker:
+    """In-memory circuit breaker that temporarily pauses failing scrapers to prevent UI freezes."""
+    def __init__(self, failure_threshold=3, cooldown_seconds=300):
+        self.failure_threshold = failure_threshold
+        self.cooldown_seconds = cooldown_seconds
+        self._failures = {}
+        self._cooldown_until = {}
+        self._lock = threading.Lock()
+
+    def is_tripped(self, provider: str) -> bool:
+        with self._lock:
+            now = time.time()
+            cooldown = self._cooldown_until.get(provider, 0)
+            if now < cooldown:
+                return True
+            if cooldown != 0:
+                del self._cooldown_until[provider]
+                self._failures[provider] = 0
+            return False
+
+    def record_success(self, provider: str):
+        with self._lock:
+            self._failures.pop(provider, None)
+            self._cooldown_until.pop(provider, None)
+
+    def record_failure(self, provider: str):
+        with self._lock:
+            count = self._failures.get(provider, 0) + 1
+            self._failures[provider] = count
+            if count >= self.failure_threshold:
+                self._cooldown_until[provider] = time.time() + self.cooldown_seconds
+                control.log(f"CircuitBreaker: Provider '{provider}' tripped for {self.cooldown_seconds}s ({count} consecutive errors)", 'warning')
+
+    def reset(self, provider: str = None):
+        with self._lock:
+            if provider:
+                self._failures.pop(provider, None)
+                self._cooldown_until.pop(provider, None)
+            else:
+                self._failures.clear()
+                self._cooldown_until.clear()
+
+
+circuit_breaker = ScraperCircuitBreaker()
+
+
 def getSourcesHelper(actionArgs):
     if control.getInt('general.dialog') in (5, 6):
         sources_window = Sources('get_sources_alt.xml', control.ADDON_PATH, actionArgs=actionArgs)
@@ -76,6 +122,7 @@ class Sources(GetSources):
         self.embedSources = []
         self.cloud_files = []
         self.local_files = []
+        self._results_lock = threading.Lock()
 
     @classmethod
     def _start_worker(cls, fn):
@@ -113,38 +160,69 @@ class Sources(GetSources):
         debrid_on = any(enabled_debrids.values())
         t_args = (query, mal_id, episode, status, media_type, rescrape, season, part)
 
+        if rescrape:
+            circuit_breaker.reset()
+
         for provider in self.torrentProviders:
             if debrid_on and control.getBool(f'provider.{provider}'):
+                if not rescrape and circuit_breaker.is_tripped(provider):
+                    control.log(f"CircuitBreaker: Skipping '{provider}' (circuit open)", 'info')
+                    with self._results_lock:
+                        if provider in self.remainingProviders:
+                            self.remainingProviders.remove(provider)
+                    continue
                 self.threads.append(self._start_worker(partial(self._torrent_sources_worker, provider, *t_args)))
             else:
-                self.remainingProviders.remove(provider)
+                with self._results_lock:
+                    if provider in self.remainingProviders:
+                        self.remainingProviders.remove(provider)
 
         for hoster in self.hosterProviders:
             spec = _HOSTER_MODULES.get(hoster)
             if spec and spec[2]():
+                if not rescrape and circuit_breaker.is_tripped(hoster):
+                    control.log(f"CircuitBreaker: Skipping '{hoster}' (circuit open)", 'info')
+                    with self._results_lock:
+                        if hoster in self.remainingProviders:
+                            self.remainingProviders.remove(hoster)
+                    continue
                 self.threads.append(self._start_worker(partial(self._hoster_sources_worker, hoster, *t_args)))
             else:
-                self.remainingProviders.remove(hoster)
+                with self._results_lock:
+                    if hoster in self.remainingProviders:
+                        self.remainingProviders.remove(hoster)
 
         if common_debrids:
             self.threads.append(self._start_worker(partial(self.user_cloud_inspection, query, mal_id, episode, season)))
         else:
-            self.remainingProviders.remove('Cloud Inspection')
+            with self._results_lock:
+                if 'Cloud Inspection' in self.remainingProviders:
+                    self.remainingProviders.remove('Cloud Inspection')
 
         if control.getBool('provider.localfiles'):
             self.threads.append(self._start_worker(partial(self.user_local_inspection, query, mal_id, episode, season)))
         else:
-            self.remainingProviders.remove('Local Inspection')
+            with self._results_lock:
+                if 'Local Inspection' in self.remainingProviders:
+                    self.remainingProviders.remove('Local Inspection')
 
         for pid, mod, cache_key, skip_prefix, needs_media_type in _EMBED_MODULES:
             if control.getBool(f'provider.{pid}'):
+                if not rescrape and circuit_breaker.is_tripped(pid):
+                    control.log(f"CircuitBreaker: Skipping '{pid}' (circuit open)", 'info')
+                    with self._results_lock:
+                        if pid in self.remainingProviders:
+                            self.remainingProviders.remove(pid)
+                    continue
                 self.threads.append(self._start_worker(partial(
                     self._embed_sources_worker,
                     pid, mod, cache_key, skip_prefix, needs_media_type,
                     mal_id, episode, media_type, rescrape,
                 )))
             else:
-                self.remainingProviders.remove(pid)
+                with self._results_lock:
+                    if pid in self.remainingProviders:
+                        self.remainingProviders.remove(pid)
 
         timeout = 60 if rescrape else control.getInt('general.timeout')
         start_time = time.perf_counter()
@@ -196,14 +274,19 @@ class Sources(GetSources):
                 all_sources = database.get(get_sources, 8, *call_args, key=cache_key)
             if not all_sources:
                 all_sources = {'cached': [], 'uncached': []}
-            self.torrentUnCacheSources += all_sources.get('uncached', [])
-            self.torrentCacheSources += all_sources.get('cached', [])
-            self.torrentSources += all_sources.get('cached', []) + all_sources.get('uncached', [])
+            if all_sources.get('cached') or all_sources.get('uncached'):
+                circuit_breaker.record_success(provider)
+            with self._results_lock:
+                self.torrentUnCacheSources += all_sources.get('uncached', [])
+                self.torrentCacheSources += all_sources.get('cached', [])
+                self.torrentSources += all_sources.get('cached', []) + all_sources.get('uncached', [])
         except Exception as e:
+            circuit_breaker.record_failure(provider)
             control.log(f"Error in torrent worker '{provider}': {e}", 'error')
         finally:
-            if provider in self.remainingProviders:
-                self.remainingProviders.remove(provider)
+            with self._results_lock:
+                if provider in self.remainingProviders:
+                    self.remainingProviders.remove(provider)
 
     def _hoster_sources_worker(self, hoster, query, mal_id, episode, status, media_type, rescrape, season, part):
         try:
@@ -216,17 +299,22 @@ class Sources(GetSources):
                 all_sources = database.get(get_sources, 8, *call_args, key=cache_key)
             if not all_sources:
                 all_sources = {'cached': [], 'uncached': []}
-            if merge_mode == 'cached_only':
-                self.hosterSources += all_sources.get('cached', [])
-            else:
-                self.torrentUnCacheSources += all_sources.get('uncached', [])
-                self.torrentCacheSources += all_sources.get('cached', [])
-                self.torrentSources += all_sources.get('cached', []) + all_sources.get('uncached', [])
+            if all_sources.get('cached') or all_sources.get('uncached'):
+                circuit_breaker.record_success(hoster)
+            with self._results_lock:
+                if merge_mode == 'cached_only':
+                    self.hosterSources += all_sources.get('cached', [])
+                else:
+                    self.torrentUnCacheSources += all_sources.get('uncached', [])
+                    self.torrentCacheSources += all_sources.get('cached', [])
+                    self.torrentSources += all_sources.get('cached', []) + all_sources.get('uncached', [])
         except Exception as e:
+            circuit_breaker.record_failure(hoster)
             control.log(f"Error in hoster worker '{hoster}': {e}", 'error')
         finally:
-            if hoster in self.remainingProviders:
-                self.remainingProviders.remove(hoster)
+            with self._results_lock:
+                if hoster in self.remainingProviders:
+                    self.remainingProviders.remove(hoster)
 
     def _embed_sources_worker(self, pid, mod, cache_key, skip_prefix, needs_media_type, mal_id, episode, media_type, rescrape):
         try:
@@ -243,36 +331,45 @@ class Sources(GetSources):
                     src = database.get(get_sources, 8, mal_id, episode, key=cache_key)
             if not src:
                 src = []
-            self.embedSources += src
+            else:
+                circuit_breaker.record_success(pid)
+            with self._results_lock:
+                self.embedSources += src
             if skip_prefix:
                 self._apply_embed_skip(skip_prefix, src)
         except Exception as e:
+            circuit_breaker.record_failure(pid)
             control.log(f"Error in embed worker '{pid}': {e}", 'error')
         finally:
-            if pid in self.remainingProviders:
-                self.remainingProviders.remove(pid)
+            with self._results_lock:
+                if pid in self.remainingProviders:
+                    self.remainingProviders.remove(pid)
 
     def user_local_inspection(self, query, mal_id, episode, season):
         try:
             res = localfiles.Sources().get_sources(query, mal_id, episode, season)
             if res:
-                self.local_files += res
+                with self._results_lock:
+                    self.local_files += res
         except Exception as e:
             control.log(f"Error in local inspection worker: {e}", 'error')
         finally:
-            if 'Local Inspection' in self.remainingProviders:
-                self.remainingProviders.remove('Local Inspection')
+            with self._results_lock:
+                if 'Local Inspection' in self.remainingProviders:
+                    self.remainingProviders.remove('Local Inspection')
 
     def user_cloud_inspection(self, query, mal_id, episode, season):
         try:
             res = debrid_cloudfiles.Sources().get_sources(query, mal_id, episode, season)
             if res:
-                self.cloud_files += res
+                with self._results_lock:
+                    self.cloud_files += res
         except Exception as e:
             control.log(f"Error in cloud inspection worker: {e}", 'error')
         finally:
-            if 'Cloud Inspection' in self.remainingProviders:
-                self.remainingProviders.remove('Cloud Inspection')
+            with self._results_lock:
+                if 'Cloud Inspection' in self.remainingProviders:
+                    self.remainingProviders.remove('Cloud Inspection')
 
     def _apply_embed_skip(self, prefix, sources):
         for x in sources:

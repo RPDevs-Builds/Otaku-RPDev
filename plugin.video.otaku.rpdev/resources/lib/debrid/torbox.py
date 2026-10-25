@@ -1,6 +1,6 @@
-from resources.lib.ui import source_utils, client, control
-
+import time
 from datetime import datetime, timezone
+from resources.lib.ui import source_utils, client, control
 
 
 class TorBox:
@@ -127,6 +127,20 @@ class TorBox:
     def refreshToken(self):
         pass
 
+    def _request_with_backoff(self, method, url, **kwargs):
+        """Execute HTTP request with 1x exponential backoff if HTTP 429 is received."""
+        r = getattr(client, method.lower())(url, **kwargs)
+        if r and r.status_code == 429:
+            try:
+                wait_seconds = int(r.headers.get('Retry-After', 1))
+            except (ValueError, TypeError):
+                wait_seconds = 1
+            wait_seconds = min(max(wait_seconds, 1), 3)
+            control.log(f"TorBox API rate limited (429) for {url}, backing off {wait_seconds}s", 'warning')
+            time.sleep(wait_seconds)
+            r = getattr(client, method.lower())(url, **kwargs)
+        return r
+
     def hash_check(self, hash_list):
         hashes = ','.join(hash_list)
         url = f'{self.BaseUrl}/torrents/checkcached'
@@ -134,7 +148,7 @@ class TorBox:
             'hash': hashes,
             'format': 'list'
         }
-        r = client.get(url, headers=self.headers(), params=params)
+        r = self._request_with_backoff('get', url, headers=self.headers(), params=params)
         return r.json()['data'] if r else None
 
     def addMagnet(self, magnet):
@@ -142,7 +156,7 @@ class TorBox:
         data = {
             'magnet': magnet
         }
-        r = client.post(url, headers=self.headers(), data=data)
+        r = self._request_with_backoff('post', url, headers=self.headers(), data=data)
         return r.json()['data'] if r else None
 
     def delete_torrent(self, torrent_id):
@@ -151,18 +165,18 @@ class TorBox:
             'torrent_id': torrent_id,
             'operation': 'delete'
         }
-        r = client.post(url, headers=self.headers(), json_data=data)
+        r = self._request_with_backoff('post', url, headers=self.headers(), json_data=data)
         return r.json()['data'] if r else None
 
     def list_torrents(self):
         url = f'{self.BaseUrl}/torrents/mylist'
-        r = client.get(url, headers=self.headers())
+        r = self._request_with_backoff('get', url, headers=self.headers())
         return r.json()['data'] if r else None
 
     def get_torrent_info(self, torrent_id):
         url = f'{self.BaseUrl}/torrents/mylist'
         params = {'id': torrent_id, 'bypass_cache': 'true'}
-        r = client.get(url, headers=self.headers(), params=params)
+        r = self._request_with_backoff('get', url, headers=self.headers(), params=params)
         return r.json()['data'] if r else None
 
     def request_dl_link(self, torrent_id, file_id=-1):
@@ -173,7 +187,7 @@ class TorBox:
         }
         if file_id >= 0:
             params['file_id'] = file_id
-        r = client.get(url, params=params)
+        r = self._request_with_backoff('get', url, params=params)
         return r.json()['data'] if r else None
 
     def resolve_single_magnet(self, hash_, magnet, episode, pack_select, filename=None):

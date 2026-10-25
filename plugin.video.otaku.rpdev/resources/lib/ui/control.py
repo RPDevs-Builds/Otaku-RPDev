@@ -587,6 +587,12 @@ def clean_memory():
     if len(_artwork_cache) > 200:
         _artwork_cache.clear()
 
+    try:
+        from resources.lib.windows import base_window
+        base_window.clear_artwork_cache()
+    except Exception:
+        pass
+
     # 2. Close thread-local SQLite connections for this thread
     try:
         from resources.lib.ui import database

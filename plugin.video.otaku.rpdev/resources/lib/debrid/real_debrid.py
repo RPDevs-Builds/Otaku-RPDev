@@ -171,40 +171,54 @@ class RealDebrid:
         else:
             control.log(f"realdebrid.refresh failed: status {response.status_code if response else 'no response'}", 'warning')
 
+    def _request_with_backoff(self, method, url, **kwargs):
+        """Execute HTTP request with 1x exponential backoff if HTTP 429 is received."""
+        r = getattr(client, method.lower())(url, **kwargs)
+        if r and r.status_code == 429:
+            try:
+                wait_seconds = int(r.headers.get('Retry-After', 1))
+            except (ValueError, TypeError):
+                wait_seconds = 1
+            wait_seconds = min(max(wait_seconds, 1), 3)
+            control.log(f"Real-Debrid API rate limited (429) for {url}, backing off {wait_seconds}s", 'warning')
+            time.sleep(wait_seconds)
+            r = getattr(client, method.lower())(url, **kwargs)
+        return r
+
     def addMagnet(self, magnet):
         postData = {'magnet': magnet}
-        response = client.post(f'{self.BaseUrl}/torrents/addMagnet', headers=self.headers(), data=postData)
+        response = self._request_with_backoff('post', f'{self.BaseUrl}/torrents/addMagnet', headers=self.headers(), data=postData)
         if response and response.ok:
             return response.json()
         return None
 
     def list_torrents(self):
-        response = client.get(f'{self.BaseUrl}/torrents', headers=self.headers())
+        response = self._request_with_backoff('get', f'{self.BaseUrl}/torrents', headers=self.headers())
         if response and response.ok:
             return response.json()
         return []
 
     def torrentInfo(self, torrent_id):
-        response = client.get(f'{self.BaseUrl}/torrents/info/{torrent_id}', headers=self.headers())
+        response = self._request_with_backoff('get', f'{self.BaseUrl}/torrents/info/{torrent_id}', headers=self.headers())
         if response and response.ok:
             return response.json()
         return None
 
     def torrentSelect(self, torrentid, fileid='all'):
         postData = {'files': fileid}
-        response = client.post(f'{self.BaseUrl}/torrents/selectFiles/{torrentid}', headers=self.headers(), data=postData)
+        response = self._request_with_backoff('post', f'{self.BaseUrl}/torrents/selectFiles/{torrentid}', headers=self.headers(), data=postData)
         return response is not None
 
     def resolve_hoster(self, link):
         postData = {'link': link}
-        response = client.post(f'{self.BaseUrl}/unrestrict/link', headers=self.headers(), data=postData)
+        response = self._request_with_backoff('post', f'{self.BaseUrl}/unrestrict/link', headers=self.headers(), data=postData)
         if response and response.ok:
             response = response.json()
             return response.get('download')
         return None
 
     def deleteTorrent(self, torrent_id):
-        response = client.delete(f'{self.BaseUrl}/torrents/delete/{torrent_id}', headers=self.headers(), timeout=10)
+        response = self._request_with_backoff('delete', f'{self.BaseUrl}/torrents/delete/{torrent_id}', headers=self.headers(), timeout=10)
         return response is not None
 
     @staticmethod

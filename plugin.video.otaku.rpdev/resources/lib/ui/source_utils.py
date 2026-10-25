@@ -452,6 +452,27 @@ def get_best_match(dict_key, dictionary_list, episode, pack_select=False, filena
 #  Torrent Filtering
 # ═══════════════════════════════════════════════════════════════════════════
 
+_RE_FILTER_SEASON = re.compile(r"(?i)\b(?:s(?:eason)?[ ._-]?(\d{1,2}))(?!\d)")
+_RE_FILTER_EPISODE = re.compile(r"""(?ix)
+    (?:^|[\s._-])                     # separator
+    (?:e(?:p)?\s?(\d{1,4}))           # E12, EP12
+    |
+    -\s?(\d{1,4})\b                   # - 12
+    |
+    \b(?:episode|ep|e)\s?(\d{1,4})\b   # ep 03
+    |
+    s\d{1,2}e(\d{1,4})                # s01e07 format
+    |
+    (\d{1,4})\s+(\d{1,4})             # standalone episode range
+""")
+_RE_FILTER_EPISODE_RANGE = re.compile(r"(\d{1,4})\s*[~\-]\s*(\d{1,4})")
+_RE_FILTER_PART = re.compile(r"(?i)\b(?:part|cour)[ ._-]?(\d+)(?:[&-](\d+))?\b")
+_RE_FILTER_TRAILING_NUMBER = re.compile(r"""(?ix)
+    \b(?:[a-z]{3,})\s+(\d{1,3})\b
+""")
+_RE_FILTER_ORDINAL_CHECK = re.compile(r"\b\d+(?:st|nd|rd|th)\b", re.IGNORECASE)
+
+
 def filter_sources(provider, torrent_list, mal_id, season=None, episode=None, part=None, anidb_id=True):
     from resources.lib.ui import database
     """
@@ -466,26 +487,13 @@ def filter_sources(provider, torrent_list, mal_id, season=None, episode=None, pa
             if thetvdb_season == 'a' or thetvdb_season == 0:
                 season = None
 
-    # Define regexes from the testing file
-    regex_season = re.compile(r"(?i)\b(?:s(?:eason)?[ ._-]?(\d{1,2}))(?!\d)")
-    regex_episode = re.compile(r"""(?ix)
-        (?:^|[\s._-])                     # separator
-        (?:e(?:p)?\s?(\d{1,4}))           # E12, EP12
-        |
-        -\s?(\d{1,4})\b                   # - 12
-        |
-        \b(?:episode|ep|e)\s?(\d{1,4})\b   # ep 03
-        |
-        s\d{1,2}e(\d{1,4})                # s01e07 format
-        |
-        (\d{1,4})\s+(\d{1,4})             # standalone episode range
-    """)
-    regex_episode_range = re.compile(r"(\d{1,4})\s*[~\-]\s*(\d{1,4})")
-    regex_part = re.compile(r"(?i)\b(?:part|cour)[ ._-]?(\d+)(?:[&-](\d+))?\b")
-    regex_trailing_number = re.compile(r"""(?ix)
-        \b(?:[a-z]{3,})\s+(\d{1,3})\b
-    """)
-    regex_ordinal_check = re.compile(r"\b\d+(?:st|nd|rd|th)\b", re.IGNORECASE)
+    # Pre-compiled regex references
+    regex_season = _RE_FILTER_SEASON
+    regex_episode = _RE_FILTER_EPISODE
+    regex_episode_range = _RE_FILTER_EPISODE_RANGE
+    regex_part = _RE_FILTER_PART
+    regex_trailing_number = _RE_FILTER_TRAILING_NUMBER
+    regex_ordinal_check = _RE_FILTER_ORDINAL_CHECK
 
     filtered = []
 

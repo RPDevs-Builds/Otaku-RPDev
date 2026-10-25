@@ -510,17 +510,22 @@ def normalize_sub_lang(label):
 
 
 def _detect_sub_ext(sub_url, content):
-    """Pick .vtt vs .srt from body or URL (proxied fetch URLs hide the real extension)."""
-    head = (content or '').lstrip('\ufeff').lstrip()[:8].upper()
-    if head.startswith('WEBVTT'):
+    """Pick .ass, .ssa, .vtt, or .srt from body or URL (proxied fetch URLs hide the real extension)."""
+    raw_head = (content or '').lstrip('\ufeff').lstrip()
+    upper_head = raw_head[:512].upper()
+    if upper_head.startswith('WEBVTT'):
         return '.vtt'
+    if '[SCRIPT INFO]' in upper_head or '[V4+ STYLES]' in upper_head or '[EVENTS]' in upper_head:
+        return '.ass'
     decoded = urllib.parse.unquote(sub_url or '').lower()
-    if '.vtt' in decoded:
+    if '.ass' in decoded or (sub_url or '').lower().endswith('.ass'):
+        return '.ass'
+    if '.ssa' in decoded or (sub_url or '').lower().endswith('.ssa'):
+        return '.ssa'
+    if '.vtt' in decoded or (sub_url or '').lower().endswith('.vtt'):
         return '.vtt'
-    if '.srt' in decoded:
+    if '.srt' in decoded or (sub_url or '').lower().endswith('.srt'):
         return '.srt'
-    if (sub_url or '').lower().endswith('.vtt'):
-        return '.vtt'
     return '.srt'
 
 
@@ -556,8 +561,7 @@ def get_sub(sub_url, sub_lang, headers=None, sub_index=0, display_name=None, sou
     fpath = os.path.join(subtitle, fname)
     fpath = fpath.encode(encoding='ascii', errors='ignore').decode(encoding='ascii')
     fname = fname.encode(encoding='ascii', errors='ignore').decode(encoding='ascii')
-    with open(fpath, 'w', encoding='utf-8') as f:
-        f.write(content)
+    control.atomic_write_text(fpath, content)
     return {
         'path': 'special://temp/{0}'.format(fname),
         'lang': lang,
