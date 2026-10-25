@@ -690,6 +690,7 @@ class AniListBrowser(BrowserBase):
                     }
                     studios {
                         edges {
+                            isMain
                             node {
                                 name
                             }
@@ -799,6 +800,7 @@ class AniListBrowser(BrowserBase):
                     }
                     studios {
                         edges {
+                            isMain
                             node {
                                 name
                             }
@@ -867,6 +869,7 @@ class AniListBrowser(BrowserBase):
                     status
                     studios {
                       edges {
+                        isMain
                         node {
                           name
                         }
@@ -966,6 +969,7 @@ class AniListBrowser(BrowserBase):
                   status
                   studios {
                     edges {
+                      isMain
                       node {
                         name
                       }
@@ -1081,6 +1085,7 @@ class AniListBrowser(BrowserBase):
                 }
                 studios {
                     edges {
+                        isMain
                         node {
                             name
                         }
@@ -1173,6 +1178,7 @@ class AniListBrowser(BrowserBase):
             }
             studios {
                 edges {
+                    isMain
                     node {
                         name
                     }
@@ -1305,7 +1311,9 @@ class AniListBrowser(BrowserBase):
         except IndexError:
             pass
 
-        info['studio'] = [x['node'].get('name') for x in res['studios']['edges']]
+        edges = (res.get('studios') or {}).get('edges') or []
+        main_studios = [x['node'].get('name') for x in edges if x and x.get('isMain') and x.get('node')]
+        info['studio'] = main_studios if main_studios else [x['node'].get('name') for x in edges if x and x.get('node')]
 
         try:
             info['rating'] = {'score': res.get('averageScore') / 10.0}
@@ -1418,7 +1426,9 @@ class AniListBrowser(BrowserBase):
         except IndexError:
             pass
 
-        kodi_meta['studio'] = [x['node'].get('name') for x in res['studios']['edges']]
+        edges = (res.get('studios') or {}).get('edges') or []
+        main_studios = [x['node'].get('name') for x in edges if x and x.get('isMain') and x.get('node')]
+        kodi_meta['studio'] = main_studios if main_studios else [x['node'].get('name') for x in edges if x and x.get('node')]
 
         try:
             kodi_meta['rating'] = {'score': res.get('averageScore') / 10.0}
@@ -1559,6 +1569,7 @@ class AniListBrowser(BrowserBase):
                     }
                     studios {
                         edges {
+                            isMain
                             node {
                                 name
                             }

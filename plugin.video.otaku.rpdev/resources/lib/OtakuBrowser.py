@@ -261,7 +261,9 @@ class OtakuBrowser(MalBrowser):
 
         studio = [x['name'] for x in mal_res.get('studios', [])] if mal_res else None
         if not studio and anilist_res:
-            studio = [x['node'].get('name') for x in anilist_res['studios']['edges']]
+            edges = (anilist_res.get('studios') or {}).get('edges') or []
+            main_studios = [x['node'].get('name') for x in edges if x and x.get('isMain') and x.get('node')]
+            studio = main_studios if main_studios else [x['node'].get('name') for x in edges if x and x.get('node')]
 
         status = mal_res.get('status') if mal_res else None
         if not status and anilist_res:

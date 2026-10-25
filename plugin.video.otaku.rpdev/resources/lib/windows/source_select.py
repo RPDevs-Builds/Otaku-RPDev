@@ -139,6 +139,8 @@ class SourceSelect(BaseWindow):
 
         if actionID in [7, 100] and self.getFocusId() == 1000:
             self.position = self.display_list.getSelectedPosition()
+            if self.position < 0 or not self.displayed_sources or self.position >= len(self.displayed_sources):
+                return
             self.resolve_item()
 
         if actionID == 117:
@@ -150,6 +152,8 @@ class SourceSelect(BaseWindow):
                 ]
             )
             self.position = self.display_list.getSelectedPosition()
+            if self.position < 0 or not self.displayed_sources or self.position >= len(self.displayed_sources):
+                return
             if context == 0:  # Play
                 self.resolve_item()
             elif context == 1:  # Download
@@ -175,6 +179,8 @@ class SourceSelect(BaseWindow):
                     self.resolve_item(True)
 
     def resolve_item(self, pack_select=False):
+        if self.position < 0 or not self.displayed_sources or self.position >= len(self.displayed_sources):
+            return
         if control.getBool('general.autotrynext') and not pack_select:
             sources = self.displayed_sources[self.position:]
         else:

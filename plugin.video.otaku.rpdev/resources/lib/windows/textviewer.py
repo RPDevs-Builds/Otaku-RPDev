@@ -22,7 +22,7 @@ class TextViewerXML(WindowXMLDialog):
         self.handle_action(controlID)
 
     def handle_action(self, controlID):
-        if controlID in [2060, 1941]:  # Handle scrollbar actions
+        if controlID in [2060, 1941, 7, 100]:  # Handle scrollbar or select actions
             self.actioned = True
             self.close()
 
@@ -33,8 +33,8 @@ class TextViewerXML(WindowXMLDialog):
             # BACKSPACE / ESCAPE
             self.close()
 
-        if actionID == 7:
-            # ENTER
+        if actionID in (7, 100):
+            # ENTER / SELECT
             self.handle_action(actionID)
 
     def set_properties(self):

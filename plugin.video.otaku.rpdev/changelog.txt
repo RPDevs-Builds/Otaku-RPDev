@@ -1,3 +1,14 @@
+Changelog v5.4.16 (2026-10-25):
+- API, Stability & UI Hardening:
+- - AnimeSchedule Bearer Auth: Pass Authorization Bearer headers to AnimeSchedule API v3 season and route endpoints, restoring missing MAL IDs, AniList IDs, ratings, and synopses across all 152 calendar anime
+- - Non-Blocking Changelog: Render root directory before displaying modal Changelog, eliminating Kodi CGUIMediaWindow::GetDirectory 45s timeouts on version upgrade
+- - Router Exception Safety: Wrap top-level router_process with defensive endOfDirectory(handle, False) fallback to prevent UI hanging on uncaught routing errors
+- - Log & Settings Hardening: Remove ghost 'trakt.token' from sensitive settings in control.py, eliminating Kodi C++ EXCEPTION: Invalid setting type "string"
+- - Studio Texture Normalization: Normalize ListItem.Studio to primary animation studio in control.py:set_info() and query isMain in AniListBrowser, stopping hundreds of multi-studio texture 404s and restoring skin studio badge loading
+- - UI Window Crash Guards: Clamp duration in playing_next.py preventing ZeroDivisionError on playback end
+- - Source Select Guard: Add bounds check in source_select.py preventing -1 index wrap-around and IndexError on empty/unselected containers
+- - Text Viewer Navigation: Enable Action 7 and 100 (Remote Select/OK) in textviewer.py for intuitive remote dialog dismissal
+
 Changelog v5.4.15 (2026-10-25):
 - Instant Menu Auto-Refresh on Settings Save:
 - - Service Monitor: Snapshot menu configuration settings and detect menu setting modifications on onSettingsChanged

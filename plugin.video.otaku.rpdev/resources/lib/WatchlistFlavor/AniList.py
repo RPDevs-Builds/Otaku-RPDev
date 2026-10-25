@@ -489,7 +489,10 @@ class AniListWLF(WatchlistFlavorBase):
             'status': res.get('status'),
             'mediatype': 'tvshow',
             'country': [res.get('countryOfOrigin', '')],
-            'studio': [x['node'].get('name') for x in ((res.get('studios') or {}).get('edges') or []) if x and x.get('node')]
+            'studio': (
+                [x['node'].get('name') for x in ((res.get('studios') or {}).get('edges') or []) if x and x.get('isMain') and x.get('node')]
+                or [x['node'].get('name') for x in ((res.get('studios') or {}).get('edges') or []) if x and x.get('node')]
+            )
         }
 
         if res['episodes'] != 0 and progress == res['episodes']:

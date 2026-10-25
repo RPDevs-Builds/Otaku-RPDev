@@ -12,7 +12,7 @@ class PlayingNext(BaseWindow):
         self.closed = False
         self.actioned = False
         self.total_time = int(self.player.getTotalTime())
-        self.duration = int(self.total_time - self.player.getTime())
+        self.duration = max(1, int(self.total_time - self.player.getTime()))
         self.skipoutro_end = actionArgs['skipoutro_end']
         self.default_action = control.getInt('playingnext.defaultaction')
 
@@ -21,6 +21,9 @@ class PlayingNext(BaseWindow):
 
     def background_tasks(self):
         """Optimized background task with reduced updates"""
+        if self.duration <= 0:
+            self.close()
+            return
         progress_bar = None
         try:
             progress_bar = self.getControl(3014)
@@ -34,7 +37,7 @@ class PlayingNext(BaseWindow):
                 if self.playing_file != p.getPlayingFile():
                     break
                 if progress_bar:
-                    percent = ((self.total_time - int(p.getTime())) / self.duration) * 100
+                    percent = ((self.total_time - int(p.getTime())) / max(1, self.duration)) * 100
                     if percent < 2:
                         break
                     progress_bar.setPercent(percent)

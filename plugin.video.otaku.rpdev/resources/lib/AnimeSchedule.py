@@ -483,8 +483,8 @@ class AnimeScheduleCalendar:
                 'airing-statuses': 'ongoing',
                 'page': page
             }
-
-            response = client.get(url, params=params)
+            headers = {'Authorization': f'Bearer {self.token}'} if self.token else {}
+            response = client.get(url, params=params, headers=headers)
 
             if response.status_code == 200:
                 data = response.json()
@@ -511,13 +511,14 @@ class AnimeScheduleCalendar:
 
         max_attempts = 2
         retry_delay = 0.2  # Reduced from 0.3 for faster retries
+        headers = {'Authorization': f'Bearer {self.token}'} if self.token else {}
 
         for attempt in range(max_attempts):
             try:
                 # Use direct route endpoint: /anime/{route}
                 url = f"{BASE_URL}/anime/{route}"
 
-                response = client.get(url, timeout=6)  # Reduced from 8 to 6 seconds
+                response = client.get(url, headers=headers, timeout=6)  # Reduced from 8 to 6 seconds
 
                 if response.status_code == 200:
                     data = response.json()
@@ -969,8 +970,8 @@ class AnimeScheduleCalendar:
             params = {
                 "mal-ids": mal_id
             }
-
-            response = client.get(f"{BASE_URL}/anime", params=params)
+            headers = {'Authorization': f'Bearer {self.token}'} if self.token else {}
+            response = client.get(f"{BASE_URL}/anime", params=params, headers=headers)
 
             if response:
                 data = response.json()

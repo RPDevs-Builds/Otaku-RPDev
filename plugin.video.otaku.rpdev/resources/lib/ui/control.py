@@ -169,7 +169,7 @@ _RE_BASIC_AUTH = re.compile(r'(?i)(https?://[^:\s@]+:)([^@\s]+)(@)')
 
 _SENSITIVE_SETTING_KEYS = (
     'realdebrid.token', 'alldebrid.token', 'premiumize.token', 'torbox.token',
-    'debridlink.token', 'easydebrid.token', 'simkl.token', 'trakt.token',
+    'debridlink.token', 'easydebrid.token', 'simkl.token',
     'mal.token', 'kitsu.token'
 )
 
@@ -736,7 +736,16 @@ def set_videotags(li, info):
     if code := info.get('code'):
         vinfo.setProductionCode(code)
     if studio := info.get('studio'):
-        vinfo.setStudios(studio)
+        if isinstance(studio, list):
+            primary_studio = [s.strip() for s in studio if s and isinstance(s, str) and s.strip()][:1]
+            if primary_studio:
+                vinfo.setStudios(primary_studio)
+                li.setProperty('Studios', ' / '.join(str(s) for s in studio if s))
+        elif isinstance(studio, str) and studio:
+            clean_studios = [s.strip() for s in studio.split(' / ') if s.strip()]
+            if clean_studios:
+                vinfo.setStudios(clean_studios[:1])
+                li.setProperty('Studios', studio)
     if cast := info.get('cast'):
         vinfo.setCast([xbmc.Actor(c['name'], c['role'], c['index'], c['thumbnail']) for c in cast])
     if country := info.get('country'):

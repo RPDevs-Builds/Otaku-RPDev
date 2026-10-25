@@ -22,16 +22,33 @@ from resources.lib.ui import control
 from resources.lib.ui.router import router_process
 
 
-if control.ADDON_VERSION != control.getSetting('version'):
-    if control.getInt('showchangelog') == 0:
-        import service
-        service.getChangeLog()
-    control.setSetting('version', control.ADDON_VERSION)
-
 if __name__ == "__main__":
     control.process_context()
     from resources.lib import Main  # noQA
     plugin_url = control.get_plugin_url(sys.argv[0])
     plugin_params = control.get_plugin_params(sys.argv[2])
-    router_process(plugin_url, plugin_params)
+    try:
+        router_process(plugin_url, plugin_params)
+    except Exception as e:
+        control.log(f'Unhandled exception in router_process: {e}', 'error')
+        try:
+            import xbmcplugin
+            handle = int(sys.argv[1]) if len(sys.argv) > 1 and sys.argv[1].isdigit() else -1
+            if handle >= 0:
+                xbmcplugin.endOfDirectory(handle, succeeded=False)
+        except Exception:
+            pass
+    else:
+        # Display changelog after root directory is completed, avoiding Kodi GetDirectory timeouts
+        if (plugin_url == 'plugin://plugin.video.otaku.rpdev/' or not plugin_params) and control.ADDON_VERSION != control.getSetting('version'):
+            control.setSetting('version', control.ADDON_VERSION)
+            if control.getInt('showchangelog') == 0:
+                try:
+                    import service
+                    service.getChangeLog()
+                except Exception as e:
+                    control.log(f'Failed to display changelog: {e}', 'warning')
+        elif control.ADDON_VERSION != control.getSetting('version'):
+            control.setSetting('version', control.ADDON_VERSION)
+
     control.log(f'Finished Running: {plugin_url=} {plugin_params=}')
