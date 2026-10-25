@@ -26,6 +26,12 @@
 						<close>true</close>
 					</control>
 				</setting>
+				<setting id="general.verify_ssl" type="boolean" label="Verify SSL" help="">
+					<level>4</level>
+					<default>true</default>
+					<control type="toggle" />
+					<visible>false</visible>
+				</setting>
 			</group>
 
 			<!-- General Customization -->

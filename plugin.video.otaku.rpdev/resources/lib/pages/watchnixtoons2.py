@@ -92,7 +92,7 @@ class Sources(BrowserBase):
                     time.sleep(self.request_delay - time_since_last)
 
             wco_session = self._get_wco_session()
-            verify_ssl = control.getBool('general.verify_ssl')
+            verify_ssl = control.getBool('general.verify_ssl', default=True)
             if method.upper() == 'POST':
                 if json_data is not None:
                     resp = wco_session.post(
@@ -417,7 +417,7 @@ class Sources(BrowserBase):
             'Accept': 'video/webm,video/ogg,video/*;q=0.9,application/ogg;q=0.7,audio/*;q=0.6,*/*;q=0.5',
         }
         current = url
-        verify_ssl = control.getBool('general.verify_ssl')
+        verify_ssl = control.getBool('general.verify_ssl', default=True)
         for _ in range(10):
             result = client.request(
                 current,
