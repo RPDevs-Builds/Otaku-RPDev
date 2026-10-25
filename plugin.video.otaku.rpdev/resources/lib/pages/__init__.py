@@ -49,6 +49,8 @@ def getSourcesHelper(actionArgs):
 
 
 class Sources(GetSources):
+    _scrape_semaphore = threading.Semaphore(control.max_threads)
+
     def __init__(self, xml_file, location, actionArgs=None):
         super(Sources, self).__init__(xml_file, location, actionArgs=actionArgs)
         self.torrentProviders = [row[0] for row in _TORRENT_MODULES.items()]
@@ -75,9 +77,12 @@ class Sources(GetSources):
         self.cloud_files = []
         self.local_files = []
 
-    @staticmethod
-    def _start_worker(fn):
-        t = threading.Thread(target=fn, daemon=True)
+    @classmethod
+    def _start_worker(cls, fn):
+        def _throttled_fn():
+            with cls._scrape_semaphore:
+                fn()
+        t = threading.Thread(target=_throttled_fn, daemon=True)
         t.start()
         return t
 

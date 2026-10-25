@@ -337,4 +337,9 @@ if __name__ == "__main__":
     # Prefetch airing calendar in background thread (non-blocking)
     threading.Thread(target=prefetch_calendar, daemon=True).start()
     control.log('##################  MAINTENANCE COMPLETE ######################')
-    Monitor().waitForAbort()
+    monitor = Monitor()
+    # Periodic background maintenance & memory trimming loop (every 15 minutes)
+    while not monitor.abortRequested():
+        if monitor.waitForAbort(900):
+            break
+        control.clean_memory()

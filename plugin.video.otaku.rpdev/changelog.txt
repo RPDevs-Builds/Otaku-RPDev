@@ -1,3 +1,9 @@
+Changelog v5.4.7 (2026-10-24):
+- Log Token Sanitization (P2): added centralized log credential scrubbing (sanitize_log) across all log outputs in control.log, redacting Bearer tokens, URL query credentials, JSON authorization fields, Basic Auth, and active debrid/watchlist tokens
+- Memory Management & Heap Trimming (P3): upgraded control.clean_memory() with multi-platform Bionic/glibc malloc_trim resolution (Android libc.so and Linux libc.so.6), thread-local SQLite connection cleanup, and in-memory artwork cache bounds
+- Background Maintenance Loop (P3): updated service.py to execute a periodic 15-minute background memory sweep loop preventing memory fragmentation and OOM on extended Kodi uptime
+- Scraper Concurrency Bounding (P3): added dynamic memory-aware thread limit detection (_detect_max_threads) and throttled provider workers in Sources using threading.Semaphore to prevent CPU and network starvation on low-RAM living room devices
+
 Changelog v5.4.6 (2026-10-24):
 - Built-in Standalone Megacloud Decryptor: integrated script.service.megacloud and mega-embed-2 decryption engine directly into Otaku-RPDev as an in-process native Python module
 - Elimination of External Webservice Dependency: Megacloud and Rabbitstream streams decrypt and resolve locally in-process without requiring a Node.js daemon, Docker container, or local HTTP server on port 4000

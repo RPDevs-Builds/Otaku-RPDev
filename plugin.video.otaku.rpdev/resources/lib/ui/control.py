@@ -29,6 +29,7 @@ import sys
 import json
 import shutil
 import threading
+import re
 
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
@@ -40,7 +41,39 @@ from urllib import parse
 # ═══════════════════════════════════════════════════════════════════════════
 
 _artwork_cache = {}
-max_threads = os.cpu_count()
+
+
+def _detect_max_threads() -> int:
+    """Determine thread limit based on available physical memory and CPU count."""
+    cpu = os.cpu_count() or 4
+    ram_mb = None
+    try:
+        with open('/proc/meminfo', 'r') as f:
+            for line in f:
+                if line.startswith('MemTotal:'):
+                    ram_mb = int(line.split()[1]) // 1024
+                    break
+    except Exception:
+        pass
+
+    if ram_mb is None:
+        try:
+            ram_mb = (os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_PHYS_PAGES')) // (1024 * 1024)
+        except Exception:
+            pass
+
+    if ram_mb is not None and ram_mb <= 2048:
+        # Low-spec Android TV / Fire TV stick (<= 2 GB RAM)
+        return max(2, min(cpu, 4))
+    elif ram_mb is not None and ram_mb <= 4096:
+        # Mid-tier box (<= 4 GB RAM)
+        return max(2, min(cpu, 6))
+    else:
+        # High-spec device or PC
+        return max(2, min(cpu, 8))
+
+
+max_threads = _detect_max_threads()
 
 try:
     HANDLE = int(sys.argv[1])
@@ -128,6 +161,46 @@ def closeBusyDialog():
         execute('Dialog.Close(busydialognocancel)')
 
 
+# Pre-compiled regex patterns for sensitive data sanitization
+_RE_AUTH_BEARER = re.compile(r'(?i)(bearer\s+)([a-zA-Z0-9_\-\.]{8,})')
+_RE_URL_PARAMS = re.compile(r'(?i)([\?&][a-zA-Z0-9_\-\.]*?(?:key|token|auth|secret|password)[a-zA-Z0-9_\-\.]*?=)([^&\s]+)')
+_RE_JSON_FIELDS = re.compile(r'(?i)(["\']?[a-zA-Z0-9_\-\.]*?(?:key|token|auth|secret|password)[a-zA-Z0-9_\-\.]*?["\']?\s*[:=]\s*["\'])([^"\']{6,})(["\'])')
+_RE_BASIC_AUTH = re.compile(r'(?i)(https?://[^:\s@]+:)([^@\s]+)(@)')
+
+_SENSITIVE_SETTING_KEYS = (
+    'realdebrid.token', 'alldebrid.token', 'premiumize.token', 'torbox.token',
+    'debridlink.token', 'easydebrid.token', 'simkl.token', 'trakt.token',
+    'mal.token', 'kitsu.token'
+)
+
+
+def sanitize_log(msg) -> str:
+    """Scrub authentication tokens, passwords, and sensitive keys from log messages."""
+    if not isinstance(msg, str):
+        msg = str(msg)
+
+    # Fast-path check: avoid regex passes if no sensitive keywords exist
+    lower_msg = msg.lower()
+    if not any(k in lower_msg for k in ('bearer', 'token', 'key', 'auth', 'secret', 'pass', 'http://', 'https://')):
+        return msg
+
+    msg = _RE_AUTH_BEARER.sub(r'\1[REDACTED]', msg)
+    msg = _RE_URL_PARAMS.sub(r'\1[REDACTED]', msg)
+    msg = _RE_JSON_FIELDS.sub(r'\1[REDACTED]\3', msg)
+    msg = _RE_BASIC_AUTH.sub(r'\1[REDACTED]\3', msg)
+
+    # Scrub active user tokens if configured in settings
+    for key in _SENSITIVE_SETTING_KEYS:
+        try:
+            token = getSetting(key)
+            if token and len(token) >= 6 and token in msg:
+                msg = msg.replace(token, '[REDACTED]')
+        except Exception:
+            pass
+
+    return msg
+
+
 def log(msg, level="debug"):
     if level == 'info':
         level = xbmc.LOGINFO
@@ -139,7 +212,8 @@ def log(msg, level="debug"):
         level = xbmc.LOGDEBUG
     else:
         level = xbmc.LOGNONE
-    xbmc.log(f'{ADDON_NAME.upper()} ({HANDLE}): {msg}', level)
+    sanitized = sanitize_log(msg)
+    xbmc.log(f'{ADDON_NAME.upper()} ({HANDLE}): {sanitized}', level)
 
 
 def bin(s):
@@ -507,14 +581,38 @@ def wait_loop(step: int, timeout: int, path: str, path2: str = '', *, require_it
 
 
 def clean_memory():
-    """Trigger Python garbage collection and release freed heap pages back to OS via malloc_trim."""
+    """Trigger Python garbage collection, close idle connections, and release heap via malloc_trim."""
+    # 1. Clear excessive in-memory artwork cache
+    global _artwork_cache
+    if len(_artwork_cache) > 200:
+        _artwork_cache.clear()
+
+    # 2. Close thread-local SQLite connections for this thread
+    try:
+        from resources.lib.ui import database
+        database.close_thread_connections()
+    except Exception:
+        pass
+
+    # 3. Garbage collection
     try:
         import gc
         gc.collect()
+    except Exception:
+        pass
+
+    # 4. Release freed heap pages to OS (Android Bionic & Linux glibc)
+    try:
         import ctypes
-        libc = ctypes.CDLL(None)
-        if hasattr(libc, 'malloc_trim'):
-            libc.malloc_trim(0)
+        for lib_name in ('libc.so', 'libc.so.6', None):
+            try:
+                libc = ctypes.CDLL(lib_name)
+                trim_func = getattr(libc, 'malloc_trim', None)
+                if trim_func:
+                    trim_func(0)
+                    break
+            except Exception:
+                continue
     except Exception:
         pass
 
