@@ -25,6 +25,104 @@ playList = control.playList
 player = xbmc.Player
 
 
+# ── Intelligent Subtitle Track Selection Heuristics ──────────────────────
+
+SIGNS_SUBTITLE_KEYWORDS = ('signs', 'songs', 's&s', 's/s', 's & s', 's_s', 'forced')
+DIALOG_SUBTITLE_KEYWORDS = ('dialogue', 'dialog', 'full', 'main', 'complete')
+
+
+def score_subtitle_stream(sub, target_mode='dialog', preferred_lang='eng', custom_keyword='', preferred_type='isdefault'):
+    """
+    Score a subtitle stream candidate for intelligent selection.
+
+    :param sub: dict containing 'index', 'name', 'language', 'isdefault', 'isforced', 'isimpaired'
+    :param target_mode: 'dialog', 'signs', 'custom', or None
+    :param preferred_lang: e.g. 'eng', 'jpn'
+    :param custom_keyword: string keyword when target_mode == 'custom'
+    :param preferred_type: 'isdefault', 'isforced', 'isimpaired'
+    :return: integer score
+    """
+    sub_lang = (sub.get('language') or '').lower()
+    sub_name = (sub.get('name') or '').lower()
+    is_default = bool(sub.get('isdefault', False))
+    is_forced = bool(sub.get('isforced', False))
+    is_impaired = bool(sub.get('isimpaired', False))
+
+    score = 0
+
+    # 1. Preferred Language Match
+    if preferred_lang and sub_lang == preferred_lang.lower():
+        score += 1000
+    elif sub_lang:
+        # Penalize non-matching languages when preferred_lang is specified
+        score -= 200
+
+    has_signs = any(kw in sub_name for kw in SIGNS_SUBTITLE_KEYWORDS) or is_forced
+    has_dialog = any(kw in sub_name for kw in DIALOG_SUBTITLE_KEYWORDS)
+
+    # 2. Target Mode Evaluation
+    if target_mode == 'dialog':
+        if has_signs:
+            score -= 500  # Strong penalty: reject Signs & Songs when Full Dialogue is desired
+        elif has_dialog:
+            score += 200  # Explicitly marked as dialogue / full
+        else:
+            score += 100  # Clean unmarked track (e.g. "English" or "") is standard dialogue
+
+        if is_impaired:
+            score -= 50  # Deprioritize SDH / impaired unless requested
+
+    elif target_mode == 'signs':
+        if has_signs:
+            score += 200  # Explicit Signs & Songs / Forced track
+        elif has_dialog:
+            score -= 500  # Reject Full Dialogue when Signs & Songs is desired
+        else:
+            score -= 100  # Clean track without signs marker is unlikely to be signs-only
+
+    elif target_mode == 'custom':
+        custom_kw = (custom_keyword or '').lower().strip()
+        if custom_kw and custom_kw in sub_name:
+            score += 250
+        elif custom_kw:
+            score -= 100
+
+    # 3. Type Attribute Modifiers (Tie-Breaker / Minor preference)
+    if preferred_type and sub.get(preferred_type, False):
+        score += 10
+
+    # 4. Default Container Flag (Tie-Breaker Only)
+    if is_default:
+        score += 5
+
+    return score
+
+
+def select_subtitle_stream(subtitle_streams, target_mode='dialog', preferred_lang='eng', custom_keyword='', preferred_type='isdefault'):
+    """
+    Select the optimal subtitle stream index from available streams.
+    Returns the integer index of the selected stream, or None if no streams available.
+    """
+    if not subtitle_streams:
+        return None
+
+    scored = []
+    for idx, sub in enumerate(subtitle_streams):
+        stream_index = sub.get('index', idx)
+        score = score_subtitle_stream(
+            sub,
+            target_mode=target_mode,
+            preferred_lang=preferred_lang,
+            custom_keyword=custom_keyword,
+            preferred_type=preferred_type
+        )
+        scored.append((score, stream_index))
+
+    # Sort descending by score; on ties, preserve earlier stream index
+    scored.sort(key=lambda item: (-item[0], item[1]))
+    return scored[0][1]
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 #  WatchlistPlayer - Playback Lifecycle & Skip Times
 # ═══════════════════════════════════════════════════════════════════════════
@@ -440,12 +538,6 @@ class WatchlistPlayer(player):
                 "isdefault", "isforced", "isimpaired"
             ]
 
-            keywords = {
-                1: 'dialogue',
-                2: ['signs', 'songs'],
-                3: control.getSetting('subtitles.customkeyword')
-            }
-
             response = control.jsonrpc(query)
 
             if 'result' in response:
@@ -456,117 +548,77 @@ class WatchlistPlayer(player):
                 audio_streams = []
                 subtitle_streams = []
 
-            preferred_audio_streams = audios[self.preferred_audio]
-            preferred_subtitle_lang = subtitles[self.preferred_subtitle_setting]
-            preffeded_subtitle_type = types[self.preferred_subtitle_type]
-            preffeded_subtitle_keyword = keywords[self.preferred_subtitle_keyword]
+            preferred_audio_streams = audios[self.preferred_audio] if self.preferred_audio < len(audios) else 'jpn'
+            preferred_subtitle_lang = subtitles[self.preferred_subtitle_setting] if self.preferred_subtitle_setting < len(subtitles) else 'eng'
+            preferred_subtitle_type = types[self.preferred_subtitle_type] if self.preferred_subtitle_type < len(types) else 'isdefault'
 
             # Set preferred audio stream
+            selected_audio_stream = None
             for stream in audio_streams:
-                if stream['language'] == preferred_audio_streams:
+                if stream.get('language') == preferred_audio_streams:
                     self.setAudioStream(stream['index'])
+                    selected_audio_stream = stream
                     break
             else:
                 # If no preferred audio stream is found, set to the default audio stream
                 for stream in audio_streams:
                     if stream.get('isdefault', False):
                         self.setAudioStream(stream['index'])
+                        selected_audio_stream = stream
                         break
                 else:
                     # If no default audio stream is found, set to the first available audio stream
                     if audio_streams:
                         self.setAudioStream(audio_streams[0]['index'])
+                        selected_audio_stream = audio_streams[0]
 
-            # Set preferred subtitle stream
-            subtitle_int = None
+            active_audio_lang = (selected_audio_stream.get('language') or '').lower() if selected_audio_stream else preferred_audio_streams
 
-            # Lowercase preferred keyword(s) like sub_name_lower
-            if isinstance(preffeded_subtitle_keyword, list):
-                preffeded_subtitle_keyword = [kw.lower() for kw in preffeded_subtitle_keyword if isinstance(kw, str)]
-            elif isinstance(preffeded_subtitle_keyword, str):
-                preffeded_subtitle_keyword = preffeded_subtitle_keyword.lower()
-
-            # Type and Keyword filtering
-            if control.getBool('general.subtitles.keyword') or control.getBool('general.subtitles.type'):
-                for index, sub in enumerate(subtitle_streams):
-
-                    # Check for type match
-                    if control.getBool('general.subtitles.type'):
-                        if sub['language'] == preferred_subtitle_lang:
-                            if sub[preffeded_subtitle_type]:
-                                subtitle_int = index
-                                break
-
-                    # Check for keyword match
-                    if control.getBool('general.subtitles.keyword'):
-                        if sub['language'] == preferred_subtitle_lang:
-                            sub_name_lower = sub['name'].lower()
-                            if isinstance(preffeded_subtitle_keyword, list):
-                                if any(kw in sub_name_lower for kw in preffeded_subtitle_keyword):
-                                    subtitle_int = index
-                                    break
-                            elif preffeded_subtitle_keyword and preffeded_subtitle_keyword in sub_name_lower:
-                                subtitle_int = index
-                                break
-
-                # fallback to first of preferred language if no type or keyword match
-                if subtitle_int is None:
-                    for index, sub in enumerate(subtitle_streams):
-                        if sub['language'] == preferred_subtitle_lang:
-                            subtitle_int = index
-                            break
-            else:
-                # No type filter or keyword filter, just check for preferred language
-                for index, sub in enumerate(subtitle_streams):
-                    if sub['language'] == preferred_subtitle_lang:
-                        subtitle_int = index
-                        break
-
-            if subtitle_int is None:
-                # default-subtitle fallback
-                for index, sub in enumerate(subtitle_streams):
-                    if sub.get('isdefault', False):
-                        subtitle_int = index
-                        break
+            # Determine target subtitle mode: 'dialog', 'signs', 'custom', or None
+            if control.getBool('general.subtitles.keyword'):
+                kw_setting = self.preferred_subtitle_keyword
+                if kw_setting == 4:
+                    # Option 4: Smart Pair (Dialog for Sub / Signs for Dub)
+                    target_mode = 'signs' if active_audio_lang == 'eng' else 'dialog'
+                elif kw_setting == 2:
+                    # Option 2: Signs & Songs
+                    target_mode = 'signs'
+                elif kw_setting == 3:
+                    # Option 3: Custom Keyword
+                    target_mode = 'custom'
                 else:
-                    # If no default subtitle stream is found, set to the first available subtitle stream
-                    subtitle_int = 0
+                    # Option 1: Dialog (Forced Full Dialogue everywhere, including English Dub)
+                    target_mode = 'dialog'
+            else:
+                target_mode = None
+
+            custom_keyword = control.getSetting('subtitles.customkeyword') if target_mode == 'custom' else ''
+            preferred_type = preferred_subtitle_type if control.getBool('general.subtitles.type') else None
+
+            # Select and apply optimal subtitle stream
+            subtitle_int = select_subtitle_stream(
+                subtitle_streams=subtitle_streams,
+                target_mode=target_mode,
+                preferred_lang=preferred_subtitle_lang,
+                custom_keyword=custom_keyword,
+                preferred_type=preferred_type
+            )
 
             if subtitle_int is not None:
                 self.setSubtitleStream(subtitle_int)
 
-            # Enable and Disable Subtitles based on audio streams
-            if len(audio_streams) == 1:
-                single_lang = audio_streams[0].get('language', '')
-                if single_lang != "jpn":
-                    if control.getBool('general.dubsubtitles'):
-                        if preferred_subtitle_lang == "none":
-                            self.showSubtitles(False)
-                        else:
-                            self.showSubtitles(True)
-                    else:
-                        self.showSubtitles(False)
-                elif single_lang != "eng":
-                    if preferred_subtitle_lang == "none":
-                        self.showSubtitles(False)
-                    else:
-                        self.showSubtitles(True)
-
-            if len(audio_streams) > 1:
-                if preferred_audio_streams == "eng":
-                    if control.getBool('general.dubsubtitles'):
-                        if preferred_subtitle_lang == "none":
-                            self.showSubtitles(False)
-                        else:
-                            self.showSubtitles(True)
-                    else:
-                        self.showSubtitles(False)
-
-                if preferred_audio_streams == "jpn":
-                    if preferred_subtitle_lang == "none":
-                        self.showSubtitles(False)
-                    else:
-                        self.showSubtitles(True)
+            # Enable and Disable Subtitles based on active audio stream
+            if preferred_subtitle_lang == "none":
+                self.showSubtitles(False)
+            elif active_audio_lang == "eng":
+                # English Dub playing: respect general.dubsubtitles
+                if control.getBool('general.dubsubtitles'):
+                    self.showSubtitles(True)
+                else:
+                    self.showSubtitles(False)
+            else:
+                # Japanese or foreign audio playing: show subtitles
+                self.showSubtitles(True)
 
     # ── Skip Time Processing (AniSkip / AnimeSkip / Embed / FFprobe chapters) ─
 

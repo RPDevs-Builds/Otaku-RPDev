@@ -1,3 +1,6 @@
+Changelog v5.4.9 (2026-10-25):
+- Intelligent Full Dialogue Subtitle Pairing & Dub Selection
+
 Changelog v5.4.8 (2026-10-25):
 - Stalled Torrent Cleaner, Scraper Health CI, Dynamic Domains & Pickle Scrub
 

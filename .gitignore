@@ -7,7 +7,7 @@ nano.save
 __pycache__/
 *.py[cod]
 *$py.class
-test*.py
+/test*.py
 *.db
 *.db-journal
 *.db-wal

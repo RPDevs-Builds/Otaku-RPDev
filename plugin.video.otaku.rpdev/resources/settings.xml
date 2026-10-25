@@ -1477,6 +1477,7 @@
 							<option label="30372">1</option>
 							<option label="30373">2</option>
 							<option label="30374">3</option>
+							<option label="30559">4</option>
 						</options>
 					</constraints>
 					<control type="spinner" format="string"/>

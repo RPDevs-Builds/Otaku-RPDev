@@ -2252,3 +2252,8 @@ msgstr ""
 msgctxt "#30558"
 msgid "Delete from Cloud"
 msgstr ""
+
+msgctxt "#30559"
+msgid "Smart Pair (Dialog for Sub / Signs for Dub)"
+msgstr ""
+
