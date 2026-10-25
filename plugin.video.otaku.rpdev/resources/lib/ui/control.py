@@ -44,7 +44,7 @@ max_threads = os.cpu_count()
 
 try:
     HANDLE = int(sys.argv[1])
-except IndexError:
+except (IndexError, ValueError):
     print('No handle found, using default 0')
     HANDLE = 0
 
