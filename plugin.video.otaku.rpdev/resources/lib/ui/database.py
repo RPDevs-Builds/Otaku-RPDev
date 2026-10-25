@@ -489,6 +489,29 @@ def prune_expired_cache(max_age_days=30):
     return deleted
 
 
+def checkpoint_databases(truncate=True):
+    """Run PRAGMA wal_checkpoint(TRUNCATE) and PRAGMA optimize across all databases.
+
+    Flushes the SQLite write-ahead log to disk and truncates the .db-wal file to
+    0 bytes, preventing disk bloat on low-flash Android TV devices.
+    """
+    db_paths = [
+        getattr(control, 'cacheFile', None),
+        getattr(control, 'malSyncDB', None),
+        getattr(control, 'searchHistoryDB', None),
+        getattr(control, 'mappingDB', None),
+    ]
+    mode = "TRUNCATE" if truncate else "PASSIVE"
+    for path in db_paths:
+        if path and os.path.exists(path):
+            try:
+                with SQL(path) as cur:
+                    cur.execute(f"PRAGMA wal_checkpoint({mode})")
+                    cur.execute("PRAGMA optimize")
+            except Exception as e:
+                control.log(f"Failed to checkpoint {path}: {e}", 'warning')
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 #  Show Operations
 # ═══════════════════════════════════════════════════════════════════════════

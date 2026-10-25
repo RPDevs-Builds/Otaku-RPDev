@@ -1,3 +1,6 @@
+Changelog v5.4.11 (2026-10-25):
+- v5.4.11: Atomic persistence engine, SQLite WAL truncate, SSRF scheme validation, ETag 304 conditional updates & multi-Debrid failover
+
 Changelog v5.4.10 (2026-10-25):
 - Standards, Resource Management & Security Hardening
 

@@ -228,9 +228,8 @@ def save_to_watch_history(mal_id, episode=None, total_episodes=None):
         # Cap history to 100 entries to maintain instant loading
         history_data['history'] = history_data['history'][:100]
 
-        # Save back to file
-        with open(control.watch_history_json, 'w', encoding='utf-8') as f:
-            json.dump(history_data, f, ensure_ascii=False, indent=2)
+        # Save back to file atomically
+        control.atomic_write_json(control.watch_history_json, history_data)
 
     except Exception as e:
         control.log(f"Error saving to watch history: {str(e)}", "error")
@@ -438,8 +437,7 @@ def REMOVE_WATCH_HISTORY(payload, params):
                 h for h in history_data.get('history', [])
                 if str(h.get('UniqueIDs', {}).get('mal_id') or h.get('mal_id')) != str(mal_id)
             ]
-            with open(control.watch_history_json, 'w', encoding='utf-8') as f:
-                json.dump(history_data, f, ensure_ascii=False, indent=2)
+            control.atomic_write_json(control.watch_history_json, history_data)
             control.refresh()
             control.notify(f'{control.ADDON_NAME}: Watch History', 'Removed from Watch History', sound=False)
     except Exception as e:

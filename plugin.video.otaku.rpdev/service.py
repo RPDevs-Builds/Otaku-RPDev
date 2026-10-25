@@ -54,12 +54,35 @@ def update_calendars():
 def update_mappings_db():
     control.log("### Updating Mappings")
     url = 'https://github.com/Goldenfreddy0703/Otaku-Mappings/raw/refs/heads/main/anime_mappings.db'
+    dest_path = os.path.join(control.dataPath, 'mappings.db')
+    headers = {}
+    saved_etag = control.getSetting('mappings.etag')
+    saved_mtime = control.getSetting('mappings.last_modified')
+    if os.path.exists(dest_path):
+        if saved_etag:
+            headers['If-None-Match'] = saved_etag
+        if saved_mtime:
+            headers['If-Modified-Since'] = saved_mtime
+
     try:
-        response = urllib.request.urlopen(url, timeout=15)
-        with open(os.path.join(control.dataPath, 'mappings.db'), 'wb') as file:
-            file.write(response.read())
-        control.log("### Mappings updated successfully")
-    except urllib.error.URLError as e:
+        response = client.get(url, headers=headers, timeout=20)
+        if response and response.status_code == 304:
+            control.log("### Mappings unchanged (304 Not Modified)")
+            return
+        if response and response.status_code == 200 and response.content:
+            if control.atomic_write_bytes(dest_path, response.content):
+                new_etag = response.headers.get('Etag') or response.headers.get('ETag', '')
+                new_mtime = response.headers.get('Last-Modified', '')
+                if new_etag:
+                    control.setSetting('mappings.etag', new_etag)
+                if new_mtime:
+                    control.setSetting('mappings.last_modified', new_mtime)
+                control.log("### Mappings updated successfully")
+            else:
+                control.log("### Failed to save mappings atomically")
+        else:
+            control.log(f"### Failed to update mappings: HTTP {getattr(response, 'status_code', 'unknown')}")
+    except Exception as e:
         control.log(f"### Failed to update mappings: {e}")
 
 
@@ -70,6 +93,7 @@ def cleanup_cache_databases():
         from resources.lib.debrid import debrid_cache
         database.prune_expired_cache(30)
         debrid_cache.clean_database()
+        database.checkpoint_databases(truncate=True)
         control.log("### Cache cleanup complete")
     except Exception as e:
         control.log(f"### Cache cleanup failed: {e}", 'warning')
@@ -184,15 +208,35 @@ def prefetch_calendar():
 
 def update_dub_json():
     control.log("### Updating Dub json")
-    with open(control.maldubFile, 'w') as file:
-        response = client.get('https://raw.githubusercontent.com/MAL-Dubs/MAL-Dubs/main/data/dubInfo.json')
-        if response:
-            mal_dub_list = response.json()["dubbed"]
-            mal_dub = {str(item): {'dub': True} for item in mal_dub_list}
-            json.dump(mal_dub, file)
-            control.log("### Dubs updated successfully")
+    url = 'https://raw.githubusercontent.com/MAL-Dubs/MAL-Dubs/main/data/dubInfo.json'
+    headers = {}
+    saved_etag = control.getSetting('dub.etag')
+    if os.path.exists(control.maldubFile) and saved_etag:
+        headers['If-None-Match'] = saved_etag
+
+    try:
+        response = client.get(url, headers=headers, timeout=20)
+        if response and response.status_code == 304:
+            control.log("### Dubs unchanged (304 Not Modified)")
+            return
+        if response and response.status_code == 200:
+            data = response.json()
+            if isinstance(data, dict) and "dubbed" in data:
+                mal_dub_list = data["dubbed"]
+                mal_dub = {str(item): {'dub': True} for item in mal_dub_list}
+                if control.atomic_write_json(control.maldubFile, mal_dub):
+                    new_etag = response.headers.get('Etag') or response.headers.get('ETag', '')
+                    if new_etag:
+                        control.setSetting('dub.etag', new_etag)
+                    control.log("### Dubs updated successfully")
+                else:
+                    control.log("### Failed to save Dubs atomically")
+            else:
+                control.log("### Failed to parse Dubs payload")
         else:
-            control.log("### Failed to update Dubs")
+            control.log(f"### Failed to update Dubs: HTTP {getattr(response, 'status_code', 'unknown')}")
+    except Exception as e:
+        control.log(f"### Failed to update Dubs: {e}")
 
 
 def getChangeLog():
@@ -360,3 +404,9 @@ if __name__ == "__main__":
         if monitor.waitForAbort(900):
             break
         control.clean_memory()
+    # Checkpoint WAL databases to 0 bytes on shutdown
+    try:
+        from resources.lib.ui import database
+        database.checkpoint_databases(truncate=True)
+    except Exception:
+        pass

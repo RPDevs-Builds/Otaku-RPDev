@@ -1049,6 +1049,75 @@ def safe_next(iterable, default=None):
         return default
 
 
+def atomic_write_json(file_path: str, data: any, indent: int = 2) -> bool:
+    """Atomically write JSON data to file_path via temporary swap."""
+    parent_dir = os.path.dirname(os.path.abspath(file_path))
+    if not os.path.exists(parent_dir):
+        os.makedirs(parent_dir, exist_ok=True)
+    tmp_path = f"{file_path}.{os.getpid()}.{threading.get_ident()}.tmp"
+    try:
+        with open(tmp_path, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=indent)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp_path, file_path)
+        return True
+    except Exception as e:
+        if os.path.exists(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                pass
+        log(f"atomic_write_json failed for {file_path}: {e}", 'error')
+        return False
+
+
+def atomic_write_text(file_path: str, content: str, encoding: str = 'utf-8') -> bool:
+    """Atomically write text content to file_path via temporary swap."""
+    parent_dir = os.path.dirname(os.path.abspath(file_path))
+    if not os.path.exists(parent_dir):
+        os.makedirs(parent_dir, exist_ok=True)
+    tmp_path = f"{file_path}.{os.getpid()}.{threading.get_ident()}.tmp"
+    try:
+        with open(tmp_path, 'w', encoding=encoding) as f:
+            f.write(content)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp_path, file_path)
+        return True
+    except Exception as e:
+        if os.path.exists(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                pass
+        log(f"atomic_write_text failed for {file_path}: {e}", 'error')
+        return False
+
+
+def atomic_write_bytes(file_path: str, content: bytes) -> bool:
+    """Atomically write binary content to file_path via temporary swap."""
+    parent_dir = os.path.dirname(os.path.abspath(file_path))
+    if not os.path.exists(parent_dir):
+        os.makedirs(parent_dir, exist_ok=True)
+    tmp_path = f"{file_path}.{os.getpid()}.{threading.get_ident()}.tmp"
+    try:
+        with open(tmp_path, 'wb') as f:
+            f.write(content)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp_path, file_path)
+        return True
+    except Exception as e:
+        if os.path.exists(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                pass
+        log(f"atomic_write_bytes failed for {file_path}: {e}", 'error')
+        return False
+
+
 def print(string, *args):
     for i in list(args):
         string = f'{string} {i}'

@@ -71,6 +71,19 @@ class Resolver(BaseWindow):
         # if self.source_select:
         #     control.setSetting('last_played_source', str(None))
 
+    def get_enabled_debrid_providers(self):
+        """Return list of resolver keys that are currently authenticated and enabled."""
+        mapping = {
+            'realdebrid': 'Real-Debrid',
+            'alldebrid': 'Alldebrid',
+            'debridlink': 'Debrid-Link',
+            'premiumize': 'Premiumize',
+            'torbox': 'TorBox',
+            'easydebrid': 'EasyDebrid',
+        }
+        enabled_map = control.enabled_debrid()
+        return [mapping[k] for k, v in enabled_map.items() if v and k in mapping and mapping[k] in self.resolvers]
+
     def onInit(self):
         self.sources = self.reorder_sources(self.sources)
         self.resolve(self.sources)
@@ -182,8 +195,43 @@ class Resolver(BaseWindow):
                         self.return_data['sub'] = i['subs']
                     break
                 else:
-                    control.log(f"Resolver: candidate {i.get('provider')} failed prefetch/verification, advancing to next candidate", level='warning')
                     self.return_data['link'] = None
+
+            # Multi-Debrid failover for torrents: if primary provider failed, try remaining active providers
+            if not self.return_data.get('linkinfo') and i.get('type') == 'torrent' and not self.canceled:
+                primary_provider = i.get('debrid_provider')
+                enabled_providers = self.get_enabled_debrid_providers()
+                for fallback_provider in enabled_providers:
+                    if fallback_provider == primary_provider or self.canceled:
+                        continue
+                    resolver_cls = self.resolvers.get(fallback_provider)
+                    if not resolver_cls:
+                        continue
+                    control.log(f"Resolver: Attempting Debrid failover for hash {i.get('hash')} via {fallback_provider}", level='info')
+                    fallback_source = dict(i)
+                    fallback_source['debrid_provider'] = fallback_provider
+                    try:
+                        stream_link = self.resolve_source(resolver_cls, fallback_source)
+                        if stream_link:
+                            verified_linkinfo = self.prefetch_play_link(stream_link)
+                            if verified_linkinfo:
+                                self.return_data['linkinfo'] = verified_linkinfo
+                                self.return_data['source'] = fallback_source
+                                self.return_data['link'] = stream_link
+                                self.return_data['candidate_index'] = idx
+                                if fallback_source.get('subs'):
+                                    self.return_data['sub'] = fallback_source['subs']
+                                control.log(f"Resolver: Debrid failover succeeded with {fallback_provider}", level='info')
+                                break
+                    except Exception as e:
+                        control.log(f"Resolver: Failover attempt with {fallback_provider} failed: {e}", level='warning')
+
+                if self.return_data.get('linkinfo'):
+                    break
+
+            if not self.return_data.get('linkinfo'):
+                control.log(f"Resolver: candidate {i.get('provider')} failed prefetch/verification, advancing to next candidate", level='warning')
+                self.return_data['link'] = None
 
         if not self.return_data.get('linkinfo'):
             # If this was a cached season pack that failed unrestrict, clear cache and rescrape

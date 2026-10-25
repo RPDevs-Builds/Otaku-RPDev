@@ -72,5 +72,4 @@ class Simkl:
         return None
 
     def set_cached_data(self, data):
-        with open(control.simkl_calendar_json, 'w') as f:
-            json.dump(data, f)
+        control.atomic_write_json(control.simkl_calendar_json, data)

@@ -21,6 +21,7 @@ import gzip
 import http.client
 import io
 import json
+import os
 import random
 import re
 import ssl
@@ -64,6 +65,20 @@ _CLEANUP_EVERY_N_REQUESTS = 128
 
 _VERIFIED_SSL_CONTEXT = None
 _UNVERIFIED_SSL_CONTEXT = None
+
+
+def _validate_url_scheme(url: str) -> str:
+    """Validate that the URL has an allowed HTTP/HTTPS scheme to prevent SSRF and LFI."""
+    if not url or not isinstance(url, str):
+        raise ValueError("URL must be a non-empty string")
+    url = url.strip()
+    if url.startswith('//'):
+        url = 'https:' + url
+    parsed = urllib.parse.urlparse(url)
+    scheme = parsed.scheme.lower()
+    if scheme not in ('http', 'https'):
+        raise ValueError(f"Unauthorized scheme '{scheme}'; only http and https are allowed")
+    return url
 
 
 def _get_ssl_context(verify=True):
@@ -221,6 +236,12 @@ def request(
         if not url:
             return
 
+        try:
+            url = _validate_url_scheme(url)
+        except ValueError as e:
+            control.log(f"client.request blocked URL: {e}", level='warning')
+            return None
+
         global _request_count
         _request_count += 1
         if _request_count % _CLEANUP_EVERY_N_REQUESTS == 0:
@@ -365,14 +386,22 @@ def request(
             if session_cookie:
                 _headers['Cookie'] = session_cookie
             else:
-                cpath = urllib.parse.urlparse(url).netloc
-                if control.pathExists(control.dataPath + cpath + '.txt'):
+                cpath = os.path.basename(urllib.parse.urlparse(url).netloc)
+                txt_path = os.path.join(control.dataPath, cpath + '.txt')
+                json_path = os.path.join(control.dataPath, cpath + '.json')
+                if control.pathExists(txt_path):
                     ccookie = retrieve(cpath + '.txt')
                     if ccookie:
                         _headers['Cookie'] = ccookie
-                elif control.pathExists(control.dataPath + cpath + '.json'):
-                    cfhdrs = json.loads(retrieve(cpath + '.json'))
-                    _headers.update(cfhdrs)
+                elif control.pathExists(json_path):
+                    raw_json = retrieve(cpath + '.json')
+                    if raw_json:
+                        try:
+                            cfhdrs = json.loads(raw_json)
+                            if isinstance(cfhdrs, dict):
+                                _headers.update(cfhdrs)
+                        except (json.JSONDecodeError, TypeError, ValueError):
+                            pass
 
         if 'Accept-Encoding' in _headers:
             pass
@@ -924,6 +953,7 @@ class Session:
 
 def _basic_request(url, headers=None, post=None, timeout=60, jpost=False, limit=None):
     try:
+        url = _validate_url_scheme(url)
         request = urllib.request.Request(url)
         if post is not None:
             if jpost:
@@ -1024,17 +1054,21 @@ def agent():
 # — File storage —
 
 def store(ftext, fname):
-    fpath = control.dataPath + fname
-    with open(fpath, 'w', encoding='utf-8') as f:
-        f.write(ftext)
+    safe_name = os.path.basename(fname)
+    fpath = os.path.join(control.dataPath, safe_name)
+    control.atomic_write_text(fpath, ftext)
 
 
 def retrieve(fname):
-    fpath = control.dataPath + fname
+    safe_name = os.path.basename(fname)
+    fpath = os.path.join(control.dataPath, safe_name)
     if control.pathExists(fpath):
-        with open(fpath, encoding='utf-8') as f:
-            ftext = f.readlines()
-        return '\n'.join(ftext)
+        try:
+            with open(fpath, 'r', encoding='utf-8') as f:
+                return f.read()
+        except Exception as e:
+            control.log(f"retrieve error for {safe_name}: {e}", 'warning')
+            return None
     else:
         return None
 

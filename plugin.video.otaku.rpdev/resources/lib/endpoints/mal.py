@@ -61,5 +61,4 @@ class Mal:
         return None
 
     def set_cached_data(self, data):
-        with open(control.mal_calendar_json, 'w') as f:
-            json.dump(data, f)
+        control.atomic_write_json(control.mal_calendar_json, data)

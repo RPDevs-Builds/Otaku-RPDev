@@ -536,8 +536,7 @@ def MARKED_AS_UNWATCHED(payload, params):
                     h for h in history_data.get('history', [])
                     if str(h.get('UniqueIDs', {}).get('mal_id') or h.get('mal_id')) != str(mal_id)
                 ]
-                with open(control.watch_history_json, 'w', encoding='utf-8') as f:
-                    json.dump(history_data, f, ensure_ascii=False, indent=2)
+                control.atomic_write_json(control.watch_history_json, history_data)
         except Exception as e:
             control.log(f"Error updating watch history on unwatch: {e}", "warning")
     else:

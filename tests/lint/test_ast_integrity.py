@@ -136,6 +136,25 @@ class TestASTIntegrity(unittest.TestCase):
 
         self.assertEqual(untimed_urlopen, [], f"urlopen calls missing timeout found: {untimed_urlopen}")
 
+    def test_zero_unsafe_datapath_concatenations(self):
+        """Zero direct string concatenations of control.dataPath + ... are permitted."""
+        unsafe_concat = []
+        py_files = glob.glob(f"{ADDON_DIR}/**/*.py", recursive=True)
+
+        for f in py_files:
+            if '__pycache__' in f:
+                continue
+            with open(f, 'rb') as fp:
+                tree = ast.parse(fp.read(), filename=f)
+                for node in ast.walk(tree):
+                    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+                        left = node.left
+                        if isinstance(left, ast.Attribute) and left.attr == 'dataPath':
+                            if isinstance(left.value, ast.Name) and left.value.id == 'control':
+                                unsafe_concat.append((f, node.lineno))
+
+        self.assertEqual(unsafe_concat, [], f"Unsafe control.dataPath string concatenations found: {unsafe_concat}")
+
 
 if __name__ == '__main__':
     unittest.main()
