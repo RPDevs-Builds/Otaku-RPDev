@@ -18,6 +18,7 @@ import argparse
 import datetime
 import os
 import re
+import shutil
 import subprocess
 import sys
 import xml.etree.ElementTree as ET
@@ -187,6 +188,16 @@ def main():
     run_cmd(zip_cmd, cwd=repo_root)
     zip_size = os.path.getsize(zip_out)
     print(f"  ✓ Packaged {zip_out} ({zip_size:,} bytes).")
+
+    # Sync addon.xml and changelog.txt to CDN repository so tools/generate_repo.py indexes the new version!
+    shutil.copy2(addon_xml, os.path.join(target_cdn_addon_dir, "addon.xml"))
+    if os.path.exists(changelog):
+        shutil.copy2(changelog, os.path.join(target_cdn_addon_dir, "changelog.txt"))
+    for asset in ["icon.png", "fanart.jpg", "fanart.png", "poster.png", "clearlogo.png"]:
+        src_asset = os.path.join(addon_dir, asset)
+        if os.path.exists(src_asset):
+            shutil.copy2(src_asset, os.path.join(target_cdn_addon_dir, asset))
+    print(f"  ✓ Synchronized {args.addon_id} metadata and assets to CDN.")
 
     # 4. CDN Repo Manifest Regeneration
     print("\n🌐 Step 4: Regenerating CDN Repository Metadata & Manifests...")
