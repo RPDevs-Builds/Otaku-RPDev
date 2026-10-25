@@ -1,3 +1,11 @@
+Changelog v5.4.6 (2026-10-24):
+- Built-in Standalone Megacloud Decryptor: integrated script.service.megacloud and mega-embed-2 decryption engine directly into Otaku-RPDev as an in-process native Python module
+- Elimination of External Webservice Dependency: Megacloud and Rabbitstream streams decrypt and resolve locally in-process without requiring a Node.js daemon, Docker container, or local HTTP server on port 4000
+- Multi-Tier Key Management: bundled offline fallback keys.json (vidstr: pXJdDCTByENrAOGFOyziD) with 12h disk caching and auto-refresh from RPDevs self-hosted GitHub mirror if key rotation is detected
+- Embed Extractor Expansion: registered all Megacloud and Rabbitstream domain variations (megacloud.tv, megacloud.blog, rabbitstream.net, rapid-cloud.co, megaf.cc, 4spromax.site, megaup.live) in embed_extractor
+- Stream Metadata: extracted subtitle tracks (with language detection) and intro/outro timestamps for Skip Intro integration
+- Settings & Documentation: updated Megacloud settings to reflect built-in native resolver by default, while retaining optional custom external server URL override
+
 Changelog v5.4.5 (2026-10-24):
 - Resolver & Playback: fixed NameError ('name database is not defined') in Resolver._handle_playback() and Resolver.resolve() season pack caching
 - Skip Intro & Auto-Skip: fixed cold-open negative offset clamping (start >= 0.0) so intros starting at 0:00 with default -3s offset are never discarded

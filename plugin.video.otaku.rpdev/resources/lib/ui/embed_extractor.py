@@ -694,26 +694,31 @@ __register_extractor(["https://lulustream.com",
                      __extract_lulu)
 
 
-def __extract_animekai_mega(url, page_content, referer=None):
+def __extract_megacloud(url, page_content, referer=None):
     try:
         from resources.lib.ui.megacloud_extractor import extract_megacloud_sources
-        res = extract_megacloud_sources(url, referer or 'https://animekai.to/')
+        res = extract_megacloud_sources(url, referer=referer or urllib.parse.urljoin(url, '/'))
         if res and res.get('sources'):
             srclink = res['sources'][0].get('file', '')
             if srclink:
                 netloc = urllib.parse.urljoin(url, '/')
                 headers = {'User-Agent': 'iPad',
                            'Referer': netloc,
-                           'Origin': netloc[:-1]}
+                           'Origin': netloc.rstrip('/')}
                 return srclink + __append_headers(headers)
     except Exception:
         pass
     return
 
 
-__register_extractor(["https://4spromax.site/e/",
+__register_extractor(["https://megacloud.tv/embed-2/",
+                      "https://megacloud.blog/embed-2/",
+                      "https://rabbitstream.net/embed-2/",
+                      "https://rapid-cloud.co/embed-2/",
+                      "https://megaf.cc/e-1/",
+                      "https://4spromax.site/e/",
                       "https://megaup.live/e/"],
-                     __extract_animekai_mega)
+                     __extract_megacloud)
 
 
 def __extract_megaplay(url, page_content, referer=None):

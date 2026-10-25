@@ -1,16 +1,19 @@
-This is a guide on how to host Megacloud Solver or FlareSolverr locally on any pc.
+This is a guide for the Megacloud Solver and FlareSolverr.
 
 MegaCloud Solver
-    1. The solver can be installed locally on Windows or Linux (Requires Node.JS installed)
-    2. The Solver can be installed as a container on another machine on the local network
-    3. The solver can be deployed to vercel (free tier will work) and accessed remotely
+    Otaku-RPDev features a fully built-in, native in-process Python Megacloud /
+    Rabbitstream decryptor and extractor based on script.service.megacloud and
+    mega-embed-2. Decryption and key resolution run directly on-device without
+    requiring any external web service, Docker container, or Node.js server.
 
-    - Goto https://bitbucket.org/geordilaforge/mega-embed-2/src/master/ and follow the instructions
-
-    Examples:
-    http://localhost:4000/  (Running locally)
-    http://<ip or name>:4000/  (Running on another machine)
-    https://<name>.vercel.app/ (Running on vercel)
+    For advanced setups where an external solver service is preferred:
+    1. The external solver can be installed locally (Node.js or Python)
+    2. The solver can be deployed as a container on the local network or Vercel
+    - In Settings, enable "Use Custom External Solver" and enter the URL:
+      Examples:
+      http://localhost:4000/
+      http://<ip or name>:4000/
+      https://<name>.vercel.app/
 
 FlareSolverr
 - For Windows users

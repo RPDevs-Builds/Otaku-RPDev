@@ -1540,7 +1540,7 @@ msgid "Megacloud Solver"
 msgstr ""
 
 msgctxt "#30377"
-msgid "Enable Megacloud Solver"
+msgid "Use Custom External Solver (Default: Built-in Native)"
 msgstr ""
 
 msgctxt "#30378"
