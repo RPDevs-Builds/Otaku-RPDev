@@ -631,39 +631,13 @@ def request(
         elif limit is not None:
             result = response.read(int(limit) * 1024)
         else:
-            # Smart buffer sizing - check Content-Length header
             try:
-                content_length = int(response.headers.get('Content-Length', 0))
-                if content_length > 0:
-                    # Read exactly what we need (up to 5MB max for safety)
-                    buffer_size = min(content_length, 5242880)
-                    try:
-                        result = response.read(buffer_size)
-                    except http.client.IncompleteRead as e:
-                        # Handle incomplete read - use partial data if available
-                        control.log(f'IncompleteRead: Expected {buffer_size} bytes, got {len(e.partial)} bytes from {url}', 'warning')
-                        result = e.partial
-                        if not result:
-                            # If no partial data, return None to trigger retry
-                            return None
-                else:
-                    # Fallback to 5MB default
-                    try:
-                        result = response.read(5242880)
-                    except http.client.IncompleteRead as e:
-                        control.log(f'IncompleteRead: Got {len(e.partial)} bytes from {url}', 'warning')
-                        result = e.partial
-                        if not result:
-                            return None
-            except (ValueError, TypeError):
-                # Fallback if Content-Length is malformed
-                try:
-                    result = response.read(5242880)
-                except http.client.IncompleteRead as e:
-                    control.log(f'IncompleteRead: Got {len(e.partial)} bytes from {url}', 'warning')
-                    result = e.partial
-                    if not result:
-                        return None
+                result = response.read()
+            except http.client.IncompleteRead as e:
+                control.log(f'IncompleteRead: Got {len(e.partial)} bytes from {url}', 'warning')
+                result = e.partial
+                if not result:
+                    return None
 
         encoding = None
         text_content = False

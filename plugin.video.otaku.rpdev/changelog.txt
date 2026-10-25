@@ -1,3 +1,14 @@
+Changelog v5.4.14 (2026-10-25):
+- Stability, Resource Management & Resilience Hardening:
+- - Network & Sync: Fix 5MB download cap in client.py, reading full streams to EOF and preventing anime_mappings.db (~6MB) corruption
+- - Background Workers: Add early cancellation checks (self.canceled) across torrent, hoster, embed, and cloud inspection scraper threads
+- - Debrid Resolver: Add bounded thread joins (timeout=8) on external hash checks in debrid_cache.py to prevent socket hangs
+- - Storage & Flash: Remove blocking eMMC VACUUM from clear_debrid_cache()
+- - Database Performance: Optimize getSearchHistory() using SQLite B-tree 'ORDER BY rowid DESC LIMIT 50'
+- - Playback Resolution: Fix resolver source reordering inner-loop break, ensuring deterministic source selection
+- - Route Validation: Harden ast.literal_eval(rating) in playback routes and safe int conversion for search page queries
+- - Download Manager: Implement resilient safe JSON loading (_read_downloads_safe) in Manager via control.loads_json()
+
 Changelog v5.4.13 (2026-10-25):
 - Streamline Menu Customization and Watchlist settings; add Unicode NFKD title transliteration, safe JSON parsing, and SQLite cache index
 - - Menu Customization: Remove redundant root toggles for My Debrid Cloud and Next Up

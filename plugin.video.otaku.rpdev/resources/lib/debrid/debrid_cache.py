@@ -92,7 +92,6 @@ def clear_debrid_cache():
     _ensure_debrid_cache_table()
     with database.SQL(control.cacheFile) as cur:
         cur.execute('DELETE FROM debrid_cache')
-        cur.execute('VACUUM')
         cur.connection.commit()
 
 
@@ -110,7 +109,7 @@ def check_rd_cache(hash_list, imdb_id, season, episode):
     for t in threads:
         t.start()
     for t in threads:
-        t.join()
+        t.join(timeout=8)
     return list(set(cached_hashes))
 
 
@@ -123,7 +122,7 @@ def check_ad_cache(imdb_id, season, episode):
     for t in threads:
         t.start()
     for t in threads:
-        t.join()
+        t.join(timeout=8)
     return list(set(cached_hashes))
 
 

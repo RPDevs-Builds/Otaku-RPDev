@@ -939,12 +939,9 @@ def getSearchHistory(media_type):
     _validate_search_type(media_type)
     with SQL(control.searchHistoryDB) as cur:
         _ensure_search_tables(cur)
-        cur.execute(f'SELECT * FROM {media_type}')
-        history = cur.fetchall()
-    history.reverse()
-    seen = set()
-    return [h['value'] for h in history[:50]
-            if h['value'] not in seen and not seen.add(h['value'])]
+        cur.execute(f'SELECT value FROM {media_type} ORDER BY rowid DESC LIMIT 50')
+        rows = cur.fetchall()
+    return [row['value'] for row in rows]
 
 
 def addSearchHistory(search_string, media_type):

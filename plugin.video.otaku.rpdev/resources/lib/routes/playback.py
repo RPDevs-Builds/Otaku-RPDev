@@ -32,7 +32,10 @@ def PLAY(payload, params):
     last_watched = control.getSetting('last_watched_series')
     resume = params.get('resume')
     if rating := params.get('rating'):
-        params['rating'] = ast.literal_eval(rating)
+        try:
+            params['rating'] = ast.literal_eval(rating)
+        except (ValueError, SyntaxError):
+            params['rating'] = rating
     params['path'] = f"{control.addon_url(f'play/{payload}')}"
 
     # Populate params with episode metadata from database if not already present

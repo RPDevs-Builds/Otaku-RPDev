@@ -125,7 +125,10 @@ def SEARCH(payload, params):
             break
 
     query = unquote(payload) if payload else payload
-    page = int(params.get('page', 1))
+    try:
+        page = int(params.get('page', 1) or 1)
+    except (ValueError, TypeError):
+        page = 1
     if not query:
         query = control.keyboard(control.lang(30018))
         if not query:

@@ -264,6 +264,8 @@ class Sources(GetSources):
         return self.return_data
 
     def _torrent_sources_worker(self, provider, query, mal_id, episode, status, media_type, rescrape, season, part):
+        if self.canceled:
+            return
         try:
             mod, cache_key = _TORRENT_MODULES[provider]
             get_sources = mod.Sources().get_sources
@@ -272,6 +274,8 @@ class Sources(GetSources):
                 all_sources = get_sources(*call_args, rescrape=True)
             else:
                 all_sources = database.get(get_sources, 8, *call_args, key=cache_key)
+            if self.canceled:
+                return
             if not all_sources:
                 all_sources = {'cached': [], 'uncached': []}
             if all_sources.get('cached') or all_sources.get('uncached'):
@@ -289,6 +293,8 @@ class Sources(GetSources):
                     self.remainingProviders.remove(provider)
 
     def _hoster_sources_worker(self, hoster, query, mal_id, episode, status, media_type, rescrape, season, part):
+        if self.canceled:
+            return
         try:
             mod, cache_key, _, merge_mode = _HOSTER_MODULES[hoster]
             get_sources = mod.Sources().get_sources
@@ -297,6 +303,8 @@ class Sources(GetSources):
                 all_sources = get_sources(*call_args)
             else:
                 all_sources = database.get(get_sources, 8, *call_args, key=cache_key)
+            if self.canceled:
+                return
             if not all_sources:
                 all_sources = {'cached': [], 'uncached': []}
             if all_sources.get('cached') or all_sources.get('uncached'):
@@ -317,6 +325,8 @@ class Sources(GetSources):
                     self.remainingProviders.remove(hoster)
 
     def _embed_sources_worker(self, pid, mod, cache_key, skip_prefix, needs_media_type, mal_id, episode, media_type, rescrape):
+        if self.canceled:
+            return
         try:
             get_sources = mod.Sources().get_sources
             if needs_media_type:
@@ -329,6 +339,8 @@ class Sources(GetSources):
                     src = get_sources(mal_id, episode)
                 else:
                     src = database.get(get_sources, 8, mal_id, episode, key=cache_key)
+            if self.canceled:
+                return
             if not src:
                 src = []
             else:
@@ -346,8 +358,12 @@ class Sources(GetSources):
                     self.remainingProviders.remove(pid)
 
     def user_local_inspection(self, query, mal_id, episode, season):
+        if self.canceled:
+            return
         try:
             res = localfiles.Sources().get_sources(query, mal_id, episode, season)
+            if self.canceled:
+                return
             if res:
                 with self._results_lock:
                     self.local_files += res
@@ -359,8 +375,12 @@ class Sources(GetSources):
                     self.remainingProviders.remove('Local Inspection')
 
     def user_cloud_inspection(self, query, mal_id, episode, season):
+        if self.canceled:
+            return
         try:
             res = debrid_cloudfiles.Sources().get_sources(query, mal_id, episode, season)
+            if self.canceled:
+                return
             if res:
                 with self._results_lock:
                     self.cloud_files += res

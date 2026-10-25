@@ -143,13 +143,25 @@ class Manager:
         self.update_task_info(url_hash, self.download[url_hash])
         return True
 
+    @staticmethod
+    def _read_downloads_safe():
+        """Safely read and parse downloads.json using control.loads_json."""
+        if not os.path.exists(control.downloads_json):
+            return {}
+        try:
+            with open(control.downloads_json, 'r', encoding='utf-8') as file:
+                return control.loads_json(file.read(), default={})
+        except Exception as e:
+            control.log(f"DownloadManager: Failed to read {control.downloads_json}: {e}", level='warning')
+            return {}
+
     def cancel_task(self, url_hash):
         self.get_download_index()
-        with open(control.downloads_json) as file:
-            data = json.load(file)
-        info = data[url_hash]
-        info["canceled"] = True
-        self.update_task_info(url_hash, info)
+        data = self._read_downloads_safe()
+        info = data.get(url_hash)
+        if info:
+            info["canceled"] = True
+            self.update_task_info(url_hash, info)
 
     @staticmethod
     def _save_downloads_atomic(downloads):
@@ -164,19 +176,14 @@ class Manager:
 
     @staticmethod
     def update_task_info(url_hash, download_dict):
-        try:
-            with open(control.downloads_json, 'r', encoding='utf-8') as file:
-                downloads = json.load(file)
-        except Exception:
-            downloads = {}
+        downloads = Manager._read_downloads_safe()
         downloads[url_hash] = download_dict
-        DownloadManager._save_downloads_atomic(downloads)
+        Manager._save_downloads_atomic(downloads)
 
     def get_all_tasks_info(self):
         self.get_download_index()
-        with open(control.downloads_json) as file:
-            downloads = json.load(file)
-        return downloads.values()
+        downloads = self._read_downloads_safe()
+        return list(downloads.values())
 
     def get_download_index(self):
         self.download_ids = control.getStringList("DMIndex")
@@ -188,11 +195,7 @@ class Manager:
 
     def remove_download_task(self, url_hash):
         self.get_download_index()
-        try:
-            with open(control.downloads_json, 'r', encoding='utf-8') as file:
-                downloads = json.load(file)
-        except Exception:
-            downloads = {}
+        downloads = self._read_downloads_safe()
         if downloads.pop(url_hash, None) is not None:
             self._save_downloads_atomic(downloads)
         if url_hash in self.download_ids:

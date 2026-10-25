@@ -109,7 +109,7 @@ class Resolver(BaseWindow):
                     key = source['provider'] + " " + " ".join(map(str, source['info']))
                     if key == lp:
                         sources[0], sources[idx] = sources[idx], sources[0]
-                        break
+                        return sources
 
                 # torrent-style
                 elif source['type'] in ['torrent', 'torrent (uncached)', 'cloud', 'hoster', 'local']:
@@ -120,16 +120,13 @@ class Resolver(BaseWindow):
                     # 2) exact match fallback
                     if rel == lp:
                         sources[0], sources[idx] = sources[idx], sources[0]
-                        break
+                        return sources
 
                     # 3) try each digit-run position
                     for pos in digit_positions:
                         if rel.startswith(lp[:pos]) and rel.endswith(lp[pos + L:]):
                             sources[0], sources[idx] = sources[idx], sources[0]
-                            idx = None
-                            break
-                    if idx is None:
-                        break
+                            return sources
 
         return sources
 
