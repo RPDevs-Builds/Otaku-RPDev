@@ -1,5 +1,6 @@
 import os
 import functools
+import unicodedata
 """source_utils.py - Source Quality & Filtering Engine
 =====================================================
 Detects video quality, codec, audio format, and subtitle info from
@@ -277,8 +278,8 @@ def getInfo(release_title):
 # ═══════════════════════════════════════════════════════════════════════════
 
 @functools.lru_cache(maxsize=128)
-def get_cache_check_reg(episode):
-    episode = str(episode)
+@functools.lru_cache(maxsize=128)
+def _compile_cache_check_reg(episode_str):
     season = ''
     reg_string = r'''(?ix)                              # Ignore case (i), and use verbose regex (x)
                  (?:                                    # non-grouping pattern
@@ -292,8 +293,12 @@ def get_cache_check_reg(episode):
                  (?<![\d])
                  ({}|{}|{})                             # episode num format: xx or xxx or xxxx
                  (?![\d])
-                 '''.format(season, episode.zfill(2), episode.zfill(3), episode.zfill(4))
+                 '''.format(season, episode_str.zfill(2), episode_str.zfill(3), episode_str.zfill(4))
     return re.compile(reg_string)
+
+
+def get_cache_check_reg(episode):
+    return _compile_cache_check_reg(str(episode))
 
 
 def convert_to_bytes(size, units):
@@ -725,9 +730,13 @@ def clean_text(text):
 
 
 def cleanTitle(title):
-    title = title.lower()
-    result = ''.join(char for char in title if char in string.printable)
-    title = result.encode('ascii', errors='ignore').decode('ascii', errors='ignore')
+    if not title:
+        return ''
+    # Normalize Unicode characters via NFKD decomposition so macrons and accented characters
+    # (e.g. 'Pokémon' -> 'Pokemon', 'Ōsama' -> 'Osama', 'Yū Yū' -> 'Yu Yu') are preserved
+    # as ASCII base characters rather than discarded.
+    title = unicodedata.normalize('NFKD', str(title))
+    title = title.encode('ascii', errors='ignore').decode('ascii', errors='ignore').lower()
     apostrophe_replacement = 's'
     title = title.replace("\\'s", apostrophe_replacement)
     title = title.replace("'s", apostrophe_replacement)

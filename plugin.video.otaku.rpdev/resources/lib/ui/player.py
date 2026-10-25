@@ -215,21 +215,22 @@ class WatchlistPlayer(player):
         control.closeAllDialogs()
         playList.clear()
         if self.context and self.path:
-            if 10 < self.getWatchedPercent() < 90:
-                query = {
-                    'jsonrpc': '2.0',
-                    'method': 'Files.SetFileDetails',
-                    'params': {
-                        'file': self.path,
-                        'media': 'video',
-                        'resume': {
-                            'position': self.current_time,
-                            'total': self.total_time
-                        }
-                    },
-                    'id': 1
-                }
-                control.jsonrpc(query)
+            if getattr(self, 'total_time', 0) > 60 and 0 < getattr(self, 'current_time', 0) < self.total_time:
+                if 10 < self.getWatchedPercent() < 90:
+                    query = {
+                        'jsonrpc': '2.0',
+                        'method': 'Files.SetFileDetails',
+                        'params': {
+                            'file': self.path,
+                            'media': 'video',
+                            'resume': {
+                                'position': self.current_time,
+                                'total': self.total_time
+                            }
+                        },
+                        'id': 1
+                    }
+                    control.jsonrpc(query)
         control.clean_memory()
 
     def onPlayBackEnded(self):

@@ -1,3 +1,15 @@
+Changelog v5.4.13 (2026-10-25):
+- Streamline Menu Customization and Watchlist settings; add Unicode NFKD title transliteration, safe JSON parsing, and SQLite cache index
+- - Menu Customization: Remove redundant root toggles for My Debrid Cloud and Next Up
+- - Menu Customization: Strictly govern My Debrid Cloud and Next Up display via Main Menu Items checkboxes
+- - Watchlist Settings: Relocate Next Up Watchlist spinner to Watchlist settings menu under Enable Watchlist
+- - Linguistic Accuracy: Add Unicode NFKD decomposition in cleanTitle to preserve characters like Pokémon and Ōsama
+- - Resilience: Centralize safe JSON parsing in control.loads_json and adopt across scrapers
+- - Storage & DB: Add ix_cache_date B-tree index on cache(date) and eliminate blocking VACUUM from prune tasks
+- - Performance: Add LRU compilation cache on episode regex matching patterns
+- - Security: Sanitize dialog strings against unprintable control chars and format tag injection
+- - Playback: Add duration (>60s) and boundary guards on resume bookmark saving in onPlayBackStopped
+
 Changelog v5.4.12 (2026-10-25):
 - v5.4.12: Pre-compiled regex constants, scraper circuit breaker, artwork cache purge, .ass subtitle detection & Debrid 429 backoff
 

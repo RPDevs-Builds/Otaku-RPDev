@@ -6,11 +6,10 @@ from resources.lib.ui.router import Route, multi_route
 
 
 def add_my_cloud(items):
-    """Add My Debrid Cloud menu item if enabled and at least one debrid is active."""
-    if control.getBool('interface.menu.my_cloud', default=True):
-        from resources.lib.debrid import debrid_cloud
-        if debrid_cloud.get_active_providers():
-            items.append((control.lang(30555), "my_cloud", 'tools.png', {}))
+    """Add My Debrid Cloud menu item if at least one debrid is active."""
+    from resources.lib.debrid import debrid_cloud
+    if debrid_cloud.get_active_providers():
+        items.append((control.lang(30555), "my_cloud", 'tools.png', {}))
     return items
 
 

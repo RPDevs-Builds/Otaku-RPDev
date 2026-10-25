@@ -316,6 +316,10 @@ def _init_cache_table():
         control.cacheFile, 'cache_ix_key',
         'CREATE UNIQUE INDEX IF NOT EXISTS ix_cache ON cache (key)'
     )
+    _ensure_table(
+        control.cacheFile, 'cache_ix_date',
+        'CREATE INDEX IF NOT EXISTS ix_cache_date ON cache (date)'
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -481,8 +485,6 @@ def prune_expired_cache(max_age_days=30):
     with SQL(control.cacheFile) as cur:
         cur.execute('DELETE FROM cache WHERE date < ?', (cutoff,))
         deleted = cur.rowcount
-        if deleted > 0:
-            cur.execute('VACUUM')
         cur.connection.commit()
     if deleted > 0:
         control.log(f"Database: Pruned {deleted} stale cache entries older than {max_age_days} days", level='info')

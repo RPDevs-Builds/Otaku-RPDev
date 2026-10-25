@@ -304,7 +304,7 @@ def get_menu_items(menu_type):
 
 def add_next_up(items):
     """Add Next Up menu item if enabled in watchlist settings."""
-    if control.getBool('watchlist.update.enabled') and control.getBool('nextup.enabled'):
+    if control.getBool('watchlist.update.enabled'):
         items.append((control.lang(30451), "next_up", 'next_up.png', {}))
     return items
 
@@ -751,7 +751,7 @@ def _collect_category_menu_items(menu_items_key, settings_key, extra_key_suffix)
         enabled_items = add_watch_history(enabled_items)
     if "next_up%s" % extra_key_suffix in enabled_ids:
         enabled_items = add_next_up(enabled_items)
-    if "my_cloud%s" % extra_key_suffix in enabled_ids or (menu_items_key == 'main' and control.getBool('interface.menu.my_cloud', default=True) and "my_cloud" not in enabled_ids):
+    if "my_cloud%s" % extra_key_suffix in enabled_ids:
         enabled_items = add_my_cloud(enabled_items)
     for item in get_menu_items(menu_items_key):
         if item[1] in enabled_ids:

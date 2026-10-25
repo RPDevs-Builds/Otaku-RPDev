@@ -36,7 +36,11 @@ class Sources(BrowserBase):
             headers=headers
         )
         if r:
-            soup = BeautifulSoup(json.loads(r).get('result'), 'html.parser')
+            payload = control.loads_json(r, {})
+            result_html = payload.get('result', '') if isinstance(payload, dict) else ''
+            if not result_html:
+                return []
+            soup = BeautifulSoup(result_html, 'html.parser')
             items = soup.find_all('a')
             control.log(f"AnimixPlay: Found {len(items)} search results")
             slugs = []
@@ -86,9 +90,8 @@ class Sources(BrowserBase):
                 if ep_id:
                     ep_url = '{0}hs/getSources?id={1}'.format(playbunny, ep_id.group(1))
                     ep_src = database.get(self._get_request, 8, ep_url, headers={'Referer': playbunny})
-                    try:
-                        ep_src = json.loads(ep_src)
-                    except (TypeError, ValueError):
+                    ep_src = control.loads_json(ep_src, {})
+                    if not isinstance(ep_src, dict):
                         return sources
                     src = ep_src.get('sources')
                     if src:

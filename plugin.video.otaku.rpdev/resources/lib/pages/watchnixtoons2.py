@@ -546,17 +546,13 @@ class Sources(BrowserBase):
                     level='warning',
                 )
                 continue
-            try:
-                json_data = json.loads(server_resp)
+            json_data = control.loads_json(server_resp)
+            if json_data:
                 break
-            except json.JSONDecodeError as exc:
-                control.log(
-                    'WatchNixtoons2: invalid JSON from {0}: {1}'.format(candidate, exc),
-                    level='warning',
-                )
-                control.log('Response preview: {0}'.format(server_resp[:500]))
-                server_resp = None
-                json_data = None
+            control.log('WatchNixtoons2: invalid JSON from {0}'.format(candidate), level='warning')
+            control.log('Response preview: {0}'.format(server_resp[:500]))
+            server_resp = None
+            json_data = None
 
         if not server_resp or json_data is None:
             control.log('WatchNixtoons2: all WCO API requests failed', level='warning')

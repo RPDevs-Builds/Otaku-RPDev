@@ -623,40 +623,67 @@ def clean_memory():
         pass
 
 
+_RE_KODI_TAG = re.compile(r'\[/?(?:COLOR(?:\s+[^\]]+|=.*?)?|B|I|LIGHT|UPPERCASE|LOWERCASE|CAPITALIZE|CR)\]', re.IGNORECASE)
+_RE_CONTROL_CHARS = re.compile(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]')
+
+
+def sanitize_dialog_text(text, strip_formatting=False) -> str:
+    """Sanitize strings passed to Kodi UI dialogs to prevent formatting spoofing and control char injection."""
+    if text is None:
+        return ''
+    if not isinstance(text, str):
+        text = str(text)
+    # Strip dangerous non-printable control characters and null bytes
+    text = _RE_CONTROL_CHARS.sub('', text)
+    if strip_formatting:
+        text = _RE_KODI_TAG.sub('', text)
+    return text.strip()
+
+
 def closeAllDialogs():
     execute('Dialog.Close(all,true)')
 
 
 def ok_dialog(title, text):
-    return xbmcgui.Dialog().ok(title, text)
+    return xbmcgui.Dialog().ok(sanitize_dialog_text(title), sanitize_dialog_text(text))
 
 
 def textviewer_dialog(title, text):
-    xbmcgui.Dialog().textviewer(title, text)
+    xbmcgui.Dialog().textviewer(sanitize_dialog_text(title), sanitize_dialog_text(text))
 
 
 def yesno_dialog(title, text, nolabel=None, yeslabel=None):
-    return xbmcgui.Dialog().yesno(title, text, nolabel, yeslabel)
+    return xbmcgui.Dialog().yesno(sanitize_dialog_text(title), sanitize_dialog_text(text), nolabel, yeslabel)
 
 
 def yesnocustom_dialog(title, text, customlabel='', nolabel='', yeslabel='', autoclose=0, defaultbutton=0):
-    return xbmcgui.Dialog().yesnocustom(title, text, customlabel, nolabel, yeslabel, autoclose, defaultbutton)
+    return xbmcgui.Dialog().yesnocustom(
+        sanitize_dialog_text(title),
+        sanitize_dialog_text(text),
+        sanitize_dialog_text(customlabel),
+        sanitize_dialog_text(nolabel),
+        sanitize_dialog_text(yeslabel),
+        autoclose,
+        defaultbutton
+    )
 
 
 def notify(title, text, icon=OTAKU_LOGO3_PATH, time=5000, sound=False):
-    xbmcgui.Dialog().notification(title, text, icon, time, sound)
+    xbmcgui.Dialog().notification(sanitize_dialog_text(title), sanitize_dialog_text(text), icon, time, sound)
 
 
 def input_dialog(title, input_='', option=0):
-    return xbmcgui.Dialog().input(title, input_, option)
+    return xbmcgui.Dialog().input(sanitize_dialog_text(title), input_, option)
 
 
 def multiselect_dialog(title, dialog_list, preselect=None):
-    return xbmcgui.Dialog().multiselect(title, dialog_list, preselect=preselect)
+    clean_list = [sanitize_dialog_text(item) if isinstance(item, str) else item for item in dialog_list]
+    return xbmcgui.Dialog().multiselect(sanitize_dialog_text(title), clean_list, preselect=preselect)
 
 
 def select_dialog(title, dialog_list):
-    return xbmcgui.Dialog().select(title, dialog_list)
+    clean_list = [sanitize_dialog_text(item) if isinstance(item, str) else item for item in dialog_list]
+    return xbmcgui.Dialog().select(sanitize_dialog_text(title), clean_list)
 
 
 def context_menu(context_list):
@@ -1044,6 +1071,16 @@ def safe_json(response, default=None):
     try:
         return response.json()
     except (ValueError, AttributeError, TypeError):
+        return default
+
+
+def loads_json(text, default=None):
+    """Safely parse a JSON string, returning `default` on error or empty string."""
+    if not text:
+        return default
+    try:
+        return json.loads(text)
+    except (json.JSONDecodeError, TypeError, ValueError):
         return default
 
 

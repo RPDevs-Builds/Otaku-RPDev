@@ -115,11 +115,11 @@ class Sources(BrowserBase):
         if not r:
             control.log('AnimePahe: search API returned no data', level='warning')
             return []
-        try:
-            sitems = json.loads(r).get('data')
-        except (json.JSONDecodeError, TypeError):
+        parsed_r = control.loads_json(r, {})
+        if not isinstance(parsed_r, dict):
             control.log('AnimePahe: search API returned invalid JSON', level='warning')
             return []
+        sitems = parsed_r.get('data')
 
         if not sitems and ':' in title:
             title = title.split(':')[0]
@@ -131,7 +131,8 @@ class Sources(BrowserBase):
                 data=params,
                 headers=self._headers
             )
-            sitems = json.loads(r).get('data')
+            parsed_r = control.loads_json(r, {})
+            sitems = parsed_r.get('data') if isinstance(parsed_r, dict) else []
 
         all_results = []
         if sitems:
@@ -172,9 +173,8 @@ class Sources(BrowserBase):
         if not r:
             control.log('AnimePahe: release API returned no data for slug={0} page={1}'.format(slug, page), level='warning')
             return sources
-        try:
-            r = json.loads(r)
-        except json.JSONDecodeError:
+        r = control.loads_json(r, {})
+        if not isinstance(r, dict):
             control.log('AnimePahe: release API returned invalid JSON for slug={0}'.format(slug), level='warning')
             return sources
         items = r.get('data') or []
