@@ -1,4 +1,3 @@
-import pickle
 
 from resources.lib.ui import control, database, source_utils
 

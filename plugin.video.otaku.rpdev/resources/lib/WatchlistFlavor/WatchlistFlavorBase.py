@@ -1,4 +1,3 @@
-import pickle
 import random
 
 from resources.lib.ui import control, client, database, utils

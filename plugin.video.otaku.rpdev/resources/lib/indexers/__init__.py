@@ -1,4 +1,3 @@
-import pickle
 
 from datetime import date
 from functools import partial

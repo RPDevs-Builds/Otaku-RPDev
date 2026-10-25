@@ -1,4 +1,3 @@
-import pickle
 import datetime
 import xml.etree.ElementTree as ET
 import random

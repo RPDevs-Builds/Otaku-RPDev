@@ -1,18 +1,17 @@
 import base64
 import json
-import pickle
 import re
 import urllib.parse
 
 from bs4 import BeautifulSoup
 from resources.lib.endpoints import malsync
-from resources.lib.ui import control, database, utils
+from resources.lib.ui import control, database, utils, domains
 from resources.lib.ui.BrowserBase import BrowserBase
 from resources.lib.ui.megaplay_extractor import extract_megaplay_sources
 
 
 class Sources(BrowserBase):
-    _BASE_URL = 'https://hianime.ms/'
+    _BASE_URL = domains.get_domain('hianime', 'https://hianime.to/')
 
     _MEGAPLAY_S2 = 'https://megaplay.buzz/stream/s-2/{0}/{1}'
     _MEGAPLAY_ANI = 'https://megaplay.buzz/stream/ani/{0}/{1}/{2}'

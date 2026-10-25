@@ -2,12 +2,12 @@ import re
 
 from functools import partial
 from resources.lib.debrid import Debrid
-from resources.lib.ui import database, source_utils, control, client, utils
+from resources.lib.ui import database, source_utils, control, client, utils, domains
 from resources.lib.ui.BrowserBase import BrowserBase
 
 
 class Sources(BrowserBase):
-    _BASE_URL = 'https://nekobt.to/api/v1'
+    _BASE_URL = domains.get_domain('nekobt', 'https://nekobt.to/api/v1')
 
     def __init__(self):
         self.media_type = None

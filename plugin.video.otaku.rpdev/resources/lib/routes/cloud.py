@@ -40,6 +40,24 @@ def _draw_cloud_directory(provider, folder_id=None):
     )
     list_items = [create_item]
 
+    if curr_folder == 'root':
+        purge_url = f"cloud_purge_stalled/{provider}"
+        purge_cm = [('Purge Stalled Torrents', f'RunPlugin(plugin://{control.ADDON_ID}/{purge_url})')]
+        purge_item = utils.allocate_item(
+            "[COLOR crimson][🧹 Purge Stalled Torrents][/COLOR]",
+            purge_url,
+            False,
+            False,
+            purge_cm,
+            'tools.png',
+            {
+                'title': 'Purge Stalled Torrents',
+                'plot': f"Scan and delete 0% stalled or error torrents in your {provider.capitalize()} cloud.",
+                'mediatype': 'files'
+            }
+        )
+        list_items.append(purge_item)
+
     for itm in raw_items:
         is_folder = itm.get('is_folder', False)
         item_type = itm.get('item_type', 'folder' if is_folder else 'file')
@@ -292,3 +310,14 @@ def DELETE_CLOUD_ITEM(payload, params):
             control.refresh()
         else:
             control.notify(control.ADDON_NAME, "Failed to delete item from cloud", icon=control.ADDON_ICON)
+
+
+@Route('cloud_purge_stalled/*')
+def CLOUD_PURGE_STALLED(payload, params):
+    from resources.lib.debrid import debrid_cloud
+    provider = payload.strip('/').split('/')[0] if payload else None
+    if provider:
+        purged = debrid_cloud.purge_stalled_torrents(provider)
+        if purged > 0:
+            control.refresh()
+

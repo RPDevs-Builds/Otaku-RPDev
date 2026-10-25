@@ -336,6 +336,9 @@ if __name__ == "__main__":
     threading.Thread(target=prefetch_watchlist, daemon=True).start()
     # Prefetch airing calendar in background thread (non-blocking)
     threading.Thread(target=prefetch_calendar, daemon=True).start()
+    # Refresh dynamic domains from mirror (non-blocking)
+    from resources.lib.ui import domains
+    threading.Thread(target=domains.refresh_domains, daemon=True).start()
     control.log('##################  MAINTENANCE COMPLETE ######################')
     monitor = Monitor()
     # Periodic background maintenance & memory trimming loop (every 15 minutes)

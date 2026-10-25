@@ -165,7 +165,6 @@ class WatchlistFlavor:
         """Update episode progress on ALL enabled watchlists simultaneously.
         Handles per-flavor completion detection based on each service's total episode count.
         Returns True if any watchlist was marked as completed."""
-        import pickle
         from resources.lib.ui import database
 
         # Get show info for completion detection fallback

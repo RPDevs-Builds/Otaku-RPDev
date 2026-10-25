@@ -14,7 +14,6 @@ import time
 import threading
 import xbmc
 import xbmcgui
-import pickle
 import service
 import json
 

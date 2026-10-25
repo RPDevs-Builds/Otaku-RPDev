@@ -1,4 +1,3 @@
-import pickle
 import random
 
 from resources.lib.ui import utils, database, client, control, get_meta
@@ -150,7 +149,6 @@ class SimklWLF(WatchlistFlavorBase):
             return []
 
         # Deserialize cached items
-        import pickle
         items = [database.loads(item['data']) for item in cached_items]
 
         # Apply sorting on raw items before slicing to current page

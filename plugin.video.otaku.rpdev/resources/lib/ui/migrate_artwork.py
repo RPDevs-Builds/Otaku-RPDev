@@ -6,7 +6,6 @@ to legacy data that may contain 100+ images per anime.
 Run this once after updating to the new artwork system to clean up existing data.
 """
 
-import pickle
 import random
 from resources.lib.ui import database, control
 

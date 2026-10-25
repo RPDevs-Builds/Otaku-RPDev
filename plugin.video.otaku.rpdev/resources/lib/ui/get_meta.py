@@ -144,7 +144,6 @@ def update_meta(mal_id, mtype='tv', anilist_banner=None):
             show = database.get_show(mal_id)
             if show and show.get('kodi_meta'):
                 try:
-                    import pickle
                     km = database.loads(show['kodi_meta'])
                     title = km.get('title_userPreferred') or km.get('title_english') or km.get('title_romaji')
                 except Exception:

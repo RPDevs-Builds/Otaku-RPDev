@@ -1,13 +1,13 @@
-import pickle
 import re
 import urllib.parse
 
-from resources.lib.ui import control, database, source_utils
+from resources.lib.ui import control, database, source_utils, domains
 from resources.lib.ui.BrowserBase import BrowserBase
 from resources.lib.ui.megaplay_extractor import extract_megaplay_sources
 
 
 class Sources(BrowserBase):
+    _BASE_URL = domains.get_domain('anikoto', 'https://anikoto.com/')
     _MEGAPLAY_MAL = 'https://megaplay.buzz/stream/mal/{0}/{1}/{2}'
     _REFERER = 'https://anikototv.to/'
 

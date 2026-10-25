@@ -1,4 +1,3 @@
-import pickle
 import xbmcgui
 
 from resources.lib.ui import control, database

@@ -191,7 +191,10 @@ class SQL:
                 if not is_readonly:
                     conn.execute("PRAGMA foreign_keys = ON")
                     conn.execute("PRAGMA synchronous = NORMAL")
-                    conn.execute("PRAGMA journal_mode = WAL")
+                    try:
+                        conn.execute("PRAGMA journal_mode = WAL")
+                    except Exception:
+                        pass
                     conn.execute("PRAGMA mmap_size = 16777216")
                 if os.path.exists(abs_path):
                     try:

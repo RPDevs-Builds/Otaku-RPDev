@@ -1,11 +1,10 @@
 import itertools
 import json
-import pickle
 import re
 
 from functools import partial
 from bs4 import BeautifulSoup
-from resources.lib.ui import control, client, database, source_utils, utils
+from resources.lib.ui import control, client, database, source_utils, utils, domains
 from resources.lib.ui.BrowserBase import BrowserBase
 
 
@@ -22,10 +21,13 @@ def get_backup(mal_id, source):
 
 
 class Sources(BrowserBase):
-    _BASE_URL = 'https://anitaku.bz' if control.getBool('provider.gogoalt') else 'https://gogoanime3.cc/'
+    _BASE_URL = 'https://anitaku.bz' if control.getBool('provider.gogoalt') else domains.get_domain('gogoanime', 'https://anitaku.so/')
 
     def get_sources(self, mal_id, episode):
         show = database.get_show(mal_id)
+        if not show:
+            control.log(f"Gogoanime: Show not found in local DB for MAL ID {mal_id}", 'warning')
+            return []
         kodi_meta = database.loads(show.get('kodi_meta'))
         title = kodi_meta.get('name')
         title = self._clean_title(title)
@@ -44,7 +46,10 @@ class Sources(BrowserBase):
             data=params,
             headers=headers
         )
-        r = json.loads(r).get('content')
+        try:
+            r = json.loads(r).get('content') if r else ''
+        except Exception:
+            r = ''
 
         if not r and ':' in title:
             title = title.split(':')[0]
@@ -56,10 +61,15 @@ class Sources(BrowserBase):
                 data=params,
                 headers=headers
             )
-            r = json.loads(r).get('content')
+            try:
+                r = json.loads(r).get('content') if r else ''
+            except Exception:
+                r = ''
 
-        soup = BeautifulSoup(r, 'html.parser')
-        items = soup.find_all('div', {'class': 'list_search_ajax'})
+        items = []
+        if r:
+            soup = BeautifulSoup(r, 'html.parser')
+            items = soup.find_all('div', {'class': 'list_search_ajax'})
         if len(items) == 1:
             slugs = [items[0].find('a').get('href').split('/')[-1]]
         else:

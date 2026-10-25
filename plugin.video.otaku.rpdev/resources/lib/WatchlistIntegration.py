@@ -1,4 +1,3 @@
-import pickle
 
 from resources.lib.ui import control, database
 from resources.lib.ui.router import Route

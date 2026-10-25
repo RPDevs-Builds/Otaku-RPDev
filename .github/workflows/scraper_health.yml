@@ -1,0 +1,24 @@
+name: Scraper Health Monitor
+
+on:
+  schedule:
+    # Run every Monday at 06:00 UTC
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+jobs:
+  scraper-health:
+    name: Scraper Health & Yield Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Execute Scraper Health Checks
+        run: |
+          python3 scripts/check_scraper_health.py

@@ -1,7 +1,6 @@
 import base64
 import codecs
 import json
-import pickle
 import re
 import urllib.parse
 

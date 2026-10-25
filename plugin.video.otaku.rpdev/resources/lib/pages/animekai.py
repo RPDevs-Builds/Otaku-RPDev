@@ -1,16 +1,15 @@
 import json
-import pickle
 import re
 import urllib.parse
 
 from bs4 import BeautifulSoup
-from resources.lib.ui import client, control, database, utils
+from resources.lib.ui import client, control, database, utils, domains
 from resources.lib.ui.BrowserBase import BrowserBase
 from resources.lib.ui.megacloud_extractor import extract_megacloud_sources
 
 
 class Sources(BrowserBase):
-    _BASE_URL = 'https://animekai.to/'
+    _BASE_URL = domains.get_domain('animekai', 'https://animekai.to/')
 
     _AJAX_HEADERS = {
         'X-Requested-With': 'XMLHttpRequest',
@@ -24,6 +23,9 @@ class Sources(BrowserBase):
     def get_sources(self, mal_id, episode):
         control.log(f"AnimeKAI: Getting sources for MAL ID {mal_id}, Episode {episode}")
         show = database.get_show(mal_id)
+        if not show:
+            control.log(f"AnimeKAI: Show not found in local DB for MAL ID {mal_id}", 'warning')
+            return []
         kodi_meta = database.loads(show.get('kodi_meta'))
         title = kodi_meta.get('name')
         title = self._clean_title(title)

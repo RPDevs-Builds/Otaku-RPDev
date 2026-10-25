@@ -1,18 +1,17 @@
 import html
-import pickle
 import re
 import time
 import uuid
 import urllib.parse
 import json
 from bs4 import BeautifulSoup
-from resources.lib.ui import control, database, client
+from resources.lib.ui import control, database, client, domains
 from resources.lib.ui.BrowserBase import BrowserBase
 import threading
 
 
 class Sources(BrowserBase):
-    _BASE_URL = 'https://www.wcostream.tv/'
+    _BASE_URL = domains.get_domain('watchnixtoons2', 'https://www.wcostream.tv/')
     _WNT2_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36'
 
     def __init__(self):

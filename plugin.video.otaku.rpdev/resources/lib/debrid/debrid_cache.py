@@ -72,8 +72,11 @@ def set_cached_hashes(hash_status_list, debrid):
     if not hash_status_list:
         return
     _ensure_debrid_cache_table()
-    expiry_hours = control.getInt('cache.torrents.ttl') or _CACHE_EXPIRY_HOURS
-    expires = int(time.time()) + (expiry_hours * 3600)
+    try:
+        expiry_hours = int(control.getInt('cache.torrents.ttl')) or _CACHE_EXPIRY_HOURS
+    except (TypeError, ValueError):
+        expiry_hours = _CACHE_EXPIRY_HOURS
+    expires = int(time.time() + (expiry_hours * 3600))
     with database.SQL(control.cacheFile) as cur:
         cur.executemany(
             'REPLACE INTO debrid_cache (hash, debrid, cached, expires) VALUES (?, ?, ?, ?)',

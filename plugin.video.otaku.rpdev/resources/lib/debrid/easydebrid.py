@@ -70,7 +70,10 @@ class EasyDebrid:
         url = f"{self.base_url}/link/lookup"
         data = {"urls": endpoint}
         r = client.post(url, json_data=data, headers=self.headers())
-        resp = r.json() if r else {}
+        try:
+            resp = r.json() if r else {}
+        except Exception:
+            resp = {}
         return resp
 
     def resolve_single_magnet(self, hash_, magnet, episode, pack_select, filename=None):

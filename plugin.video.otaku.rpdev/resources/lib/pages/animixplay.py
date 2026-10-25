@@ -1,6 +1,5 @@
 import itertools
 import json
-import pickle
 import re
 import urllib.parse
 from functools import partial

@@ -1,18 +1,17 @@
 import re
-import pickle
 import base64
 
 from functools import partial
 from bs4 import BeautifulSoup
 from resources.lib.ui.BrowserBase import BrowserBase
-from resources.lib.ui import database, source_utils, client, control, utils
+from resources.lib.ui import database, source_utils, client, control, utils, domains
 from resources.lib.debrid import Debrid
 from resources.lib.indexers.simkl import SIMKLAPI
 from resources.lib.endpoints import anidb
 
 
 class Sources(BrowserBase):
-    _BASE_URL = 'https://animetosho-org.translate.goog/?_x_tr_sl=es&_x_tr_tl=en&_x_tr_hl=en/' if control.getBool('provider.animetoshoalt') else 'https://animetosho.org/'
+    _BASE_URL = domains.get_domain('animetosho', 'https://animetosho.org/')
 
     def __init__(self):
         self.sources = []

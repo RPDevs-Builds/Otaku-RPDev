@@ -722,3 +722,139 @@ def resolve_stream_url(provider, item_id, file_ref):
         control.log(f"Error resolving {provider} stream URL: {str(e)}", "error")
 
     return None
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  Stalled Torrent Auto-Cleaner
+# ═══════════════════════════════════════════════════════════════════════════
+
+def find_stalled_torrents(provider):
+    """
+    Find incomplete, dead, or error torrents for a given debrid provider.
+    Returns list of dicts: [{'id': str, 'title': str, 'status': str, 'progress': int/float}]
+    """
+    stalled = []
+    try:
+        if provider == 'realdebrid':
+            from resources.lib.debrid.real_debrid import RealDebrid
+            torrents = RealDebrid().list_torrents() or []
+            for t in torrents:
+                status = str(t.get('status', '')).lower()
+                progress = t.get('progress', 0)
+                # Stalled: explicit error/dead, or 0% progress stuck in file selection / conversion
+                if status in ['magnet_error', 'error', 'virus', 'dead'] or (progress == 0 and status in ['waiting_files_selection', 'magnet_conversion']):
+                    stalled.append({
+                        'id': str(t.get('id', '')),
+                        'title': t.get('filename') or 'Unknown Torrent',
+                        'status': status,
+                        'progress': progress
+                    })
+
+        elif provider == 'torbox':
+            from resources.lib.debrid.torbox import TorBox
+            torrents = TorBox().list_torrents() or []
+            for t in torrents:
+                state = str(t.get('download_state', '')).lower()
+                progress = int(t.get('progress', 0) * 100) if isinstance(t.get('progress'), float) else t.get('progress', 0)
+                if state in ['error', 'failed', 'stalled', 'upload_failed'] or (progress == 0 and state in ['paused', 'stalled']):
+                    stalled.append({
+                        'id': str(t.get('id', '')),
+                        'title': t.get('name') or 'Unknown Torrent',
+                        'status': state,
+                        'progress': progress
+                    })
+
+        elif provider == 'premiumize':
+            from resources.lib.debrid.premiumize import Premiumize
+            transfers = Premiumize().transfer_list() or []
+            for t in transfers:
+                status = str(t.get('status', '')).lower()
+                progress = int(t.get('progress', 0) * 100) if isinstance(t.get('progress'), float) else t.get('progress', 0)
+                if status in ['error', 'deleted'] or (progress == 0 and status in ['waiting']):
+                    stalled.append({
+                        'id': str(t.get('id', '')),
+                        'title': t.get('name') or t.get('src') or 'Unknown Transfer',
+                        'status': status,
+                        'progress': progress
+                    })
+
+        elif provider == 'alldebrid':
+            from resources.lib.debrid.all_debrid import AllDebrid
+            torrents = AllDebrid().list_torrents() or []
+            for t in torrents:
+                code = t.get('statusCode', 0)
+                speed = t.get('downloadSpeed', 0)
+                if code >= 5 or (code in [0, 1] and speed == 0 and t.get('downloaded', 0) == 0 and t.get('seeders', 0) == 0):
+                    stalled.append({
+                        'id': str(t.get('id', '')),
+                        'title': t.get('filename') or 'Unknown Torrent',
+                        'status': f"code {code}",
+                        'progress': 0
+                    })
+
+    except Exception as e:
+        control.log(f"Error checking stalled torrents for {provider}: {str(e)}", "error")
+
+    return stalled
+
+
+def purge_stalled_torrents(provider):
+    """
+    Find and delete stalled/dead torrents for a provider after user confirmation.
+    Returns number of purged torrents.
+    """
+    stalled = find_stalled_torrents(provider)
+    provider_name = provider.capitalize() if provider != 'realdebrid' else 'Real-Debrid'
+    if not stalled:
+        control.notify(control.ADDON_NAME, f"No stalled or error torrents found in {provider_name}", icon=control.ADDON_ICON)
+        return 0
+
+    preview_lines = [f"• {t['title'][:45]} ({t['status']})" for t in stalled[:4]]
+    if len(stalled) > 4:
+        preview_lines.append(f"...and {len(stalled) - 4} more")
+    preview = "\n".join(preview_lines)
+
+    msg = f"Found {len(stalled)} stalled/error torrent(s) in {provider_name}:\n\n{preview}\n\nDelete all {len(stalled)} item(s)?"
+    confirmed = control.yesno_dialog(control.ADDON_NAME, msg)
+    if not confirmed:
+        return 0
+
+    purged = 0
+    vfs = _load_vfs()
+    p_vfs = _get_provider_vfs(vfs, provider)
+
+    for t in stalled:
+        tid = t['id']
+        success = False
+        try:
+            if provider == 'realdebrid':
+                from resources.lib.debrid.real_debrid import RealDebrid
+                success = RealDebrid().deleteTorrent(tid)
+            elif provider == 'torbox':
+                from resources.lib.debrid.torbox import TorBox
+                success = TorBox().delete_torrent(tid)
+            elif provider == 'premiumize':
+                from resources.lib.debrid.premiumize import Premiumize
+                res = Premiumize().delete_torrent(tid)
+                success = bool(res and res.get('status') == 'success')
+            elif provider == 'alldebrid':
+                from resources.lib.debrid.all_debrid import AllDebrid
+                success = AllDebrid().delete_magnet(tid)
+
+            if success:
+                purged += 1
+                _cleanup_torrent_vfs(p_vfs, tid)
+        except Exception as e:
+            control.log(f"Error purging torrent {tid} from {provider}: {e}", "warning")
+
+    if purged > 0:
+        try:
+            _save_vfs(vfs)
+        except Exception:
+            pass
+        control.notify(control.ADDON_NAME, f"Purged {purged} stalled torrent(s) from {provider_name}", icon=control.ADDON_ICON)
+    else:
+        control.notify(control.ADDON_NAME, f"Failed to purge stalled torrents from {provider_name}", icon=control.ADDON_ICON)
+
+    return purged
+

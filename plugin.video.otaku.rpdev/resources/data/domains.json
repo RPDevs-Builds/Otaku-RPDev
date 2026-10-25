@@ -1,0 +1,17 @@
+{
+  "hianime": "https://hianime.to/",
+  "gogoanime": "https://anitaku.so/",
+  "animepahe": "https://animepahe.ru/",
+  "animekai": "https://animekai.to/",
+  "anikoto": "https://anikoto.com/",
+  "nyaa": "https://nyaa.si/",
+  "animetosho": "https://animetosho.org/",
+  "nekobt": "https://nekobt.to/api/v1",
+  "torrentio": "https://torrentio.strem.fun",
+  "watchnixtoons2": "https://www.wcostream.tv/",
+  "_meta": {
+    "source": "bundled_fallback",
+    "description": "Otaku Scraper Canonical Domain Map",
+    "last_updated": "2026-10-25T01:00:00Z"
+  }
+}

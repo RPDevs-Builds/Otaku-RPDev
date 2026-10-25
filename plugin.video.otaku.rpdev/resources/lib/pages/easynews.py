@@ -1,5 +1,4 @@
 # Easynews episode/movie search — results resolve as hoster + Easynews provider.
-import pickle
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 

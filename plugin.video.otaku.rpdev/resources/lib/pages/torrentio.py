@@ -2,12 +2,12 @@ import re
 
 from functools import partial
 from resources.lib.debrid import Debrid
-from resources.lib.ui import database, source_utils, control, client, utils
+from resources.lib.ui import database, source_utils, control, client, utils, domains
 from resources.lib.ui.BrowserBase import BrowserBase
 
 
 class Sources(BrowserBase):
-    _BASE_URL = 'https://torrentio.strem.fun'
+    _BASE_URL = domains.get_domain('torrentio', 'https://torrentio.strem.fun')
 
     def __init__(self):
         self.media_type = None

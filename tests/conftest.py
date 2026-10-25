@@ -93,7 +93,8 @@ _settings_store = {
     'provider.animetosho': 'true',
     'provider.hianime': 'true',
     'realdebrid.enabled': 'true',
-    'realdebrid.token': 'test_rd_token_123456789'
+    'realdebrid.token': 'test_rd_token_123456789',
+    'cache.torrents.ttl': '24'
 }
 
 def addon_side_effect(addon_id=None):

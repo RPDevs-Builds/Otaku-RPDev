@@ -4,7 +4,7 @@ import urllib.parse
 from concurrent.futures import ThreadPoolExecutor
 
 from bs4 import BeautifulSoup, SoupStrainer
-from resources.lib.ui import database, source_utils, control
+from resources.lib.ui import database, source_utils, control, domains
 from resources.lib.ui.BrowserBase import BrowserBase
 from resources.lib.endpoints import malsync
 from resources.lib.ui import client
@@ -13,7 +13,7 @@ _ANIME_SESSION_PATH_RE = re.compile(r'/anime/([^/?#]+)', re.I)
 
 
 class Sources(BrowserBase):
-    _BASE_URL = 'https://animepahe-pw.translate.goog/?_x_tr_sl=auto&_x_tr_tl=en&_x_tr_hl=en&_x_tr_pto=wapp/' if control.getBool('provider.animepahealt') else 'https://animepahe.pw/'
+    _BASE_URL = domains.get_domain('animepahe', 'https://animepahe.ru/')
 
     _headers = {
         'Referer': _BASE_URL,

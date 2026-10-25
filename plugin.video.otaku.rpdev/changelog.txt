@@ -1,3 +1,6 @@
+Changelog v5.4.8 (2026-10-25):
+- Stalled Torrent Cleaner, Scraper Health CI, Dynamic Domains & Pickle Scrub
+
 Changelog v5.4.7 (2026-10-24):
 - Log Token Sanitization (P2): added centralized log credential scrubbing (sanitize_log) across all log outputs in control.log, redacting Bearer tokens, URL query credentials, JSON authorization fields, Basic Auth, and active debrid/watchlist tokens
 - Memory Management & Heap Trimming (P3): upgraded control.clean_memory() with multi-platform Bionic/glibc malloc_trim resolution (Android libc.so and Linux libc.so.6), thread-local SQLite connection cleanup, and in-memory artwork cache bounds

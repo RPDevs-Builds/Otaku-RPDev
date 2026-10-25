@@ -1,15 +1,14 @@
 import re
-import pickle
 
 from functools import partial
 from bs4 import BeautifulSoup, SoupStrainer
 from resources.lib.debrid import Debrid
-from resources.lib.ui import database, source_utils, control, client, utils
+from resources.lib.ui import database, source_utils, control, client, utils, domains
 from resources.lib.ui.BrowserBase import BrowserBase
 
 
 class Sources(BrowserBase):
-    _BASE_URL = 'https://nyaa-si.translate.goog/?_x_tr_sl=es&_x_tr_tl=en&_x_tr_hl=en/' if control.getBool('provider.nyaaalt') else 'https://nyaa.si/'
+    _BASE_URL = domains.get_domain('nyaa', 'https://nyaa.si/')
 
     def __init__(self):
         self.media_type = None

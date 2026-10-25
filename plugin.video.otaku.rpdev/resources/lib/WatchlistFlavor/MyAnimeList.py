@@ -1,6 +1,5 @@
 import time
 import random
-import pickle
 
 from resources.lib.ui import utils, client, control, get_meta, database
 from resources.lib.WatchlistFlavor.WatchlistFlavorBase import WatchlistFlavorBase
