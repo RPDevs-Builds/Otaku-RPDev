@@ -86,7 +86,7 @@ class Anilist:
 
         all_media = []
         page = 1
-        while True:
+        while page <= 50:
             variables = {
                 "page": page,
                 "malIds": mal_ids,
@@ -95,7 +95,11 @@ class Anilist:
             result = client.request(self._BASE_URL, post={'query': query, 'variables': variables}, jpost=True)
             if not result:
                 break
-            results = json.loads(result)
+            try:
+                results = json.loads(result) if isinstance(result, str) else control.safe_json(result)
+            except Exception as e:
+                control.log(f"AniList mal_ids parse error: {e}", 'warning')
+                break
             page_data = results.get('data', {}).get('Page', {})
             media = page_data.get('media', [])
             all_media.extend(media)
@@ -197,7 +201,7 @@ class Anilist:
                 if not result:
                     break
 
-                results = result.json()
+                results = control.safe_json(result, default={})
 
                 # Check for errors
                 if "errors" in results:
@@ -296,7 +300,7 @@ class Anilist:
                 if not result:
                     break
 
-                results = result.json()
+                results = control.safe_json(result, default={})
 
                 # Check for errors
                 if "errors" in results:
@@ -364,7 +368,7 @@ class Anilist:
             if not result:
                 return None
 
-            results = result.json()
+            results = control.safe_json(result, default={})
 
             # Check for errors
             if "errors" in results:
@@ -416,7 +420,7 @@ class Anilist:
                 if not result:
                     break
 
-                data = result.json()
+                data = control.safe_json(result, default={})
                 if "errors" in data:
                     control.log(f"AniList synopsis API error (MAL IDs): {data['errors']}", "warning")
                     break

@@ -1,3 +1,26 @@
+Changelog v5.5.0 (2026-10-25):
+- Milestone Stability Release: Comprehensive Test Harness & Full Subsystem Error-Catching:
+- - Test Harness & Mock Infrastructure (Phase 1):
+  - Built comprehensive Kodi C++ Python API mock harness (MockPlayer, MockMonitor, MockListItem, MockDialog, MockDialogProgress, MockWindowXMLDialog, MockPlugin, MockVFSFile) with 157 automated tests covering all subsystems.
+- - Core Engine Hardening (Phase 2):
+  - Eliminated silent BaseException swallows across client.py, database.py, control.py, embed_extractor.py, megacloud_extractor.py, and source_utils.py; replaced with typed error traps and structured logging.
+  - Hardened database cursor/connection closures, atomic write rollback traps, and unpickling error traps.
+- - External API Endpoints Hardening (Phase 3):
+  - Added safe JSON deserialization and upper-bound pagination guards (page <= 50) across anilist, animeschedule, mdblist, simkl, teamup, anime_filler, and anidb.
+  - Eliminated XML ElementTree truth-value deprecation warnings in anidb.py.
+- - Watchlist Synchronization Hardening (Phase 4):
+  - Guarded WatchlistFlavorBase, AniList, MyAnimeList, and Kitsu against None unique_ids, missing trailer IDs, non-numeric episode totals, and invalid sort settings.
+- - Debrid Resolvers & Cloud VFS Hardening (Phase 5):
+  - Hardened real_debrid, alldebrid, torbox, and debrid_cloud with safe status parsing and error logging on torrent link unrestrict/deletion.
+- - Scrapers & Parsers Hardening (Phase 6):
+  - Hardened animetosho base32 hash conversion regex and guarded source dictionary accesses against missing 'info' keys across scrapers.
+- - GUI Windows & Dialogs Hardening (Phase 7):
+  - Added bounds checking in resolver.py, playing_next.py, source_select.py, and textviewer.py against negative durations and unselected list positions.
+- - Routes & Directory Indexers Hardening (Phase 8):
+  - Hardened parameter extraction, history manipulation, and playback routing against malformed inputs.
+- - System Lifecycle & Service Engine Hardening (Phase 9):
+  - Verified end-to-end lifecycle, settings migrations, root directory construction, and clean shutdown checkpoints.
+
 Changelog v5.4.16 (2026-10-25):
 - API, Stability & UI Hardening:
 - - AnimeSchedule Bearer Auth: Pass Authorization Bearer headers to AnimeSchedule API v3 season and route endpoints, restoring missing MAL IDs, AniList IDs, ratings, and synopses across all 152 calendar anime

@@ -15,7 +15,8 @@ from resources.lib.pages import Sources
 class TestSecurityAndMemory(unittest.TestCase):
 
     def setUp(self):
-        tests.conftest.mock_xbmc.log.reset_mock()
+        import xbmc
+        xbmc.log.reset_mock()
 
     def test_log_sanitization_bearer(self):
         """Verify Bearer tokens are redacted in log messages."""
@@ -64,9 +65,11 @@ class TestSecurityAndMemory(unittest.TestCase):
 
     def test_control_log_integration(self):
         """Verify control.log() calls xbmc.log with sanitized output."""
+        import xbmc
+        xbmc.log.reset_mock()
         control.log("Querying https://api.simkl.com/sync?client_secret=SIMKL_SECRET_XYZ", level="info")
-        tests.conftest.mock_xbmc.log.assert_called_once()
-        logged_str = tests.conftest.mock_xbmc.log.call_args[0][0]
+        xbmc.log.assert_called_once()
+        logged_str = xbmc.log.call_args[0][0]
         self.assertNotIn("SIMKL_SECRET_XYZ", logged_str)
         self.assertIn("client_secret=[REDACTED]", logged_str)
 

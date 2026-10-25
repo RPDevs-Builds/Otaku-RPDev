@@ -635,8 +635,8 @@ def delete_cloud_item(provider, item_id, item_type='folder', file_ref=''):
                         p_vfs['folder_moves'].pop(tid, None)
                         try:
                             _delete_provider_torrent(provider, tid)
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            control.log(f"debrid_cloud delete torrent {tid} error: {e}", 'debug')
                         _cleanup_torrent_vfs(p_vfs, tid)
                 return _save_vfs(vfs)
             else:
@@ -668,8 +668,8 @@ def delete_cloud_item(provider, item_id, item_type='folder', file_ref=''):
                     _delete_provider_torrent(provider, item_id)
                     _cleanup_torrent_vfs(p_vfs, item_id)
                     _save_vfs(vfs)
-                except Exception:
-                    pass
+                except Exception as e:
+                    control.log(f"debrid_cloud delete torrent item {item_id} error: {e}", 'debug')
             return True
 
     except Exception as e:
@@ -850,8 +850,8 @@ def purge_stalled_torrents(provider):
     if purged > 0:
         try:
             _save_vfs(vfs)
-        except Exception:
-            pass
+        except Exception as e:
+            control.log(f"debrid_cloud save vfs purge error: {e}", 'debug')
         control.notify(control.ADDON_NAME, f"Purged {purged} stalled torrent(s) from {provider_name}", icon=control.ADDON_ICON)
     else:
         control.notify(control.ADDON_NAME, f"Failed to purge stalled torrents from {provider_name}", icon=control.ADDON_ICON)

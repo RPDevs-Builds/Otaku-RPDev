@@ -109,7 +109,7 @@ class TorBox:
 
     def status(self):
         r = client.get(f'{self.BaseUrl}/user/me', headers=self.headers())
-        user_info = r.json()['data'] if r else None
+        user_info = control.safe_json(r).get('data') if r else None
         if user_info:
             control.setSetting('torbox.username', user_info['email'])
             if user_info['plan'] == 0:

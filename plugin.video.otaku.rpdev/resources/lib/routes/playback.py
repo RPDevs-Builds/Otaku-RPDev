@@ -98,8 +98,8 @@ def PLAY(payload, params):
                 )
                 if not confirmed:
                     return control.exit_code()
-        except Exception:
-            pass
+        except Exception as e:
+            control.log(f"playback aired_date check error: {e}", 'debug')
 
     sources = MetaBrowser.get_sources(mal_id, episode, 'show', rescrape, source_select)
     if sources:

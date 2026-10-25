@@ -141,7 +141,7 @@ def parse_view(base, isfolder, isplayable, dub=False):
 def get_season(titles_list, mal_id):
     import re
     meta_ids = database.get_mappings(mal_id, 'mal_id')
-    if meta_ids.get('thetvdb_season'):
+    if meta_ids and meta_ids.get('thetvdb_season'):
         if meta_ids['thetvdb_season'] == '0' or meta_ids['thetvdb_season'] == 'a':
             return 1
         return int(meta_ids['thetvdb_season'])
@@ -163,15 +163,12 @@ def get_season(titles_list, mal_id):
         s_ids = [s[0] for s in s_ids if s]
         if not s_ids:
             seasonnum = 1
-            try:
-                for title in titles_list:
-                    try:
-                        seasonnum = re.search(r' (\d)[ rnt][ sdh(]', f' {title[1]}  ').group(1)
-                        break
-                    except AttributeError:
-                        pass
-            except AttributeError:
-                pass
+            for title in titles_list:
+                t_str = title[1] if isinstance(title, (list, tuple)) and len(title) > 1 else str(title)
+                m = re.search(r' (\d)[ rnt][ sdh(]', f' {t_str}  ')
+                if m:
+                    seasonnum = m.group(1)
+                    break
             s_ids = [seasonnum]
         season = int(s_ids[0])
         if season > 10:

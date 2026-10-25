@@ -89,13 +89,16 @@ def update_changelog(changelog_path, new_ver, message):
     if not os.path.exists(changelog_path):
         return
 
+    with open(changelog_path, "r", encoding="utf-8") as f:
+        old_content = f.read()
+
+    if old_content.startswith(f"Changelog v{new_ver}"):
+        return
+
     today = datetime.date.today().strftime("%Y-%m-%d")
     header = f"Changelog v{new_ver} ({today}):\n"
     lines = [f"- {line.strip()}" for line in message.strip().split("\n") if line.strip()]
     entry = header + "\n".join(lines) + "\n\n"
-
-    with open(changelog_path, "r", encoding="utf-8") as f:
-        old_content = f.read()
 
     with open(changelog_path, "w", encoding="utf-8") as f:
         f.write(entry + old_content)

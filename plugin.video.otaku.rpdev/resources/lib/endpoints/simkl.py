@@ -13,8 +13,9 @@ class Simkl:
     def update_calendar(self):
         response = client.get(baseUrl)
         if response:
-            simkl_cache = response.json()
-            self.set_cached_data(simkl_cache)
+            simkl_cache = control.safe_json(response, default=[])
+            if simkl_cache:
+                self.set_cached_data(simkl_cache)
 
     def get_calendar_data(self, mal_id):
         if mal_id in self.anime_cache:
@@ -26,16 +27,25 @@ class Simkl:
         else:
             response = client.get(baseUrl)
             if response:
-                self.simkl_cache = response.json()
-                self.set_cached_data(self.simkl_cache)
+                self.simkl_cache = control.safe_json(response, default=[])
+                if self.simkl_cache:
+                    self.set_cached_data(self.simkl_cache)
             else:
                 return None
 
+        if not isinstance(self.simkl_cache, list):
+            return None
+
         for item in self.simkl_cache:
+            if not isinstance(item, dict):
+                continue
             if item.get('ids', {}).get('mal') == str(mal_id):
                 episode_date_str = item.get('date')
                 if episode_date_str:
-                    episode_date = datetime.datetime.fromisoformat(episode_date_str)
+                    try:
+                        episode_date = datetime.datetime.fromisoformat(episode_date_str)
+                    except (ValueError, TypeError):
+                        continue
 
                     # Check if episode has already aired
                     if datetime.datetime.now(datetime.timezone.utc) >= episode_date:
@@ -55,13 +65,17 @@ class Simkl:
         else:
             response = client.get(baseUrl)
             if response:
-                self.simkl_cache = response.json()
-                self.set_cached_data(self.simkl_cache)
+                self.simkl_cache = control.safe_json(response, default=[])
+                if self.simkl_cache:
+                    self.set_cached_data(self.simkl_cache)
             else:
                 return None
 
+        if not isinstance(self.simkl_cache, list):
+            return None
+
         for entry in self.simkl_cache:
-            if entry.get('ids', {}).get('mal') == str(mal_id):
+            if isinstance(entry, dict) and entry.get('ids', {}).get('mal') == str(mal_id):
                 return entry
         return None
 

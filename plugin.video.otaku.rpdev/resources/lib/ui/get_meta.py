@@ -146,8 +146,8 @@ def update_meta(mal_id, mtype='tv', anilist_banner=None):
                 try:
                     km = database.loads(show['kodi_meta'])
                     title = km.get('title_userPreferred') or km.get('title_english') or km.get('title_romaji')
-                except Exception:
-                    pass
+                except (pickle.UnpicklingError, EOFError, AttributeError, ValueError) as e:
+                    control.log(f"get_meta show unpickle error: {e}", 'debug')
         if title:
             control.log(f"Artwork: ID lookup returned no art for mal_id={mal_id}, trying title search: '{title}'")
             discovered = False

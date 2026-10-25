@@ -540,17 +540,18 @@ class Sources(GetSources):
 
             filtered = []
             for source in sortedList:
+                s_info = source.get('info') or []
                 # Skip if ANY filtered tag is in source info (set intersection)
-                if filter_set & set(source['info']):
+                if filter_set & set(s_info):
                     continue
                 # DV filter: exclude DV sources unless they're HYBRID
-                if disable_dv and "DV" in source['info'] and "HYBRID" not in source['info']:
+                if disable_dv and "DV" in s_info and "HYBRID" not in s_info:
                     continue
                 # HDR filter: exclude HDR sources unless they're HYBRID
-                if disable_hdr and "HDR" in source['info'] and "HYBRID" not in source['info']:
+                if disable_hdr and "HDR" in s_info and "HYBRID" not in s_info:
                     continue
                 # Hybrid filter: if both DV and HDR are disabled, exclude HYBRID too
-                if disable_dv and disable_hdr and "HYBRID" in source['info']:
+                if disable_dv and disable_hdr and "HYBRID" in s_info:
                     continue
                 filtered.append(source)
             sortedList = filtered

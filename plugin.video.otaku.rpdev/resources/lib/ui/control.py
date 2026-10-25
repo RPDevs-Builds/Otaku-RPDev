@@ -53,13 +53,13 @@ def _detect_max_threads() -> int:
                 if line.startswith('MemTotal:'):
                     ram_mb = int(line.split()[1]) // 1024
                     break
-    except Exception:
+    except (OSError, ValueError, IndexError):
         pass
 
     if ram_mb is None:
         try:
             ram_mb = (os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_PHYS_PAGES')) // (1024 * 1024)
-        except Exception:
+        except (AttributeError, ValueError, OSError):
             pass
 
     if ram_mb is not None and ram_mb <= 2048:
@@ -125,6 +125,8 @@ sort_options_json = os.path.join(dataPath, 'sort_options.json')
 watch_history_json = os.path.join(dataPath, 'watch_history.json')
 embeds_json = os.path.join(dataPath, 'embeds.json')
 animeschedule_calendar_json = os.path.join(dataPath, 'animeschedule_calendar.json')
+mal_calendar_json = os.path.join(dataPath, 'mal_calendar.json')
+simkl_calendar_json = os.path.join(dataPath, 'simkl_calendar.json')
 
 # — Kodi system paths —
 kodi_userdata_path = xbmcvfs.translatePath('special://userdata/')
@@ -195,7 +197,7 @@ def sanitize_log(msg) -> str:
             token = getSetting(key)
             if token and len(token) >= 6 and token in msg:
                 msg = msg.replace(token, '[REDACTED]')
-        except Exception:
+        except (TypeError, KeyError, ValueError):
             pass
 
     return msg
@@ -254,7 +256,7 @@ def copy2clip(txt):
         try:
             os.system('echo %s|clip' % txt)
             return True
-        except AttributeError:
+        except (AttributeError, OSError):
             pass
     return False
 
@@ -590,22 +592,22 @@ def clean_memory():
     try:
         from resources.lib.windows import base_window
         base_window.clear_artwork_cache()
-    except Exception:
+    except (ImportError, AttributeError):
         pass
 
     # 2. Close thread-local SQLite connections for this thread
     try:
         from resources.lib.ui import database
         database.close_thread_connections()
-    except Exception:
+    except (ImportError, AttributeError):
         pass
 
     # 3. Garbage collection
     try:
         import gc
         gc.collect()
-    except Exception:
-        pass
+    except Exception as e:
+        log(f"gc.collect warning: {e}", 'debug')
 
     # 4. Release freed heap pages to OS (Android Bionic & Linux glibc)
     try:
@@ -617,10 +619,10 @@ def clean_memory():
                 if trim_func:
                     trim_func(0)
                     break
-            except Exception:
+            except (OSError, AttributeError):
                 continue
-    except Exception:
-        pass
+    except Exception as e:
+        log(f"malloc_trim warning: {e}", 'debug')
 
 
 _RE_KODI_TAG = re.compile(r'\[/?(?:COLOR(?:\s+[^\]]+|=.*?)?|B|I|LIGHT|UPPERCASE|LOWERCASE|CAPITALIZE|CR)\]', re.IGNORECASE)
@@ -1118,8 +1120,8 @@ def atomic_write_json(file_path: str, data: any, indent: int = 2) -> bool:
         if os.path.exists(tmp_path):
             try:
                 os.remove(tmp_path)
-            except OSError:
-                pass
+            except OSError as rm_err:
+                log(f"Failed to remove tmp file {tmp_path}: {rm_err}", 'debug')
         log(f"atomic_write_json failed for {file_path}: {e}", 'error')
         return False
 
@@ -1141,8 +1143,8 @@ def atomic_write_text(file_path: str, content: str, encoding: str = 'utf-8') -> 
         if os.path.exists(tmp_path):
             try:
                 os.remove(tmp_path)
-            except OSError:
-                pass
+            except OSError as rm_err:
+                log(f"Failed to remove tmp file {tmp_path}: {rm_err}", 'debug')
         log(f"atomic_write_text failed for {file_path}: {e}", 'error')
         return False
 
@@ -1164,8 +1166,8 @@ def atomic_write_bytes(file_path: str, content: bytes) -> bool:
         if os.path.exists(tmp_path):
             try:
                 os.remove(tmp_path)
-            except OSError:
-                pass
+            except OSError as rm_err:
+                log(f"Failed to remove tmp file {tmp_path}: {rm_err}", 'debug')
         log(f"atomic_write_bytes failed for {file_path}: {e}", 'error')
         return False
 

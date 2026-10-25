@@ -13,7 +13,7 @@ class PlayingNext(BaseWindow):
         self.actioned = False
         self.total_time = int(self.player.getTotalTime())
         self.duration = max(1, int(self.total_time - self.player.getTime()))
-        self.skipoutro_end = actionArgs['skipoutro_end']
+        self.skipoutro_end = actionArgs.get('skipoutro_end') if actionArgs else None
         self.default_action = control.getInt('playingnext.defaultaction')
 
     def onInit(self):
@@ -27,8 +27,8 @@ class PlayingNext(BaseWindow):
         progress_bar = None
         try:
             progress_bar = self.getControl(3014)
-        except Exception:
-            pass
+        except Exception as e:
+            control.log(f"playing_next getControl(3014) warning: {e}", 'debug')
         while not self.closed:
             p = self.player
             if not p:
@@ -57,8 +57,8 @@ class PlayingNext(BaseWindow):
             try:
                 if self.default_action == 1:
                     self.player.pause()
-            except Exception:
-                pass
+            except Exception as e:
+                control.log(f"playing_next pause error: {e}", 'debug')
         self.closed = True
         self.player = None
         super(PlayingNext, self).close()
@@ -69,7 +69,9 @@ class PlayingNext(BaseWindow):
     def handle_action(self, controlID):
         if controlID == 3001:   # playnext
             self.actioned = True
-            self.player.seekTime(self.player.getTotalTime() - 5)
+            if self.player:
+                total_t = self.player.getTotalTime() if hasattr(self.player, 'getTotalTime') else 0
+                self.player.seekTime(max(0, total_t - 5))
             self.close()
         if controlID == 3002:   # close
             self.actioned = True

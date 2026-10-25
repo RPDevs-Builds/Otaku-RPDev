@@ -106,7 +106,13 @@ class MyAnimeListWLF(WatchlistFlavorBase):
 
     def __get_sort(self):
         sort_types = ['anime_title', 'list_score', "", 'list_updated_at', 'anime_start_date']
-        return sort_types[int(self.sort)]
+        try:
+            idx = int(self.sort)
+            if 0 <= idx < len(sort_types):
+                return sort_types[idx]
+        except (ValueError, TypeError):
+            pass
+        return 'list_updated_at'
 
     def watchlist(self):
         statuses = [
@@ -723,7 +729,7 @@ class MyAnimeListWLF(WatchlistFlavorBase):
             mal_id = dat['node']['id']
             try:
                 completed_ids[str(mal_id)] = int(dat['node']['num_episodes'])
-            except KeyError:
+            except (KeyError, TypeError, ValueError):
                 pass
         return completed_ids
 

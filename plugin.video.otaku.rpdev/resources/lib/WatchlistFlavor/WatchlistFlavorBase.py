@@ -413,7 +413,7 @@ class WatchlistFlavorBase:
         mapping_id = show[flavor] if show and show.get(flavor) else None
         if not mapping_id:
             unique_ids = database.get_unique_ids(mal_id, 'mal_id')
-            mapping_id = unique_ids.get(flavor)
+            mapping_id = unique_ids.get(flavor) if unique_ids else None
         if not mapping_id:
             mapping_id = self.get_flavor_id_vercel(mal_id, flavor)
         if not mapping_id:

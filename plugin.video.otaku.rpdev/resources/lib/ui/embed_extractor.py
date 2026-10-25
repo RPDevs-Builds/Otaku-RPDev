@@ -710,8 +710,8 @@ def __extract_megacloud(url, page_content, referer=None):
                            'Referer': netloc,
                            'Origin': netloc.rstrip('/')}
                 return srclink + __append_headers(headers)
-    except Exception:
-        pass
+    except Exception as e:
+        control.log(f"Megacloud embed extract failed: {e}", 'debug')
     return
 
 
@@ -737,8 +737,8 @@ def __extract_megaplay(url, page_content, referer=None):
                            'Referer': netloc,
                            'Origin': netloc.rstrip('/')}
                 return srclink + __append_headers(headers)
-    except Exception:
-        pass
+    except Exception as e:
+        control.log(f"Megaplay embed extract failed: {e}", 'debug')
     return
 
 

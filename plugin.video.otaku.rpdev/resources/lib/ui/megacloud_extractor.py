@@ -56,8 +56,8 @@ def _get_decryption_keys(force_refresh: bool = False):
                         _KEYS_CACHE = keys
                         _KEYS_CACHE_TIME = now
                         return keys
-            except Exception:
-                pass
+            except (json.JSONDecodeError, OSError) as e:
+                control.log(f"Megacloud bundled keys parse error: {e}", 'debug')
 
     # 2. Check disk cache in user profile
     cache_dir = getattr(control, 'dataPath', '') or ''
@@ -70,8 +70,8 @@ def _get_decryption_keys(force_refresh: bool = False):
                     _KEYS_CACHE = keys
                     _KEYS_CACHE_TIME = now
                     return keys
-        except Exception:
-            pass
+        except (json.JSONDecodeError, OSError) as e:
+            control.log(f"Megacloud disk cache parse error: {e}", 'debug')
 
     # 3. If force_refresh or missing keys, fetch from remote mirrors
     if force_refresh or not _KEYS_CACHE:
@@ -89,11 +89,12 @@ def _get_decryption_keys(force_refresh: bool = False):
                                 os.makedirs(os.path.dirname(cache_file), exist_ok=True)
                                 with open(cache_file, 'w', encoding='utf-8') as f:
                                     json.dump(data, f, indent=2)
-                            except Exception:
-                                pass
+                            except OSError as e:
+                                control.log(f"Megacloud disk cache write error: {e}", 'debug')
                         control.log("Megacloud: Keys refreshed from remote mirror", level='info')
                         return data
-            except Exception:
+            except Exception as e:
+                control.log(f"Megacloud fetch keys failed from {url}: {e}", 'debug')
                 continue
 
     if not _KEYS_CACHE:

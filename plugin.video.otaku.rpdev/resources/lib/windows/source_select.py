@@ -52,10 +52,9 @@ class SourceSelect(BaseWindow):
                 self.setProperty('item.info.rating', str(kodi_meta.get('rating', {}).get('score')))
                 self.setProperty('item.info.aired', kodi_meta.get('start_date') or '')
                 self.setProperty('item.art.thumb', kodi_meta.get('poster'))
-                try:
-                    self.setProperty('item.info.year', kodi_meta.get('start_date').split('-')[0])
-                except AttributeError:
-                    pass
+                start_date = kodi_meta.get('start_date')
+                if start_date and isinstance(start_date, str) and '-' in start_date:
+                    self.setProperty('item.info.year', start_date.split('-')[0])
 
     def onInit(self):
         self.display_list = self.getControl(1000)

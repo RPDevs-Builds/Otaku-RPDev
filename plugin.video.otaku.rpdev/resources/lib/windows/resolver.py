@@ -54,9 +54,9 @@ class Resolver(BaseWindow):
         }
         self.source_select = source_select
         self.pack_select = False
-        self.mal_id = actionArgs['mal_id']
+        self.mal_id = actionArgs.get('mal_id') if actionArgs else None
         # self.season = database.get_episode(self.mal_id)['season']
-        self.episode = int(actionArgs.get('episode', 1))
+        self.episode = int(actionArgs.get('episode', 1)) if actionArgs else 1
         self.play = actionArgs.get('play')
         self.source_select_close = actionArgs.get('close')
         self.resume = actionArgs.get('resume')
@@ -105,14 +105,15 @@ class Resolver(BaseWindow):
 
             for idx, source in enumerate(sources):
                 # embed/direct-style
-                if source['type'] in ['embed', 'direct']:
-                    key = source['provider'] + " " + " ".join(map(str, source['info']))
+                stype = source.get('type')
+                if stype in ['embed', 'direct']:
+                    key = source.get('provider', '') + " " + " ".join(map(str, source.get('info') or []))
                     if key == lp:
                         sources[0], sources[idx] = sources[idx], sources[0]
                         return sources
 
                 # torrent-style
-                elif source['type'] in ['torrent', 'torrent (uncached)', 'cloud', 'hoster', 'local']:
+                elif stype in ['torrent', 'torrent (uncached)', 'cloud', 'hoster', 'local']:
                     rel = str(source['release_title'])
                     # strip hashes from the release title too
                     rel = re.sub(r'\[[0-9A-Fa-f]{8,}\]', '', rel).strip()

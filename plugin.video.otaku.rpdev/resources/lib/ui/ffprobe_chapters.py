@@ -28,7 +28,7 @@ def _xbmc_bin_dir() -> str:
         exe = getattr(sys, 'executable', '') or ''
         if exe and os.path.isfile(exe):
             return os.path.dirname(exe)
-    except Exception:
+    except (OSError, AttributeError):
         pass
     try:
         return control.xbmcvfs.translatePath('special://xbmc')
@@ -140,7 +140,7 @@ def _should_probe_url(clean_url: str, content_type: str, is_local: bool) -> bool
         try:
             if os.path.isfile(control.xbmcvfs.translatePath(clean_url)):
                 return True
-        except Exception:
+        except (OSError, AttributeError):
             pass
     return False
 
@@ -290,8 +290,8 @@ def probe_mkv_chapters_ebml(play_url: str, timeout: int = 8) -> list[dict]:
                     with open(local_path, 'rb') as f:
                         f.seek(start)
                         return f.read(length)
-            except Exception:
-                pass
+            except (OSError, ValueError) as e:
+                control.log(f"ffprobe local chunk read error: {e}", 'debug')
             return b''
 
     # 1. Fetch initial 256 KB

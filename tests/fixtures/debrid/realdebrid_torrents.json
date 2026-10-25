@@ -1,0 +1,21 @@
+[
+  {
+    "id": "TORRENT_12345",
+    "filename": "[SubsPlease] Shingeki no Kyojin - 01 (1080p) [ABCD1234].mkv",
+    "original_filename": "[SubsPlease] Shingeki no Kyojin - 01 (1080p) [ABCD1234].mkv",
+    "hash": "abcdef1234567890abcdef1234567890abcdef12",
+    "bytes": 1420556000,
+    "original_bytes": 1420556000,
+    "host": "real-debrid.com",
+    "split": 200,
+    "progress": 100,
+    "status": "downloaded",
+    "added": "2023-11-01T12:00:00.000Z",
+    "links": [
+      "https://real-debrid.com/d/XYZ12345"
+    ],
+    "ended": "2023-11-01T12:05:00.000Z",
+    "speed": 0,
+    "seeders": 150
+  }
+]

@@ -89,18 +89,18 @@ def _get_ssl_context(verify=True):
             ctx = ssl._create_unverified_context()
             try:
                 ctx.set_alpn_protocols(['http/1.1'])
-            except BaseException:
+            except (ssl.SSLError, NotImplementedError, AttributeError):
                 pass
             _UNVERIFIED_SSL_CONTEXT = ctx
         return _UNVERIFIED_SSL_CONTEXT
     if _VERIFIED_SSL_CONTEXT is None:
         try:
             ctx = ssl.create_default_context(cafile=CERT_FILE)
-        except BaseException:
+        except (ssl.SSLError, OSError):
             ctx = ssl.create_default_context()
         try:
             ctx.set_alpn_protocols(['http/1.1'])
-        except BaseException:
+        except (ssl.SSLError, NotImplementedError, AttributeError):
             pass
         _VERIFIED_SSL_CONTEXT = ctx
     return _VERIFIED_SSL_CONTEXT
@@ -308,8 +308,8 @@ def request(
                 ssl_context = _get_ssl_context(verify=bool(verify))
                 handlers += [urllib.request.HTTPSHandler(context=ssl_context)]
                 ssl_context_created = True
-            except BaseException:
-                pass
+            except (ssl.SSLError, OSError) as e:
+                control.log(f"client HTTPSHandler init error: {e}", 'debug')
 
         if redirect is False:
             class NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -576,8 +576,8 @@ def request(
             try:
                 result = '; '.join(['%s=%s' % (i.name, i.value)
                                     for i in cookies])
-            except BaseException:
-                pass
+            except (AttributeError, TypeError, KeyError) as e:
+                control.log(f"client cookie parse error: {e}", 'debug')
             if close:
                 response.close()
             return result
@@ -694,8 +694,8 @@ def request(
             try:
                 cookie = '; '.join(['%s=%s' % (i.name, i.value)
                                     for i in cookies])
-            except BaseException:
-                pass
+            except (AttributeError, TypeError, KeyError) as e:
+                control.log(f"client response cookie parse error: {e}", 'debug')
 
             if close:
                 response.close()

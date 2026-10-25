@@ -71,7 +71,13 @@ class AniListWLF(WatchlistFlavorBase):
 
     def __get_sort(self):
         sort_types = [None, None, 'PROGRESS', 'UPDATED_TIME_DESC', 'ADDED_TIME_DESC']
-        return sort_types[int(self.sort)]
+        try:
+            idx = int(self.sort)
+            if 0 <= idx < len(sort_types):
+                return sort_types[idx]
+        except (ValueError, TypeError):
+            pass
+        return 'UPDATED_TIME_DESC'
 
     def watchlist(self):
         statuses = [
@@ -505,7 +511,7 @@ class AniListWLF(WatchlistFlavorBase):
                 info['trailer'] = f"plugin://plugin.video.youtube/play/?video_id={res['trailer']['id']}"
             else:
                 info['trailer'] = f"plugin://plugin.video.dailymotion_com/?url={res['trailer']['id']}&mode=playVideo"
-        except TypeError:
+        except (TypeError, KeyError):
             pass
 
         info['rating'] = control.safe_call(lambda: {'score': res.get('averageScore') / 10.0})

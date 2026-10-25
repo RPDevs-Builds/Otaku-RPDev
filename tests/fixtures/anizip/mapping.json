@@ -1,0 +1,24 @@
+{
+  "titles": {
+    "en": "Attack on Titan",
+    "ja": "進撃の巨人",
+    "x-jat": "Shingeki no Kyojin"
+  },
+  "episodes": {
+    "1": {
+      "episode": "1",
+      "season": "1",
+      "title": { "en": "To You, in 2000 Years: The Fall of Shiganshina, Part 1" },
+      "airdate": "2013-04-07",
+      "anidbEid": 147573
+    }
+  },
+  "mappings": {
+    "anidb_id": 9541,
+    "anilist_id": 16498,
+    "mal_id": 16498,
+    "kitsu_id": 7442,
+    "thetvdb_id": 267440,
+    "imdb_id": "tt2560140"
+  }
+}

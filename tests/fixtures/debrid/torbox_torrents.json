@@ -1,0 +1,22 @@
+{
+  "success": true,
+  "detail": "Retrieved torrents successfully.",
+  "data": [
+    {
+      "id": 1001,
+      "name": "[Erai-raws] Shingeki no Kyojin - 01 [1080p][Multiple Subtitle].mkv",
+      "hash": "1122334455667788990011223344556677889900",
+      "size": 1400000000,
+      "download_state": "cached",
+      "download_present": true,
+      "progress": 1.0,
+      "files": [
+        {
+          "id": 1,
+          "name": "[Erai-raws] Shingeki no Kyojin - 01 [1080p][Multiple Subtitle].mkv",
+          "size": 1400000000
+        }
+      ]
+    }
+  ]
+}

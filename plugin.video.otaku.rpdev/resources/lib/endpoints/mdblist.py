@@ -70,7 +70,7 @@ class MDBListAPI:
             response = client.post(url, json_data=post_data, headers=headers, timeout=10)
 
             if response and response.status_code == 200:
-                data = response.json()
+                data = control.safe_json(response, default=[])
 
                 # Process response and extract ratings
                 ratings_map = {}

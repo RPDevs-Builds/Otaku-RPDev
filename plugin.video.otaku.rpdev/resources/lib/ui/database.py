@@ -126,14 +126,14 @@ def close_thread_connections(path=None):
         if entry:
             try:
                 entry[0].close()
-            except Exception:
-                pass
+            except (dbapi2.Error, OSError) as e:
+                control.log(f"database close error: {e}", 'debug')
     else:
         for _, (conn, _) in list(conns.items()):
             try:
                 conn.close()
-            except Exception:
-                pass
+            except (dbapi2.Error, OSError) as e:
+                control.log(f"database pool close error: {e}", 'debug')
         conns.clear()
 
 
@@ -180,8 +180,8 @@ class SQL:
             if st_ino is None or (cached_ino is not None and st_ino != cached_ino):
                 try:
                     cached_conn.close()
-                except Exception:
-                    pass
+                except (dbapi2.Error, OSError) as e:
+                    control.log(f"cached db close error: {e}", 'debug')
                 conns.pop(abs_path, None)
 
         try:
@@ -193,7 +193,7 @@ class SQL:
                     conn.execute("PRAGMA synchronous = NORMAL")
                     try:
                         conn.execute("PRAGMA journal_mode = WAL")
-                    except Exception:
+                    except dbapi2.DatabaseError:
                         pass
                     conn.execute("PRAGMA mmap_size = 16777216")
                 if os.path.exists(abs_path):
@@ -215,15 +215,15 @@ class SQL:
         try:
             if self._cursor is not None:
                 self._cursor.close()
-        except Exception:
-            pass
+        except dbapi2.Error as e:
+            control.log(f"cursor close error: {e}", 'debug')
 
         if exc_type:
             try:
                 if self._conn is not None and getattr(self._conn, 'in_transaction', False):
                     self._conn.rollback()
-            except Exception:
-                pass
+            except dbapi2.Error as e:
+                control.log(f"db rollback error: {e}", 'debug')
             close_thread_connections(self.path)
 
             if exc_type is OperationalError:
@@ -270,8 +270,8 @@ def _mem_get(key):
         sep = raw.index('|')
         if int(raw[:sep]) > int(time.time()):
             return ast.literal_eval(raw[sep + 1:])
-    except Exception:
-        pass
+    except (ValueError, SyntaxError) as e:
+        control.log(f"_mem_get parse error for {key}: {e}", 'debug')
     _window.clearProperty(prefix + key)
     return None
 
@@ -698,8 +698,8 @@ def get_info(api_name):
         with SQL(control.infoDB) as cur:
             cur.execute('SELECT * FROM info WHERE api_name=?', (api_name,))
             row = cur.fetchone()
-    except Exception:
-        pass
+    except (dbapi2.DatabaseError, dbapi2.OperationalError) as e:
+        control.log(f"get_info error for {api_name}: {e}", 'debug')
     return row or {'api_name': api_name, 'client_id': '', 'client_secret': '', 'api_key': ''}
 
 
@@ -838,7 +838,7 @@ def clear_watchlist_activity(service=None):
             else:
                 cur.execute('DELETE FROM watchlist_activity')
             cur.connection.commit()
-    except Exception:
+    except (dbapi2.DatabaseError, dbapi2.OperationalError):
         pass  # table may not exist on first run
 
 
@@ -898,8 +898,8 @@ def get_anilist_enrichment_batch(mal_ids, max_age_hours=168):
         for row in cur.fetchall():
             try:
                 result[row['mal_id']] = loads(row['data'])
-            except Exception:
-                pass
+            except (pickle.UnpicklingError, EOFError, AttributeError, ValueError) as e:
+                control.log(f"get_show_data unpickle error: {e}", 'debug')
     return result
 
 
@@ -1031,8 +1031,8 @@ def get_season_pack(mal_id, season=1):
             if data:
                 _mem_set(key, row['value'], 720)
                 return data
-        except Exception:
-            pass
+        except (ValueError, SyntaxError) as e:
+            control.log(f"cache_get parse error for {key}: {e}", 'debug')
     return None
 
 
@@ -1095,7 +1095,7 @@ def get_last_played_source(mal_id):
             if data:
                 _mem_set(key, row['value'], 720)
                 return data
-        except Exception:
-            pass
+        except (ValueError, SyntaxError) as e:
+            control.log(f"cache_get parse error for {key}: {e}", 'debug')
     return None
 

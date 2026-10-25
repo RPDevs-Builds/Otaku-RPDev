@@ -259,13 +259,13 @@ class RealDebrid:
                         file_index = [i[0] for i in selected_files if i[1].get('path') == best_match.get('path')][0]
                         link = files['links'][file_index]
                         stream_link = self.resolve_hoster(link)
-                    except (IndexError, KeyError):
-                        pass
+                    except (IndexError, KeyError) as e:
+                        control.log(f"RD pack match link error: {e}", 'debug')
             elif len(selected_files) == 1:
                 try:
                     stream_link = self.resolve_hoster(files['links'][0])
-                except (IndexError, KeyError):
-                    pass
+                except (IndexError, KeyError) as e:
+                    control.log(f"RD single file link error: {e}", 'debug')
             elif len(selected_files) > 1:
                 best_match = source_utils.get_best_match('path', [i[1] for i in selected_files], episode, pack_select=False, filename=filename)
                 if best_match:
@@ -273,8 +273,8 @@ class RealDebrid:
                         file_index = [i[0] for i in selected_files if i[1].get('path') == best_match.get('path')][0]
                         link = files['links'][file_index]
                         stream_link = self.resolve_hoster(link)
-                    except (IndexError, KeyError):
-                        pass
+                    except (IndexError, KeyError) as e:
+                        control.log(f"RD multi file match error: {e}", 'debug')
         finally:
             self.deleteTorrent(torrent_id)
 

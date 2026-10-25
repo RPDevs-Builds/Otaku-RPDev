@@ -1,0 +1,16 @@
+[
+  {
+    "title": "Attack on Titan",
+    "year": 2013,
+    "type": "anime",
+    "anime_type": "tv",
+    "poster": "44/4482084f707fbd7aa_m.jpg",
+    "ids": {
+      "simkl": 40386,
+      "slug": "attack-on-titan",
+      "mal": 16498,
+      "anidb": 9541,
+      "anilist": 16498
+    }
+  }
+]

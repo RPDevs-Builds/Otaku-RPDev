@@ -101,7 +101,13 @@ class KitsuWLF(WatchlistFlavorBase):
             "-progressed_at",
             "-started_at",
         ]
-        return sort_options[int(self.sort)]
+        try:
+            idx = int(self.sort)
+            if 0 <= idx < len(sort_options):
+                return sort_options[idx]
+        except (ValueError, TypeError):
+            pass
+        return '-progressed_at'
 
     def __get_title_lang(self):
         title_langs = {

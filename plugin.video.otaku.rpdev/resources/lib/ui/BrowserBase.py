@@ -43,7 +43,7 @@ class BrowserBase(object):
             plugin_path = getattr(Main, 'plugin_url', '')
             if plugin_path and plugin_path.startswith(url_path):
                 url_path = plugin_path
-        except Exception:
+        except (ImportError, AttributeError):
             pass
 
         next_url = url_path + (sep + query if query else '')

@@ -38,8 +38,8 @@ def add_last_watched(items):
                         if emid == str(mal_id):
                             last_ep = entry.get('last_watched_episode')
                             break
-            except Exception:
-                pass
+            except Exception as e:
+                control.log(f"history last_ep check error: {e}", 'debug')
 
         if last_ep is None and kodi_meta.get('eps_watched'):
             try:
@@ -268,8 +268,8 @@ def WATCH_HISTORY(payload, params):
                         try:
                             s_meta = database.loads(show_data['kodi_meta'])
                             last_ep = s_meta.get('eps_watched')
-                        except Exception:
-                            pass
+                        except (pickle.UnpicklingError, EOFError, AttributeError, ValueError) as e:
+                            control.log(f"history kodi_meta parse error: {e}", 'debug')
 
                 display_title = title
                 if show_dub_badge and mal_dub.get(str(mal_id)):

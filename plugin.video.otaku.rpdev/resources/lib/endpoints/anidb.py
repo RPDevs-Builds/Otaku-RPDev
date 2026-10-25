@@ -19,11 +19,14 @@ def get_episode_meta(anidb_id):
     episode_meta = {}
     if r:
         root = control.safe_call(ET.fromstring, r.text, log_msg='AniDB XML parse error')
-        if not root:
+        if root is None:
             return episode_meta
         # namespaces = {'xml': 'http://www.w3.org/XML/1998/namespace'}
         for episode in root.findall('.//episode'):
-            episode_num = episode.find('epno').text
+            epno_elem = episode.find('epno')
+            if epno_elem is None or not epno_elem.text:
+                continue
+            episode_num = epno_elem.text
             anidb_id = episode.get('id')
             # en_title = episode.find("title[@xml:lang='en']", namespaces).text if episode.find("title[@xml:lang='en']", namespaces) is not None else None
             # xjat_title = episode.find("title[@xml:lang='x-jat']", namespaces).text if episode.find("title[@xml:lang='x-jat']", namespaces) is not None else None

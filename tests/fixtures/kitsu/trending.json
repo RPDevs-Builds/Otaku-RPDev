@@ -1,0 +1,37 @@
+{
+  "data": [
+    {
+      "id": "7442",
+      "type": "anime",
+      "attributes": {
+        "canonicalTitle": "Attack on Titan",
+        "synopsis": "Centuries ago, mankind was slaughtered to near extinction...",
+        "averageRating": "84.52",
+        "userCount": 145000,
+        "favoritesCount": 9800,
+        "startDate": "2013-04-07",
+        "endDate": "2013-09-29",
+        "popularityRank": 2,
+        "ratingRank": 45,
+        "ageRating": "R",
+        "subtype": "TV",
+        "status": "finished",
+        "posterImage": {
+          "tiny": "https://media.kitsu.io/anime/poster_images/7442/tiny.jpg",
+          "small": "https://media.kitsu.io/anime/poster_images/7442/small.jpg",
+          "medium": "https://media.kitsu.io/anime/poster_images/7442/medium.jpg",
+          "large": "https://media.kitsu.io/anime/poster_images/7442/large.jpg",
+          "original": "https://media.kitsu.io/anime/poster_images/7442/original.jpg"
+        },
+        "coverImage": {
+          "tiny": "https://media.kitsu.io/anime/cover_images/7442/tiny.jpg",
+          "small": "https://media.kitsu.io/anime/cover_images/7442/small.jpg",
+          "large": "https://media.kitsu.io/anime/cover_images/7442/large.jpg",
+          "original": "https://media.kitsu.io/anime/cover_images/7442/original.jpg"
+        },
+        "episodeCount": 25,
+        "episodeLength": 24
+      }
+    }
+  ]
+}

@@ -235,10 +235,12 @@ class Sources(BrowserBase):
                         list_item['hash'] = tor_match.group(1)
                 if not list_item['hash'] and list_item['magnet']:
                     try:
-                        hash_32 = re.search(r'btih:(\w+)&tr=http', list_item['magnet']).group(1)
-                        list_item['hash'] = base64.b16encode(base64.b32decode(hash_32)).decode().lower()
-                    except Exception:
-                        pass
+                        m = re.search(r'btih:(\w+)&tr=http', list_item['magnet'])
+                        if m:
+                            hash_32 = m.group(1)
+                            list_item['hash'] = base64.b16encode(base64.b32decode(hash_32)).decode().lower()
+                    except (ValueError, AttributeError) as e:
+                        control.log(f"animetosho base32 hash conversion error: {e}", 'debug')
                 if not list_item['hash']:
                     continue
 
@@ -308,10 +310,12 @@ class Sources(BrowserBase):
                         list_item['hash'] = tor_match.group(1)
                 if not list_item['hash'] and list_item['magnet']:
                     try:
-                        hash_32 = re.search(r'btih:(\w+)&tr=http', list_item['magnet']).group(1)
-                        list_item['hash'] = base64.b16encode(base64.b32decode(hash_32)).decode().lower()
-                    except Exception:
-                        pass
+                        m = re.search(r'btih:(\w+)&tr=http', list_item['magnet'])
+                        if m:
+                            hash_32 = m.group(1)
+                            list_item['hash'] = base64.b16encode(base64.b32decode(hash_32)).decode().lower()
+                    except (ValueError, AttributeError) as e:
+                        control.log(f"animetosho base32 hash conversion error: {e}", 'debug')
                 if not list_item['hash']:
                     continue
 

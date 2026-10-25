@@ -27,7 +27,7 @@ def get_dub_data(mal_id: int = None, en_title: str = None):
         }
         response = client.get(f'{api_url}/{token}/events', headers=headers, params=params)
         if response:
-            teamup_data = response.json().get('events', [])
+            teamup_data = control.safe_json(response, default={}).get('events', [])
             dub_list = []
             re_ep = re.compile(r"<strong>episode:</strong>\s*(\d+)", re.IGNORECASE)
             re_mal = re.compile(r"mal:\s*(\d+)", re.IGNORECASE)
