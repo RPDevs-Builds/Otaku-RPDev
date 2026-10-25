@@ -473,6 +473,22 @@ def cache_clear():
         control.lang(30087), time=5000, sound=False)
 
 
+def prune_expired_cache(max_age_days=30):
+    """Purge stale cache.db entries older than max_age_days to bound disk growth."""
+    _init_cache_table()
+    cutoff = int(time.time()) - (max_age_days * 86400)
+    deleted = 0
+    with SQL(control.cacheFile) as cur:
+        cur.execute('DELETE FROM cache WHERE date < ?', (cutoff,))
+        deleted = cur.rowcount
+        if deleted > 0:
+            cur.execute('VACUUM')
+        cur.connection.commit()
+    if deleted > 0:
+        control.log(f"Database: Pruned {deleted} stale cache entries older than {max_age_days} days", level='info')
+    return deleted
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 #  Show Operations
 # ═══════════════════════════════════════════════════════════════════════════

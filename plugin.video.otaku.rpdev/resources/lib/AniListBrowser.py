@@ -370,7 +370,7 @@ class AniListBrowser(BrowserBase):
         tag_list = [str(rating)] if rating else []
         created = node.get('createdAt')
         if isinstance(created, int):
-            date_short = datetime.datetime.utcfromtimestamp(created).strftime('%Y-%m-%d')
+            date_short = datetime.datetime.fromtimestamp(created, datetime.timezone.utc).strftime('%Y-%m-%d')
         else:
             created_text = str(created or '')
             date_short = created_text[:10] if len(created_text) >= 10 else created_text

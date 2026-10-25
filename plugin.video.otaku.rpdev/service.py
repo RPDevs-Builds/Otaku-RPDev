@@ -55,12 +55,24 @@ def update_mappings_db():
     control.log("### Updating Mappings")
     url = 'https://github.com/Goldenfreddy0703/Otaku-Mappings/raw/refs/heads/main/anime_mappings.db'
     try:
-        response = urllib.request.urlopen(url)
+        response = urllib.request.urlopen(url, timeout=15)
         with open(os.path.join(control.dataPath, 'mappings.db'), 'wb') as file:
             file.write(response.read())
         control.log("### Mappings updated successfully")
     except urllib.error.URLError as e:
         control.log(f"### Failed to update mappings: {e}")
+
+
+def cleanup_cache_databases():
+    control.log("### Pruning Expired Cache & Debrid Hashes")
+    try:
+        from resources.lib.ui import database
+        from resources.lib.debrid import debrid_cache
+        database.prune_expired_cache(30)
+        debrid_cache.clean_database()
+        control.log("### Cache cleanup complete")
+    except Exception as e:
+        control.log(f"### Cache cleanup failed: {e}", 'warning')
 
 
 def sync_watchlist(silent=False):
@@ -317,6 +329,7 @@ if __name__ == "__main__":
         update_mappings_db()
         update_dub_json()
         sync_watchlist(True)
+        cleanup_cache_databases()
         control.setInt('update.time.30', int(time.time()))
         control.setInt('update.time.7', int(time.time()))
         control.setInt('update.time.1', int(time.time()))
@@ -327,6 +340,7 @@ if __name__ == "__main__":
         if time.time() > control.getInt('update.time.7') + 604_800:   # 7 days
             update_dub_json()
             sync_watchlist(True)
+            cleanup_cache_databases()
             control.setInt('update.time.7', int(time.time()))
         if time.time() > control.getInt('update.time.1') + 86_400:   # 1 day
             # update_calendars()

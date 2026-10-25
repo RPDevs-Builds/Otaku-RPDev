@@ -83,6 +83,59 @@ class TestASTIntegrity(unittest.TestCase):
 
         self.assertEqual(forbidden_pickle_imports, [], f"Unauthorized pickle imports found: {forbidden_pickle_imports}")
 
+    def test_all_threads_marked_daemon(self):
+        """Every threading.Thread instantiation must explicitly declare daemon=True."""
+        non_daemon_threads = []
+        py_files = glob.glob(f"{ADDON_DIR}/**/*.py", recursive=True)
+
+        for f in py_files:
+            if '__pycache__' in f:
+                continue
+            with open(f, 'rb') as fp:
+                tree = ast.parse(fp.read(), filename=f)
+                for node in ast.walk(tree):
+                    if isinstance(node, ast.Call):
+                        func = node.func
+                        is_thread = False
+                        if isinstance(func, ast.Attribute) and func.attr == 'Thread':
+                            is_thread = True
+                        elif isinstance(func, ast.Name) and func.id == 'Thread':
+                            is_thread = True
+
+                        if is_thread:
+                            has_daemon_kw = any(kw.arg == 'daemon' for kw in node.keywords)
+                            if not has_daemon_kw:
+                                non_daemon_threads.append((f, node.lineno))
+
+        self.assertEqual(non_daemon_threads, [], f"Threads missing daemon=True found: {non_daemon_threads}")
+
+    def test_zero_untimed_urlopen_calls(self):
+        """Every direct urlopen call must explicitly specify a timeout."""
+        untimed_urlopen = []
+        py_files = glob.glob(f"{ADDON_DIR}/**/*.py", recursive=True)
+
+        for f in py_files:
+            if '__pycache__' in f:
+                continue
+            with open(f, 'rb') as fp:
+                tree = ast.parse(fp.read(), filename=f)
+                for node in ast.walk(tree):
+                    if isinstance(node, ast.Call):
+                        func = node.func
+                        is_urlopen = False
+                        if isinstance(func, ast.Attribute) and func.attr == 'urlopen':
+                            is_urlopen = True
+                        elif isinstance(func, ast.Name) and func.id == 'urlopen':
+                            is_urlopen = True
+
+                        if is_urlopen:
+                            has_timeout_kw = any(kw.arg == 'timeout' for kw in node.keywords)
+                            has_pos_timeout = len(node.args) >= 3
+                            if not (has_timeout_kw or has_pos_timeout):
+                                untimed_urlopen.append((f, node.lineno))
+
+        self.assertEqual(untimed_urlopen, [], f"urlopen calls missing timeout found: {untimed_urlopen}")
+
 
 if __name__ == '__main__':
     unittest.main()

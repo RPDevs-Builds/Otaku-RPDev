@@ -10,9 +10,9 @@ from datetime import datetime
 from resources.lib.ui import control
 
 try:
-    from sqlite3 import version as sqlite_version
+    from sqlite3 import sqlite_version
 except ImportError:
-    from sqlite3 import sqlite_version  # noQA
+    from sqlite3 import version as sqlite_version  # noQA
 
 from resources.lib.ui.database import SQL
 

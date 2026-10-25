@@ -127,8 +127,7 @@ class Manager:
         self.download_ids = []
         self.download = {}
         if not xbmcvfs.exists(control.downloads_json):
-            with open(control.downloads_json, 'w') as file:
-                json.dump({}, file)
+            self._save_downloads_atomic({})
         self.storage_location = control.getSetting('download.location')
 
     def create_download_task(self, url_hash):
@@ -153,12 +152,25 @@ class Manager:
         self.update_task_info(url_hash, info)
 
     @staticmethod
+    def _save_downloads_atomic(downloads):
+        """Atomically persist downloads dict to control.downloads_json."""
+        tmp_path = f"{control.downloads_json}.tmp"
+        try:
+            with open(tmp_path, 'w', encoding='utf-8') as f:
+                json.dump(downloads, f, indent=2)
+            os.replace(tmp_path, control.downloads_json)
+        except Exception as e:
+            control.log(f"DownloadManager: Failed to atomically save {control.downloads_json}: {e}", level='error')
+
+    @staticmethod
     def update_task_info(url_hash, download_dict):
-        with open(control.downloads_json) as file:
-            downloads = json.load(file)
-        with open(control.downloads_json, 'w') as file:
-            downloads[url_hash] = download_dict
-            json.dump(downloads, file)
+        try:
+            with open(control.downloads_json, 'r', encoding='utf-8') as file:
+                downloads = json.load(file)
+        except Exception:
+            downloads = {}
+        downloads[url_hash] = download_dict
+        DownloadManager._save_downloads_atomic(downloads)
 
     def get_all_tasks_info(self):
         self.get_download_index()
@@ -176,12 +188,13 @@ class Manager:
 
     def remove_download_task(self, url_hash):
         self.get_download_index()
-        with open(control.downloads_json) as file:
-            downloads = json.load(file)
-        with open(control.downloads_json, 'w') as file:
-            if downloads.get(url_hash):
-                downloads.pop(url_hash)
-                json.dump(downloads, file)
+        try:
+            with open(control.downloads_json, 'r', encoding='utf-8') as file:
+                downloads = json.load(file)
+        except Exception:
+            downloads = {}
+        if downloads.pop(url_hash, None) is not None:
+            self._save_downloads_atomic(downloads)
         if url_hash in self.download_ids:
             self.remove_from_index(url_hash)
 
@@ -198,8 +211,11 @@ class Manager:
 
         self.output_filename = filename
         if self.output_filename is None:
-            self.output_filename = url.split("/")[-1]
-            self.output_filename = urllib.parse.unquote(self.output_filename)
+            raw_name = url.split("?")[0].split("/")[-1]
+            self.output_filename = urllib.parse.unquote(raw_name)
+        # Sanitize against path traversal: strip directory separators and components
+        clean_name = os.path.basename(self.output_filename.replace('\\', '/')).strip()
+        self.output_filename = clean_name if clean_name else "download.mkv"
         self.output_path = os.path.join(self.storage_location, self.output_filename)
 
         yesno = control.yesno_dialog(control.ADDON_NAME, f'''
@@ -220,12 +236,12 @@ class Manager:
 
         # Use urllib.request to get the headers
         request = urllib.request.Request(url, method='HEAD')
-        head = urllib.request.urlopen(request)
-        self.file_size = int(head.getheader("content-length", None))
+        head = urllib.request.urlopen(request, timeout=15)
+        self.file_size = int(head.getheader("content-length", 0) or 0)
         self.file_size_display = self.get_display_size(self.file_size)
 
         # Use urllib.request to get the content
-        response = urllib.request.urlopen(url)
+        response = urllib.request.urlopen(url, timeout=15)
         chunks = iter(lambda: response.read(1024 * 1024 * 8), b'')
 
         control.notify(control.ADDON_NAME, 'Download Started')

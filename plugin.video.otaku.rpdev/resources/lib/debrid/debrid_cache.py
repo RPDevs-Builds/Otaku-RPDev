@@ -104,8 +104,8 @@ def check_rd_cache(hash_list, imdb_id, season, episode):
     """Check Real-Debrid cache status using external services (Torrentio + DMM)."""
     cached_hashes = []
     threads = [
-        threading.Thread(target=_tio_check_cache, args=(imdb_id, season, episode, cached_hashes)),
-        threading.Thread(target=_dmm_check_cache, args=(hash_list, imdb_id, cached_hashes)),
+        threading.Thread(target=_tio_check_cache, args=(imdb_id, season, episode, cached_hashes), daemon=True),
+        threading.Thread(target=_dmm_check_cache, args=(hash_list, imdb_id, cached_hashes), daemon=True),
     ]
     for t in threads:
         t.start()
@@ -118,7 +118,7 @@ def check_ad_cache(imdb_id, season, episode):
     """Check AllDebrid cache status using external services (AIOStreams)."""
     cached_hashes = []
     threads = [
-        threading.Thread(target=_aio_check_cache, args=(imdb_id, season, episode, cached_hashes)),
+        threading.Thread(target=_aio_check_cache, args=(imdb_id, season, episode, cached_hashes), daemon=True),
     ]
     for t in threads:
         t.start()

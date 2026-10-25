@@ -495,8 +495,7 @@ class WatchlistPlayer(player):
                 except Exception as e:
                     control.log(f"Player: Pre-scrape background task error: {e}", level='warning')
 
-            t = threading.Thread(target=prescrape_worker, name="Otaku-PreScrapeThread")
-            t.daemon = True
+            t = threading.Thread(target=prescrape_worker, name="Otaku-PreScrapeThread", daemon=True)
             t.start()
         except Exception as e:
             control.log(f"Player: Failed to launch pre-scrape: {e}", level='warning')

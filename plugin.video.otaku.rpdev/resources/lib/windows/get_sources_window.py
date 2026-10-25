@@ -30,7 +30,7 @@ class GetSources(BaseWindow):
         self.remaining_providers_list = []
 
     def onInit(self):
-        threading.Thread(target=self.getSources, args=[self.args]).start()
+        threading.Thread(target=self.getSources, args=[self.args], daemon=True).start()
 
     def doModal(self):
         if self.silent:
