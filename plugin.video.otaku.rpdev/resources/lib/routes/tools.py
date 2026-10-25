@@ -138,14 +138,29 @@ def SOLVER_INST(payload, params):
 
 @Route('clear_cache')
 def CLEAR_CACHE(payload, params):
-    control.setSetting('last_played_source', str(None))
-    database.cache_clear()
+    choice = params.get('select') if params else None
+    if not choice:
+        try:
+            from resources.lib.windows.clear_cache import show_clear_cache_dialog
+            choice = show_clear_cache_dialog()
+        except Exception as e:
+            control.log(f"Error displaying clear cache dialog: {e}", 'error')
+            choice = 'cancel'
+
+    if choice == 'providers':
+        control.setSetting('last_played_source', str(None))
+        database.cache_clear_providers()
+    elif choice == 'all':
+        control.setSetting('last_played_source', str(None))
+        database.cache_clear()
+    else:
+        control.log("Clear cache cancelled by user", 'debug')
 
 
 @Route('clear_scrapers_cache')
 def CLEAR_SCRAPERS_CACHE(payload, params):
     control.setSetting('last_played_source', str(None))
-    database.cache_clear_scrapers()
+    database.cache_clear_providers()
 
 
 @Route('clear_debrid_cache')

@@ -394,6 +394,7 @@ class MockWindowXMLDialog:
         self._xml_path = xml_path
         self._props = {}
         self._controls = {}
+        self._focus_id = 1000
 
     def setProperty(self, k, v): self._props[str(k)] = str(v)
     def getProperty(self, k): return self._props.get(str(k), '')
@@ -403,7 +404,8 @@ class MockWindowXMLDialog:
         if control_id not in self._controls:
             self._controls[control_id] = MockControlList()
         return self._controls[control_id]
-    def setFocusId(self, control_id): pass
+    def setFocusId(self, control_id): self._focus_id = int(control_id)
+    def getFocusId(self): return self._focus_id
     def setFocus(self, control): pass
     def doModal(self): pass
     def close(self): pass
@@ -414,6 +416,7 @@ class MockWindowDialog:
     def __init__(self, *args, **kwargs):
         self._props = {}
         self._controls = {}
+        self._focus_id = 1000
 
     def setProperty(self, k, v): self._props[str(k)] = str(v)
     def getProperty(self, k): return self._props.get(str(k), '')
@@ -423,7 +426,8 @@ class MockWindowDialog:
         if control_id not in self._controls:
             self._controls[control_id] = MockControlList()
         return self._controls[control_id]
-    def setFocusId(self, control_id): pass
+    def setFocusId(self, control_id): self._focus_id = int(control_id)
+    def getFocusId(self): return self._focus_id
     def setFocus(self, control): pass
     def doModal(self): pass
     def close(self): pass

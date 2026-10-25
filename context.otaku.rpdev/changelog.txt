@@ -1,3 +1,7 @@
+Changelog v1.0.40 (2026-10-25)
+- 'Clear Addon Cache' now launches the interactive multi-option modal window (Provider Cache vs All Cache & DB)
+- Alignment with Otaku RPDev v5.5.1 release
+
 Changelog v1.0.39 (2026-10-25)
 - Otaku RPDev v5.4.14 compatibility alignment
 

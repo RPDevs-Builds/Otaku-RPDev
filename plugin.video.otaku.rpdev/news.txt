@@ -1,22 +1,75 @@
-Welcome to Otaku's Testing Addon!
+================================================================================
+                           OTAKU RPDEV - WHAT'S NEW
+================================================================================
 
-Hi everyone,
+[ The "I Didn't Mean To Go This Far" Notice ]
+Look, I honestly only intended to submit a couple of small bug fixes to upstream
+v5.4.3. Really, just a tidy PR or two. But then one refactor led to another, a
+rogue thread pool turned into a complete concurrency overhaul, and before I knew
+it, I had rewritten half the architecture, implemented an in-process video
+decryptor, built an atomic database persistence engine, and added a 168-test
+automated mock harness. At this point, opening a pull request would probably melt
+GitHub's diff viewer. So welcome to my personal sovereign build, maintained with
+unreasonable care and served directly from my personal Kodi repo!
 
-Thank you for checking out Otaku's new testing addon. This version is a complete recode, offering more features than the original, with support for Kodi 20 and above. It will soon become the main public release.
+--------------------------------------------------------------------------------
+Major Highlights & Architectural Upgrades Since Upstream v5.4.3:
+--------------------------------------------------------------------------------
 
-Please note that this version is still in development, so you may encounter a few bugs. If you do, we encourage you to report them on GitHub and specify the repository you used.
+1. Multi-Option Cache & Maintenance System (v5.5.1)
+   • Context Menu "Clear Addon Cache" now opens an interactive modal window.
+   • Defaults to "Provider Cache": instantly clears torrent scrapes, embed links,
+     season packs, and debrid hashes without wiping your watchlist or metadata.
+   • "All Cache & Database" option provides a full nuclear purge when needed.
+   • Real-time descriptions update on navigation; dedicated Cancel button.
 
-New in this version:
+2. Comprehensive Test Harness & 100% Error Catching (v5.5.0)
+   • 168 automated tests covering all 9 architectural phases in CI.
+   • Full Kodi mock harness simulating players, lists, dialogs, and plugins.
+   • Typed error guards and circuit breakers on all external API requests,
+     scrapers, watchlist sync endpoints, and cloud storage providers.
 
-    - Every Debrid and Cloud Service are now Fixed thanks to @joezito129 and @adamosborne83
-    - Flitering has been improved significantly to help with scraping
-    - MyAnimeList (MAL) menus (AniList menus are still available)
-    - New sorting system for more precise control over your content
-    - Reuse Language Invoker support for faster, more efficient performance
-    - New menu settings for more customization
+3. In-Process Megacloud & Rabbitstream Decryption (v5.4.6)
+   • Pure Python in-process AES-CBC / key-derivation engine for video hosters.
+   • Zero external Node.js, wasm, or external worker dependencies.
 
-You might also notice some anime missing; this is because we're primarily using MAL IDs to streamline episode metadata, ensuring fewer issues for users.
+4. Multi-Debrid Failover & Cloud VFS Management (v5.4.4 - v5.4.11)
+   • Instant failover across Real-Debrid, AllDebrid, TorBox, and Premiumize.
+   • Full Debrid Cloud VFS browser: stream, organize, rename, and manage cloud
+     files and torrent downloads directly from your couch.
+   • Elimination of the 5MB download cap on remote debrid media files.
 
-A huge thank you to the entire Otaku development team and everyone who contributed to this release! Special shoutout to Joezito129, who led the recode and added many of these awesome features. We couldn’t have done it without the team's hard work and dedication!
+5. Subtitle Intelligence & Dub Pairing (v5.4.9 - v5.4.12)
+   • Intelligent distinction between full dialogue subtitles and signs/songs.
+   • Automated .ass / .ssa stream header inspection and preferred audio sync.
 
-Another huge thank you to @adamosborne83 for letting me use his Real-Debrid and AllDebrid Account!
+6. Concurrency, Cancellation & Scraper Circuit Breakers (v5.4.7 - v5.4.14)
+   • Bounded worker threadpools preventing UI lockups on low-spec hardware.
+   • Cooperative cancellation tokens (self.canceled) terminating background
+     scrapes the instant a user presses Back or selects a source.
+   • Scraper circuit breaker: automatically pauses failing providers to prevent
+     infinite retry storms and sluggish scraping.
+
+7. Database & Memory Hardening (v5.4.7 - v5.4.13)
+   • Complete removal of unsafe Python pickle storage in favor of SQLite + JSON.
+   • SQLite WAL checkpointing, atomic file persistence, and automatic memory
+     trimming (malloc_trim) on video playback end.
+   • Unicode NFKD transliteration for robust Japanese romaji and title matching.
+
+8. Living-Room UI Polish & Instant Refresh (v5.4.15 - v5.4.16)
+   • Instant main menu refresh upon saving menu customization (no restarts).
+   • AnimeSchedule Bearer authentication for reliable broadcast scheduling.
+   • Non-blocking changelog presentations and zero C++ skin exceptions.
+
+9. Comprehensive Context Menu Suite (context.otaku.rpdev v1.0.40)
+   • "Clear Addon Cache": Now launches the multi-option modal window.
+   • "Mark Episodes Up To Here as Watched": One-click bulk progress sync for
+     seasons, marking all prior episodes as watched locally and on remote
+     watchlists (AniList, MAL, Kitsu, Simkl).
+   • Normalized Movie & Episode Watched Routing: Robust URL target extraction
+     without IndexError across all play formats (play_movie, play_oot, play_al).
+   • Safe Metadata Forwarding: Rescrape and Source Select preserve full video
+     info tags, artwork, and resume timestamps.
+   • Deep Discovery: Instant access to Find Recommendations, Find Relations,
+     Get Watch Order, Anime Statistics, Fanart Selection, and Database Deletion.
+

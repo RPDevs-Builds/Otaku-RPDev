@@ -459,7 +459,7 @@ def cache_remove(key):
 
 
 def cache_clear():
-    """Wipe general cache, watchlist cache, activity, and enrichment data."""
+    """Wipe general cache, debrid cache, watchlist cache, activity, and enrichment data."""
     _bump_mem_generation()
     with SQL(control.cacheFile) as cur:
         cur.execute("DROP TABLE IF EXISTS cache")
@@ -467,6 +467,23 @@ def cache_clear():
         cur.connection.commit()
     _tables_ready.discard(f"{control.cacheFile}:cache")
     _tables_ready.discard(f"{control.cacheFile}:cache_ix_key")
+    _tables_ready.discard(f"{control.cacheFile}:cache_ix_date")
+
+    # Clear debrid cache as well
+    try:
+        from resources.lib.debrid import debrid_cache
+        debrid_cache.clear_debrid_cache()
+    except Exception as e:
+        control.log(f"Error clearing debrid cache: {e}", 'debug')
+
+    # Reset circuit breaker
+    try:
+        from resources.lib.pages import circuit_breaker
+        circuit_breaker.reset()
+    except Exception:
+        pass
+
+    control.setSetting('last_played_source', str(None))
 
     clear_watchlist_cache()
     clear_watchlist_activity()
@@ -475,6 +492,82 @@ def cache_clear():
     control.notify(
         f'{control.ADDON_NAME}: {control.lang(30086)}',
         control.lang(30087), time=5000, sound=False)
+
+
+def cache_clear_providers():
+    """Purge provider and scraper cache (torrents, embeds, season packs, debrid hash cache).
+
+    Guarantees a clean, fresh scrape on next playback without touching
+    user watchlist, show/episode metadata, or account databases.
+    """
+    _bump_mem_generation()
+    _init_cache_table()
+    with SQL(control.cacheFile) as cur:
+        # 1. Purge season pack torrent listings and last played sources
+        cur.execute("DELETE FROM cache WHERE key LIKE 'season_pack_%'")
+        cur.execute("DELETE FROM cache WHERE key LIKE 'last_played_%'")
+
+        # 2. Purge cached scraper results for all providers (torrents, embeds, hosters)
+        provider_tokens = [
+            'nyaa', 'animetosho', 'nekobt', 'torrentio', 'easynews',
+            'animepahe', 'animix', 'aniwave', 'hianime', 'animekai',
+            'anikoto', 'watchnixtoons2', 'gogoanime', 'kaido', 'kissanime',
+            'tokyotosho'
+        ]
+        for token in provider_tokens:
+            cur.execute("DELETE FROM cache WHERE key LIKE ?", (f'%{token}%',))
+
+        # 3. Purge generic get_sources function hashes
+        cur.execute("DELETE FROM cache WHERE key LIKE '%get_sources%'")
+        cur.connection.commit()
+
+    # 4. Clear debrid hash availability cache (so hashes are re-checked fresh)
+    try:
+        from resources.lib.debrid import debrid_cache
+        debrid_cache.clear_debrid_cache()
+    except Exception as e:
+        control.log(f"Error clearing debrid hash cache: {e}", 'warning')
+
+    # 5. Reset scraper circuit breaker so any temporarily tripped scrapers can retry
+    try:
+        from resources.lib.pages import circuit_breaker
+        circuit_breaker.reset()
+    except Exception as e:
+        control.log(f"Error resetting scraper circuit breaker: {e}", 'debug')
+
+    # 6. Reset last played source setting
+    control.setSetting('last_played_source', str(None))
+
+    control.notify(
+        f'{control.ADDON_NAME}: Provider Cache',
+        'Torrents, embeds & debrid cache cleared for clean rescan.',
+        time=4000, sound=False
+    )
+
+
+# Alias for compatibility with settings.xml action
+cache_clear_scrapers = cache_clear_providers
+
+
+def cache_clear_metadata():
+    """Purge metadata provider caches (AniList, MAL, Kitsu, Simkl, MDBList, TVDB, AniSkip)."""
+    _bump_mem_generation()
+    _init_cache_table()
+    with SQL(control.cacheFile) as cur:
+        metadata_tokens = [
+            'anilist', 'myanimelist', 'mal', 'kitsu', 'simkl', 'mdblist',
+            'tvdb', 'aniskip', 'jikan', 'anidb', 'anizip', 'fanart',
+            'get_base_res', 'get_anime_init', 'get_reviews', 'get_media'
+        ]
+        for token in metadata_tokens:
+            cur.execute("DELETE FROM cache WHERE key LIKE ?", (f'%{token}%',))
+        cur.connection.commit()
+
+    control.notify(
+        f'{control.ADDON_NAME}: Metadata Cache',
+        'Metadata cache successfully cleared.',
+        time=4000, sound=False
+    )
 
 
 def prune_expired_cache(max_age_days=30):

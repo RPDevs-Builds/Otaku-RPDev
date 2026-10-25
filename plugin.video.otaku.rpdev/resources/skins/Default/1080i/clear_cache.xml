@@ -1,0 +1,239 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<window type="dialog">
+    <defaultcontrol always="true">1000</defaultcontrol>
+    <coordinates>
+        <left>0</left>
+        <top>0</top>
+        <width>1920</width>
+        <height>1080</height>
+    </coordinates>
+    <controls>
+        <!-- Background Dimmer -->
+        <control type="image">
+            <left>0</left>
+            <top>0</top>
+            <width>1920</width>
+            <height>1080</height>
+            <texture>white.png</texture>
+            <colordiffuse>D0000000</colordiffuse>
+        </control>
+
+        <!-- Main Dialog Frame (Centered: 1200x680) -->
+        <control type="group">
+            <left>360</left>
+            <top>200</top>
+            <width>1200</width>
+            <height>680</height>
+
+            <!-- Card Background -->
+            <control type="image">
+                <left>0</left>
+                <top>0</top>
+                <width>1200</width>
+                <height>680</height>
+                <texture border="10">white.png</texture>
+                <colordiffuse>FF181C24</colordiffuse>
+            </control>
+
+            <!-- Top Accent Bar -->
+            <control type="image">
+                <left>0</left>
+                <top>0</top>
+                <width>1200</width>
+                <height>6</height>
+                <texture>white.png</texture>
+                <colordiffuse>FF00BFFF</colordiffuse>
+            </control>
+
+            <!-- Dialog Header -->
+            <control type="label">
+                <left>50</left>
+                <top>30</top>
+                <width>1100</width>
+                <height>40</height>
+                <font>font16</font>
+                <textcolor>FFFFFFFF</textcolor>
+                <label>[B]Otaku - Cache &amp; Database Maintenance[/B]</label>
+            </control>
+
+            <control type="label">
+                <left>50</left>
+                <top>75</top>
+                <width>1100</width>
+                <height>25</height>
+                <font>font12</font>
+                <textcolor>88FFFFFF</textcolor>
+                <label>Select a maintenance operation below. Review the description before proceeding.</label>
+            </control>
+
+            <!-- Left Panel: Options List (Control ID: 1000) -->
+            <control type="list" id="1000">
+                <left>50</left>
+                <top>125</top>
+                <width>500</width>
+                <height>440</height>
+                <onup>1000</onup>
+                <ondown>3001</ondown>
+                <onright>3001</onright>
+                <pagecontrol></pagecontrol>
+                <scrolltime>200</scrolltime>
+
+                <itemlayout height="90" width="500">
+                    <control type="image">
+                        <left>0</left>
+                        <top>0</top>
+                        <width>500</width>
+                        <height>80</height>
+                        <texture border="8">white.png</texture>
+                        <colordiffuse>20FFFFFF</colordiffuse>
+                    </control>
+                    <control type="label">
+                        <left>25</left>
+                        <top>15</top>
+                        <width>450</width>
+                        <height>28</height>
+                        <font>font14</font>
+                        <textcolor>DDFFFFFF</textcolor>
+                        <label>[B]$INFO[ListItem.Label][/B]</label>
+                    </control>
+                    <control type="label">
+                        <left>25</left>
+                        <top>45</top>
+                        <width>450</width>
+                        <height>22</height>
+                        <font>font12</font>
+                        <textcolor>88FFFFFF</textcolor>
+                        <label>$INFO[ListItem.Property(subtitle)]</label>
+                    </control>
+                </itemlayout>
+
+                <focusedlayout height="90" width="500">
+                    <control type="image">
+                        <left>0</left>
+                        <top>0</top>
+                        <width>500</width>
+                        <height>80</height>
+                        <texture border="8">white.png</texture>
+                        <colordiffuse>FF00BFFF</colordiffuse>
+                    </control>
+                    <control type="image">
+                        <left>2</left>
+                        <top>2</top>
+                        <width>496</width>
+                        <height>76</height>
+                        <texture border="8">white.png</texture>
+                        <colordiffuse>FF222834</colordiffuse>
+                    </control>
+                    <control type="label">
+                        <left>25</left>
+                        <top>15</top>
+                        <width>450</width>
+                        <height>28</height>
+                        <font>font14</font>
+                        <textcolor>FF00BFFF</textcolor>
+                        <label>[B]$INFO[ListItem.Label][/B]</label>
+                    </control>
+                    <control type="label">
+                        <left>25</left>
+                        <top>45</top>
+                        <width>450</width>
+                        <height>22</height>
+                        <font>font12</font>
+                        <textcolor>FFFFFFFF</textcolor>
+                        <label>$INFO[ListItem.Property(subtitle)]</label>
+                    </control>
+                </focusedlayout>
+            </control>
+
+            <!-- Right Panel: Description Card -->
+            <control type="group">
+                <left>580</left>
+                <top>125</top>
+                <width>570</width>
+                <height>440</height>
+
+                <control type="image">
+                    <left>0</left>
+                    <top>0</top>
+                    <width>570</width>
+                    <height>440</height>
+                    <texture border="8">white.png</texture>
+                    <colordiffuse>14FFFFFF</colordiffuse>
+                </control>
+
+                <!-- Header for Description -->
+                <control type="label">
+                    <left>30</left>
+                    <top>25</top>
+                    <width>510</width>
+                    <height>30</height>
+                    <font>font14</font>
+                    <textcolor>FF00BFFF</textcolor>
+                    <visible>Control.HasFocus(1000)</visible>
+                    <label>[B]$INFO[Container(1000).ListItem.Property(title)][/B]</label>
+                </control>
+
+                <control type="label">
+                    <left>30</left>
+                    <top>25</top>
+                    <width>510</width>
+                    <height>30</height>
+                    <font>font14</font>
+                    <textcolor>FFFF6B6B</textcolor>
+                    <visible>Control.HasFocus(3001)</visible>
+                    <label>[B]Cancel Operation[/B]</label>
+                </control>
+
+                <!-- Separator line -->
+                <control type="image">
+                    <left>30</left>
+                    <top>65</top>
+                    <width>510</width>
+                    <height>1</height>
+                    <texture>white.png</texture>
+                    <colordiffuse>25FFFFFF</colordiffuse>
+                </control>
+
+                <!-- Detailed Description Textbox -->
+                <control type="textbox">
+                    <left>30</left>
+                    <top>80</top>
+                    <width>510</width>
+                    <height>330</height>
+                    <font>font13</font>
+                    <textcolor>DDFFFFFF</textcolor>
+                    <wrapmultiline>true</wrapmultiline>
+                    <visible>Control.HasFocus(1000)</visible>
+                    <label>$INFO[Container(1000).ListItem.Property(description)]</label>
+                </control>
+
+                <control type="textbox">
+                    <left>30</left>
+                    <top>80</top>
+                    <width>510</width>
+                    <height>330</height>
+                    <font>font13</font>
+                    <textcolor>DDFFFFFF</textcolor>
+                    <wrapmultiline>true</wrapmultiline>
+                    <visible>Control.HasFocus(3001)</visible>
+                    <label>Exits this maintenance dialog without clearing any caches, scraper records, or databases. Your existing setup and cached data will remain untouched.</label>
+                </control>
+            </control>
+
+            <!-- Bottom Action: Cancel Button (Control ID: 3001) -->
+            <control type="button" id="3001">
+                <left>930</left>
+                <top>595</top>
+                <width>220</width>
+                <height>50</height>
+                <label>Cancel</label>
+                <font>font13</font>
+                <align>center</align>
+                <onup>1000</onup>
+                <onleft>1000</onleft>
+                <texturenofocus colordiffuse="40FFFFFF">white.png</texturenofocus>
+                <texturefocus colordiffuse="FF00BFFF">white.png</texturefocus>
+            </control>
+        </control>
+    </controls>
+</window>
