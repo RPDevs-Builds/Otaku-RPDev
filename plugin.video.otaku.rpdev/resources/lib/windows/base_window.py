@@ -11,6 +11,7 @@ _artwork_cache = {}
 class BaseWindow(xbmcgui.WindowXMLDialog):
     def __init__(self, xml_file, location, actionArgs=None):
         super().__init__(xml_file, location)
+        self._win_closed = False
 
         control.closeBusyDialog()
 
@@ -61,7 +62,7 @@ class BaseWindow(xbmcgui.WindowXMLDialog):
             fanart = control.OTAKU_FANART
         else:
             if isinstance(fanart, list):
-                if (control.getBool('context.otaku.fanartselect') or control.getBool('context.otaku.rpdev.fanartselect')) and self._mal_id:
+                if control.getBool('context.otaku.fanartselect') and self._mal_id:
                     cache_key = f"fanart_{self._mal_id}"
                     if cache_key in _artwork_cache:
                         fanart = _artwork_cache[cache_key]
@@ -133,7 +134,9 @@ class BaseWindow(xbmcgui.WindowXMLDialog):
         return ctrl
 
     def close(self):
-        """Override close to ensure cleanup"""
-        # Clear references to prevent memory leaks
+        """Override close to ensure cleanup and avoid duplicate close calls."""
+        if getattr(self, '_win_closed', False):
+            return
+        self._win_closed = True
         self.item_information = None
         super().close()

@@ -153,6 +153,7 @@ class Sources(BrowserBase):
             e_num = int(episode)
         except (ValueError, TypeError):
             e_num = 1
+        big_series = e_num > 30
         page = max(1, 1 + ((e_num - 1) // 30))
 
         params = {

@@ -7,7 +7,7 @@ import urllib.parse
 
 from resources.lib.WatchlistIntegration import watchlist_update_episode
 from resources.lib.debrid import all_debrid, debrid_link, easynews, premiumize, real_debrid, torbox, easydebrid
-from resources.lib.ui import client, control, ffprobe_chapters, source_utils, player
+from resources.lib.ui import client, control, database, ffprobe_chapters, source_utils, player
 from resources.lib.windows.base_window import BaseWindow
 
 control.sys.path.append(control.dataPath)

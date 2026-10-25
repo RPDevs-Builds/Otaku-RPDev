@@ -1,3 +1,12 @@
+Changelog v5.4.5 (2026-10-24):
+- Resolver & Playback: fixed NameError ('name database is not defined') in Resolver._handle_playback() and Resolver.resolve() season pack caching
+- Skip Intro & Auto-Skip: fixed cold-open negative offset clamping (start >= 0.0) so intros starting at 0:00 with default -3s offset are never discarded
+- Skip Intro & Auto-Skip: decoupled episode monitor loop from episodes table presence so Skip Intro and Auto-Skip run even on un-indexed episodes
+- Skip Intro & Auto-Skip: added pure-Python Matroska EBML chapter reader in ffprobe_chapters for Android TV and devices lacking ffprobe binary
+- Skip Intro & Auto-Skip: added mixed-op / mixed-ed fallbacks to AniSkip and mappings.db anilist_id fallback to Anime-Skip
+- Window & Settings Hardening: eliminated duplicate close() calls in BaseWindow, SkipIntro, and PlayingNext (fixing 'Window id does not exist') and removed invalid 'context.otaku.rpdev.fanartselect' setting lookups
+- AnimePahe: defined big_series in _process_ap() preventing NameError on episode pagination
+
 Changelog v5.4.4 (2026-10-24):
 - Resolver Hotfix: fixed NameError ('name idx is not defined') in Resolver.resolve() during source iteration and candidate_index tracking
 - Modular Route Architecture: decomposed Main.py (3,197 -> 928 lines) into focused domain route modules under resources/lib/routes/ (cloud, history, playback, search, tools) while preserving 100% route and import compatibility
