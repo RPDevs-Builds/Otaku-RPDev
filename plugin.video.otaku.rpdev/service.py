@@ -350,15 +350,68 @@ def load_settings():
             pass
 
 
+_MENU_SETTINGS = (
+    'menu.mainmenu.config',
+    'menu.submenu.config',
+    'menu.genres.config',
+    'movie.mainmenu.config',
+    'movie.submenu.config',
+    'movie.genres.config',
+    'tv_show.mainmenu.config',
+    'tv_show.submenu.config',
+    'tv_show.genres.config',
+    'tv_short.mainmenu.config',
+    'tv_short.submenu.config',
+    'tv_short.genres.config',
+    'special.mainmenu.config',
+    'special.submenu.config',
+    'special.genres.config',
+    'ova.mainmenu.config',
+    'ova.submenu.config',
+    'ova.genres.config',
+    'ona.mainmenu.config',
+    'ona.submenu.config',
+    'ona.genres.config',
+    'music.mainmenu.config',
+    'music.submenu.config',
+    'music.genres.config',
+)
+
+
+def _get_menu_settings_snapshot():
+    snapshot = {}
+    for sid in _MENU_SETTINGS:
+        try:
+            snapshot[sid] = control.settings.getStringList(sid)
+        except Exception:
+            try:
+                snapshot[sid] = control.getSetting(sid)
+            except Exception:
+                snapshot[sid] = None
+    return snapshot
+
+
 class Monitor(xbmc.Monitor):
     def __init__(self):
         super().__init__()
+        self._menu_settings_snapshot = _get_menu_settings_snapshot()
 
     def onSettingsChanged(self):
         control.log('Setting Changed - Updating Settings Cache')
         if control.getBool('general.kodi.cache'):
             load_settings()
         control.process_context()
+        control.clearSettingsCache()
+
+        # Check if any menu configuration settings were changed
+        new_snapshot = _get_menu_settings_snapshot()
+        if new_snapshot != self._menu_settings_snapshot:
+            control.log('Menu configuration settings changed - refreshing menu container')
+            self._menu_settings_snapshot = new_snapshot
+            control.setGlobalProp('otaku.menu.needs_refresh', 'true')
+            folder_path = xbmc.getInfoLabel('Container.FolderPath')
+            if control.is_addon_visible() or folder_path.startswith('plugin://plugin.video.otaku.rpdev'):
+                control.refresh()
 
 
 if __name__ == "__main__":

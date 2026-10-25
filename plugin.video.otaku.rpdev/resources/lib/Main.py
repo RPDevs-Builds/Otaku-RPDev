@@ -738,6 +738,7 @@ def GENRE_THRILLER(payload, params):
 def _maybe_refresh_main_menu(log_msg):
     if control.getGlobalProp('otaku.menu.needs_refresh') == 'true':
         control.clearGlobalProp('otaku.menu.needs_refresh')
+        control.clearSettingsCache()
         control.log(log_msg)
 
 
@@ -838,7 +839,7 @@ def _draw_category_main_menu(menu_items_key, settings_key, extra_key_suffix, ref
     enabled = _collect_category_menu_items(menu_items_key, settings_key, extra_key_suffix)
     processed = _finalize_menu_list_items(enabled)
     view_type = 'addons' if control.getBool('interface.content_type') else ''
-    control.draw_items(processed, view_type)
+    control.draw_items(processed, view_type, cacheToDisc=False)
 
 
 def _draw_filtered_submenu(menu_items_key, settings_key):
@@ -849,6 +850,7 @@ def _draw_filtered_submenu(menu_items_key, settings_key):
     control.draw_items(
         [utils.allocate_item(name, url, True, False, [], image, info) for name, url, image, info in enabled],
         view_type,
+        cacheToDisc=False,
     )
 
 

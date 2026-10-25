@@ -121,6 +121,7 @@ def FANART(payload: str, params: dict):
 @Route('settings')
 def SETTINGS(payload, params):
     control.ADDON.openSettings()
+    control.clearSettingsCache()
 
 
 @Route('change_log')

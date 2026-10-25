@@ -1,3 +1,10 @@
+Changelog v5.4.15 (2026-10-25):
+- Instant Menu Auto-Refresh on Settings Save:
+- - Service Monitor: Snapshot menu configuration settings and detect menu setting modifications on onSettingsChanged
+- - Targeted Refresh: Automatically trigger Container.Refresh only when menu configuration settings are modified
+- - Non-Disruptive: Ignore non-menu setting changes (subtitles, audio, debrid, scrapers), leaving playback/view untouched
+- - Memory & Disk Cache: Pass cacheToDisc=False on category main menus and submenus, preventing stale disk-cached listings
+
 Changelog v5.4.14 (2026-10-25):
 - Stability, Resource Management & Resilience Hardening:
 - - Network & Sync: Fix 5MB download cap in client.py, reading full streams to EOF and preventing anime_mappings.db (~6MB) corruption
