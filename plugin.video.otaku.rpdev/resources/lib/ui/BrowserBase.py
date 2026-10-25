@@ -161,3 +161,18 @@ class BrowserBase(object):
     @staticmethod
     def embeds():
         return control.getStringList('embed.config')
+
+    @staticmethod
+    def _plugin_page_url(prefix, route_slug):
+        return f"{prefix}?page=%d" if prefix else f"{route_slug}?page=%d"
+
+    @staticmethod
+    def attach_genre_methods(cls, presets):
+        for slug, preset_val in presets:
+            def make_genre(_slug, _val):
+                def method(self, page, format, prefix=None):
+                    return self._browse_genre_preset(page, format, prefix, f'genre_{_slug}', _val)
+                method.__name__ = f'get_genre_{_slug}'
+                method.__doc__ = f'Browse anime with genre preset {_slug} ({_val}).'
+                return method
+            setattr(cls, f'get_genre_{slug}', make_genre(slug, preset_val))

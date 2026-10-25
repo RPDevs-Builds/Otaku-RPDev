@@ -1,4 +1,3 @@
-import pickle
 import datetime
 import time
 import random
@@ -159,6 +158,18 @@ class OtakuAPI:
 
     def get_simkl_id(self, mal_id):
         show_ids = database.get_show(mal_id)
+        if not show_ids:
+            # Show not in local DB yet — look up Simkl ID directly via API
+            params = {
+                'mal': mal_id,
+                'client_id': self.simklClientID
+            }
+            response = client.get(f'{self.simklBaseUrl}/search/id', params=params)
+            if response:
+                r = response.json()
+                if r:
+                    return r[0]['ids']['simkl']
+            return None
         if not (simkl_id := show_ids.get('simkl_id')):
             params = {
                 'mal': mal_id,
@@ -174,6 +185,8 @@ class OtakuAPI:
 
     def get_simkl_episode_meta(self, mal_id):
         simkl_id = self.get_simkl_id(mal_id)
+        if not simkl_id:
+            return []
         params = {
             'extended': 'full',
             'client_id': self.simklClientID

@@ -122,7 +122,14 @@ class Resolver(BaseWindow):
 
     def resolve(self, sources):
         """Optimized resolve with reduced property updates"""
-        for i in sources:
+        if not isinstance(self.return_data, dict):
+            self.return_data = {}
+        else:
+            self.return_data.pop('linkinfo', None)
+            self.return_data.pop('link', None)
+            self.return_data.pop('sub', None)
+
+        for idx, i in enumerate(sources):
             self.return_data['source'] = i
             if self.canceled:
                 break
@@ -156,6 +163,7 @@ class Resolver(BaseWindow):
                     'headers': {}
                 }
                 self.return_data['link'] = stream_link
+                self.return_data['candidate_index'] = idx
                 break
 
             if stream_link:
@@ -323,6 +331,7 @@ class Resolver(BaseWindow):
             if remaining:
                 control.log(f"Resolver: Playback startup failed, advancing to next candidate ({len(remaining)} left)", level='info')
                 self.abort = False
+                self.sources = remaining
                 self.resolve(remaining)
                 return
 

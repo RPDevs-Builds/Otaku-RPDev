@@ -1,3 +1,8 @@
+Changelog v5.4.4 (2026-10-24):
+- Resolver Hotfix: fixed NameError ('name idx is not defined') in Resolver.resolve() during source iteration and candidate_index tracking
+- Modular Route Architecture: decomposed Main.py (3,197 -> 928 lines) into focused domain route modules under resources/lib/routes/ (cloud, history, playback, search, tools) while preserving 100% route and import compatibility
+- Indexer & Browser Deduplication: refactored Otaku_Next_Up_API to inherit from OtakuAPI and OtakuBrowser to inherit from MalBrowser via shared BrowserBase helpers, eliminating 720+ lines of duplicate provider and genre logic
+
 Changelog v5.4.3 (2026-10-24):
 - Batch 6 Architecture, Resource & Security Hardening
 - SQLite Resource Management: added thread-local SQLite connection pooling (one PRAGMA initialization per thread), reduced mmap_size from 256MB to 16MB for low-RAM Android TV stability, and prevented WAL file creation on static read-only info.db

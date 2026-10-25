@@ -2,7 +2,6 @@ import ast
 import datetime
 import json
 import os
-import pickle
 import random
 import re
 
@@ -160,9 +159,6 @@ class MalBrowser(BrowserBase):
                 season_start_date_last, season_end_date_last, year_start_date_last, year_end_date_last,
                 season_start_date_next, season_end_date_next, year_start_date_next, year_end_date_next)
 
-    def _plugin_page_url(self, prefix, route_slug):
-        return f"{prefix}?page=%d" if prefix else f"{route_slug}?page=%d"
-
     def _apply_season_format_params(self, params, format_val):
         if format_val:
             params['filter'] = format_val
@@ -194,7 +190,7 @@ class MalBrowser(BrowserBase):
         self._apply_anime_type_params(params, format)
         self._apply_content_filters(params)
         mal_res = database.get(self.get_base_res, 24, f"{self._BASE_URL}/anime", params)
-        if relax_on_empty and not mal_res.get('data'):
+        if relax_on_empty and mal_res and not mal_res.get('data'):
             # Jikan interprets multiple genres as strict AND; retry ranked pages without it.
             genres = params.get('genres')
             if isinstance(genres, str) and ',' in genres:
@@ -204,6 +200,8 @@ class MalBrowser(BrowserBase):
                 if mal_res_relaxed and mal_res_relaxed.get('data'):
                     mal_res = mal_res_relaxed
         return self.process_mal_view(mal_res, self._plugin_page_url(prefix, route_slug), page)
+
+    _browse_anime_list = _browse_mal_anime_list
 
     def _date_extra_from_bounds(self, sy, mode):
         if mode == 'last_year':
@@ -235,6 +233,8 @@ class MalBrowser(BrowserBase):
             extra.update(self._date_extra_from_bounds(sy, date_mode))
         extra = self._normalize_date_params(extra)
         return self._browse_mal_anime_list(page, format, prefix, route_slug, extra, relax_on_empty=True)
+
+    _ranked_anime_list = _ranked_mal_list
 
     def _browse_season_airing(self, page, format, prefix, route_slug, period):
         season, year, _, _, _, _, _, _, _, _, _, _, _, _ = self.get_season_year(period)
@@ -738,16 +738,8 @@ class MalBrowser(BrowserBase):
 
         return selected_genres_mal, selected_genres_anilist, selected_tags
 
-
-def _install_genre_methods():
-    for slug, gid in _MAL_GENRE_PRESETS:
-        def make_genre(_slug, _gid):
-            def method(self, page, format, prefix=None):
-                return self._browse_genre_preset(page, format, prefix, f'genre_{_slug}', _gid)
-            method.__name__ = f'get_genre_{_slug}'
-            method.__doc__ = f'Browse anime with MAL genre preset {_slug} (id {_gid}).'
-            return method
-        setattr(MalBrowser, f'get_genre_{slug}', make_genre(slug, gid))
+    get_mal_base_res = get_base_res
+    process_otaku_view = process_mal_view
 
 
-_install_genre_methods()
+BrowserBase.attach_genre_methods(MalBrowser, _MAL_GENRE_PRESETS)

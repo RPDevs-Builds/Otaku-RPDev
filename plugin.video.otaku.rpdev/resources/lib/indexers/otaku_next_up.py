@@ -1,148 +1,12 @@
-import pickle
 import datetime
-import time
-import random
 
 from functools import partial
 from resources.lib.ui import utils, database, client, control
 from resources.lib import indexers
+from resources.lib.indexers.otaku import OtakuAPI
 
 
-class Otaku_Next_Up_API:
-    def __init__(self):
-        # Simkl API setup
-        api_info = database.get_info('Simkl')
-        self.simklClientID = api_info['client_id']
-        self.simklBaseUrl = "https://api.simkl.com"
-        self.simklImagePath = "https://wsrv.nl/?url=https://simkl.in/episodes/%s_w.webp"
-        # AniZip API setup
-        self.anizipBaseUrl = "https://api.ani.zip"
-        # Kitsu API setup
-        self.kitsuBaseUrl = "https://kitsu.io/api/edge"
-        # Jikan API setup (MAL)
-        self.baseUrl = control.MAL_API_BASE_URL
-
-    def get_kitsu_id(self, mal_id):
-        meta_ids = database.get_mappings(mal_id, 'mal_id')
-        return meta_ids.get('kitsu_id')
-
-    def get_kitsu_episode_meta(self, mal_id):
-        kitsu_id = self.get_kitsu_id(mal_id)
-        url = f'{self.kitsuBaseUrl}/anime/{kitsu_id}/episodes'
-
-        # Fetch first page to determine total pages
-        params = {'page[limit]': 20, 'page[offset]': 0}
-        response = client.get(url, params=params)
-        if not response:
-            return []
-
-        res = response.json()
-        res_data = res['data']
-
-        # If only one page, return immediately
-        if 'next' not in res['links']:
-            return res_data
-
-        # Calculate total pages needed
-        try:
-            total_count = res.get('meta', {}).get('count', len(res_data) * 2)
-            total_pages = (total_count // 20) + (1 if total_count % 20 else 0)
-        except Exception:
-            # Fallback: fetch until no 'next' link
-            total_pages = 10  # Conservative estimate
-
-        control.log(f"Kitsu: Fetching ~{total_pages} pages of episodes in parallel")
-
-        def fetch_page(page_num):
-            try:
-                time.sleep((page_num % 3) * 0.7)  # Stagger requests to respect rate limit
-                params = {
-                    'page[limit]': 20,
-                    'page[offset]': page_num * 20
-                }
-                page_response = client.get(url, params=params)
-                if page_response:
-                    page_res = page_response.json()
-                    return page_res['data'] if page_res.get('data') else []
-                return []
-            except Exception as e:
-                control.log(f"Kitsu: Failed to fetch page {page_num}: {str(e)}")
-                return []
-
-        # Fetch remaining pages in parallel
-        page_numbers = list(range(1, total_pages))
-        all_page_results = utils.parallel_process(page_numbers, fetch_page)
-
-        # Combine all results
-        for page_data in all_page_results:
-            if page_data:  # Only extend if we got data
-                res_data.extend(page_data)
-            else:
-                break  # Stop if we hit an empty page
-
-        control.log(f"Kitsu: Fetched {len(res_data)} episodes total")
-        return res_data
-
-    def get_anizip_episode_meta(self, mal_id):
-        params = {
-            'mal_id': mal_id
-        }
-        response = client.get(f'{self.anizipBaseUrl}/mappings', params=params)
-        episodes = []
-        if response:
-            result = response.json()
-            if 'episodes' in result:
-                for res in result['episodes']:
-                    if str(res).isdigit():
-                        ep = result['episodes'][res]
-                        episodes.append(ep)
-        return episodes
-
-    def get_simkl_id(self, mal_id):
-        show_ids = database.get_show(mal_id)
-        if not show_ids:
-            # Show not in local DB yet — look up Simkl ID directly via API
-            params = {
-                'mal': mal_id,
-                'client_id': self.simklClientID
-            }
-            response = client.get(f'{self.simklBaseUrl}/search/id', params=params)
-            if response:
-                r = response.json()
-                if r:
-                    return r[0]['ids']['simkl']
-            return None
-        if not (simkl_id := show_ids.get('simkl_id')):
-            params = {
-                'mal': mal_id,
-                'client_id': self.simklClientID
-            }
-            response = client.get(f'{self.simklBaseUrl}/search/id', params=params)
-            if response:
-                r = response.json()
-                if r:
-                    simkl_id = r[0]['ids']['simkl']
-                    database.add_mapping_id(mal_id, 'simkl_id', simkl_id)
-        return simkl_id
-
-    def get_simkl_episode_meta(self, mal_id):
-        simkl_id = self.get_simkl_id(mal_id)
-        if not simkl_id:
-            return []
-        params = {
-            'extended': 'full',
-            'client_id': self.simklClientID
-        }
-        response = client.get(f'{self.simklBaseUrl}/anime/episodes/{simkl_id}', params=params)
-        if response:
-            return response.json()
-        return []
-
-    def get_anime_info(self, mal_id):
-        response = client.get(f'{self.baseUrl}/anime/{mal_id}')
-        if response:
-            return response.json()['data']
-
+class Otaku_Next_Up_API(OtakuAPI):
     def get_episode_meta(self, mal_id):
         url = f'{self.baseUrl}/anime/{mal_id}/episodes'
         response = client.get(url)
@@ -320,7 +184,7 @@ class Otaku_Next_Up_API:
 
         control.log(f"Episode metadata fetched - SIMKL: {len(meta_cache.get('simkl', []))}, AniZip: {len(meta_cache.get('anizip', []))}, Kitsu: {len(meta_cache.get('kitsu', []))}")
 
-        # Use Simkl as base, fallback to Simkl, then Jikan
+        # Use Simkl as base, fallback to AniZip, then Kitsu
         base_ep_list = meta_cache.get('simkl') or meta_cache.get('anizip') or meta_cache.get('kitsu', [])
 
         if not base_ep_list:
@@ -336,61 +200,3 @@ class Otaku_Next_Up_API:
         if control.getBool('override.meta.api') and control.getBool('override.meta.notify'):
             control.notify("Otaku", f'{tvshowtitle} Added to Database', icon=poster)
         return all_results
-
-    def append_episodes(self, mal_id, episodes, eps_watched, poster, fanart, clearart, clearlogo, tvshowtitle, filler_data=None, dub_data=None):
-        _, diff = indexers.get_diff(episodes[-1])
-        if diff > control.getInt('interface.check.updates'):
-            all_results = self.process_episode_view(mal_id, poster, fanart, clearart, clearlogo, eps_watched, tvshowtitle, dub_data, filler_data)
-            if all_results:
-                return all_results
-        mapfunc1 = partial(indexers.parse_episodes, eps_watched=eps_watched, dub_data=dub_data)
-        # Parallelize episode parsing
-        all_results = utils.parallel_process(episodes, mapfunc1)
-        return all_results
-
-    def get_episodes(self, mal_id, show_meta):
-        kodi_meta = database.loads(database.get_show(mal_id)['kodi_meta'])
-        kodi_meta.update(database.loads(show_meta['art']))
-        fanart = kodi_meta.get('fanart')
-        poster = kodi_meta.get('poster')
-        # Handle clearart - support both string (new) and list (legacy) formats
-        clearart = kodi_meta.get('clearart', '')
-        if isinstance(clearart, list):
-            clearart = random.choice(clearart) if clearart else ''
-        # Handle clearlogo - support both string (new) and list (legacy) formats
-        clearlogo = kodi_meta.get('clearlogo', '')
-        if isinstance(clearlogo, list):
-            clearlogo = random.choice(clearlogo) if clearlogo else ''
-        tvshowtitle = kodi_meta['title_userPreferred']
-        if not (eps_watched := kodi_meta.get('eps_watched')) and control.getBool('interface.watchlist.data'):
-            from resources.lib.WatchlistFlavor import WatchlistFlavor
-            merged = WatchlistFlavor.get_merged_watchlist_eps_watched(mal_id)
-            if merged is not None:
-                eps_watched = kodi_meta['eps_watched'] = merged
-                database.update_kodi_meta(mal_id, kodi_meta)
-        episodes = database.get_episode_list(mal_id)
-        dub_data = indexers.process_dub(mal_id, kodi_meta['ename']) if control.getBool('jz.dub') else None
-        if episodes:
-            if kodi_meta['status'] not in ["FINISHED", "Finished Airing"]:
-                from resources.lib.endpoints import anime_filler
-                filler_data = anime_filler.get_data(kodi_meta['ename'])
-                return self.append_episodes(mal_id, episodes, eps_watched, poster, fanart, clearart, clearlogo, tvshowtitle, filler_data, dub_data)
-            return indexers.process_episodes(episodes, eps_watched, dub_data)
-
-        if kodi_meta['episodes'] is None or kodi_meta['episodes'] > 99:
-            from resources.lib.endpoints import anime_filler
-            filler_data = anime_filler.get_data(kodi_meta['ename'])
-        else:
-            filler_data = None
-        return self.process_episode_view(mal_id, poster, fanart, clearart, clearlogo, eps_watched, tvshowtitle, dub_data, filler_data)
-
-    def get_anime(self, filter_type, page):
-        perpage = 25
-        params = {
-            "limit": perpage,
-            "page": page,
-            "filter": filter_type
-        }
-        response = client.get(f'{self.baseUrl}/top/anime', params=params)
-        if response:
-            return response.json()

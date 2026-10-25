@@ -1,7 +1,6 @@
 import ast
 import datetime
 import json
-import pickle
 import random
 import re
 import os
@@ -116,10 +115,6 @@ class AniListBrowser(BrowserBase):
             season = seasons[season_id]
 
         return season, year
-
-
-    def _plugin_page_url(self, prefix, route_slug):
-        return f"{prefix}?page=%d" if prefix else f"{route_slug}?page=%d"
 
     @staticmethod
     def _coerce_anilist_media_format(fmt):
@@ -1668,15 +1663,4 @@ class AniListBrowser(BrowserBase):
         return selected_genres_mal, selected_genres_anilist, selected_tags
 
 
-def _install_anilist_genre_methods():
-    for slug, genre_name in _ANILIST_GENRE_PRESETS:
-        def make_genre(_slug, _name):
-            def method(self, page, format, prefix=None):
-                return self._browse_genre_preset(page, format, prefix, f'genre_{_slug}', _name)
-            method.__name__ = f'get_genre_{_slug}'
-            method.__doc__ = f'Browse anime by AniList genre preset {_name}.'
-            return method
-        setattr(AniListBrowser, f'get_genre_{slug}', make_genre(slug, genre_name))
-
-
-_install_anilist_genre_methods()
+BrowserBase.attach_genre_methods(AniListBrowser, _ANILIST_GENRE_PRESETS)
