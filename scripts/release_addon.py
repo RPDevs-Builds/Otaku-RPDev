@@ -196,7 +196,7 @@ def main():
     shutil.copy2(addon_xml, os.path.join(target_cdn_addon_dir, "addon.xml"))
     if os.path.exists(changelog):
         shutil.copy2(changelog, os.path.join(target_cdn_addon_dir, "changelog.txt"))
-    for asset in ["icon.png", "fanart.jpg", "fanart.png", "poster.png", "clearlogo.png"]:
+    for asset in ["icon.png", "fanart.jpg", "fanart.png", "poster.png", "logo.png", "clearlogo.png"]:
         src_asset = os.path.join(addon_dir, asset)
         if os.path.exists(src_asset):
             shutil.copy2(src_asset, os.path.join(target_cdn_addon_dir, asset))
