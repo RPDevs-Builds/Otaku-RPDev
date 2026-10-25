@@ -562,7 +562,7 @@ mock_xbmcvfs.listdir.side_effect = lambda p: (
 
 _settings_store = {
     'menu.mainmenu.config': 'airing_calendar,airing_last_season,airing_this_season,airing_next_season,trending,popular,voted,favourites,top_100,genres,search,tools',
-    'otaku.version': '5.5.0',
+    'otaku.version': '5.5.1',
     'watchlist.update.enabled': 'true',
     'interface.watchlist.paging': 'true',
     'interface.perpage.watchlist': '2',
@@ -593,7 +593,7 @@ def addon_side_effect(addon_id=None):
         addon_mock.getAddonInfo.side_effect = lambda k: {
             'id': 'plugin.video.otaku.rpdev',
             'name': 'Otaku RPDev',
-            'version': '5.5.0',
+            'version': '5.5.1',
             'icon': '',
             'fanart': '',
             'path': ADDON_ROOT,
@@ -643,6 +643,21 @@ sys.modules['xbmcaddon'] = mock_xbmcaddon
 sys.modules['xbmcgui'] = mock_xbmcgui
 sys.modules['xbmcvfs'] = mock_xbmcvfs
 sys.modules['xbmcplugin'] = mock_xbmcplugin
+
+# Fallback mocks for external Kodi script modules (bs4, pyqrcode) when running in bare CI
+try:
+    import bs4
+except ImportError:
+    mock_bs4 = MagicMock()
+    mock_bs4.BeautifulSoup = MagicMock
+    mock_bs4.SoupStrainer = MagicMock
+    sys.modules['bs4'] = mock_bs4
+
+try:
+    import pyqrcode
+except ImportError:
+    mock_pyqrcode = MagicMock()
+    sys.modules['pyqrcode'] = mock_pyqrcode
 
 # Module aliasing for test harness
 this_mod = sys.modules[__name__]
