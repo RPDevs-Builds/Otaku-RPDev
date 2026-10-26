@@ -53,6 +53,8 @@ class TestAnimeStudioResources(unittest.TestCase):
         self.assertEqual(liz.getProperty('Studio'), 'CloverWorks')
         self.assertEqual(liz.getProperty('StudioIcon'), expected_art)
         self.assertEqual(liz.getProperty('StudioLogo'), expected_art)
+        self.assertEqual(liz.getProperty('Studio.Icon'), expected_art)
+        self.assertEqual(liz.getProperty('Studio.Logo'), expected_art)
 
     def test_xbmc_add_dir_studio_art_white(self):
         art = {'poster': 'https://example.com/poster.jpg'}
@@ -72,6 +74,8 @@ class TestAnimeStudioResources(unittest.TestCase):
         self.assertEqual(liz.getProperty('Studio'), 'Science SARU')
         self.assertEqual(liz.getProperty('StudioIcon'), expected_art)
         self.assertEqual(liz.getProperty('StudioLogo'), expected_art)
+        self.assertEqual(liz.getProperty('Studio.Icon'), expected_art)
+        self.assertEqual(liz.getProperty('Studio.Logo'), expected_art)
 
     def test_xbmc_add_dir_studio_art_none(self):
         art = {'poster': 'https://example.com/poster.jpg'}

@@ -623,9 +623,9 @@
 					<default>coloured</default>
 					<constraints>
 						<options>
-							<option label="30563">coloured</option>
-							<option label="30564">white</option>
-							<option label="30562">none</option>
+							<option label="Coloured">coloured</option>
+							<option label="White">white</option>
+							<option label="None">none</option>
 						</options>
 					</constraints>
 					<control type="spinner" format="string"/>

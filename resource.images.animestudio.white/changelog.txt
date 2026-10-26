@@ -1,5 +1,6 @@
-Changelog v0.0.1 (2026-10-26):
-- Initial release of Anime Studio Icons - White
+v0.0.2
+- Added missing anime studios (Revoroot, NBCUniversal, Yostar Pictures, Zero-G, Benten Film, Quad, Haoliners, GA-CREW, Hayabusa Film, Aura Studio)
+- Expanded complete case-variant and punctuation aliases (WIT STUDIO, SILVER LINK.., diomedéa, NUT, 8-bit, LIDENFILMS)
 
 v0.0.1
 - Initial release of Anime Studio Icons (White)

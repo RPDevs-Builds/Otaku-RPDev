@@ -1,3 +1,8 @@
+Changelog v5.5.6 (2026-10-26):
+- Settings: Fixed string spinner option labels in Settings → General → Artwork Customization (Coloured, White, None)
+- Dependencies: Promoted anime studio resource packages to required dependencies in addon.xml (resource.images.animestudio.coloured & resource.images.animestudio.white v0.0.2)
+- Artwork Presentation: Expanded studio logo properties (StudioIcon, StudioLogo, Studio.Icon, Studio.Logo, Studio.1.Icon, Studio.1.Logo, Studio.1.Art) to ensure full compatibility with external skins
+
 Changelog v5.5.5 (2026-10-26):
 - Add integration and settings for Anime Studio icon resource packages
 

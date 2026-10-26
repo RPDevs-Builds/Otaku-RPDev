@@ -880,6 +880,11 @@ def xbmc_add_dir(name, url, art, info, draw_cm, bulk_add, isfolder, isplayable, 
                 art['tvshow.studio'] = studio_art
             liz.setProperty('StudioIcon', studio_art)
             liz.setProperty('StudioLogo', studio_art)
+            liz.setProperty('Studio.Icon', studio_art)
+            liz.setProperty('Studio.Logo', studio_art)
+            liz.setProperty('Studio.1.Icon', studio_art)
+            liz.setProperty('Studio.1.Logo', studio_art)
+            liz.setProperty('Studio.1.Art', studio_art)
 
     if isplayable:
         if 'poster' in art and art['poster']:
