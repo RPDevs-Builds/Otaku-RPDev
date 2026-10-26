@@ -1,0 +1,4 @@
+v0.0.1
+- Initial release of Anime Studio Icons (White)
+- High-resolution transparent logos for 70+ top anime production studios
+- Standardized aspect ratios for Kodi video library media flags

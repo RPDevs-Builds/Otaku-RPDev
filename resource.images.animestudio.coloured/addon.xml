@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<addon id="resource.images.animestudio.coloured" name="Anime Studio Icons - Coloured" version="0.0.1" provider-name="RPDevs">
+	<extension point="kodi.resource.images" compile="false" type="studios" />
+	<requires>
+		<import addon="kodi.resource" version="1.0.0"/>
+	</requires>
+	<extension point="xbmc.addon.metadata">
+		<summary lang="en">Anime Studio Icons - Coloured</summary>
+		<description lang="en">Coloured studio logos and production company icons for anime media in Kodi.</description>
+		<platform>all</platform>
+		<assets>
+			<icon>icon.png</icon>
+		</assets>
+	</extension>
+</addon>
