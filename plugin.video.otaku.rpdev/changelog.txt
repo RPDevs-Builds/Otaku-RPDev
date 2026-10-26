@@ -1,3 +1,6 @@
+Changelog v5.5.4 (2026-10-26):
+- Fix root directory launch hang, scraper zfill error, and episode indicator format
+
 Changelog v5.5.3 (2026-10-25):
 - Multi-Dimensional Sorting Architecture across all lists:
   - Enabled Kodi native sort methods in control.draw_items() (Title, Release Date, Score/Rating, Episode Count, Watched Status), unlocking instant sidebar sorting for Popular, Trending, Most Voted, Top 100, Airing, Movies, and Watchlists.

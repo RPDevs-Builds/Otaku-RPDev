@@ -676,8 +676,9 @@ class MyAnimeListWLF(WatchlistFlavorBase):
         elif res['node'].get('rating'):
             info['mpaa'] = res['node'].get('rating')
 
+        tot_str = str(eps) if eps and eps > 0 else '?'
         base = {
-            "name": f"{title} - {eps_watched}/{eps}",
+            "name": f"{title} - {eps_watched}/{tot_str}",
             "url": f'watchlist_to_ep/{mal_id}/{eps_watched}',
             "image": image,
             "poster": poster,

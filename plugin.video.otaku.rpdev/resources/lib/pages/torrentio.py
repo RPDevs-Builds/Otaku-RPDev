@@ -38,7 +38,7 @@ class Sources(BrowserBase):
         if media_type == 'movie':
             return self.get_movie_sources(mal_id)
 
-        episode_zfill = episode.zfill(2)
+        episode_zfill = str(episode).zfill(2) if episode is not None else '01'
         self.sources = self.process_torrentio_episodes(mal_id, episode_zfill, season, part)
 
         self.append_cache_uncached_noduplicates()

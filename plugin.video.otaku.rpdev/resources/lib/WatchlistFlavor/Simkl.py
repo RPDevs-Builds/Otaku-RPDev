@@ -507,8 +507,10 @@ class SimklWLF(WatchlistFlavorBase):
         if trailer:
             info['trailer'] = trailer
 
+        total_eps = res.get("total_episodes_count") or 0
+        tot_str = str(total_eps) if total_eps > 0 else '?'
         base = {
-            "name": '%s - %d/%d' % (title, res["watched_episodes_count"], res["total_episodes_count"]),
+            "name": f"{title} - {res['watched_episodes_count']}/{tot_str}",
             "url": f'watchlist_to_ep/{mal_id}/{res["watched_episodes_count"]}',
             "image": image,
             "poster": poster,

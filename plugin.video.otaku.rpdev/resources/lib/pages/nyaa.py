@@ -41,7 +41,7 @@ class Sources(BrowserBase):
 
     def get_episode_sources(self, show, mal_id, episode, season, part, status):
         season_zfill = str(season).zfill(2) if season else '01'
-        episode_zfill = episode.zfill(2)
+        episode_zfill = str(episode).zfill(2) if episode is not None else '01'
 
         # Build all search queries
         search_tasks = []
@@ -125,7 +125,7 @@ class Sources(BrowserBase):
     def get_show_sources(self, show, mal_id, episode, season, part):
         control.log(f"Nyaa: Searching show/batch sources for '{show}'")
         season_zfill = str(season).zfill(2) if season else '01'
-        episode_zfill = episode.zfill(2)
+        episode_zfill = str(episode).zfill(2) if episode is not None else '01'
         query = show
 
         params = {

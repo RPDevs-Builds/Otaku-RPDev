@@ -162,7 +162,7 @@ class Sources(BrowserBase):
 
     def get_episode_sources(self, titles, mal_id, episode, season, part, status):
         season_zfill = str(season).zfill(2) if season else '01'
-        episode_zfill = episode.zfill(2)
+        episode_zfill = str(episode).zfill(2) if episode is not None else '01'
         ep_hint = f'S{season_zfill}E{episode_zfill}'
 
         # Include secondary groups, parent groups, and contributions for full coverage

@@ -39,15 +39,11 @@ if __name__ == "__main__":
         except Exception:
             pass
     else:
-        # Display changelog after root directory is completed, avoiding Kodi GetDirectory timeouts
+        # Queue changelog display via RunPlugin after root directory invoker cleanly finishes and window activates
         if (plugin_url == 'plugin://plugin.video.otaku.rpdev/' or not plugin_params) and control.ADDON_VERSION != control.getSetting('version'):
             control.setSetting('version', control.ADDON_VERSION)
             if control.getInt('showchangelog') == 0:
-                try:
-                    import service
-                    service.getChangeLog()
-                except Exception as e:
-                    control.log(f'Failed to display changelog: {e}', 'warning')
+                control.execute('RunPlugin(plugin://plugin.video.otaku.rpdev/change_log)')
         elif control.ADDON_VERSION != control.getSetting('version'):
             control.setSetting('version', control.ADDON_VERSION)
 

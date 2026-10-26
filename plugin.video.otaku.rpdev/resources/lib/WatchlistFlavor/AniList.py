@@ -537,8 +537,10 @@ class AniListWLF(WatchlistFlavorBase):
         show_meta = database.get_show_meta(mal_id)
         kodi_meta = database.loads(show_meta.get('art')) if show_meta else {}
         image = res['coverImage']['extraLarge']
+        total_eps = res.get('episodes') or 0
+        tot_str = str(total_eps) if total_eps > 0 else '?'
         base = {
-            "name": '%s - %d/%d' % (title, progress, res['episodes'] if res['episodes'] else 0),
+            "name": f"{title} - {progress}/{tot_str}",
             "url": f'watchlist_to_ep/{mal_id}/{progress}',
             "image": image,
             "poster": image,

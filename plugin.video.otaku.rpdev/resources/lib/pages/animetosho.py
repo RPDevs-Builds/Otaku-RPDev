@@ -60,7 +60,7 @@ class Sources(BrowserBase):
                     database.update_episode_column(mal_id, anidb_ep, 'anidb_ep_id', anidb_meta[anidb_ep]['anidb_id'])
 
         season_zfill = str(season).zfill(2) if season else '01'
-        episode_zfill = episode.zfill(2)
+        episode_zfill = str(episode).zfill(2) if episode is not None else '01'
 
         # Build all search queries upfront
         search_tasks = []
@@ -147,7 +147,7 @@ class Sources(BrowserBase):
 
     def get_show_sources(self, show, mal_id, episode, season, part):
         season_zfill = str(season).zfill(2) if season else '01'
-        episode_zfill = episode.zfill(2)
+        episode_zfill = str(episode).zfill(2) if episode is not None else '01'
 
         # anidb_id is already set by get_episode_sources
         query = self._clean_title(show)

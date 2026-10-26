@@ -679,8 +679,9 @@ class KitsuWLF(WatchlistFlavorBase):
         if user_score:
             info['user_rating'] = user_score / 2.0
 
+        tot_str = str(ep_count) if ep_count and ep_count > 0 else '?'
         base = {
-            "name": '%s - %d/%d' % (title, res["attributes"]["progress"], ep_count),
+            "name": f"{title} - {res['attributes']['progress']}/{tot_str}",
             "url": f'watchlist_to_ep/{mal_id}/{res["attributes"]["progress"]}',
             "image": image,
             "poster": poster,
