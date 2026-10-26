@@ -415,6 +415,8 @@ class Resolver(BaseWindow):
                 'clearart': self.params.get('clearart') or self.image.get('clearart') or '',
                 'clearlogo': self.params.get('clearlogo') or self.image.get('clearlogo') or '',
                 'tvshow.poster': self.params.get('tvshow.poster') or self.params.get('poster') or '',
+                'studio': self.params.get('studio') or self.image.get('studio') or '',
+                'tvshow.studio': self.params.get('tvshow.studio') or self.image.get('tvshow.studio') or '',
             }
         else:
             fanart = self.image.get('fanart')
@@ -429,6 +431,8 @@ class Resolver(BaseWindow):
                 'clearart': self.image.get('clearart') or '',
                 'clearlogo': self.image.get('clearlogo') or '',
                 'tvshow.poster': self.image.get('poster') or self.params.get('poster') or '',
+                'studio': self.image.get('studio') or self.params.get('studio') or '',
+                'tvshow.studio': self.image.get('tvshow.studio') or self.params.get('tvshow.studio') or '',
             }
 
     def resolve_source(self, api, source):

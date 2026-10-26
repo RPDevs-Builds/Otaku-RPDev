@@ -743,11 +743,13 @@ def set_videotags(li, info):
             if primary_studio:
                 vinfo.setStudios(primary_studio)
                 li.setProperty('Studios', ' / '.join(str(s) for s in studio if s))
+                li.setProperty('Studio', primary_studio[0])
         elif isinstance(studio, str) and studio:
             clean_studios = [s.strip() for s in studio.split(' / ') if s.strip()]
             if clean_studios:
                 vinfo.setStudios(clean_studios[:1])
                 li.setProperty('Studios', studio)
+                li.setProperty('Studio', clean_studios[0])
     if cast := info.get('cast'):
         vinfo.setCast([xbmc.Actor(c['name'], c['role'], c['index'], c['thumbnail']) for c in cast])
     if country := info.get('country'):
@@ -799,12 +801,14 @@ def xbmc_add_dir(name, url, art, info, draw_cm, bulk_add, isfolder, isplayable, 
         artwork_fanart_enabled = bulk_prefs['artwork_fanart_enabled']
         fanart_select_enabled = bulk_prefs['fanart_select_enabled']
         artwork_clearlogo_enabled = bulk_prefs['artwork_clearlogo_enabled']
+        artwork_studios_style = bulk_prefs.get('artwork_studios_style', 'coloured')
         fanart_mal_ids = bulk_prefs.get('fanart_mal_ids')
         fanart_selections = bulk_prefs.get('fanart_selections')
     else:
         artwork_fanart_enabled = getBool('artwork.fanart')
         fanart_select_enabled = getBool('context.otaku.fanartselect')
         artwork_clearlogo_enabled = getBool('artwork.clearlogo')
+        artwork_studios_style = getSetting('artwork.studios') or 'coloured'
         fanart_mal_ids = None
         fanart_selections = None
 
@@ -856,6 +860,27 @@ def xbmc_add_dir(name, url, art, info, draw_cm, bulk_add, isfolder, isplayable, 
         art['clearlogo'] = OTAKU_ICONS_PATH
     # If clearlogo is already a string (pre-selected), use it directly
     # No need for random.choice() since get_meta.py pre-selects it
+
+    # Resolve anime studio logo from resource.images.animestudio packages
+    if artwork_studios_style and artwork_studios_style != 'none' and info:
+        studio_val = info.get('studio')
+        primary_studio_name = None
+        if isinstance(studio_val, list):
+            primary_studio_name = next((s.strip() for s in studio_val if s and isinstance(s, str) and s.strip()), None)
+        elif isinstance(studio_val, str) and studio_val:
+            parts = [s.strip() for s in studio_val.split(' / ') if s.strip()]
+            if parts:
+                primary_studio_name = parts[0]
+
+        if primary_studio_name:
+            studio_art = f"resource://resource.images.animestudio.{artwork_studios_style}/{primary_studio_name}.png"
+            if not art.get('studio'):
+                art['studio'] = studio_art
+            if not art.get('tvshow.studio'):
+                art['tvshow.studio'] = studio_art
+            liz.setProperty('StudioIcon', studio_art)
+            liz.setProperty('StudioLogo', studio_art)
+
     if isplayable:
         if 'poster' in art and art['poster']:
             art['tvshow.poster'] = art.pop('poster')
@@ -982,6 +1007,7 @@ def bulk_dir_list(video_data, bulk_add=True):
         'artwork_fanart_enabled': artwork_fanart_enabled,
         'fanart_select_enabled': fanart_select_enabled,
         'artwork_clearlogo_enabled': getBool('artwork.clearlogo'),
+        'artwork_studios_style': getSetting('artwork.studios') or 'coloured',
     }
     if artwork_fanart_enabled and fanart_select_enabled:
         bulk_prefs['fanart_mal_ids'] = getStringList('fanart.mal_ids')

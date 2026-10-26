@@ -1,11 +1,13 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<addon id="plugin.video.otaku.rpdev" name="Otaku RPDev" provider-name="RPDevs" version="5.5.4">
+<addon id="plugin.video.otaku.rpdev" name="Otaku RPDev" provider-name="RPDevs" version="5.5.5">
   <requires>
     <import addon="xbmc.python" version="3.0.1"/>
     <import addon="script.module.beautifulsoup4"/>
     <import addon="script.module.inputstreamhelper"/>
     <import addon="script.module.pyqrcode"/>
     <import addon="context.otaku.rpdev" version="1.0.41"/>
+    <import addon="resource.images.animestudio.coloured" version="0.0.1" optional="true"/>
+    <import addon="resource.images.animestudio.white" version="0.0.1" optional="true"/>
   </requires>
   <extension library="default.py" point="xbmc.python.pluginsource">
         <provides>video</provides>

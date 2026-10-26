@@ -1,3 +1,6 @@
+Changelog v5.5.5 (2026-10-26):
+- Add integration and settings for Anime Studio icon resource packages
+
 Changelog v5.5.4 (2026-10-26):
 - Fix root directory launch hang, scraper zfill error, and episode indicator format
 

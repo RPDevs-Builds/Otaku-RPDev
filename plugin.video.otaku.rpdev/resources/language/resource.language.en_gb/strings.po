@@ -2257,3 +2257,23 @@ msgctxt "#30559"
 msgid "Smart Pair (Dialog for Sub / Signs for Dub)"
 msgstr ""
 
+msgctxt "#30560"
+msgid "Anime Studio Icons"
+msgstr ""
+
+msgctxt "#30561"
+msgid "Studio Icon Pack style to display for anime studios in Kodi skins."
+msgstr ""
+
+msgctxt "#30562"
+msgid "None"
+msgstr ""
+
+msgctxt "#30563"
+msgid "Coloured"
+msgstr ""
+
+msgctxt "#30564"
+msgid "White"
+msgstr ""
+
