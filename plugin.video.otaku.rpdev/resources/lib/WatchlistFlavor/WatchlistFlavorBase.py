@@ -20,6 +20,40 @@ class WatchlistFlavorBase:
         self.order = order
         self.title_lang = ["romaji", 'english'][control.getInt("titlelanguage")]
 
+    def get_sort_col_and_order(self):
+        """Map flavor sort/order settings to SQL column and ASC/DESC direction."""
+        try:
+            sort_idx = int(self.sort) if self.sort is not None else 3
+        except (ValueError, TypeError):
+            sort_idx = 3
+
+        try:
+            order_idx = int(self.order) if self.order is not None else 0
+        except (ValueError, TypeError):
+            order_idx = 0
+
+        title_col = 'title_romaji' if self.title_lang == 'romaji' else 'title_en'
+
+        # Natural sort direction for each metric when order_idx == 0
+        col_map = {
+            0: (title_col, 'ASC'),
+            1: ('score', 'DESC'),
+            2: ('progress', 'DESC'),
+            3: ('updated', 'DESC'),
+            4: ('date', 'DESC'),
+            5: ('remaining', 'DESC'),
+            6: ('episodes', 'DESC'),
+        }
+
+        col, natural_dir = col_map.get(sort_idx, ('item_order', 'ASC'))
+
+        if order_idx == 1:
+            direction = 'ASC' if natural_dir == 'DESC' else 'DESC'
+        else:
+            direction = natural_dir
+
+        return col, direction
+
     @classmethod
     def name(cls):
         return cls._NAME

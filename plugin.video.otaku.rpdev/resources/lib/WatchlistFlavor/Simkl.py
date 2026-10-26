@@ -139,37 +139,20 @@ class SimklWLF(WatchlistFlavorBase):
         if cache_only:
             return []
 
-        # Get items from cache
+        # Get items from cache with database-level sorting and pagination
+        sort_col, sort_dir = self.get_sort_col_and_order()
         total_count = get_watchlist_cache_count(self._NAME, status)
 
-        # Always fetch ALL items so sorting works across the full list
-        cached_items = get_watchlist_cache(self._NAME, status)
+        if paging_enabled and per_page > 0:
+            cached_items = get_watchlist_cache(self._NAME, status, limit=per_page, offset=offset, sort_by=sort_col, order=sort_dir)
+        else:
+            cached_items = get_watchlist_cache(self._NAME, status, sort_by=sort_col, order=sort_dir)
 
         if not cached_items:
             return []
 
-        # Deserialize cached items
+        # Deserialize only current page items
         items = [database.loads(item['data']) for item in cached_items]
-
-        # Apply sorting on raw items before slicing to current page
-        sort_idx = int(self.sort)
-        if sort_idx == 0:  # anime_title
-            items.sort(key=lambda x: (x.get('show', {}).get('title') or '').lower())
-        elif sort_idx == 1:  # user_rating (integer 1-10, or None)
-            items.sort(key=lambda x: x.get('user_rating') or 0, reverse=True)
-        elif sort_idx == 2:  # progress (watched / total)
-            items.sort(key=lambda x: (x.get('watched_episodes_count') or 0) / (x.get('total_episodes_count') or 1), reverse=True)
-        elif sort_idx == 3:  # last_watched (ISO 8601 timestamp)
-            items.sort(key=lambda x: x.get('last_watched_at') or "", reverse=True)
-        elif sort_idx == 4:  # last_added (ISO 8601 timestamp)
-            items.sort(key=lambda x: x.get('added_to_watchlist_at') or "", reverse=True)
-
-        if int(self.order) == 1:
-            items.reverse()
-
-        total_count = len(items)
-        if paging_enabled and per_page > 0:
-            items = items[offset:offset + per_page]
 
         # Fetch AniList data for current page items only (fast for small batches)
         mal_ids = [anime['show']['ids']['mal'] for anime in items if anime['show']['ids'].get('mal')]
@@ -253,12 +236,13 @@ class SimklWLF(WatchlistFlavorBase):
                 save_watchlist_cache(self._NAME, cache_status, filtered_data)
 
         # Get items from cache
+        sort_col, sort_dir = self.get_sort_col_and_order()
         total_count = get_watchlist_cache_count(self._NAME, cache_status)
 
         if paging_enabled and per_page > 0:
-            cached_items = get_watchlist_cache(self._NAME, cache_status, limit=per_page, offset=offset)
+            cached_items = get_watchlist_cache(self._NAME, cache_status, limit=per_page, offset=offset, sort_by=sort_col, order=sort_dir)
         else:
-            cached_items = get_watchlist_cache(self._NAME, cache_status)
+            cached_items = get_watchlist_cache(self._NAME, cache_status, sort_by=sort_col, order=sort_dir)
 
         if not cached_items:
             return []

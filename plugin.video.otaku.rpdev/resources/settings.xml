@@ -2629,6 +2629,8 @@
 							<option label="Progress">2</option>
 							<option label="Last Updated">3</option>
 							<option label="Last Added">4</option>
+							<option label="Episodes Remaining">5</option>
+							<option label="Total Episodes">6</option>
 						</options>
 					</constraints>
 					<control type="spinner" format="string"/>
@@ -2718,6 +2720,8 @@
 							<option label="Progress">2</option>
 							<option label="Last Updated">3</option>
 							<option label="Last Added">4</option>
+							<option label="Episodes Remaining">5</option>
+							<option label="Total Episodes">6</option>
 						</options>
 					</constraints>
 					<control type="spinner" format="string"/>
@@ -2780,6 +2784,8 @@
 							<option label="Progress">2</option>
 							<option label="Last Updated">3</option>
 							<option label="Anime Start Date">4</option>
+							<option label="Episodes Remaining">5</option>
+							<option label="Total Episodes">6</option>
 						</options>
 					</constraints>
 					<control type="spinner" format="string"/>
@@ -2843,6 +2849,8 @@
 							<option label="Progress">2</option>
 							<option label="Last Updated">3</option>
 							<option label="Last Added">4</option>
+							<option label="Episodes Remaining">5</option>
+							<option label="Total Episodes">6</option>
 						</options>
 					</constraints>
 					<control type="spinner" format="string"/>

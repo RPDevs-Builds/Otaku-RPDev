@@ -808,20 +808,76 @@ def remove_from_database(table, mal_id):
 #  Watchlist Cache
 # ═══════════════════════════════════════════════════════════════════════════
 
-def get_watchlist_cache(service, status, limit=None, offset=0):
-    """Cached watchlist items, optionally paginated."""
-    with SQL(control.malSyncDB) as cur:
-        if limit:
-            cur.execute(
-                'SELECT * FROM watchlist_cache '
-                'WHERE service=? AND status=? ORDER BY id LIMIT ? OFFSET ?',
-                (service, status, limit, offset))
-        else:
-            cur.execute(
-                'SELECT * FROM watchlist_cache '
-                'WHERE service=? AND status=? ORDER BY id',
-                (service, status))
-        return cur.fetchall()
+_WATCHLIST_SORT_COLUMNS = {
+    'title': 'title_en COLLATE NOCASE',
+    'title_en': 'title_en COLLATE NOCASE',
+    'name': 'title_en COLLATE NOCASE',
+    'title_romaji': 'title_romaji COLLATE NOCASE',
+    'score': 'score',
+    'episodes': 'total_episodes',
+    'total_episodes': 'total_episodes',
+    'watched': 'episodes_watched',
+    'progress': 'episodes_watched',
+    'episodes_watched': 'episodes_watched',
+    'remaining': 'episodes_remaining',
+    'episodes_remaining': 'episodes_remaining',
+    'date': 'release_date',
+    'release_date': 'release_date',
+    'updated': 'updated_at',
+    'updated_at': 'updated_at',
+    'order': 'item_order',
+    'item_order': 'item_order',
+    'default': 'item_order'
+}
+
+
+def get_watchlist_cache(service, status, limit=None, offset=0, sort_by=None, order='asc'):
+    """Cached watchlist items, optionally sorted and paginated."""
+    order_clause = 'DESC' if str(order).upper() == 'DESC' else 'ASC'
+    col = _WATCHLIST_SORT_COLUMNS.get(sort_by, 'item_order') if sort_by else 'item_order'
+
+    query = (
+        f'SELECT * FROM v_watchlist_items '
+        f'WHERE service=? AND status=? '
+        f'ORDER BY {col} {order_clause}, id ASC'
+    )
+    params = [service, status]
+    if limit is not None and int(limit) > 0:
+        query += ' LIMIT ? OFFSET ?'
+        params.extend([int(limit), int(offset)])
+
+    def _exec():
+        with SQL(control.malSyncDB) as cur:
+            cur.execute(query, tuple(params))
+            return cur.fetchall()
+
+    res = None
+    try:
+        res = _exec()
+    except Exception:
+        pass
+
+    if res is None:
+        # View might not exist yet on legacy DBs; build it and retry once
+        try:
+            from resources.lib.ui.database_sync import SyncDatabase
+            SyncDatabase._build_watchlist_view()
+            res = _exec()
+        except Exception:
+            res = None
+
+    if res is None:
+        fallback_query = 'SELECT * FROM watchlist_cache WHERE service=? AND status=? ORDER BY item_order ASC, id ASC'
+        fparams = [service, status]
+        if limit is not None and int(limit) > 0:
+            fallback_query += ' LIMIT ? OFFSET ?'
+            fparams.extend([int(limit), int(offset)])
+        with SQL(control.malSyncDB) as cur:
+            cur.execute(fallback_query, tuple(fparams))
+            fres = cur.fetchall()
+            return fres if fres is not None else []
+
+    return res
 
 
 def get_watchlist_cache_count(service, status):

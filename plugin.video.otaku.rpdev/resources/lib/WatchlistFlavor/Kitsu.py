@@ -288,13 +288,14 @@ class KitsuWLF(WatchlistFlavorBase):
         if cache_only:
             return []
 
-        # Read only the current page items from SQLite using LIMIT and OFFSET
+        # Read only the current page items from SQLite using database-level sorting
+        sort_col, sort_dir = self.get_sort_col_and_order()
         total_count = get_watchlist_cache_count(self._NAME, cache_key)
 
         if paging_enabled and per_page > 0:
-            cached_items = get_watchlist_cache(self._NAME, cache_key, limit=per_page, offset=offset)
+            cached_items = get_watchlist_cache(self._NAME, cache_key, limit=per_page, offset=offset, sort_by=sort_col, order=sort_dir)
         else:
-            cached_items = get_watchlist_cache(self._NAME, cache_key)
+            cached_items = get_watchlist_cache(self._NAME, cache_key, sort_by=sort_col, order=sort_dir)
 
         if not cached_items:
             return []

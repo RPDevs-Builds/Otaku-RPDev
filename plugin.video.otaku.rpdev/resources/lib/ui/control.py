@@ -901,7 +901,18 @@ def draw_items(video_data, content_type='', cacheToDisc=True):
         xbmcplugin.setContent(HANDLE, content_type)
     if content_type == 'episodes':
         xbmcplugin.addSortMethod(HANDLE, xbmcplugin.SORT_METHOD_NONE, "%H. %T", "%R | %P")
-    elif content_type == 'tvshows':
+        xbmcplugin.addSortMethod(HANDLE, xbmcplugin.SORT_METHOD_EPISODE, "%H. %T", "%R | %P")
+        xbmcplugin.addSortMethod(HANDLE, xbmcplugin.SORT_METHOD_VIDEO_RATING, "%R", "%L")
+        xbmcplugin.addSortMethod(HANDLE, xbmcplugin.SORT_METHOD_DATE, "%Y", "%L")
+        xbmcplugin.addSortMethod(HANDLE, xbmcplugin.SORT_METHOD_PLAYCOUNT, "%P", "%L")
+    elif content_type in ('tvshows', 'movies', 'videos', 'seasons'):
+        xbmcplugin.addSortMethod(HANDLE, xbmcplugin.SORT_METHOD_NONE, "%L", "%R")
+        xbmcplugin.addSortMethod(HANDLE, xbmcplugin.SORT_METHOD_LABEL_IGNORE_THE, "%L", "%R")
+        xbmcplugin.addSortMethod(HANDLE, xbmcplugin.SORT_METHOD_DATE, "%Y", "%R")
+        xbmcplugin.addSortMethod(HANDLE, xbmcplugin.SORT_METHOD_VIDEO_RATING, "%R", "%L")
+        xbmcplugin.addSortMethod(HANDLE, xbmcplugin.SORT_METHOD_EPISODE, "%E", "%L")
+        xbmcplugin.addSortMethod(HANDLE, xbmcplugin.SORT_METHOD_PLAYCOUNT, "%P", "%L")
+    else:
         xbmcplugin.addSortMethod(HANDLE, xbmcplugin.SORT_METHOD_NONE, "%L", "%R")
     xbmcplugin.endOfDirectory(HANDLE, cacheToDisc=cacheToDisc)
     closeAllDialogs()

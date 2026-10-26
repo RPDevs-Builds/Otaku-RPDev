@@ -468,6 +468,14 @@ class MockPlugin:
         self.sort_methods = []
         self.properties = {}
         self.SORT_METHOD_NONE = 0
+        self.SORT_METHOD_LABEL = 1
+        self.SORT_METHOD_LABEL_IGNORE_THE = 2
+        self.SORT_METHOD_DATE = 3
+        self.SORT_METHOD_YEAR = 17
+        self.SORT_METHOD_VIDEO_RATING = 18
+        self.SORT_METHOD_DATEADDED = 21
+        self.SORT_METHOD_EPISODE = 24
+        self.SORT_METHOD_PLAYCOUNT = 37
 
     def addDirectoryItem(self, handle, url, listitem, isFolder=False, totalItems=0):
         self.directory_items.append((handle, url, listitem, isFolder))

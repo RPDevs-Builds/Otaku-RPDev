@@ -244,34 +244,20 @@ class AniListWLF(WatchlistFlavorBase):
         if cache_only:
             return []
 
-        # Get items from cache
+        # Get items from cache with database-level sorting and pagination
+        sort_col, sort_dir = self.get_sort_col_and_order()
         total_count = get_watchlist_cache_count(self._NAME, status)
 
-        # Always fetch ALL items so sorting works across the full list
-        cached_items = get_watchlist_cache(self._NAME, status)
+        if paging_enabled and per_page > 0:
+            cached_items = get_watchlist_cache(self._NAME, status, limit=per_page, offset=offset, sort_by=sort_col, order=sort_dir)
+        else:
+            cached_items = get_watchlist_cache(self._NAME, status, sort_by=sort_col, order=sort_dir)
 
         if not cached_items:
             return []
 
-        # Deserialize cached items
+        # Deserialize only current page items
         entries = [database.loads(item['data']) for item in cached_items]
-
-        # If sorting by title, sort manually alphabetically.
-        if int(self.sort) == 0:
-            entries.sort(key=lambda entry: (entry['media']['title'].get(self.title_lang) or "").lower())
-
-        # If sorting by score, sort manually by score.
-        if int(self.sort) == 1:
-            entries.sort(key=lambda entry: entry['media'].get('averageScore') or 0, reverse=True)
-
-        # If order is descending, reverse the order.
-        if int(self.order) == 1:
-            entries.reverse()
-
-        total_count = len(entries)
-        if paging_enabled and per_page > 0:
-            entries = entries[offset:offset + per_page]
-
         get_meta.collect_meta(entries)
 
         # Map to views
@@ -341,12 +327,13 @@ class AniListWLF(WatchlistFlavorBase):
                 save_watchlist_cache(self._NAME, cache_status, filtered_entries)
 
         # Get items from cache
+        sort_col, sort_dir = self.get_sort_col_and_order()
         total_count = get_watchlist_cache_count(self._NAME, cache_status)
 
         if paging_enabled and per_page > 0:
-            cached_items = get_watchlist_cache(self._NAME, cache_status, limit=per_page, offset=offset)
+            cached_items = get_watchlist_cache(self._NAME, cache_status, limit=per_page, offset=offset, sort_by=sort_col, order=sort_dir)
         else:
-            cached_items = get_watchlist_cache(self._NAME, cache_status)
+            cached_items = get_watchlist_cache(self._NAME, cache_status, sort_by=sort_col, order=sort_dir)
 
         if not cached_items:
             return []

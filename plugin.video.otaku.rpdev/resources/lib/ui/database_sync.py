@@ -60,6 +60,7 @@ class SyncDatabase:
         self._build_show_data()
         self._build_watchlist_cache()
         self._build_watchlist_activity()
+        self._build_watchlist_view()
         self._build_anilist_enrichment()
 
     # --- individual table builders (static, idempotent) ---------------
@@ -167,6 +168,7 @@ class SyncDatabase:
                 'CREATE INDEX IF NOT EXISTS idx_wl_last_updated '
                 'ON watchlist_cache(last_updated)')
             cur.connection.commit()
+        SyncDatabase._build_watchlist_view()
 
     @staticmethod
     def _build_watchlist_activity():
@@ -176,6 +178,99 @@ class SyncDatabase:
                 'service TEXT PRIMARY KEY, '
                 'activity_timestamp TEXT NOT NULL, '
                 'last_checked INTEGER NOT NULL)')
+            cur.connection.commit()
+
+    @staticmethod
+    def _build_watchlist_view():
+        with SQL(control.malSyncDB) as cur:
+            cur.execute('DROP VIEW IF EXISTS v_watchlist_items')
+            cur.execute(
+                'CREATE VIEW IF NOT EXISTS v_watchlist_items AS '
+                'SELECT '
+                '    id, '
+                '    service, '
+                '    status, '
+                '    mal_id, '
+                '    item_order, '
+                '    data, '
+                '    last_updated, '
+                '    COALESCE( '
+                "        NULLIF(json_extract(data, '$.media.title.english'), ''), "
+                "        NULLIF(json_extract(data, '$.node.alternative_titles.en'), ''), "
+                "        NULLIF(json_extract(data, '$.anime.attributes.titles.en'), ''), "
+                "        NULLIF(json_extract(data, '$.anime.attributes.titles.en_jp'), ''), "
+                "        NULLIF(json_extract(data, '$.media.title.romaji'), ''), "
+                "        NULLIF(json_extract(data, '$.node.title'), ''), "
+                "        NULLIF(json_extract(data, '$.anime.attributes.canonicalTitle'), ''), "
+                "        NULLIF(json_extract(data, '$.show.title'), ''), "
+                "        '' "
+                '    ) AS title_en, '
+                '    COALESCE( '
+                "        NULLIF(json_extract(data, '$.media.title.romaji'), ''), "
+                "        NULLIF(json_extract(data, '$.node.title'), ''), "
+                "        NULLIF(json_extract(data, '$.anime.attributes.canonicalTitle'), ''), "
+                "        NULLIF(json_extract(data, '$.anime.attributes.titles.en_jp'), ''), "
+                "        NULLIF(json_extract(data, '$.show.title'), ''), "
+                "        NULLIF(json_extract(data, '$.media.title.english'), ''), "
+                "        NULLIF(json_extract(data, '$.node.alternative_titles.en'), ''), "
+                "        NULLIF(json_extract(data, '$.anime.attributes.titles.en'), ''), "
+                "        '' "
+                '    ) AS title_romaji, '
+                '    COALESCE( '
+                "        CAST(json_extract(data, '$.media.averageScore') AS REAL), "
+                "        CAST(json_extract(data, '$.node.mean') * 10 AS REAL), "
+                "        CAST(json_extract(data, '$.show.ratings.simkl.rating') * 10 AS REAL), "
+                "        CAST(json_extract(data, '$.anime.attributes.averageRating') AS REAL), "
+                '        0.0 '
+                '    ) AS score, '
+                '    COALESCE( '
+                "        CAST(json_extract(data, '$.media.episodes') AS INTEGER), "
+                "        CAST(json_extract(data, '$.node.num_episodes') AS INTEGER), "
+                "        CAST(json_extract(data, '$.total_episodes_count') AS INTEGER), "
+                "        CAST(json_extract(data, '$.anime.attributes.episodeCount') AS INTEGER), "
+                '        0 '
+                '    ) AS total_episodes, '
+                '    COALESCE( '
+                "        CAST(json_extract(data, '$.progress') AS INTEGER), "
+                "        CAST(json_extract(data, '$.list_status.num_episodes_watched') AS INTEGER), "
+                "        CAST(json_extract(data, '$.watched_episodes_count') AS INTEGER), "
+                "        CAST(json_extract(data, '$.entry.attributes.progress') AS INTEGER), "
+                '        0 '
+                '    ) AS episodes_watched, '
+                '    MAX(0, '
+                '        COALESCE( '
+                "            CAST(json_extract(data, '$.media.episodes') AS INTEGER), "
+                "            CAST(json_extract(data, '$.node.num_episodes') AS INTEGER), "
+                "            CAST(json_extract(data, '$.total_episodes_count') AS INTEGER), "
+                "            CAST(json_extract(data, '$.anime.attributes.episodeCount') AS INTEGER), "
+                '            0 '
+                '        ) - '
+                '        COALESCE( '
+                "            CAST(json_extract(data, '$.progress') AS INTEGER), "
+                "            CAST(json_extract(data, '$.list_status.num_episodes_watched') AS INTEGER), "
+                "            CAST(json_extract(data, '$.watched_episodes_count') AS INTEGER), "
+                "            CAST(json_extract(data, '$.entry.attributes.progress') AS INTEGER), "
+                '            0 '
+                '        ) '
+                '    ) AS episodes_remaining, '
+                '    COALESCE( '
+                "        CASE WHEN json_extract(data, '$.media.startDate.year') IS NOT NULL "
+                "             THEN printf('%04d-%02d-%02d', json_extract(data, '$.media.startDate.year'), COALESCE(json_extract(data, '$.media.startDate.month'), 1), COALESCE(json_extract(data, '$.media.startDate.day'), 1)) "
+                '             ELSE NULL END, '
+                "        json_extract(data, '$.node.start_date'), "
+                "        json_extract(data, '$.show.release_date'), "
+                "        json_extract(data, '$.anime.attributes.startDate'), "
+                "        '' "
+                '    ) AS release_date, '
+                '    COALESCE( '
+                "        json_extract(data, '$.updatedAt'), "
+                "        json_extract(data, '$.list_status.updated_at'), "
+                "        json_extract(data, '$.last_watched_at'), "
+                "        json_extract(data, '$.entry.attributes.updatedAt'), "
+                '        last_updated '
+                '    ) AS updated_at '
+                'FROM watchlist_cache'
+            )
             cur.connection.commit()
 
     @staticmethod
@@ -308,6 +403,7 @@ class SyncDatabase:
 
         try:
             with SQL(control.malSyncDB) as cur:
+                cur.execute('DROP VIEW IF EXISTS v_watchlist_items')
                 for tbl in (
                     'episodes', 'shows_meta', 'show_data', 'shows',
                     'watchlist_cache', 'watchlist_activity',
@@ -351,6 +447,7 @@ class SyncDatabase:
 
     def build_watchlist_cache_table(self):
         self._build_watchlist_cache()
+        self._build_watchlist_view()
 
     def build_anilist_enrichment_table(self):
         self._build_anilist_enrichment()

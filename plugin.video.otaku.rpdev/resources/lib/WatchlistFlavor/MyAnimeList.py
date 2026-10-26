@@ -228,13 +228,14 @@ class MyAnimeListWLF(WatchlistFlavorBase):
         if cache_only:
             return []
 
-        # Get items from cache
+        # Get items from cache with database-level sorting
+        sort_col, sort_dir = self.get_sort_col_and_order()
         total_count = get_watchlist_cache_count(self._NAME, status)
 
         if paging_enabled and per_page > 0:
-            cached_items = get_watchlist_cache(self._NAME, status, limit=per_page, offset=offset)
+            cached_items = get_watchlist_cache(self._NAME, status, limit=per_page, offset=offset, sort_by=sort_col, order=sort_dir)
         else:
-            cached_items = get_watchlist_cache(self._NAME, status)
+            cached_items = get_watchlist_cache(self._NAME, status, sort_by=sort_col, order=sort_dir)
 
         if not cached_items:
             return []
@@ -372,12 +373,13 @@ class MyAnimeListWLF(WatchlistFlavorBase):
                 save_watchlist_cache(self._NAME, cache_status, filtered_data)
 
         # Get items from cache
+        sort_col, sort_dir = self.get_sort_col_and_order()
         total_count = get_watchlist_cache_count(self._NAME, cache_status)
 
         if paging_enabled and per_page > 0:
-            cached_items = get_watchlist_cache(self._NAME, cache_status, limit=per_page, offset=offset)
+            cached_items = get_watchlist_cache(self._NAME, cache_status, limit=per_page, offset=offset, sort_by=sort_col, order=sort_dir)
         else:
-            cached_items = get_watchlist_cache(self._NAME, cache_status)
+            cached_items = get_watchlist_cache(self._NAME, cache_status, sort_by=sort_col, order=sort_dir)
 
         if not cached_items:
             return []

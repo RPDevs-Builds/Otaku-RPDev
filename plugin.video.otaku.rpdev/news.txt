@@ -16,14 +16,22 @@ unreasonable care and served directly from my personal Kodi repo!
 Major Highlights & Architectural Upgrades Since Upstream v5.4.3:
 --------------------------------------------------------------------------------
 
-1. Multi-Option Cache & Maintenance System (v5.5.1)
+1. Multi-Dimensional Sorting Architecture & SQLite Views (v5.5.3)
+   • Kodi skin sidebar sorting: instant in-view re-ordering by Title, Rating,
+     Date, Episode Count, and Watched Status across all browser & watchlist lists.
+   • SQLite view v_watchlist_items: cross-service JSON extraction normalizing
+     titles, scores, dates, and episodes remaining (AniList, MAL, Simkl, Kitsu).
+   • Database-level pre-pagination sorting: zero memory overhead on low-spec devices.
+   • Added "Episodes Remaining" and "Total Episodes" sort modes in settings.xml.
+
+2. Multi-Option Cache & Maintenance System (v5.5.1)
    • Context Menu "Clear Addon Cache" now opens an interactive modal window.
    • Defaults to "Provider Cache": instantly clears torrent scrapes, embed links,
      season packs, and debrid hashes without wiping your watchlist or metadata.
    • "All Cache & Database" option provides a full nuclear purge when needed.
    • Real-time descriptions update on navigation; dedicated Cancel button.
 
-2. Comprehensive Test Harness & 100% Error Catching (v5.5.0)
+3. Comprehensive Test Harness & 100% Error Catching (v5.5.0)
    • 168 automated tests covering all 9 architectural phases in CI.
    • Full Kodi mock harness simulating players, lists, dialogs, and plugins.
    • Typed error guards and circuit breakers on all external API requests,

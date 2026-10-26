@@ -1,3 +1,12 @@
+Changelog v5.5.3 (2026-10-25):
+- Multi-Dimensional Sorting Architecture across all lists:
+  - Enabled Kodi native sort methods in control.draw_items() (Title, Release Date, Score/Rating, Episode Count, Watched Status), unlocking instant sidebar sorting for Popular, Trending, Most Voted, Top 100, Airing, Movies, and Watchlists.
+  - Built SQLite view v_watchlist_items with native json_extract() normalizing title_en, title_romaji, score (0-100), total_episodes, episodes_watched, episodes_remaining, and release dates across AniList, MyAnimeList, Simkl, and Kitsu.
+  - Connected v_watchlist_items directly to database.get_watchlist_cache(), enabling database-level pre-pagination sorting (ORDER BY ... LIMIT ... OFFSET ...) and eliminating full-watchlist in-memory deserialization.
+  - Added "Episodes Remaining" (5) and "Total Episodes" (6) sort options to settings.xml for all watchlist flavors.
+  - Added self-healing view recreation on legacy or un-migrated databases.
+  - Added 5 new automated tests in test_watchlist_sorting.py bringing test suite to 173 passing tests.
+
 Changelog v5.5.2 (2026-10-25):
 - Refresh artwork assets, icon, and poster branding across Kodi repositories
 
