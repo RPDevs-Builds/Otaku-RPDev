@@ -1,3 +1,6 @@
+Changelog v1.0.41 (2026-10-25)
+- Update icon, logo, and poster branding assets
+
 Changelog v1.0.40 (2026-10-25)
 - 'Clear Addon Cache' now launches the interactive multi-option modal window (Provider Cache vs All Cache & DB)
 - Alignment with Otaku RPDev v5.5.1 release

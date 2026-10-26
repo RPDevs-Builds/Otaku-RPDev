@@ -5,7 +5,7 @@
     <import addon="script.module.beautifulsoup4"/>
     <import addon="script.module.inputstreamhelper"/>
     <import addon="script.module.pyqrcode"/>
-    <import addon="context.otaku.rpdev" version="1.0.40"/>
+    <import addon="context.otaku.rpdev" version="1.0.41"/>
   </requires>
   <extension library="default.py" point="xbmc.python.pluginsource">
         <provides>video</provides>
