@@ -1,3 +1,6 @@
+Changelog v5.5.2 (2026-10-25):
+- Refresh artwork assets, icon, and poster branding across Kodi repositories
+
 Changelog v5.5.1 (2026-10-25):
 - Multi-option Clear Cache modal dialog, news.txt and README overhaul including context menu updates
 
