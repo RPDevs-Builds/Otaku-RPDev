@@ -210,18 +210,26 @@ def main():
     # 5. Git Commit & Push (Add-on Repository)
     print(f"\n🐙 Step 5: Committing & Pushing {args.addon_id} (RPDevs-Builds/Otaku-RPDev)...")
     run_cmd("git add -A", cwd=repo_root)
-    commit_msg = f"chore(release): bump {args.addon_id} to v{next_ver} - {release_msg.splitlines()[0]}"
-    run_cmd(f'git commit --no-gpg-sign -m "{commit_msg}"', cwd=repo_root)
-    run_cmd("git push origin main", cwd=repo_root)
-    print("  ✓ Pushed add-on repo to origin/main.")
+    status_proc = run_cmd("git status --porcelain", cwd=repo_root)
+    if status_proc.stdout.strip():
+        commit_msg = f"chore(release): bump {args.addon_id} to v{next_ver} - {release_msg.splitlines()[0]}"
+        run_cmd(f'git commit --no-gpg-sign -m "{commit_msg}"', cwd=repo_root)
+        run_cmd("git push origin main", cwd=repo_root)
+        print("  ✓ Pushed add-on repo to origin/main.")
+    else:
+        print("  ℹ️ Working tree clean in add-on repo. Nothing to commit.")
 
     # 6. Git Commit & Push (CDN Repository)
     print("\n🚀 Step 6: Committing & Pushing CDN Repository (rpdev-cdn/kodi.repo.iamrp.dev)...")
     run_cmd("git add .", cwd=cdn_dir)
-    cdn_commit_msg = f"chore(repo): publish {args.addon_id}-{next_ver}.zip"
-    run_cmd(f'git commit --no-gpg-sign -m "{cdn_commit_msg}"', cwd=cdn_dir)
-    run_cmd("git push origin main", cwd=cdn_dir)
-    print("  ✓ Pushed CDN repo to origin/main.")
+    status_cdn = run_cmd("git status --porcelain", cwd=cdn_dir)
+    if status_cdn.stdout.strip():
+        cdn_commit_msg = f"chore(repo): publish {args.addon_id}-{next_ver}.zip"
+        run_cmd(f'git commit --no-gpg-sign -m "{cdn_commit_msg}"', cwd=cdn_dir)
+        run_cmd("git push origin main", cwd=cdn_dir)
+        print("  ✓ Pushed CDN repo to origin/main.")
+    else:
+        print("  ℹ️ Working tree clean in CDN repo. Nothing to commit.")
 
     print("\n═══════════════════════════════════════════════════════════════════════════")
     print(f" 🎉 RELEASE v{next_ver} COMPLETE & PUBLISHED TO CDN!")

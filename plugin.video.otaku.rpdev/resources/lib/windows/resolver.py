@@ -310,6 +310,15 @@ class Resolver(BaseWindow):
         art = self._build_art_dict(use_params=False)
         if isinstance(art, dict):
             item.setArt(art)
+            studio_art = art.get('studio') or art.get('tvshow.studio')
+            if studio_art:
+                item.setProperty('StudioIcon', studio_art)
+                item.setProperty('StudioLogo', studio_art)
+                item.setProperty('Studio.Icon', studio_art)
+                item.setProperty('Studio.Logo', studio_art)
+                item.setProperty('Studio.1.Icon', studio_art)
+                item.setProperty('Studio.1.Logo', studio_art)
+                item.setProperty('Studio.1.Art', studio_art)
 
         # Get the clean URL from item (hooks may have stripped headers)
         stream_url = item.getPath()

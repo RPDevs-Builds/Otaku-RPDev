@@ -116,6 +116,45 @@ class TestAnimeStudioResources(unittest.TestCase):
         self.assertEqual(param_art_dict['studio'], 'resource://resource.images.animestudio.white/Bones.png')
         self.assertEqual(param_art_dict['tvshow.studio'], 'resource://resource.images.animestudio.white/Bones.png')
 
+    def test_resolver_handle_playback_sets_studio_properties(self):
+        resolver = Resolver.__new__(Resolver)
+        resolver.image = {
+            'studio': 'resource://resource.images.animestudio.white/MAPPA.png',
+            'tvshow.studio': 'resource://resource.images.animestudio.white/MAPPA.png',
+        }
+        resolver.params = {}
+        resolver.context = False
+        resolver.source_select_close = None
+        resolver.sources = []
+        resolver.return_data = {
+            'linkinfo': {'url': 'https://example.com/stream.mkv', 'headers': {}},
+        }
+        captured_items = []
+
+        with patch('resources.lib.windows.resolver.control.set_videotags'), \
+             patch('resources.lib.windows.resolver.control.playList') as mock_pl, \
+             patch('resources.lib.windows.resolver.xbmc.getInfoLabel', return_value=control.ADDON_ID), \
+             patch('resources.lib.windows.resolver.xbmcplugin.setResolvedUrl', side_effect=lambda h, s, li: captured_items.append(li)), \
+             patch('resources.lib.windows.resolver.Monitor') as mock_monitor_cls:
+            mock_pl.size.return_value = 0
+            mock_mon = MagicMock()
+            mock_mon.waitForAbort.return_value = True
+            mock_mon.playbackerror = False
+            mock_mon.abortRequested.return_value = False
+            mock_monitor_cls.return_value = mock_mon
+
+            resolver._handle_playback()
+
+            self.assertTrue(len(captured_items) > 0)
+            res_item = captured_items[0]
+            self.assertEqual(res_item.getProperty('StudioIcon'), 'resource://resource.images.animestudio.white/MAPPA.png')
+            self.assertEqual(res_item.getProperty('StudioLogo'), 'resource://resource.images.animestudio.white/MAPPA.png')
+            self.assertEqual(res_item.getProperty('Studio.Icon'), 'resource://resource.images.animestudio.white/MAPPA.png')
+            self.assertEqual(res_item.getProperty('Studio.Logo'), 'resource://resource.images.animestudio.white/MAPPA.png')
+            self.assertEqual(res_item.getProperty('Studio.1.Icon'), 'resource://resource.images.animestudio.white/MAPPA.png')
+            self.assertEqual(res_item.getProperty('Studio.1.Logo'), 'resource://resource.images.animestudio.white/MAPPA.png')
+            self.assertEqual(res_item.getProperty('Studio.1.Art'), 'resource://resource.images.animestudio.white/MAPPA.png')
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -874,10 +874,8 @@ def xbmc_add_dir(name, url, art, info, draw_cm, bulk_add, isfolder, isplayable, 
 
         if primary_studio_name:
             studio_art = f"resource://resource.images.animestudio.{artwork_studios_style}/{primary_studio_name}.png"
-            if not art.get('studio'):
-                art['studio'] = studio_art
-            if not art.get('tvshow.studio'):
-                art['tvshow.studio'] = studio_art
+            art['studio'] = studio_art
+            art['tvshow.studio'] = studio_art
             liz.setProperty('StudioIcon', studio_art)
             liz.setProperty('StudioLogo', studio_art)
             liz.setProperty('Studio.Icon', studio_art)
