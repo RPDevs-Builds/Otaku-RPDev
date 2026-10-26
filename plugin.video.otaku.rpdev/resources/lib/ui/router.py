@@ -37,3 +37,8 @@ def router_process(url, params=None):
     for route_obj in ROUTES:
         if url == route_obj.path or (route_obj.wildcard and url.startswith(route_obj.path)):
             return route_obj.func(payload, params)
+    try:
+        from resources.lib.ui import control
+        control.log(f"Router: No handler registered for URL '{url}'", 'warning')
+    except Exception:
+        pass

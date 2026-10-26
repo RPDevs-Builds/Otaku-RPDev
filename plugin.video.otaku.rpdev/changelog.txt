@@ -1,3 +1,6 @@
+Changelog v5.5.8 (2026-10-26):
+- Code stability: replace BaseException traps in client.py and add router fallback warning
+
 Changelog v5.5.7 (2026-10-26):
 - Fix changelog dismissal loop, Android TV remote back action, and add Dismiss button
 

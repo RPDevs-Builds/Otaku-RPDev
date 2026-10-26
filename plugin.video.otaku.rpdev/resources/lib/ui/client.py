@@ -488,7 +488,7 @@ def request(
                     if output == 'extended':
                         try:
                             err_headers = dict([(item[0].title(), item[1]) for item in list(e.info().items())])
-                        except BaseException:
+                        except Exception:
                             err_headers = {}
                         return (result, str(error_code), err_headers, _headers, '', getattr(e, 'url', url))
                     if not error:
@@ -504,7 +504,7 @@ def request(
                             if output == 'extended':
                                 try:
                                     err_headers = dict([(item[0].title(), item[1]) for item in list(e.info().items())])
-                                except BaseException:
+                                except Exception:
                                     err_headers = {}
                                 return (result, str(error_code), err_headers, _headers, '', getattr(e, 'url', url))
                             if not error:
@@ -519,7 +519,7 @@ def request(
                         if output == 'extended':
                             try:
                                 err_headers = dict([(item[0].title(), item[1]) for item in list(e.info().items())])
-                            except BaseException:
+                            except Exception:
                                 err_headers = {}
                             return (result, str(error_code), err_headers, _headers, '', getattr(e, 'url', url))
                         if not error:
@@ -528,7 +528,7 @@ def request(
                     if output == 'extended':
                         try:
                             err_headers = dict([(item[0].title(), item[1]) for item in list(e.info().items())])
-                        except BaseException:
+                        except Exception:
                             err_headers = {}
                         return (result, str(error_code), err_headers, _headers, '', getattr(e, 'url', url))
                     if error is True:
@@ -609,7 +609,7 @@ def request(
         elif output == 'chunk':
             try:
                 content = int(response.headers['Content-Length'])
-            except BaseException:
+            except Exception:
                 content = (2049 * 1024)
             if content < (2048 * 1024):
                 return
@@ -621,7 +621,7 @@ def request(
         elif output == 'file_size':
             try:
                 content = int(response.headers['Content-Length'])
-            except BaseException:
+            except Exception:
                 content = '0'
             response.close()
             return content
@@ -687,7 +687,7 @@ def request(
             try:
                 response_headers = dict(
                     [(item[0].title(), item[1]) for item in list(response.info().items())])
-            except BaseException:
+            except Exception:
                 response_headers = response.headers
             response_url = response.url
             response_code = str(response.code)
@@ -952,7 +952,7 @@ def _basic_request(url, headers=None, post=None, timeout=60, jpost=False, limit=
             _add_request_header(request, headers)
         response = urllib.request.urlopen(request, timeout=timeout)
         return _get_result(response, limit)
-    except BaseException:
+    except Exception:
         return
 
 
@@ -967,7 +967,7 @@ def _add_request_header(_request, headers):
         _request.add_unredirected_header('Referer', referer)
         for key in headers:
             _request.add_header(key, headers[key])
-    except BaseException:
+    except Exception:
         return
 
 
@@ -981,7 +981,7 @@ def _get_result(response, limit=None):
 
     try:
         encoding = response.info().getheader('Content-Encoding')
-    except BaseException:
+    except Exception:
         encoding = None
     if encoding == 'gzip':
         result = gzip.GzipFile(fileobj=io.BytesIO(result)).read()
