@@ -106,7 +106,10 @@ def WATCHLIST_TO_EP(payload, params):
         if not show_meta:
             return control.exit_code()
     kodi_meta = database.loads(show_meta['kodi_meta'])
-    kodi_meta['eps_watched'] = int(eps_watched) if str(eps_watched).isdigit() else eps_watched
+    url_ep = int(eps_watched) if str(eps_watched).isdigit() else 0
+    db_ep = int(kodi_meta.get('eps_watched') or 0)
+    current_ep = max(url_ep, db_ep)
+    kodi_meta['eps_watched'] = current_ep
     database.update_kodi_meta(mal_id, kodi_meta)
 
     anime_general, content_type = MetaBrowser.get_anime_init(mal_id)
@@ -216,9 +219,9 @@ def add_watchlist(items):
     return items
 
 
-def watchlist_update_episode(mal_id, episode):
+def watchlist_update_episode(mal_id, episode, up_to=False):
     """Update episode progress on ALL enabled watchlists."""
-    return WatchlistFlavor.watchlist_update_all_episodes(mal_id, episode)
+    return WatchlistFlavor.watchlist_update_all_episodes(mal_id, episode, up_to=up_to)
 
 
 def set_watchlist_status(mal_id, status):

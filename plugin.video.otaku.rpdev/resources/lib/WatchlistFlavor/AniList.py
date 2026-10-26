@@ -697,7 +697,7 @@ class AniListWLF(WatchlistFlavorBase):
             clear_watchlist_cache(self._NAME)  # Clear all statuses since item moved
         return r and r.ok
 
-    def update_num_episodes(self, mal_id, episode):
+    def update_num_episodes(self, mal_id, episode, *args, **kwargs):
         from resources.lib.ui.database import clear_watchlist_cache
         anilist_id = self._get_mapping_id(mal_id, 'anilist_id')
         if not anilist_id:

@@ -476,6 +476,18 @@ def MARKED_AS_WATCHED(payload, params):
         except Exception as e:
             control.log(f"Error updating kodi_meta: {e}", "warning")
 
+    # Update SQLite episodes table for the marked episode
+    try:
+        ep_num = int(episode) if str(episode).isdigit() else 1
+        ep_row = database.get_episode(mal_id, ep_num)
+        if ep_row:
+            ep_meta = database.loads(ep_row['kodi_meta'])
+            if ep_meta.get('info', {}).get('playcount') != 1:
+                ep_meta.setdefault('info', {})['playcount'] = 1
+                database.update_episode_column(mal_id, ep_num, 'kodi_meta', database.dumps(ep_meta))
+    except Exception as e:
+        control.log(f"Error updating episode table playcount: {e}", "warning")
+
     # Build notification showing updated watchlists
     enabled = control.enabled_watchlists()
     flavor_labels = {'anilist': 'AniList', 'kitsu': 'Kitsu', 'mal': 'MAL', 'simkl': 'Simkl'}
@@ -483,7 +495,11 @@ def MARKED_AS_WATCHED(payload, params):
 
     if len(parts) >= 2:
         control.notify(control.ADDON_NAME, f'Episode #{episode} was Marked as Watched in {updated_names}')
-        control.execute(f'ActivateWindow(Videos,plugin://{control.ADDON_ID}/watchlist_to_ep/{mal_id}/{episode})')
+        folder_path = control.getInfoLabel('Container.FolderPath')
+        if 'watchlist_to_ep' in folder_path:
+            control.execute(f'Container.Update(plugin://{control.ADDON_ID}/watchlist_to_ep/{mal_id}/{episode})')
+        else:
+            control.execute('Container.Refresh')
     else:
         title = ''
         if show:
@@ -529,6 +545,19 @@ def MARKED_AS_UNWATCHED(payload, params):
         except Exception as e:
             control.log(f"Error updating kodi_meta: {e}", "warning")
 
+    # Clear SQLite episodes table playcounts for unwatched episodes
+    episodes = database.get_episode_list(mal_id)
+    if episodes:
+        for ep_row in episodes:
+            if ep_row['number'] >= current_ep:
+                try:
+                    ep_meta = database.loads(ep_row['kodi_meta'])
+                    if ep_meta.get('info', {}).get('playcount') == 1:
+                        ep_meta['info']['playcount'] = 0
+                        database.update_episode_column(mal_id, ep_row['number'], 'kodi_meta', database.dumps(ep_meta))
+                except Exception:
+                    pass
+
     # If target_ep is 0, remove anime from watch history; otherwise update to target_ep
     if target_ep == 0:
         try:
@@ -563,7 +592,11 @@ def MARKED_AS_UNWATCHED(payload, params):
                 title = ''
         control.notify(control.ADDON_NAME, f'{title} Marked as Unwatched in {updated_names}')
 
-    control.execute('Container.Refresh')
+    folder_path = control.getInfoLabel('Container.FolderPath')
+    if 'watchlist_to_ep' in folder_path:
+        control.execute(f'Container.Update(plugin://{control.ADDON_ID}/watchlist_to_ep/{mal_id}/{target_ep})')
+    else:
+        control.execute('Container.Refresh')
     control.exit_code()
 
 
@@ -600,7 +633,7 @@ def MARK_PREVIOUS_WATCHED(payload, params):
         return
 
     # Update watchlist for target_ep (MAL/AniList/Simkl/Kitsu sets progress to target_ep)
-    any_completed = watchlist_update_episode(mal_id, target_ep)
+    any_completed = watchlist_update_episode(mal_id, target_ep, up_to=True)
     if any_completed:
         control.sleep(3000)
         service.sync_watchlist(True)
@@ -620,12 +653,31 @@ def MARK_PREVIOUS_WATCHED(payload, params):
         except Exception as e:
             control.log(f"Error updating kodi_meta: {e}", "warning")
 
+    # Also update cached episodes table in SQLite directly
+    episodes = database.get_episode_list(mal_id)
+    if episodes:
+        for ep_row in episodes:
+            if ep_row['number'] <= target_ep:
+                try:
+                    ep_meta = database.loads(ep_row['kodi_meta'])
+                    if ep_meta.get('info', {}).get('playcount') != 1:
+                        ep_meta.setdefault('info', {})['playcount'] = 1
+                        database.update_episode_column(mal_id, ep_row['number'], 'kodi_meta', database.dumps(ep_meta))
+                except Exception:
+                    pass
+
     # Build notification showing updated watchlists
     enabled = control.enabled_watchlists()
     flavor_labels = {'anilist': 'AniList', 'kitsu': 'Kitsu', 'mal': 'MAL', 'simkl': 'Simkl'}
     updated_names = ', '.join([flavor_labels.get(f, f.capitalize()) for f in enabled]) if enabled else 'Local History'
     control.notify(control.ADDON_NAME, f"Episodes 1 to {target_ep} Marked as Watched in {updated_names}")
-    control.execute("Container.Refresh")
+
+    folder_path = control.getInfoLabel('Container.FolderPath')
+    if 'watchlist_to_ep' in folder_path:
+        control.execute(f'Container.Update(plugin://{control.ADDON_ID}/watchlist_to_ep/{mal_id}/{target_ep})')
+    else:
+        control.execute("Container.Refresh")
+    control.exit_code()
 
 
 @Route('playback_options/*')

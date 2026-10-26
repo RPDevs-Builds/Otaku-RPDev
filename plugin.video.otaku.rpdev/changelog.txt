@@ -1,3 +1,6 @@
+Changelog v5.5.9 (2026-10-26):
+- Fix Mark Episodes Up To Here: Simkl bulk history sync, SQLite playcounts, and container update
+
 Changelog v5.5.8 (2026-10-26):
 - Code stability: replace BaseException traps in client.py and add router fallback warning
 

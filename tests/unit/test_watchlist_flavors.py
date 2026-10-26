@@ -88,5 +88,25 @@ class TestWatchlistFlavors(unittest.TestCase):
             self.assertNotIn("30000", completed)
 
 
+    def test_simkl_update_num_episodes_single_and_up_to(self):
+        simkl = SimklWLF()
+        with patch("resources.lib.WatchlistFlavor.Simkl.client.post") as mock_post:
+            mock_resp = MagicMock()
+            mock_resp.json.return_value = {"not_found": {}}
+            mock_post.return_value = mock_resp
+
+            # Single episode
+            simkl.update_num_episodes("12345", 5, up_to=False)
+            self.assertTrue(mock_post.called)
+            sent_data = mock_post.call_args[1]["json_data"]
+            self.assertEqual(sent_data["shows"][0]["episodes"], [{"number": 5}])
+
+            # Up to episode (bulk history sync)
+            simkl.update_num_episodes("12345", 4, up_to=True)
+            sent_bulk = mock_post.call_args[1]["json_data"]
+            expected_eps = [{"number": 1}, {"number": 2}, {"number": 3}, {"number": 4}]
+            self.assertEqual(sent_bulk["shows"][0]["episodes"], expected_eps)
+
+
 if __name__ == "__main__":
     unittest.main()

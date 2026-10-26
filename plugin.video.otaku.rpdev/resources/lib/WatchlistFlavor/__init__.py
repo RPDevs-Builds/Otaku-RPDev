@@ -161,7 +161,7 @@ class WatchlistFlavor:
     # ==================== All-Watchlist Update Methods ====================
 
     @staticmethod
-    def watchlist_update_all_episodes(mal_id, episode):
+    def watchlist_update_all_episodes(mal_id, episode, up_to=False):
         """Update episode progress on ALL enabled watchlists simultaneously.
         Handles per-flavor completion detection based on each service's total episode count.
         Returns True if any watchlist was marked as completed."""
@@ -187,7 +187,7 @@ class WatchlistFlavor:
 
         for flavor in flavors:
             try:
-                updated = flavor.update_num_episodes(mal_id, episode)
+                updated = flavor.update_num_episodes(mal_id, episode, up_to=up_to)
                 if not updated:
                     control.log(f'Failed to update episode {episode} on {flavor.flavor_name} (returned False)', 'warning')
                     continue

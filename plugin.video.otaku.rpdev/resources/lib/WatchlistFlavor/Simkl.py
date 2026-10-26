@@ -612,14 +612,19 @@ class SimklWLF(WatchlistFlavorBase):
                 return True
         return False
 
-    def update_num_episodes(self, mal_id, episode):
+    def update_num_episodes(self, mal_id, episode, up_to=False, *args, **kwargs):
         from resources.lib.ui.database import clear_watchlist_cache
+        ep_int = int(episode)
+        if up_to and ep_int > 1:
+            episodes_payload = [{'number': i} for i in range(1, ep_int + 1)]
+        else:
+            episodes_payload = [{'number': ep_int}]
         data = {
             "shows": [{
                 "ids": {
                     "mal": mal_id
                 },
-                "episodes": [{'number': int(episode)}]
+                "episodes": episodes_payload
             }]
         }
         r = client.post(f'{self._URL}/sync/history', headers=self.__headers(), json_data=data)
