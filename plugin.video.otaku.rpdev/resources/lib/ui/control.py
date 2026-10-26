@@ -967,12 +967,16 @@ def draw_items(video_data, content_type='', cacheToDisc=True):
         wait_loop(50, 4500, f"plugin://{ADDON_ID}/animes", f'plugin://{ADDON_ID}/watchlist_to_ep',
                   require_item_count=True)
         for _ in range(16):
-            window = xbmcgui.getCurrentWindowId()
-            if window != 10025:
+            try:
+                window = xbmcgui.getCurrentWindowId()
+                if window != 10025:
+                    xbmc.sleep(80)
+                    continue
+                current_window = xbmcgui.Window(window)
+                active_id = current_window.getFocusId()
+            except Exception:
                 xbmc.sleep(80)
                 continue
-            current_window = xbmcgui.Window(window)
-            active_id = current_window.getFocusId()
             if not active_id:
                 xbmc.sleep(80)
                 continue

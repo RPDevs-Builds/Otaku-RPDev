@@ -16,29 +16,48 @@ class TextViewerXML(WindowXMLDialog):
 
     def onInit(self):
         self.set_properties()
-        self.setFocusId(2060)
+        try:
+            self.setFocusId(2062)
+        except Exception:
+            try:
+                self.setFocusId(2060)
+            except Exception:
+                pass
 
     def onClick(self, controlID):
         self.handle_action(controlID)
 
     def handle_action(self, controlID):
-        if controlID in [2060, 1941, 7, 100]:  # Handle scrollbar or select actions
-            self.actioned = True
-            self.close()
+        self.actioned = True
+        self.close()
 
     def onAction(self, action):
         actionID = action.getId()
 
-        if actionID in [92, 10]:
-            # BACKSPACE / ESCAPE
+        # Handle all back, previous menu, escape, stop, and select actions
+        # 9: ACTION_BACK (Android TV remote back button)
+        # 10: ACTION_PREVIOUS_MENU
+        # 13: ACTION_STOP
+        # 92: ACTION_NAV_BACK
+        # 110: ACTION_CONTEXT_MENU
+        # 216: KEY_ESC
+        if actionID in (9, 10, 13, 92, 110, 216):
+            self.actioned = True
             self.close()
+            return
 
+        # 7: ACTION_SELECT_ITEM, 100: ACTION_MOUSE_LEFT_CLICK
         if actionID in (7, 100):
-            # ENTER / SELECT
             self.handle_action(actionID)
+            return
+
+        try:
+            super().onAction(action)
+        except Exception:
+            pass
 
     def set_properties(self):
-        self.setProperty('otaku.news_text', self.news_text)
-        self.setProperty('otaku.changelog_text', self.changelog_text)
-        self.setProperty('otaku.text', self.instructions_text)
-        self.setProperty('otaku.heading', self.heading)
+        self.setProperty('otaku.news_text', self.news_text or '')
+        self.setProperty('otaku.changelog_text', self.changelog_text or '')
+        self.setProperty('otaku.text', self.instructions_text or '')
+        self.setProperty('otaku.heading', self.heading or '')

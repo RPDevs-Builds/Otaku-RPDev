@@ -1,3 +1,6 @@
+Changelog v5.5.7 (2026-10-26):
+- Fix changelog dismissal loop, Android TV remote back action, and add Dismiss button
+
 Changelog v5.5.6 (2026-10-26):
 - Settings: Fixed string spinner option labels in Settings → General → Artwork Customization (Coloured, White, None)
 - Dependencies: Promoted anime studio resource packages to required dependencies in addon.xml (resource.images.animestudio.coloured & resource.images.animestudio.white v0.0.2)

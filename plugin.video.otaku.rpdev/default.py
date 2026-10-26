@@ -39,12 +39,16 @@ if __name__ == "__main__":
         except Exception:
             pass
     else:
-        # Queue changelog display via RunPlugin after root directory invoker cleanly finishes and window activates
-        if (plugin_url == 'plugin://plugin.video.otaku.rpdev/' or not plugin_params) and control.ADDON_VERSION != control.getSetting('version'):
+        # Queue changelog display via RunPlugin ONLY after the root directory invoker cleanly finishes
+        is_root = (plugin_url in ('plugin://plugin.video.otaku.rpdev/', 'plugin://plugin.video.otaku.rpdev') and not plugin_params)
+        saved_ver = control.getSetting('version') or control.getSetting('otaku.version')
+        if is_root and control.ADDON_VERSION != saved_ver:
             control.setSetting('version', control.ADDON_VERSION)
+            control.setSetting('otaku.version', control.ADDON_VERSION)
             if control.getInt('showchangelog') == 0:
                 control.execute('RunPlugin(plugin://plugin.video.otaku.rpdev/change_log)')
-        elif control.ADDON_VERSION != control.getSetting('version'):
+        elif is_root:
             control.setSetting('version', control.ADDON_VERSION)
+            control.setSetting('otaku.version', control.ADDON_VERSION)
 
     control.log(f'Finished Running: {plugin_url=} {plugin_params=}')

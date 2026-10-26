@@ -75,7 +75,7 @@
 					<left>1320</left>
 					<top>114</top>
 					<width>30</width>
-					<height>850</height>
+					<height>760</height>
 					<texturesliderbackground border="15">scrollbars/scrollbaruni-bg.png</texturesliderbackground>
 					<texturesliderbar border="15">scrollbars/scrollbaruni-bar.png</texturesliderbar>
 					<texturesliderbarfocus border="15">scrollbars/scrollbaruni-bar-focus.png</texturesliderbarfocus>
@@ -84,7 +84,7 @@
     				<onleft>1941</onleft> <!-- Switch to other scrollbar -->
     				<onright>1941</onright> <!-- Switch to other scrollbar -->
     				<onup>2060</onup> <!-- Stay within the same scrollbar -->
-    				<ondown>2060</ondown> <!-- Stay within the same scrollbar -->
+    				<ondown>2062</ondown> <!-- Down to Dismiss button -->
 					<showonepage>false</showonepage>
 					<orientation>vertical</orientation>
 				</control>
@@ -101,9 +101,27 @@
     				<onleft>2060</onleft> <!-- Switch to other scrollbar -->
     				<onright>2060</onright> <!-- Switch to other scrollbar -->
     				<onup>1941</onup> <!-- Stay within the same scrollbar -->
-    				<ondown>1941</ondown> <!-- Stay within the same scrollbar -->
+    				<ondown>2062</ondown> <!-- Down to Dismiss button -->
 					<showonepage>false</showonepage>
 					<orientation>vertical</orientation>
+				</control>
+				<control type="button" id="2062">
+					<left>1050</left>
+					<top>900</top>
+					<width>230</width>
+					<height>52</height>
+					<label>Dismiss</label>
+					<font>font14</font>
+					<textcolor>white</textcolor>
+					<focusedcolor>FFFFFFFF</focusedcolor>
+					<align>center</align>
+					<aligny>center</aligny>
+					<texturefocus colordiffuse="FF00BFFF">white.png</texturefocus>
+					<texturenofocus colordiffuse="40FFFFFF">white.png</texturenofocus>
+					<onleft>1941</onleft>
+					<onright>2060</onright>
+					<onup>2060</onup>
+					<ondown>2060</ondown>
 				</control>
 			</control>
 		</control>
