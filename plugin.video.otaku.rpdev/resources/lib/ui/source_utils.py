@@ -79,8 +79,24 @@ CHAPTER_INTRO_KEYWORDS = (
     'tv-size op',
     'opening',
     'intro',
-    'prologue',  # sometimes used for cold open; gate with duration if used
-    '序章',
+    'オープニング',
+    'オープニングテーマ',
+    '前クレジット',
+    'nc op',
+)
+
+_CHAPTER_EXPLICIT_OP = (
+    'opening theme',
+    'opening sequence',
+    'opening animation',
+    'opening song',
+    'opening credit',
+    'opening credits',
+    'openning',
+    'tv opening',
+    'tv size op',
+    'tv-size op',
+    'opening',
     'オープニング',
     'オープニングテーマ',
     '前クレジット',
@@ -152,6 +168,42 @@ def _chapter_title_matches_bucket(title, phrases, short_tokens):
         if re.search(r'\b' + re.escape(tok) + r'\b', t):
             return True
     return False
+
+
+def score_intro_chapter(title, duration=0.0):
+    """
+    Score candidate intro chapter title and duration.
+    Higher score indicates higher confidence for being an anime opening theme.
+    Returns 0 if title does not match intro criteria.
+    """
+    if not chapter_title_matches_intro(title):
+        return 0
+
+    t = (title or '').strip().lower()
+    score = 50
+
+    # Explicit OP keywords receive high base confidence
+    for op_kw in _CHAPTER_EXPLICIT_OP:
+        if op_kw in t:
+            score = 100
+            break
+    if score < 100:
+        for tok in _CHAPTER_SHORT_INTRO:
+            if re.search(r'\b' + re.escape(tok) + r'\b', t):
+                score = 100
+                break
+
+    # Standard anime OP duration is ~90s (typically 80-100s)
+    if duration > 0:
+        diff = abs(duration - 90.0)
+        if diff <= 5.0:
+            score += 30
+        elif diff <= 15.0:
+            score += 20
+        elif diff <= 30.0:
+            score += 10
+
+    return score
 
 
 # ═══════════════════════════════════════════════════════════════════════════

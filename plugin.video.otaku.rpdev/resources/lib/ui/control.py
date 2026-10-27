@@ -927,6 +927,11 @@ def cleanup():
             proxy.cleanup()
         except Exception:
             pass
+    try:
+        from resources.lib.windows.base_window import BaseWindow
+        BaseWindow.cleanup_all()
+    except Exception:
+        pass
     clean_memory()
 
 

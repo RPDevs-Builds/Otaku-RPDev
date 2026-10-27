@@ -402,26 +402,29 @@ class Resolver(BaseWindow):
                 return
 
         if not self.abort:
-            # If the playing source is a season pack, save it for future fast-path reuse
-            resolved_source = self.return_data.get('source') if isinstance(self.return_data, dict) else None
-            if resolved_source and source_utils.is_season_pack(resolved_source):
-                episode_data = database.get_episode(self.mal_id)
-                season = episode_data.get('season') if episode_data else None
-                database.set_season_pack(self.mal_id, season, resolved_source)
+            try:
+                # If the playing source is a season pack, save it for future fast-path reuse
+                resolved_source = self.return_data.get('source') if isinstance(self.return_data, dict) else None
+                if resolved_source and source_utils.is_season_pack(resolved_source):
+                    episode_data = database.get_episode(self.mal_id)
+                    season = episode_data.get('season') if episode_data else None
+                    database.set_season_pack(self.mal_id, season, resolved_source)
 
-            link_info = self.return_data.get('linkinfo') or {}
-            ch = link_info.get('chapters') if isinstance(link_info, dict) else None
-            player.WatchlistPlayer().handle_player(
-                self.mal_id,
-                watchlist_update_episode,
-                self.episode,
-                self.resume,
-                self.params.get('path', ''),
-                self.return_data['source']['type'] if 'type' in self.return_data['source'] else '',
-                self.return_data['source']['provider'] if 'provider' in self.return_data['source'] else '',
-                self.context,
-                ch,
-            )
+                link_info = self.return_data.get('linkinfo') or {}
+                ch = link_info.get('chapters') if isinstance(link_info, dict) else None
+                player.WatchlistPlayer().handle_player(
+                    self.mal_id,
+                    watchlist_update_episode,
+                    self.episode,
+                    self.resume,
+                    self.params.get('path', ''),
+                    self.return_data['source']['type'] if 'type' in self.return_data['source'] else '',
+                    self.return_data['source']['provider'] if 'provider' in self.return_data['source'] else '',
+                    self.context,
+                    ch,
+                )
+            finally:
+                self.close()
 
     def _build_art_dict(self, use_params=False):
         """Build art dictionary efficiently"""
@@ -613,14 +616,23 @@ class Resolver(BaseWindow):
             else:
                 control.setSetting('last_played_source', str(self.sources[0]['release_title']))
 
-            if self.silent:
-                if self.source_select_close:
-                    self.source_select_close()
-                self.resolve(self.sources)
-            else:
-                super(Resolver, self).doModal()
+            try:
+                if self.silent:
+                    if self.source_select_close:
+                        self.source_select_close()
+                    self.resolve(self.sources)
+                else:
+                    super(Resolver, self).doModal()
+            finally:
+                self.close()
 
         return self.return_data
+
+    def close(self):
+        self.source_select_close = None
+        self.sources = None
+        self.args = None
+        super().close()
 
     def onAction(self, action):
         actionID = action.getId()

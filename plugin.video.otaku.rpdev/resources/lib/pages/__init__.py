@@ -87,11 +87,20 @@ circuit_breaker = ScraperCircuitBreaker()
 
 
 def getSourcesHelper(actionArgs):
-    if control.getInt('general.dialog') in (5, 6):
-        sources_window = Sources('get_sources_alt.xml', control.ADDON_PATH, actionArgs=actionArgs)
-    else:
-        sources_window = Sources('get_sources.xml', control.ADDON_PATH, actionArgs=actionArgs)
-    return sources_window.doModal()
+    sources_window = None
+    try:
+        if control.getInt('general.dialog') in (5, 6):
+            sources_window = Sources('get_sources_alt.xml', control.ADDON_PATH, actionArgs=actionArgs)
+        else:
+            sources_window = Sources('get_sources.xml', control.ADDON_PATH, actionArgs=actionArgs)
+        return sources_window.doModal()
+    finally:
+        if sources_window:
+            try:
+                sources_window.close()
+            except Exception:
+                pass
+            del sources_window
 
 
 class Sources(GetSources):

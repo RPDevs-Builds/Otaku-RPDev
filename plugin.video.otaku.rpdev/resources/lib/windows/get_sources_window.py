@@ -51,6 +51,12 @@ class GetSources(BaseWindow):
             ))
         self.close()
 
+    def close(self):
+        self.canceled = True
+        self.remainingProviders = []
+        self.remaining_providers_list = []
+        super().close()
+
     def onAction(self, action):
         actionID = action.getId()
 

@@ -164,10 +164,20 @@ class SourceSelect(BaseWindow):
                     self.close()
                     source = [self.displayed_sources[self.display_list.getSelectedPosition()]]
                     self.actionArgs['play'] = False
-                    if control.getInt('general.dialog') in (5, 6):
-                        return_data = Resolver('resolver_alt.xml', control.ADDON_PATH, actionArgs=self.actionArgs, source_select=True).doModal(source, {}, False)
-                    else:
-                        return_data = Resolver('resolver.xml', control.ADDON_PATH, actionArgs=self.actionArgs, source_select=True).doModal(source, {}, False)
+                    resolver_dialog = None
+                    try:
+                        if control.getInt('general.dialog') in (5, 6):
+                            resolver_dialog = Resolver('resolver_alt.xml', control.ADDON_PATH, actionArgs=self.actionArgs, source_select=True)
+                        else:
+                            resolver_dialog = Resolver('resolver.xml', control.ADDON_PATH, actionArgs=self.actionArgs, source_select=True)
+                        return_data = resolver_dialog.doModal(source, {}, False)
+                    finally:
+                        if resolver_dialog:
+                            try:
+                                resolver_dialog.close()
+                            except Exception:
+                                pass
+                            del resolver_dialog
                     if isinstance(return_data, dict):
                         Manager().download_file(return_data['link'])
 
@@ -176,6 +186,12 @@ class SourceSelect(BaseWindow):
                     control.notify(control.ADDON_NAME, "Please Select A Debrid File")
                 else:
                     self.resolve_item(True)
+
+    def close(self):
+        self.displayed_sources = []
+        self.sources = []
+        self.display_list = None
+        super().close()
 
     def resolve_item(self, pack_select=False):
         if self.position < 0 or not self.displayed_sources or self.position >= len(self.displayed_sources):
@@ -188,9 +204,21 @@ class SourceSelect(BaseWindow):
             selected_source = self.displayed_sources[self.position]
             selected_source['name'] = selected_source['release_title']
         self.actionArgs['close'] = self.close
-        if control.getInt('general.dialog') in (5, 6):
-            self.stream_link = Resolver('resolver_alt.xml', control.ADDON_PATH, actionArgs=self.actionArgs, source_select=True).doModal(sources, {}, pack_select)
-        else:
-            self.stream_link = Resolver('resolver.xml', control.ADDON_PATH, actionArgs=self.actionArgs, source_select=True).doModal(sources, {}, pack_select)
+        resolver_dialog = None
+        try:
+            if control.getInt('general.dialog') in (5, 6):
+                resolver_dialog = Resolver('resolver_alt.xml', control.ADDON_PATH, actionArgs=self.actionArgs, source_select=True)
+            else:
+                resolver_dialog = Resolver('resolver.xml', control.ADDON_PATH, actionArgs=self.actionArgs, source_select=True)
+            self.stream_link = resolver_dialog.doModal(sources, {}, pack_select)
+        finally:
+            if isinstance(self.actionArgs, dict):
+                self.actionArgs.pop('close', None)
+            if resolver_dialog:
+                try:
+                    resolver_dialog.close()
+                except Exception:
+                    pass
+                del resolver_dialog
         if isinstance(self.stream_link, dict):
             self.close()

@@ -1,4 +1,5 @@
 import random
+import weakref
 import xbmcgui
 
 from resources.lib.ui import control, database
@@ -14,9 +15,16 @@ def clear_artwork_cache():
 
 
 class BaseWindow(xbmcgui.WindowXMLDialog):
+    _active_windows = weakref.WeakSet()
+
     def __init__(self, xml_file, location, actionArgs=None):
         super().__init__(xml_file, location)
         self._win_closed = False
+        self.actionArgs = actionArgs
+        try:
+            BaseWindow._active_windows.add(self)
+        except Exception:
+            pass
 
         control.closeBusyDialog()
 
@@ -142,10 +150,38 @@ class BaseWindow(xbmcgui.WindowXMLDialog):
             raise AttributeError(f"Control with Id {control_id} should be of type ControlList")
         return ctrl
 
+    def cleanup(self):
+        """Release internal references, callbacks, and clear properties to allow clean SWIG director destruction."""
+        self.item_information = None
+        if hasattr(self, 'actionArgs') and isinstance(self.actionArgs, dict):
+            self.actionArgs.pop('close', None)
+            self.actionArgs = None
+        if hasattr(self, 'display_list'):
+            self.display_list = None
+        try:
+            self.clearProperties()
+        except Exception:
+            pass
+
     def close(self):
         """Override close to ensure cleanup and avoid duplicate close calls."""
         if getattr(self, '_win_closed', False):
             return
         self._win_closed = True
-        self.item_information = None
+        try:
+            self.cleanup()
+        except Exception:
+            pass
         super().close()
+
+    @classmethod
+    def cleanup_all(cls):
+        """Explicitly close and release any remaining WindowXMLDialog instances before invoker exit."""
+        active = list(cls._active_windows)
+        for win in active:
+            if win is not None:
+                try:
+                    win.close()
+                except Exception:
+                    pass
+        cls._active_windows.clear()

@@ -513,7 +513,7 @@ class WatchlistPlayer(player):
                 elif self.current_time >= intro_start:
                     if self.skipintro_aniskip_auto and self.skipintro_aniskip:
                         self.seekTime(intro_end)
-                        control.log(f'Auto-skipped intro: {intro_start}-{intro_end}')
+                        control.log(f'Auto-skipped intro: {intro_start}-{intro_end}', 'info')
                     else:
                         PlayerDialogs().show_skip_intro(self.skipintro_aniskip, intro_end)
                     intro_handled = True
@@ -534,7 +534,7 @@ class WatchlistPlayer(player):
                 if self.skipoutro_aniskip_auto and self.skipoutro_aniskip and self.current_time >= self.skipoutro_start and self.skipoutro_start > 0:
                     if self.skipoutro_end > 0:
                         self.seekTime(self.skipoutro_end)
-                        control.log(f'Auto-skipped outro: {self.skipoutro_start}-{self.skipoutro_end}')
+                        control.log(f'Auto-skipped outro: {self.skipoutro_start}-{self.skipoutro_end}', 'info')
                     outro_handled = True
                 elif self._should_show_dialog(time_remaining, playnext_time):
                     if control.getBool('smartplay.binge_mode', default=False):
@@ -546,6 +546,7 @@ class WatchlistPlayer(player):
                         control.notify(control.ADDON_NAME, f"Up Next: {next_ep_str}...", sound=False)
                         if self.skipoutro_aniskip and self.skipoutro_end > 0:
                             self.seekTime(self.skipoutro_end)
+                            control.log(f'Auto-skipped outro (binge mode): {self.skipoutro_start}-{self.skipoutro_end}', 'info')
                         outro_handled = True
                     else:
                         if self.skipoutro_aniskip and not self.skipoutro_aniskip_auto:
@@ -783,6 +784,7 @@ class WatchlistPlayer(player):
 
         if self.skipintro_aniskip_enable and not self.skipintro_aniskip:
             intro_cap = max(600.0, total * 0.25)
+            intro_candidates = []
             for ch in sorted(self.ffprobe_chapters, key=lambda c: float(c.get('start', 0) or 0)):
                 title = ch.get('title') or ''
                 if not source_utils.chapter_title_matches_intro(title):
@@ -798,15 +800,26 @@ class WatchlistPlayer(player):
                     and duration <= 360.0
                     and start <= intro_cap
                 ):
-                    self.skipintro_start = int(start)
-                    self.skipintro_end = int(end)
-                    self.skipintro_aniskip = True
-                    control.log(
-                        'ffprobe chapter intro fallback [%s] %s-%ss'
-                        % (title, self.skipintro_start, self.skipintro_end),
-                        'info',
-                    )
-                    break
+                    score = getattr(source_utils, 'score_intro_chapter', lambda t, d: 50)(title, duration)
+                    intro_candidates.append({
+                        'title': title,
+                        'start': int(start),
+                        'end': int(end),
+                        'score': score,
+                        'raw_start': float(ch.get('start', 0) or 0)
+                    })
+
+            if intro_candidates:
+                # Highest confidence score first; break ties by earliest start time
+                best = max(intro_candidates, key=lambda c: (c['score'], -c['raw_start']))
+                self.skipintro_start = best['start']
+                self.skipintro_end = best['end']
+                self.skipintro_aniskip = True
+                control.log(
+                    'ffprobe chapter intro fallback [%s] %s-%ss (score=%s)'
+                    % (best['title'], self.skipintro_start, self.skipintro_end, best['score']),
+                    'info',
+                )
 
         if self.skipoutro_aniskip_enable and not self.skipoutro_aniskip:
             preview_only_markers = (
@@ -971,7 +984,17 @@ class PlayerDialogs(xbmc.Player):
 
             # Call PlayingNext with the retrieved XML file
             if xml_file:
-                PlayingNext(xml_file, control.ADDON_PATH, actionArgs=args).doModal()
+                dlg = None
+                try:
+                    dlg = PlayingNext(xml_file, control.ADDON_PATH, actionArgs=args)
+                    dlg.doModal()
+                finally:
+                    if dlg:
+                        try:
+                            dlg.close()
+                        except Exception:
+                            pass
+                        del dlg
         else:
             dialog_mapping = {
                 0: 'playing_next_default.xml',
@@ -988,7 +1011,17 @@ class PlayerDialogs(xbmc.Player):
 
             # Call PlayingNext with the retrieved XML file
             if xml_file:
-                PlayingNext(xml_file, control.ADDON_PATH, actionArgs=args).doModal()
+                dlg = None
+                try:
+                    dlg = PlayingNext(xml_file, control.ADDON_PATH, actionArgs=args)
+                    dlg.doModal()
+                finally:
+                    if dlg:
+                        try:
+                            dlg.close()
+                        except Exception:
+                            pass
+                        del dlg
 
     @staticmethod
     def show_skip_intro(skipintro_aniskip, skipintro_end):
@@ -1014,7 +1047,17 @@ class PlayerDialogs(xbmc.Player):
 
         # Call SkipIntro with the retrieved XML file
         if xml_file:
-            SkipIntro(xml_file, control.ADDON_PATH, actionArgs=args).doModal()
+            dlg = None
+            try:
+                dlg = SkipIntro(xml_file, control.ADDON_PATH, actionArgs=args)
+                dlg.doModal()
+            finally:
+                if dlg:
+                    try:
+                        dlg.close()
+                    except Exception:
+                        pass
+                    del dlg
 
     @staticmethod
     def _get_next_item_args():
