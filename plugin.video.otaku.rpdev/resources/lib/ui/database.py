@@ -195,7 +195,8 @@ class SQL:
                         conn.execute("PRAGMA journal_mode = WAL")
                     except dbapi2.DatabaseError:
                         pass
-                    conn.execute("PRAGMA mmap_size = 16777216")
+                    mmap_size = 4194304 if control.is_low_memory() else 16777216
+                    conn.execute(f"PRAGMA mmap_size = {mmap_size}")
                 if os.path.exists(abs_path):
                     try:
                         st_ino = os.stat(abs_path).st_ino

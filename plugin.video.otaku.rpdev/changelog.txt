@@ -1,3 +1,8 @@
+Changelog v5.5.18 (2026-10-27):
+- Playback & Stop Responsiveness: Fast-path ffprobe chapters bypassing 3s wait, low-RAM 70% pre-scrape throttling, and 200ms abort-responsive player monitoring loop for instant playback stop
+- Browsing & Concurrency Speed: Flatten nested ThreadPoolExecutor in get_meta.py, O(1) dictionary fanart lookup in control.py, and eliminate ephemeral window churn in smart scroll
+- Scraper & Network Efficiency: 10s default scraper timeouts (was 20-30s), batch DMM hash verification up to 300 candidates without random dropping, and clamp SQLite PRAGMA mmap_size to 4MB on low-RAM/32-bit hardware
+
 Changelog v5.5.17 (2026-10-26):
 - Optimize control.py proxies with session caching and prioritize in-memory Python dictionary settings cache over repetitive C++ Window property queries
 

@@ -43,9 +43,8 @@ from urllib import parse
 _artwork_cache = {}
 
 
-def _detect_max_threads() -> int:
-    """Determine thread limit based on available physical memory and CPU count."""
-    cpu = os.cpu_count() or 4
+def get_device_ram_mb() -> int | None:
+    """Return total physical RAM in MB, or None if undetermined."""
     ram_mb = None
     try:
         with open('/proc/meminfo', 'r') as f:
@@ -61,6 +60,21 @@ def _detect_max_threads() -> int:
             ram_mb = (os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_PHYS_PAGES')) // (1024 * 1024)
         except (AttributeError, ValueError, OSError):
             pass
+    return ram_mb
+
+
+def is_low_memory() -> bool:
+    """Return True if device has <= 2GB RAM or is running on a 32-bit architecture."""
+    if sys.maxsize <= 2**31 - 1:
+        return True
+    ram_mb = get_device_ram_mb()
+    return ram_mb is not None and ram_mb <= 2048
+
+
+def _detect_max_threads() -> int:
+    """Determine thread limit based on available physical memory and CPU count."""
+    cpu = os.cpu_count() or 4
+    ram_mb = get_device_ram_mb()
 
     if ram_mb is not None and ram_mb <= 2048:
         # Low-spec Android TV / Fire TV stick (<= 2 GB RAM)
@@ -1240,6 +1254,7 @@ def xbmc_add_dir(name, url, art, info, draw_cm, bulk_add, isfolder, isplayable, 
         artwork_studios_style = bulk_prefs.get('artwork_studios_style', 'coloured')
         fanart_mal_ids = bulk_prefs.get('fanart_mal_ids')
         fanart_selections = bulk_prefs.get('fanart_selections')
+        fanart_map = bulk_prefs.get('fanart_map')
     else:
         artwork_fanart_enabled = getBool('artwork.fanart')
         fanart_select_enabled = getBool('context.otaku.fanartselect')
@@ -1247,6 +1262,7 @@ def xbmc_add_dir(name, url, art, info, draw_cm, bulk_add, isfolder, isplayable, 
         artwork_studios_style = getSetting('artwork.studios') or 'coloured'
         fanart_mal_ids = None
         fanart_selections = None
+        fanart_map = None
 
     if not art.get('fanart') or not artwork_fanart_enabled:
         art['fanart'] = OTAKU_FANART
@@ -1261,19 +1277,18 @@ def xbmc_add_dir(name, url, art, info, draw_cm, bulk_add, isfolder, isplayable, 
                     if cache_key in _artwork_cache:
                         art['fanart'] = _artwork_cache[cache_key]
                     else:
-                        if fanart_mal_ids is not None:
-                            mal_ids = fanart_mal_ids
-                            fanart_selections_list = fanart_selections or []
-                        else:
-                            mal_ids = getStringList('fanart.mal_ids')
-                            fanart_selections_list = getStringList('fanart.selections')
-
                         fanart_select = ''
-                        try:
-                            index = mal_ids.index(mal_id)
-                            fanart_select = fanart_selections_list[index] if index < len(fanart_selections_list) else ''
-                        except (ValueError, IndexError):
-                            pass
+                        if fanart_map is not None:
+                            fanart_select = fanart_map.get(mal_id, '')
+                        else:
+                            if fanart_mal_ids is not None:
+                                mal_ids = fanart_mal_ids
+                                fanart_selections_list = fanart_selections or []
+                            else:
+                                mal_ids = getStringList('fanart.mal_ids')
+                                fanart_selections_list = getStringList('fanart.selections')
+                            f_map = dict(zip(mal_ids, fanart_selections_list))
+                            fanart_select = f_map.get(mal_id, '')
 
                         selected = fanart_select if fanart_select else random.choice(art['fanart'])
                         _artwork_cache[cache_key] = selected
@@ -1408,38 +1423,44 @@ def draw_items(video_data, content_type='', cacheToDisc=True):
             xbmc.sleep(150)  # View mode change can repaint the list; let infolabels settle
         wait_loop(50, 4500, f"plugin://{ADDON_ID}/animes", f'plugin://{ADDON_ID}/watchlist_to_ep',
                   require_item_count=True)
-        for _ in range(16):
-            try:
-                window = xbmcgui.getCurrentWindowId()
-                if window != 10025:
+        win_obj = None
+        try:
+            for _ in range(16):
+                try:
+                    window_id = xbmcgui.getCurrentWindowId()
+                    if window_id != 10025:
+                        xbmc.sleep(80)
+                        continue
+                    if win_obj is None:
+                        win_obj = xbmcgui.Window(10025)
+                    active_id = win_obj.getFocusId()
+                except Exception:
                     xbmc.sleep(80)
                     continue
-                current_window = xbmcgui.Window(window)
-                active_id = current_window.getFocusId()
-            except Exception:
-                xbmc.sleep(80)
-                continue
-            if not active_id:
-                xbmc.sleep(80)
-                continue
-            try:
-                num_watched = int(xbmc.getInfoLabel("Container.TotalWatched"))
-                total_ep = int(xbmc.getInfoLabel('Container.NumItems'))
-                all_items = int(xbmc.getInfoLabel('Container.NumAllItems'))
-            except ValueError:
-                xbmc.sleep(80)
-                continue
-            if all_items <= 0:
-                xbmc.sleep(80)
-                continue
-            offset = 1 if all_items > total_ep else 0
-            target_index = num_watched + offset
-            if not (0 < target_index < all_items):
+                if not active_id:
+                    xbmc.sleep(80)
+                    continue
+                try:
+                    num_watched = int(xbmc.getInfoLabel("Container.TotalWatched"))
+                    total_ep = int(xbmc.getInfoLabel('Container.NumItems'))
+                    all_items = int(xbmc.getInfoLabel('Container.NumAllItems'))
+                except ValueError:
+                    xbmc.sleep(80)
+                    continue
+                if all_items <= 0:
+                    xbmc.sleep(80)
+                    continue
+                offset = 1 if all_items > total_ep else 0
+                target_index = num_watched + offset
+                if not (0 < target_index < all_items):
+                    break
+                xbmc.executebuiltin('Action(firstpage)')
+                xbmc.sleep(50)
+                xbmc.executebuiltin(f'Control.SetFocus({active_id}, {target_index})')
                 break
-            xbmc.executebuiltin('Action(firstpage)')
-            xbmc.sleep(50)
-            xbmc.executebuiltin(f'Control.SetFocus({active_id}, {target_index})')
-            break
+        finally:
+            if win_obj is not None:
+                del win_obj
 
 
 def _dir_list_item_worker(item, bulk_add, bulk_prefs):
@@ -1459,8 +1480,11 @@ def bulk_dir_list(video_data, bulk_add=True):
         'artwork_studios_style': getSetting('artwork.studios') or 'coloured',
     }
     if artwork_fanart_enabled and fanart_select_enabled:
-        bulk_prefs['fanart_mal_ids'] = getStringList('fanart.mal_ids')
-        bulk_prefs['fanart_selections'] = getStringList('fanart.selections')
+        f_ids = getStringList('fanart.mal_ids')
+        f_sels = getStringList('fanart.selections')
+        bulk_prefs['fanart_mal_ids'] = f_ids
+        bulk_prefs['fanart_selections'] = f_sels
+        bulk_prefs['fanart_map'] = dict(zip(f_ids, f_sels))
     mapfunc = partial(_dir_list_item_worker, bulk_add=bulk_add, bulk_prefs=bulk_prefs)
     with ThreadPoolExecutor(max_workers=max_threads) as executor:
         list_items = list(executor.map(mapfunc, filter(None, video_data)))

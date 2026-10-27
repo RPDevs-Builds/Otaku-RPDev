@@ -54,12 +54,12 @@ def collect_meta(anime_list):
             banner_map = anilist.get_banners_batch(mal_ids)
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=control.max_threads) as executor:
-            futures = [executor.submit(update_meta, mal_id, mtype, banner_map.get(mal_id)) for mal_id, mtype in anime_to_fetch]
+            futures = [executor.submit(update_meta, mal_id, mtype, banner_map.get(mal_id), in_batch=True) for mal_id, mtype in anime_to_fetch]
             # Wait for all to complete
             concurrent.futures.wait(futures)
 
 
-def update_meta(mal_id, mtype='tv', anilist_banner=None):
+def update_meta(mal_id, mtype='tv', anilist_banner=None, in_batch=False):
     """
     Fetch and combine artwork from all providers (Fanart.tv, TMDB, TVDB)
     Respects artwork settings for provider preference and limits
@@ -68,6 +68,7 @@ def update_meta(mal_id, mtype='tv', anilist_banner=None):
         mal_id: MyAnimeList ID
         mtype: Media type ('tv' or 'movies')
         anilist_banner: AniList banner URL (from batch fetch) or None
+        in_batch: Whether called as part of a batch fetch (flattens nested thread pools)
     """
     meta_ids = database.get_mappings(mal_id, 'mal_id')
 
@@ -113,17 +114,22 @@ def update_meta(mal_id, mtype='tv', anilist_banner=None):
     elif artwork_preference == 2:  # TVDB only
         tvdb_art = fetch_tvdb()
     else:  # All providers (3 or default)
-        with concurrent.futures.ThreadPoolExecutor(max_workers=control.max_threads) as executor:
-            fanart_future = executor.submit(fetch_fanart)
-            tmdb_future = executor.submit(fetch_tmdb)
-            tvdb_future = executor.submit(fetch_tvdb)
+        if in_batch or control.is_low_memory():
+            fanart_art = fetch_fanart()
+            tmdb_art = fetch_tmdb()
+            tvdb_art = fetch_tvdb()
+        else:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=min(control.max_threads, 3)) as executor:
+                fanart_future = executor.submit(fetch_fanart)
+                tmdb_future = executor.submit(fetch_tmdb)
+                tvdb_future = executor.submit(fetch_tvdb)
 
-            # Wait for all to complete
-            concurrent.futures.wait([fanart_future, tmdb_future, tvdb_future])
+                # Wait for all to complete
+                concurrent.futures.wait([fanart_future, tmdb_future, tvdb_future])
 
-            fanart_art = fanart_future.result()
-            tmdb_art = tmdb_future.result()
-            tvdb_art = tvdb_future.result()
+                fanart_art = fanart_future.result()
+                tmdb_art = tmdb_future.result()
+                tvdb_art = tvdb_future.result()
 
     # Combine art from providers with settings applied
     combined_art = merge_artwork(
@@ -179,14 +185,19 @@ def update_meta(mal_id, mtype='tv', anilist_banner=None):
                 elif artwork_preference == 2:
                     tv_art = fetch_tvdb()
                 else:
-                    with concurrent.futures.ThreadPoolExecutor(max_workers=control.max_threads) as executor:
-                        f1 = executor.submit(fetch_fanart)
-                        f2 = executor.submit(fetch_tmdb)
-                        f3 = executor.submit(fetch_tvdb)
-                        concurrent.futures.wait([f1, f2, f3])
-                        f_art = f1.result()
-                        t_art = f2.result()
-                        tv_art = f3.result()
+                    if in_batch or control.is_low_memory():
+                        f_art = fetch_fanart()
+                        t_art = fetch_tmdb()
+                        tv_art = fetch_tvdb()
+                    else:
+                        with concurrent.futures.ThreadPoolExecutor(max_workers=min(control.max_threads, 3)) as executor:
+                            f1 = executor.submit(fetch_fanart)
+                            f2 = executor.submit(fetch_tmdb)
+                            f3 = executor.submit(fetch_tvdb)
+                            concurrent.futures.wait([f1, f2, f3])
+                            f_art = f1.result()
+                            t_art = f2.result()
+                            tv_art = f3.result()
                 combined_art = merge_artwork(
                     f_art, t_art, tv_art,
                     fanart_limit=artwork_fanart_count,

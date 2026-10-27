@@ -208,23 +208,27 @@ def _dmm_check_cache(hash_list, imdb_id, collector):
         clean_hashes = [h for h in hash_list if len(h) == 40]
         if not clean_hashes:
             return
-        if len(clean_hashes) > 100:
-            clean_hashes = random.sample(clean_hashes, 100)
 
         dmm_key, solution = _get_dmm_secret()
         url = 'https://debridmediamanager.com/api/availability/check'
-        data = {
-            'dmmProblemKey': dmm_key,
-            'solution': solution,
-            'imdbId': imdb_id,
-            'hashes': clean_hashes
-        }
-        response = client.post(url, json_data=data, timeout=7)
-        if response and response.ok:
-            available = response.json().get('available', [])
-            for f in available:
-                if 'hash' in f:
-                    collector.append(f['hash'])
+
+        # Batch in chunks of 100 up to 300 total hashes so candidate hashes are verified without random drop
+        chunk_size = 100
+        hashes_to_check = clean_hashes[:300]
+        for i in range(0, len(hashes_to_check), chunk_size):
+            chunk = hashes_to_check[i:i + chunk_size]
+            data = {
+                'dmmProblemKey': dmm_key,
+                'solution': solution,
+                'imdbId': imdb_id,
+                'hashes': chunk
+            }
+            response = client.post(url, json_data=data, timeout=7)
+            if response and response.ok:
+                available = response.json().get('available', [])
+                for f in available:
+                    if 'hash' in f:
+                        collector.append(f['hash'])
     except Exception as e:
         control.log(f'DMM cache check error: {e}', 'warning')
 

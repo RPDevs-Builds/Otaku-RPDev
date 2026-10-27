@@ -2277,3 +2277,11 @@ msgctxt "#30564"
 msgid "White"
 msgstr ""
 
+msgctxt "#30565"
+msgid "Pre-scrape Next Episode in Background"
+msgstr ""
+
+msgctxt "#30566"
+msgid "Pre-warm scraper cache at 70% playback progress for seamless transitions."
+msgstr ""
+

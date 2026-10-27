@@ -46,7 +46,7 @@ class Sources(BrowserBase):
         """Search nekoBT /media/search by title and match by TVDB ID to find the internal media_id."""
         tvdb_id = self._get_tvdb_id(mal_id)
         for title in titles:
-            response = client.get(f'{self._BASE_URL}/media/search', params={'query': title, 'limit': 10}, timeout=20)
+            response = client.get(f'{self._BASE_URL}/media/search', params={'query': title, 'limit': 10}, timeout=10)
             if not response or response.status_code != 200:
                 continue
             try:
@@ -71,7 +71,7 @@ class Sources(BrowserBase):
 
     def _get_episode_ids(self, media_id, season, episode):
         """Fetch episode list from /media/<media_id> and find matching nekoBT episode IDs."""
-        response = client.get(f'{self._BASE_URL}/media/{media_id}', timeout=20)
+        response = client.get(f'{self._BASE_URL}/media/{media_id}', timeout=10)
         if not response or response.status_code != 200:
             return []
         try:
@@ -102,7 +102,7 @@ class Sources(BrowserBase):
     def _search_torrents(self, params):
         """Execute a search against the nekoBT /torrents/search endpoint."""
         control.log(f"nekoBT: Searching torrents with params: {params}")
-        response = client.get(f'{self._BASE_URL}/torrents/search', params=params, timeout=30)
+        response = client.get(f'{self._BASE_URL}/torrents/search', params=params, timeout=10)
         if response and response.status_code == 200:
             try:
                 data = response.json()

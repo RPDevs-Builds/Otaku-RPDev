@@ -56,7 +56,7 @@ class Sources(BrowserBase):
         url = f"{self._BASE_URL}{path}/stream/series/kitsu:{self.kitsu_id}:{episode}.json"
         control.log(f"Torrentio: Fetching episode sources from kitsu:{self.kitsu_id}:{episode}")
 
-        response = client.get(url, timeout=30)
+        response = client.get(url, timeout=10)
         if not response:
             return []
 
@@ -92,7 +92,7 @@ class Sources(BrowserBase):
         url = f"{self._BASE_URL}{path}/stream/movie/kitsu:{self.kitsu_id}.json"
         control.log(f"Torrentio: Fetching movie sources from kitsu:{self.kitsu_id}")
 
-        response = client.get(url, timeout=30)
+        response = client.get(url, timeout=10)
         if not response:
             return []
 

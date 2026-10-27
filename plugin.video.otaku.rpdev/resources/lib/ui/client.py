@@ -225,7 +225,7 @@ def request(
         cookie=None,
         compression=True,
         output='',
-        timeout=20,
+        timeout=10,
         jpost=False,
         params=None,
         method='',
@@ -738,7 +738,7 @@ def _build_response(result, url):
     return Response(content=None, status_code=0, url=url)
 
 
-def get(url, headers=None, timeout=20, verify=True, cookies=None, params=None, redirect=True):
+def get(url, headers=None, timeout=10, verify=True, cookies=None, params=None, redirect=True):
     """Requests-like GET.  Returns a Response object."""
     result = request(url, headers=headers or {}, timeout=timeout, verify=verify,
                      cookie=cookies, params=params, redirect=redirect,
@@ -746,7 +746,7 @@ def get(url, headers=None, timeout=20, verify=True, cookies=None, params=None, r
     return _build_response(result, url)
 
 
-def post(url, data=None, json_data=None, headers=None, timeout=20, verify=True, cookies=None):
+def post(url, data=None, json_data=None, headers=None, timeout=10, verify=True, cookies=None):
     """Requests-like POST.  Returns a Response object."""
     if json_data:
         result = request(url, post=json_data, jpost=True, headers=headers or {},
@@ -758,7 +758,7 @@ def post(url, data=None, json_data=None, headers=None, timeout=20, verify=True, 
     return _build_response(result, url)
 
 
-def put(url, data=None, json_data=None, headers=None, timeout=20, verify=True, cookies=None):
+def put(url, data=None, json_data=None, headers=None, timeout=10, verify=True, cookies=None):
     """Requests-like PUT.  Returns a Response object."""
     if json_data:
         result = request(url, post=json_data, jpost=True, method='PUT', headers=headers or {},
@@ -771,7 +771,7 @@ def put(url, data=None, json_data=None, headers=None, timeout=20, verify=True, c
     return _build_response(result, url)
 
 
-def patch(url, data=None, json_data=None, headers=None, timeout=20, verify=True, cookies=None):
+def patch(url, data=None, json_data=None, headers=None, timeout=10, verify=True, cookies=None):
     """Requests-like PATCH.  Returns a Response object."""
     if json_data:
         result = request(url, post=json_data, jpost=True, method='PATCH', headers=headers or {},
@@ -784,7 +784,7 @@ def patch(url, data=None, json_data=None, headers=None, timeout=20, verify=True,
     return _build_response(result, url)
 
 
-def delete(url, data=None, json_data=None, headers=None, timeout=20, verify=True, cookies=None):
+def delete(url, data=None, json_data=None, headers=None, timeout=10, verify=True, cookies=None):
     """Requests-like DELETE.  Returns a Response object."""
     if json_data:
         result = request(url, post=json_data, jpost=True, method='DELETE', headers=headers or {},
@@ -800,7 +800,7 @@ def delete(url, data=None, json_data=None, headers=None, timeout=20, verify=True
     return _build_response(result, url)
 
 
-def head(url, headers=None, timeout=20, verify=True, cookies=None, params=None):
+def head(url, headers=None, timeout=10, verify=True, cookies=None, params=None):
     """Requests-like HEAD (headers only, no body).  Returns a Response object."""
     result = request(url, headers=headers or {}, timeout=timeout, verify=verify,
                      cookie=cookies, params=params, limit='0',
@@ -810,7 +810,7 @@ def head(url, headers=None, timeout=20, verify=True, cookies=None, params=None):
     return resp
 
 
-def session_request(url, method='GET', data=None, headers=None, timeout=20, verify=True):
+def session_request(url, method='GET', data=None, headers=None, timeout=10, verify=True):
     """
     Session-based request that maintains cookies across calls (like requests.Session)
 
@@ -869,7 +869,7 @@ class Session:
         self.headers = {}
         self._domain_cookies = {}
 
-    def _request(self, url, method='GET', data=None, json_data=None, headers=None, timeout=20, verify=True):
+    def _request(self, url, method='GET', data=None, json_data=None, headers=None, timeout=10, verify=True):
         """Internal: execute a request, store cookies, return Response."""
         merged_headers = self.headers.copy()
         if headers:
@@ -906,11 +906,11 @@ class Session:
         resp.cookies = self._domain_cookies.get(domain, {})
         return resp
 
-    def get(self, url, headers=None, timeout=20, verify=True):
+    def get(self, url, headers=None, timeout=10, verify=True):
         """GET request with session cookies"""
         return self._request(url, 'GET', headers=headers, timeout=timeout, verify=verify)
 
-    def post(self, url, data=None, json_data=None, headers=None, timeout=20, verify=True):
+    def post(self, url, data=None, json_data=None, headers=None, timeout=10, verify=True):
         """POST request with session cookies"""
         return self._request(url, 'POST', data=data, json_data=json_data,
                              headers=headers, timeout=timeout, verify=verify)

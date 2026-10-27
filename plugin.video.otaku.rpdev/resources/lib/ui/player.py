@@ -227,6 +227,12 @@ class WatchlistPlayer(player):
         self.preferred_subtitle_keyword = control.getInt('subtitles.keywords')
 
         self.ffprobe_chapters = []
+        self._playback_stopped = False
+        self.episodes = []
+        self.type = ''
+        self.provider = ''
+        self.mal_id = ''
+        self.episode = 0
 
     def handle_player(self, mal_id, watchlist_update, episode, resume, path, type, provider, context, ffprobe_chapters=None):
         self.mal_id = mal_id
@@ -272,6 +278,7 @@ class WatchlistPlayer(player):
     # ── Playback Callbacks ────────────────────────────────────────────────
 
     def onPlayBackStopped(self):
+        self._playback_stopped = True
         control.closeAllDialogs()
         playList.clear()
         if self.context and self.path:
@@ -294,10 +301,12 @@ class WatchlistPlayer(player):
         control.clean_memory()
 
     def onPlayBackEnded(self):
+        self._playback_stopped = True
         control.closeAllDialogs()
         control.clean_memory()
 
     def onPlayBackError(self):
+        self._playback_stopped = True
         control.closeAllDialogs()
         playList.clear()
         control.clean_memory()
@@ -436,22 +445,33 @@ class WatchlistPlayer(player):
             self.build_playlist()
 
         if self.media_type != 'movie':
-            # Wait for embed / AniSkip / AnimeSkip, then ffprobe chapters as last fallback
-            timeout = 30
-            while not self._skip_processed and timeout > 0:
-                xbmc.sleep(100)
-                timeout -= 1
-            self.process_ffprobe_chapter_skips()
+            # Fast-path: if ffprobe/container chapters are already available, process them immediately!
+            if self.ffprobe_chapters:
+                self.process_ffprobe_chapter_skips()
+
+            # Only wait for external skip APIs if intro or outro has not yet been resolved
+            if not (self.skipintro_aniskip and self.skipoutro_aniskip):
+                timeout = 30
+                while not self._skip_processed and timeout > 0:
+                    if self._playback_stopped or not self.isPlaying():
+                        break
+                    xbmc.sleep(100)
+                    timeout -= 1
+                if not (self.skipintro_aniskip or self.skipoutro_aniskip):
+                    self.process_ffprobe_chapter_skips()
 
             # Unified playback monitoring loop: handles intro skip, watched %, and outro/playing next concurrently
             self._run_unified_episode_monitor()
         else:
             self.onWatchedPercent()
 
-        # Continue monitoring until playback finishes
-        while self.isPlaying():
+        # Continue monitoring until playback finishes (responsive 200ms slices)
+        while not self._playback_stopped and self.isPlaying():
             self.current_time = int(self.getTime())
-            xbmc.sleep(5000)
+            for _ in range(25):  # 25 x 200ms = 5000ms max, checks stop/abort every 200ms
+                if self._playback_stopped or not self.isPlaying() or (self._monitor and self._monitor.abortRequested()):
+                    break
+                xbmc.sleep(200)
 
         # Cleanup
         if self._monitor:
@@ -470,10 +490,13 @@ class WatchlistPlayer(player):
         outro_handled = not outro_enabled
         prescrape_triggered = False
 
-        while self.isPlaying() and not (intro_handled and self.updated and outro_handled):
+        while not self._playback_stopped and self.isPlaying() and not (intro_handled and self.updated and outro_handled):
             # When player is paused, yield to prevent CPU churn and preserve hardware-plane rendering
             if xbmc.getCondVisibility("Player.Paused"):
-                xbmc.sleep(1000)
+                for _ in range(5):
+                    if self._playback_stopped or not self.isPlaying() or (self._monitor and self._monitor.abortRequested()):
+                        break
+                    xbmc.sleep(200)
                 continue
 
             self.current_time = int(self.getTime())
@@ -531,11 +554,16 @@ class WatchlistPlayer(player):
                             PlayerDialogs().display_dialog(False, 0)
                         outro_handled = True
 
-            xbmc.sleep(2000)
+            for _ in range(10):  # 10 x 200ms = 2000ms, responsive check every 200ms
+                if self._playback_stopped or not self.isPlaying() or (self._monitor and self._monitor.abortRequested()):
+                    break
+                xbmc.sleep(200)
 
     def _trigger_background_prescrape(self):
         """Pre-warm scraper cache for the next episode in background at ~70% playback"""
         try:
+            if not control.getBool('smartplay.prescrape', default=True):
+                return
             if not self.mal_id or getattr(self, 'media_type', None) == 'movie':
                 return
             try:
@@ -556,6 +584,9 @@ class WatchlistPlayer(player):
             def prescrape_worker():
                 try:
                     control.log(f"Player: Background pre-scraping ep {next_ep} for {self.mal_id}", level='info')
+                    if control.is_low_memory():
+                        control.log("Player: Throttling background pre-scrape on low-memory device", level='info')
+                        xbmc.sleep(1000)
                     from resources.lib import MetaBrowser
                     MetaBrowser.get_sources(self.mal_id, next_ep, 'show', rescrape=False, source_select=False, silent=True)
                 except Exception as e:

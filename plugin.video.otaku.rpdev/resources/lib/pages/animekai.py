@@ -164,7 +164,7 @@ class Sources(BrowserBase):
 
     def _encode_token(self, text):
         """Encrypt a token using the enc-dec.app API."""
-        response = client.get(self._ENCDEC_URL, params={'text': text}, timeout=15)
+        response = client.get(self._ENCDEC_URL, params={'text': text}, timeout=10)
         if response and response.ok:
             try:
                 data = response.json()
@@ -176,7 +176,7 @@ class Sources(BrowserBase):
 
     def _decode_kai(self, text):
         """Decrypt AnimeKAI encrypted data."""
-        response = client.post(self._ENCDEC_DEC_KAI, json_data={'text': text}, timeout=15)
+        response = client.post(self._ENCDEC_DEC_KAI, json_data={'text': text}, timeout=10)
         if response and response.ok:
             try:
                 data = response.json()
@@ -189,7 +189,7 @@ class Sources(BrowserBase):
     def _decode_mega(self, text):
         """Decrypt megacloud-style encrypted media data."""
         ua = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-        response = client.post(self._ENCDEC_DEC_MEGA, json_data={'text': text, 'agent': ua}, timeout=15)
+        response = client.post(self._ENCDEC_DEC_MEGA, json_data={'text': text, 'agent': ua}, timeout=10)
         if response:
             control.log(f"AnimeKAI: dec-mega API status: {response.status_code}, response (first 200): {response.text[:200] if response.text else 'EMPTY'}")
             if response.ok:
@@ -357,7 +357,7 @@ class Sources(BrowserBase):
                         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                         'Referer': embed_url,
                     }
-                    media_resp = client.get(media_url, headers=media_headers, timeout=15)
+                    media_resp = client.get(media_url, headers=media_headers, timeout=10)
                     if media_resp and media_resp.ok:
                         control.log(f"AnimeKAI: Media endpoint response status: {media_resp.status_code}")
                         control.log(f"AnimeKAI: Media endpoint response (first 200 chars): {media_resp.text[:200] if media_resp.text else 'EMPTY'}")

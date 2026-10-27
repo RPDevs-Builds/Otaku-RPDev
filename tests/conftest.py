@@ -628,6 +628,7 @@ _settings_store = {
     'general.timeout': '10',
     'general.autodownload.subtitles': 'false',
     'general.smartplay': 'true',
+    'smartplay.prescrape': 'true',
     'general.pre_scrape': 'true',
     'general.binge_mode': 'false',
     'general.kodi.cache': 'false',
