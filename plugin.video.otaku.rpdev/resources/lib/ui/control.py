@@ -767,6 +767,34 @@ def set_videotags(li, info):
     if trailer := info.get('trailer'):
         vinfo.setTrailer(trailer)
 
+    # Kodi 22+ InfoTagVideo enhancements: Tagline & BCP 47 OriginalLanguage
+    if tagline := info.get('tagline'):
+        if hasattr(vinfo, 'setTagLine'):
+            try:
+                vinfo.setTagLine(str(tagline))
+            except Exception:
+                pass
+        li.setProperty('tagline', str(tagline))
+
+    if original_language := info.get('originallanguage') or info.get('original_language'):
+        if hasattr(vinfo, 'setOriginalLanguage'):
+            try:
+                vinfo.setOriginalLanguage(str(original_language))
+            except Exception:
+                pass
+        li.setProperty('OriginalLanguage', str(original_language))
+    elif country := info.get('country'):
+        lang_map = {'JP': 'ja', 'CN': 'zh', 'KR': 'ko', 'US': 'en', 'GB': 'en'}
+        c_code = country[0] if isinstance(country, list) and country else country
+        if isinstance(c_code, str) and c_code.upper() in lang_map:
+            inferred_lang = lang_map[c_code.upper()]
+            if hasattr(vinfo, 'setOriginalLanguage'):
+                try:
+                    vinfo.setOriginalLanguage(inferred_lang)
+                except Exception:
+                    pass
+            li.setProperty('OriginalLanguage', inferred_lang)
+
     if uniqueids := info.get('UniqueIDs'):
         uniqueids = {key: str(value) for key, value in uniqueids.items()}
         vinfo.setUniqueIDs(uniqueids)

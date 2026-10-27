@@ -696,6 +696,44 @@ class WatchlistPlayer(player):
         """
         if not control.getBool('ffprobe.chapters.enable'):
             return
+
+        # Kodi 22+ Demuxer Chapter Fallback: query Player.GetChapters via JSON-RPC if not pre-probed
+        if not self.ffprobe_chapters:
+            try:
+                res = control.jsonrpc({
+                    'jsonrpc': '2.0',
+                    'method': 'Player.GetChapters',
+                    'params': {'playerid': 1},
+                    'id': 1
+                })
+                if isinstance(res, dict) and 'result' in res:
+                    raw_ch = res['result'].get('chapters', [])
+                    if raw_ch:
+                        parsed = []
+                        for ch in raw_ch:
+                            ch_title = ch.get('title') or ch.get('name') or ''
+                            ch_time = ch.get('time')
+                            if isinstance(ch_time, dict):
+                                s_time = float(ch_time.get('hours', 0) or 0) * 3600.0 + \
+                                         float(ch_time.get('minutes', 0) or 0) * 60.0 + \
+                                         float(ch_time.get('seconds', 0) or 0) + \
+                                         (float(ch_time.get('milliseconds', 0) or 0) / 1000.0)
+                            elif isinstance(ch_time, (int, float)):
+                                s_time = float(ch_time)
+                            else:
+                                s_time = 0.0
+                            parsed.append({'title': ch_title, 'start': s_time, 'end': 0.0})
+                        parsed.sort(key=lambda x: x['start'])
+                        for idx in range(len(parsed)):
+                            if idx + 1 < len(parsed):
+                                parsed[idx]['end'] = parsed[idx + 1]['start']
+                            elif self.total_time:
+                                parsed[idx]['end'] = float(self.total_time)
+                        self.ffprobe_chapters = parsed
+                        control.log(f'Player: Populated {len(self.ffprobe_chapters)} chapter(s) via Kodi Player.GetChapters', 'info')
+            except Exception as e:
+                control.log(f'Player: Kodi Player.GetChapters lookup failed: {e}', 'debug')
+
         if not self.ffprobe_chapters or not self.total_time:
             return
 

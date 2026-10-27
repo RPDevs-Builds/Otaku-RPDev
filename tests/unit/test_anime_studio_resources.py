@@ -35,6 +35,33 @@ class TestAnimeStudioResources(unittest.TestCase):
         self.assertEqual(li.getProperty('Studio'), 'MAPPA')
         self.assertEqual(li.getProperty('Studios'), 'MAPPA / Wit Studio')
 
+    def test_set_videotags_kodi22_tagline_and_original_language(self):
+        li = conftest.MockListItem()
+        info = {
+            'tagline': 'Humanity has been forced into hiding...',
+            'originallanguage': 'ja',
+            'country': ['JP']
+        }
+        control.set_videotags(li, info)
+        vinfo = li.getVideoInfoTag()
+        self.assertEqual(vinfo.getTagLine(), 'Humanity has been forced into hiding...')
+        self.assertEqual(vinfo.getOriginalLanguage(), 'ja')
+        self.assertEqual(li.getProperty('tagline'), 'Humanity has been forced into hiding...')
+        self.assertEqual(li.getProperty('OriginalLanguage'), 'ja')
+
+    def test_set_videotags_inferred_original_language_from_country(self):
+        li = conftest.MockListItem()
+        info = {'country': ['JP']}
+        control.set_videotags(li, info)
+        vinfo = li.getVideoInfoTag()
+        self.assertEqual(vinfo.getOriginalLanguage(), 'ja')
+        self.assertEqual(li.getProperty('OriginalLanguage'), 'ja')
+
+        li_cn = conftest.MockListItem()
+        control.set_videotags(li_cn, {'country': 'CN'})
+        self.assertEqual(li_cn.getVideoInfoTag().getOriginalLanguage(), 'zh')
+        self.assertEqual(li_cn.getProperty('OriginalLanguage'), 'zh')
+
     def test_xbmc_add_dir_studio_art_coloured(self):
         art = {'poster': 'https://example.com/poster.jpg'}
         info = {'studio': ['CloverWorks']}

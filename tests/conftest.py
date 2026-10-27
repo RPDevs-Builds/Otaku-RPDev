@@ -68,6 +68,8 @@ class MockInfoTagVideo:
         self._unique_ids = {}
         self._imdb_number = ''
         self._resume_point = 0.0
+        self._tagline = ''
+        self._original_language = ''
 
     def setTitle(self, title): self._title = title
     def getTitle(self): return self._title
@@ -117,6 +119,10 @@ class MockInfoTagVideo:
     def getIMDBNumber(self): return self._imdb_number
     def setResumePoint(self, point, total=1): self._resume_point = float(point)
     def getResumePoint(self): return self._resume_point
+    def setTagLine(self, tagline): self._tagline = str(tagline or '')
+    def getTagLine(self): return self._tagline
+    def setOriginalLanguage(self, lang): self._original_language = str(lang or '')
+    def getOriginalLanguage(self): return self._original_language
 
 
 class MockPlayer:

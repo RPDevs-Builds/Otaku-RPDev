@@ -1,3 +1,6 @@
+Changelog v5.5.11 (2026-10-26):
+- Kodi 22 Piers enhancements: InfoTagVideo native OriginalLanguage & Tagline, and demuxer Player.GetChapters skip detection
+
 Changelog v5.5.10 (2026-10-26):
 - Kodi 22 Piers compatibility: BCP 47 language matching for audio/subtitles, async stream demuxer retry, Android TV back key action handlers, and SWIG type safeguards
 

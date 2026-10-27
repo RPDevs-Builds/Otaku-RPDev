@@ -368,6 +368,48 @@ class TestWatchlistPlayerAudioSubtitles(unittest.TestCase):
         mock_sleep.assert_called_with(200)
         self.player.setAudioStream.assert_called_with(0)
 
+    @patch("resources.lib.ui.control.getBool")
+    @patch("resources.lib.ui.control.jsonrpc")
+    def test_kodi22_player_getchapters_fallback(self, mock_jsonrpc, mock_getBool):
+        """
+        Verify that WatchlistPlayer retrieves chapters via JSON-RPC Player.GetChapters
+        when ffprobe binary and EBML headers are absent.
+        """
+        mock_getBool.side_effect = lambda setting: {
+            "ffprobe.chapters.enable": True,
+            "general.aniskip": True,
+        }.get(setting, True)
+
+        mock_jsonrpc.return_value = {
+            "result": {
+                "chapters": [
+                    {"name": "Cold Open", "time": 0.0},
+                    {"name": "OP / Opening", "time": 90.0},
+                    {"name": "Part A", "time": 180.0},
+                    {"name": "ED / Ending", "time": 1320.0},
+                    {"name": "Preview", "time": 1410.0},
+                ]
+            }
+        }
+
+        self.player.total_time = 1440
+        self.player.ffprobe_chapters = []
+        self.player.skipintro_aniskip_enable = True
+        self.player.skipintro_aniskip = False
+        self.player.skipintro_offset = 0
+        self.player.skipoutro_aniskip_enable = True
+        self.player.skipoutro_aniskip = False
+        self.player.skipoutro_offset = 0
+
+        self.player.process_ffprobe_chapter_skips()
+
+        self.assertTrue(self.player.skipintro_aniskip)
+        self.assertEqual(self.player.skipintro_start, 90)
+        self.assertEqual(self.player.skipintro_end, 180)
+        self.assertTrue(self.player.skipoutro_aniskip)
+        self.assertEqual(self.player.skipoutro_start, 1320)
+        self.assertEqual(self.player.skipoutro_end, 1410)
+
 
 class TestLanguageMatchingKodi22(unittest.TestCase):
     """Test suite for Kodi 22 BCP 47 language matching and normalization."""
