@@ -3,7 +3,7 @@ from unittest.mock import patch, MagicMock
 import xbmc
 import xbmcgui
 import xbmcaddon
-from resources.lib.ui import control
+from resources.lib.ui import control, database
 
 
 class TestCPythonInvokerLifecycle(unittest.TestCase):
@@ -23,6 +23,9 @@ class TestCPythonInvokerLifecycle(unittest.TestCase):
         win_proxy.clearProperties()
         self.assertEqual(win_proxy.getProperty('bulk_1'), '')
         self.assertEqual(win_proxy.getProperty('bulk_2'), '')
+
+        # Assert database memory cache uses the proxy rather than leaking a static Window
+        self.assertIs(database._window, control.homeWindow)
 
     def test_playlist_proxy(self):
         """Test _PlayListProxy delegates correctly to xbmc.PlayList without persistent SWIG wrapper leaks."""

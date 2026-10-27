@@ -1,3 +1,6 @@
+Changelog v5.5.15 (2026-10-26):
+- Resolve Kodi 22 CPythonInvoker N9XBMCAddon7xbmcgui6WindowE memory warning by converting database._window to proxy
+
 Changelog v5.5.14 (2026-10-26):
 - Resolve Kodi 22 CPythonInvoker memory warnings via SWIG object proxies, add lifecycle cleanup, and support InfoTagVideo HDR tagging
 

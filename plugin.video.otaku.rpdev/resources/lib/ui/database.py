@@ -243,7 +243,7 @@ class SQL:
 #  Memory Cache - Kodi Window Properties with Expiry & Generation Counter
 # ═══════════════════════════════════════════════════════════════════════════
 
-_window = xbmcgui.Window(10000)
+_window = control.homeWindow
 _MEM_GEN_PROP = f'{control.ADDON_ID}_cache_gen'
 
 
