@@ -745,44 +745,62 @@ def update_episode_batch(episode_batch):
 # ═══════════════════════════════════════════════════════════════════════════
 
 def get_mappings(anime_id, send_id):
-    _validate_identifier(send_id)
-    with SQL(control.mappingDB) as cur:
-        cur.execute(
-            f'SELECT * FROM anime WHERE {send_id}=?', (anime_id,))
-        rows = cur.fetchall()
-        return rows[0] if rows else {}
+    if not anime_id or not send_id:
+        return {}
+    try:
+        _validate_identifier(send_id)
+        with SQL(control.mappingDB) as cur:
+            cur.execute(
+                f'SELECT * FROM anime WHERE {send_id}=?', (anime_id,))
+            rows = cur.fetchall()
+            return rows[0] if rows else {}
+    except Exception:
+        pass
+    return {}
 
 
 def get_unique_ids(anime_id, send_id):
-    _validate_identifier(send_id)
-    with SQL(control.mappingDB) as cur:
-        cur.execute(
-            f'SELECT mal_id, mal_dub_id, anilist_id, kitsu_id, anidb_id, '
-            f'simkl_id, thetvdb_id, themoviedb_id, imdb_id, trakt_id '
-            f'FROM anime WHERE {send_id}=?', (anime_id,))
-        row = cur.fetchone()
-        if not row:
-            return {}
-        return {
-            'mal_id':     row.get('mal_id'),
-            'mal_dub_id': row.get('mal_dub_id'),
-            'anilist_id': row.get('anilist_id'),
-            'kitsu_id':   row.get('kitsu_id'),
-            'anidb':      row.get('anidb_id'),
-            'simkl':      row.get('simkl_id'),
-            'tvdb':       row.get('thetvdb_id'),
-            'tmdb':       row.get('themoviedb_id'),
-            'imdb':       row.get('imdb_id'),
-            'trakt':      row.get('trakt_id'),
-        }
+    if not anime_id or not send_id:
+        return {}
+    try:
+        _validate_identifier(send_id)
+        with SQL(control.mappingDB) as cur:
+            cur.execute(
+                f'SELECT mal_id, mal_dub_id, anilist_id, kitsu_id, anidb_id, '
+                f'simkl_id, thetvdb_id, themoviedb_id, imdb_id, trakt_id '
+                f'FROM anime WHERE {send_id}=?', (anime_id,))
+            row = cur.fetchone()
+            if not row:
+                return {}
+            return {
+                'mal_id':     row.get('mal_id'),
+                'mal_dub_id': row.get('mal_dub_id'),
+                'anilist_id': row.get('anilist_id'),
+                'kitsu_id':   row.get('kitsu_id'),
+                'anidb':      row.get('anidb_id'),
+                'simkl':      row.get('simkl_id'),
+                'tvdb':       row.get('thetvdb_id'),
+                'tmdb':       row.get('themoviedb_id'),
+                'imdb':       row.get('imdb_id'),
+                'trakt':      row.get('trakt_id'),
+            }
+    except Exception:
+        pass
+    return {}
 
 
 def get_mal_ids(anime_id, send_id):
-    _validate_identifier(send_id)
-    with SQL(control.mappingDB) as cur:
-        cur.execute(
-            f'SELECT * FROM anime WHERE {send_id}=?', (anime_id,))
-        return cur.fetchall() or []
+    if not anime_id or not send_id:
+        return []
+    try:
+        _validate_identifier(send_id)
+        with SQL(control.mappingDB) as cur:
+            cur.execute(
+                f'SELECT * FROM anime WHERE {send_id}=?', (anime_id,))
+            return cur.fetchall() or []
+    except Exception:
+        pass
+    return []
 
 
 def get_info(api_name):
@@ -1135,10 +1153,15 @@ def clearSearchCatagory(media_type):
 def remove_search(table, value):
     _validate_search_type(table)
     norm = value.strip()
-    with SQL(control.searchHistoryDB) as cur:
-        cur.execute(f'DELETE FROM {table} WHERE value=?', (norm,))
-        deleted = cur.rowcount
-        cur.connection.commit()
+    deleted = 0
+    try:
+        with SQL(control.searchHistoryDB) as cur:
+            _ensure_search_tables(cur)
+            cur.execute(f'DELETE FROM {table} WHERE value=?', (norm,))
+            deleted = cur.rowcount
+            cur.connection.commit()
+    except Exception:
+        deleted = 0
     control.refresh()
     if deleted == 0:
         control.notify(

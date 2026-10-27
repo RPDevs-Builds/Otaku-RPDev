@@ -1244,9 +1244,11 @@ class AniListBrowser(BrowserBase):
         return [x for x in map(mapfunc, res) if x]
 
     def process_res(self, res):
+        if not res:
+            return None
         self.database_update_show(res)
         get_meta.collect_meta([res])
-        return database.get_show(res['idMal'])
+        return database.get_show(res.get('idMal'))
 
     @div_flavor
     def base_anilist_view(self, res, completed=None, mal_dub=None):
@@ -1279,8 +1281,8 @@ class AniListBrowser(BrowserBase):
             'UniqueIDs': {
                 'anilist_id': str(anilist_id),
                 'mal_id': str(mal_id),
-                **database.get_unique_ids(anilist_id, 'anilist_id'),
-                **database.get_unique_ids(mal_id, 'mal_id')
+                **(database.get_unique_ids(anilist_id, 'anilist_id') or {}),
+                **(database.get_unique_ids(mal_id, 'mal_id') or {})
             },
             'genre': res.get('genres'),
             'title': title,

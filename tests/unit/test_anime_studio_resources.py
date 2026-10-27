@@ -9,7 +9,10 @@ ListItem properties, settings selection, and resolver art propagation.
 import unittest
 from unittest.mock import MagicMock, patch
 
-import conftest
+try:
+    import conftest
+except ModuleNotFoundError:
+    import tests.conftest as conftest
 from resources.lib.ui import control
 from resources.lib.windows.resolver import Resolver
 

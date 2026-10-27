@@ -510,6 +510,10 @@ def clearGlobalProp(property):
     homeWindow.clearProperty(property)
 
 
+def getInfoLabel(label):
+    return xbmc.getInfoLabel(label)
+
+
 def lang(x):
     return language(x)
 
@@ -933,7 +937,13 @@ def item_looks_like_next_page_row(item):
     """True when *item* is the standard Next page folder row (next.png artwork)."""
     if not isinstance(item, dict):
         return False
-    icon = (item.get('image') or {}).get('icon') or ''
+    img = item.get('image')
+    if isinstance(img, dict):
+        icon = img.get('icon') or ''
+    elif isinstance(img, str):
+        icon = img
+    else:
+        icon = ''
     norm = icon.replace('\\', '/').lower()
     return norm.endswith('/next.png') or norm.endswith('next.png')
 

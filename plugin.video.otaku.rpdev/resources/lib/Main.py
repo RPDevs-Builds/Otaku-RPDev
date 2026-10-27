@@ -255,6 +255,11 @@ def _tools_menu():
         (30073, 'clear_search_history', 'clear_search_history.png'),
         (30074, 'clear_watch_history', 'clear_watch_history.png'),
         (30075, 'rebuild_database', 'rebuild_database.png'),
+        (30500, 'database_stats', 'tools.png'),
+        (30542, 'scraper_stats', 'tools.png'),
+        (30501, 'vacuum_databases', 'tools.png'),
+        (30502, 'check_db_integrity', 'tools.png'),
+        (30503, 'sync_mappings', 'tools.png'),
         (30076, 'wipe_addon_data', 'wipe_addon_data.png'),
         (30077, 'completed_sync', 'sync_completed.png'),
         (30078, 'download_manager', 'download_manager.png'),
@@ -395,6 +400,8 @@ def ANIME_REVIEWS(payload, params):
     elif len(parts) == 2:
         path, mal_id = parts
         eps_watched = '0'
+    elif len(parts) == 1 and parts[0]:
+        path, mal_id, eps_watched = 'animes', parts[0], '0'
     else:
         control.notify(control.ADDON_NAME, control.lang(30461))
         control.draw_items([], 'addons')

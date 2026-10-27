@@ -73,13 +73,13 @@ def _extract_watch_target(path: str, plugin: str) -> str:
     if parts[0] in ('play', 'play_oot', 'play_al', 'play_mal', 'animes') and len(parts) >= 2:
         return f"/{parts[1]}/1"
 
-    if len(parts) >= 2 and parts[1].isdigit():
-        ep = parts[2] if len(parts) >= 3 and parts[2].isdigit() else "1"
-        return f"/{parts[1]}/{ep}"
-
     if parts[0].isdigit():
         ep = parts[1] if len(parts) >= 2 and parts[1].isdigit() else "1"
         return f"/{parts[0]}/{ep}"
+
+    if len(parts) >= 2 and parts[1].isdigit():
+        ep = parts[2] if len(parts) >= 3 and parts[2].isdigit() else "1"
+        return f"/{parts[1]}/{ep}"
 
     if f'{plugin}/play' in clean_path:
         return clean_path.split(f'{plugin}/play', 1)[1]

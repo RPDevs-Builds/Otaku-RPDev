@@ -69,13 +69,13 @@ def SEARCH_HISTORY(payload, params):
 
 @Route('remove_search_item/*')
 def REMOVE_SEARCH_ITEM(payload, params):
-    search_types, _, _, _ = get_search_config()
-    format = control.getSetting('format')
+    search_types, types, _, _ = get_search_config()
     found = False
     for search_type in search_types:
         if payload.startswith(search_type):
             search_item = payload.split(search_type, 1)[1]
             if search_item:
+                format = (params.get('format') if params else None) or types.get(search_type) or control.getSetting('format') or 'anime'
                 decoded_item = unquote(search_item)
                 database.remove_search(table=format, value=decoded_item)
                 found = True
@@ -86,13 +86,13 @@ def REMOVE_SEARCH_ITEM(payload, params):
 
 @Route('edit_search_item/*')
 def EDIT_SEARCH_ITEM(payload, params):
-    search_types, _, _, _ = get_search_config()
-    format = control.getSetting('format')
+    search_types, types, _, _ = get_search_config()
     found = False
     for search_type in search_types:
         if payload.startswith(search_type):
             search_item = payload.split(search_type, 1)[1]
             if search_item:
+                format = (params.get('format') if params else None) or types.get(search_type) or control.getSetting('format') or 'anime'
                 decoded_item = unquote(search_item)
                 query = control.keyboard(control.lang(30018), decoded_item)
                 if query and query != decoded_item:

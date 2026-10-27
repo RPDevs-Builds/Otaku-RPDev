@@ -1,3 +1,6 @@
+Changelog v1.0.42 (2026-10-26):
+- Fix _extract_watch_target integer route parsing
+
 Changelog v1.0.41 (2026-10-25)
 - Update icon, logo, and poster branding assets
 

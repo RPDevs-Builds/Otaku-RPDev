@@ -28,7 +28,8 @@ def WL_LOGIN(payload, params):
 
 @Route('watchlist_logout/*')
 def WL_LOGOUT(payload, params):
-    WatchlistFlavor.logout_request(payload)
+    flavor = payload.strip('/')
+    WatchlistFlavor.logout_request(flavor)
     control.refresh()
     control.exit_code()
 
@@ -59,7 +60,10 @@ def NEXT_UP_PAGES(payload, params):
 
 @Route('watchlist_status_type/*')
 def WATCHLIST_STATUS_TYPE(payload, params):
-    flavor, status = payload.rsplit("/")
+    parts = [p for p in payload.strip('/').split('/') if p]
+    if len(parts) < 2:
+        return control.exit_code()
+    flavor, status = parts[0], parts[1]
     next_up = bool(params.get('next_up'))
     content_type = 'videos' if next_up else 'tvshows'
     items = WatchlistFlavor.watchlist_status_request(flavor, status, next_up)
@@ -73,7 +77,10 @@ def WATCHLIST_STATUS_TYPE(payload, params):
 
 @Route('watchlist_status_type_pages/*')
 def WATCHLIST_STATUS_TYPE_PAGES(payload, params):
-    flavor, status, offset = payload.rsplit("/")
+    parts = [p for p in payload.strip('/').split('/') if p]
+    if len(parts) < 3:
+        return control.exit_code()
+    flavor, status, offset = parts[0], parts[1], parts[2]
     page = int(params.get('page', 1))
     next_up = bool(params.get('next_up'))
     content_type = 'videos' if next_up else 'tvshows'
@@ -93,12 +100,11 @@ def WATCHLIST_STATUS_TYPE_PAGES(payload, params):
 
 @Route('watchlist_to_ep/*')
 def WATCHLIST_TO_EP(payload, params):
-    payload_list = payload.rsplit("/")
-    # todo needs to be fixed
-    if len(payload_list) == 2:
-        mal_id, eps_watched = payload_list
-    else:
-        mal_id, eps_watched, extra = payload_list
+    payload_list = [p for p in payload.strip('/').split('/') if p]
+    if not payload_list:
+        return control.exit_code()
+    mal_id = payload_list[0]
+    eps_watched = payload_list[1] if len(payload_list) >= 2 else '0'
     show_meta = database.get_show(mal_id)
     if not show_meta:
         BROWSER.get_anime(mal_id)
@@ -121,8 +127,10 @@ def CONTEXT_MENU(payload, params):
     if not control.getBool('watchlist.update.enabled'):
         control.ok_dialog(control.ADDON_NAME, 'No Watchlist Enabled: \n\nPlease enable [B]Update Watchlist[/B] before using the Watchlist Manager')
         return control.exit_code()
-    payload_list = payload.rsplit('/')
-    path, mal_id, eps_watched = payload_list
+    from resources.lib import Main
+    mal_id = Main._extract_mal_id(payload)
+    if not mal_id:
+        return control.exit_code()
 
     if not (show := database.get_show(mal_id)):
         BROWSER.get_anime(mal_id)

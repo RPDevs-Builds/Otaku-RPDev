@@ -74,16 +74,56 @@ def REFRESH(payload, params):
         DebridLink().refreshToken()
 
 
+def _extract_fanart_list(mal_id):
+    if not mal_id:
+        return []
+
+    episode = database.get_episode(mal_id)
+    if not episode:
+        try:
+            MetaBrowser.get_anime_init(mal_id)
+            episode = database.get_episode(mal_id)
+        except Exception:
+            episode = None
+
+    fanart = []
+    if episode and episode.get('kodi_meta'):
+        try:
+            meta = database.loads(episode['kodi_meta'])
+            img = meta.get('image') if isinstance(meta.get('image'), dict) else {}
+            raw_fanart = img.get('fanart') or meta.get('fanart') or []
+            if isinstance(raw_fanart, list):
+                fanart = [f for f in raw_fanart if f and isinstance(f, str)]
+            elif isinstance(raw_fanart, str) and raw_fanart:
+                fanart = [raw_fanart]
+        except Exception:
+            pass
+
+    if not fanart:
+        show = database.get_show(mal_id)
+        if show and show.get('kodi_meta'):
+            try:
+                meta = database.loads(show['kodi_meta'])
+                img = meta.get('image') if isinstance(meta.get('image'), dict) else {}
+                raw_fanart = img.get('fanart') or meta.get('fanart') or []
+                if isinstance(raw_fanart, list):
+                    fanart = [f for f in raw_fanart if f and isinstance(f, str)]
+                elif isinstance(raw_fanart, str) and raw_fanart:
+                    fanart = [raw_fanart]
+            except Exception:
+                pass
+
+    return fanart
+
+
 @Route('fanart_select/*')
 def FANART_SELECT(payload, params):
     from resources.lib import Main
     mal_id = Main._extract_mal_id(payload)
-    if not (episode := database.get_episode(mal_id)):
-        MetaBrowser.get_anime_init(mal_id)
-        episode = database.get_episode(mal_id)
-    fanart = database.loads(episode['kodi_meta'])['image']['fanart'] or []
+    if not mal_id:
+        return control.exit_code()
+    fanart = _extract_fanart_list(mal_id)
     fanart_display = fanart + ["None", "Random (Default)"]
-    fanart += ["None", ""]
     control.draw_items([utils.allocate_item(f, f'fanart/{mal_id}/{i}', False, False, [], f, {}, fanart=f, landscape=f) for i, f in enumerate(fanart_display)], '')
 
 
@@ -91,17 +131,21 @@ def FANART_SELECT(payload, params):
 def FANART(payload: str, params: dict):
     parts = [p for p in payload.strip('/').split('/') if p]
     mal_id = parts[0] if parts else ''
-    select = parts[1] if len(parts) > 1 else '0'
-    episode = database.get_episode(mal_id)
-    fanart = database.loads(episode['kodi_meta'])['image']['fanart'] or []
+    select = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 0
+    fanart = _extract_fanart_list(mal_id)
     fanart_display = fanart + ["None", "Random"]
-    fanart += ["None", ""]
+    fanart_choices = fanart + ["None", ""]
+
+    if select >= len(fanart_choices):
+        return control.exit_code()
+
+    fanart_url = fanart_choices[select]
+    display_label = fanart_display[select]
 
     # Set fanart selection using string lists
     mal_ids = control.getStringList('fanart.mal_ids')
     fanart_selections = control.getStringList('fanart.selections')
     mal_id_str = str(mal_id)
-    fanart_url = fanart[int(select)]
 
     try:
         # Update existing entry
@@ -114,7 +158,7 @@ def FANART(payload: str, params: dict):
 
     control.setStringList('fanart.mal_ids', mal_ids)
     control.setStringList('fanart.selections', fanart_selections)
-    control.ok_dialog(control.ADDON_NAME, f"Fanart Set to {fanart_display[int(select)]}")
+    control.ok_dialog(control.ADDON_NAME, f"Fanart Set to {display_label}")
 
 
 # ### Maintenance ###

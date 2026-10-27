@@ -278,6 +278,9 @@ class MockListItem:
     def getArt(self, key=None):
         return self._art.get(key, '') if key else dict(self._art)
     def setProperty(self, k, v): self._props[str(k)] = str(v)
+    def setProperties(self, props):
+        if props:
+            self._props.update({str(k): str(v) for k, v in props.items()})
     def getProperty(self, k): return self._props.get(str(k), '')
     def getVideoInfoTag(self): return self._vinfo
     def setInfo(self, type_, infoLabels):
@@ -409,6 +412,9 @@ class MockWindowXMLDialog:
         self._focus_id = 1000
 
     def setProperty(self, k, v): self._props[str(k)] = str(v)
+    def setProperties(self, props):
+        if props:
+            self._props.update({str(k): str(v) for k, v in props.items()})
     def getProperty(self, k): return self._props.get(str(k), '')
     def clearProperty(self, k): self._props.pop(str(k), None)
     def clearProperties(self): self._props.clear()
@@ -431,6 +437,9 @@ class MockWindowDialog:
         self._focus_id = 1000
 
     def setProperty(self, k, v): self._props[str(k)] = str(v)
+    def setProperties(self, props):
+        if props:
+            self._props.update({str(k): str(v) for k, v in props.items()})
     def getProperty(self, k): return self._props.get(str(k), '')
     def clearProperty(self, k): self._props.pop(str(k), None)
     def clearProperties(self): self._props.clear()

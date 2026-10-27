@@ -76,9 +76,11 @@ class MalBrowser(BrowserBase):
         return all_results
 
     def process_res(self, res):
+        if not res:
+            return None
         self.database_update_show(res)
         get_meta.collect_meta([res])
-        return database.get_show(res['mal_id'])
+        return database.get_show(res.get('mal_id'))
 
     def get_season_year(self, period='current'):
         date = datetime.datetime.today()
