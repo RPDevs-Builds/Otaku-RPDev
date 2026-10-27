@@ -301,11 +301,21 @@ class Resolver(BaseWindow):
         if self.params.get('image'):
             self.image = self.params.get('image', {})
 
+        # Extract HDR / Dolby Vision metadata from resolved source if available
+        selected_source = self.return_data.get('source', {}) if isinstance(self.return_data, dict) else {}
+        source_tags = selected_source.get('info', []) if isinstance(selected_source, dict) else []
+        hdr_type = None
+        if 'DV' in source_tags:
+            hdr_type = 'dolbyvision'
+        elif 'HDR' in source_tags:
+            hdr_type = 'hdr10'
+
+        video_info = dict(self.params.get('info', {})) if self.params.get('info') else dict(self.params)
+        if hdr_type and 'hdr_type' not in video_info:
+            video_info['hdr_type'] = hdr_type
+
         # Set video tags from the best available source
-        if self.params.get('info'):
-            control.set_videotags(item, self.params['info'])
-        else:
-            control.set_videotags(item, self.params)
+        control.set_videotags(item, video_info)
 
         art = self._build_art_dict(use_params=False)
         if isinstance(art, dict):
@@ -340,7 +350,8 @@ class Resolver(BaseWindow):
             #      populated by build_playlist at that point).
             control.playList.clear()
             control.playList.add(stream_url, item)
-            xbmc.Player().play(control.playList, item)
+            pl_to_play = control.playList._get_pl() if hasattr(control.playList, '_get_pl') else control.playList
+            xbmc.Player().play(pl_to_play, item)
         else:
             # control.print("Standard resolved URL playback for in-addon and playlist auto-next")
             # Standard resolved URL playback for in-addon and playlist

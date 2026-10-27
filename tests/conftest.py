@@ -123,6 +123,8 @@ class MockInfoTagVideo:
     def getTagLine(self): return self._tagline
     def setOriginalLanguage(self, lang): self._original_language = str(lang or '')
     def getOriginalLanguage(self): return self._original_language
+    def setHdrType(self, hdr_type): self._hdr_type = int(hdr_type) if str(hdr_type).isdigit() else 1
+    def getHdrType(self): return getattr(self, '_hdr_type', 0)
 
 
 class MockPlayer:
@@ -193,10 +195,25 @@ class MockMonitor:
 
 
 class MockPlayList:
+    _shared_playlists = {}
+
     def __init__(self, playListType=1):
         self.playListType = playListType
-        self._items = []
-        self._pos = 0
+        if playListType not in self._shared_playlists:
+            self._shared_playlists[playListType] = {'items': [], 'pos': 0}
+        self._data = self._shared_playlists[playListType]
+
+    @property
+    def _items(self):
+        return self._data['items']
+
+    @property
+    def _pos(self):
+        return self._data['pos']
+
+    @_pos.setter
+    def _pos(self, val):
+        self._data['pos'] = val
 
     def add(self, url, listitem=None, index=-1):
         if index < 0 or index >= len(self._items):
@@ -216,6 +233,9 @@ class MockPlayList:
 
     def __getitem__(self, index):
         return self._items[index]
+
+    def __len__(self):
+        return len(self._items)
 
 
 class MockKeyboard:
@@ -341,17 +361,19 @@ class MockDialogProgress:
         self._canceled = False
         self._closed = False
 
-    def create(self, heading, message=''):
+    def create(self, heading, message='', line2='', line3=''):
         self._heading = heading
-        self._msg = message
+        msg_parts = [p for p in (message, line2, line3) if p]
+        self._msg = "\n".join(msg_parts)
         self._pct = 0
         self._canceled = False
         self._closed = False
 
-    def update(self, percent, message=''):
+    def update(self, percent, message='', line2='', line3=''):
         self._pct = percent
-        if message:
-            self._msg = message
+        msg_parts = [p for p in (message, line2, line3) if p]
+        if msg_parts:
+            self._msg = "\n".join(msg_parts)
 
     def iscanceled(self):
         return self._canceled
@@ -401,6 +423,7 @@ mock_home_win = MagicMock()
 mock_home_win.getProperty.side_effect = lambda k: _window_props.get(k, '')
 mock_home_win.setProperty.side_effect = lambda k, v: _window_props.__setitem__(k, str(v))
 mock_home_win.clearProperty.side_effect = lambda k: _window_props.pop(k, None)
+mock_home_win.clearProperties.side_effect = lambda: _window_props.clear()
 
 
 class MockWindowXMLDialog:
@@ -652,6 +675,7 @@ def addon_side_effect(addon_id=None):
         mock_settings.getIntList.side_effect = lambda k: [int(x) for x in _get_str_list(k)]
         mock_settings.getBoolList.side_effect = lambda k: [x.lower() == 'true' for x in _get_str_list(k)]
 
+        addon_mock.getLocalizedString.side_effect = lambda string_id: f"String_{string_id}"
         addon_mock.getSettings.return_value = mock_settings
         addon_mock.getSetting.side_effect = lambda k: _settings_store.get(k, '')
         addon_mock.getString.side_effect = lambda k: _settings_store.get(k, '')

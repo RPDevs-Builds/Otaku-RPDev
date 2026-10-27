@@ -23,32 +23,35 @@ from resources.lib.ui.router import router_process
 
 
 if __name__ == "__main__":
-    control.process_context()
-    from resources.lib import Main  # noQA
-    plugin_url = control.get_plugin_url(sys.argv[0])
-    plugin_params = control.get_plugin_params(sys.argv[2])
     try:
-        router_process(plugin_url, plugin_params)
-    except Exception as e:
-        control.log(f'Unhandled exception in router_process: {e}', 'error')
+        control.process_context()
+        from resources.lib import Main  # noQA
+        plugin_url = control.get_plugin_url(sys.argv[0])
+        plugin_params = control.get_plugin_params(sys.argv[2])
         try:
-            import xbmcplugin
-            handle = int(sys.argv[1]) if len(sys.argv) > 1 and sys.argv[1].isdigit() else -1
-            if handle >= 0:
-                xbmcplugin.endOfDirectory(handle, succeeded=False)
-        except Exception:
-            pass
-    else:
-        # Queue changelog display via RunPlugin ONLY after the root directory invoker cleanly finishes
-        is_root = (plugin_url in ('plugin://plugin.video.otaku.rpdev/', 'plugin://plugin.video.otaku.rpdev') and not plugin_params)
-        saved_ver = control.getSetting('version') or control.getSetting('otaku.version')
-        if is_root and control.ADDON_VERSION != saved_ver:
-            control.setSetting('version', control.ADDON_VERSION)
-            control.setSetting('otaku.version', control.ADDON_VERSION)
-            if control.getInt('showchangelog') == 0:
-                control.execute('RunPlugin(plugin://plugin.video.otaku.rpdev/change_log)')
-        elif is_root:
-            control.setSetting('version', control.ADDON_VERSION)
-            control.setSetting('otaku.version', control.ADDON_VERSION)
+            router_process(plugin_url, plugin_params)
+        except Exception as e:
+            control.log(f'Unhandled exception in router_process: {e}', 'error')
+            try:
+                import xbmcplugin
+                handle = int(sys.argv[1]) if len(sys.argv) > 1 and sys.argv[1].isdigit() else -1
+                if handle >= 0:
+                    xbmcplugin.endOfDirectory(handle, succeeded=False)
+            except Exception:
+                pass
+        else:
+            # Queue changelog display via RunPlugin ONLY after the root directory invoker cleanly finishes
+            is_root = (plugin_url in ('plugin://plugin.video.otaku.rpdev/', 'plugin://plugin.video.otaku.rpdev') and not plugin_params)
+            saved_ver = control.getSetting('version') or control.getSetting('otaku.version')
+            if is_root and control.ADDON_VERSION != saved_ver:
+                control.setSetting('version', control.ADDON_VERSION)
+                control.setSetting('otaku.version', control.ADDON_VERSION)
+                if control.getInt('showchangelog') == 0:
+                    control.execute('RunPlugin(plugin://plugin.video.otaku.rpdev/change_log)')
+            elif is_root:
+                control.setSetting('version', control.ADDON_VERSION)
+                control.setSetting('otaku.version', control.ADDON_VERSION)
 
-    control.log(f'Finished Running: {plugin_url=} {plugin_params=}')
+        control.log(f'Finished Running: {plugin_url=} {plugin_params=}')
+    finally:
+        control.cleanup()

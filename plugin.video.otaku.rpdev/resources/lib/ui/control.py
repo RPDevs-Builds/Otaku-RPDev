@@ -81,28 +81,221 @@ except (IndexError, ValueError):
     print('No handle found, using default 0')
     HANDLE = 0
 
-addonInfo = xbmcaddon.Addon().getAddonInfo
-ADDON_ID = addonInfo('id')
-ADDON = xbmcaddon.Addon(ADDON_ID)
-settings = ADDON.getSettings()
-language = ADDON.getLocalizedString
-addonInfo = ADDON.getAddonInfo
-ADDON_NAME = addonInfo('name')
-ADDON_VERSION = addonInfo('version')
-ADDON_ICON = addonInfo('icon')
-OTAKU_FANART = addonInfo('fanart')
-ADDON_PATH = ADDON.getAddonInfo('path')
+class _SettingsProxy:
+    """Lightweight on-demand proxy for xbmcaddon.Settings avoiding persistent SWIG wrapper leaks."""
+
+    def __init__(self, addon_id=None):
+        self._addon_id = addon_id
+
+    def _get_settings(self):
+        if self._addon_id:
+            return xbmcaddon.Addon(self._addon_id).getSettings()
+        return xbmcaddon.Addon().getSettings()
+
+    def getBool(self, key):
+        return self._get_settings().getBool(key)
+
+    def getInt(self, key):
+        return self._get_settings().getInt(key)
+
+    def getNumber(self, key):
+        return self._get_settings().getNumber(key)
+
+    def getString(self, key):
+        return self._get_settings().getString(key)
+
+    def getBoolList(self, key):
+        return self._get_settings().getBoolList(key)
+
+    def getIntList(self, key):
+        return self._get_settings().getIntList(key)
+
+    def getStringList(self, key):
+        return self._get_settings().getStringList(key)
+
+    def getNumberList(self, key):
+        return self._get_settings().getNumberList(key)
+
+    def setBool(self, key, value):
+        return self._get_settings().setBool(key, value)
+
+    def setInt(self, key, value):
+        return self._get_settings().setInt(key, value)
+
+    def setNumber(self, key, value):
+        return self._get_settings().setNumber(key, value)
+
+    def setString(self, key, value):
+        return self._get_settings().setString(key, value)
+
+    def setStringList(self, key, value):
+        return self._get_settings().setStringList(key, value)
+
+
+class _AddonProxy:
+    """Lightweight on-demand proxy for xbmcaddon.Addon avoiding persistent SWIG wrapper leaks."""
+
+    def __init__(self, addon_id=None):
+        self._addon_id = addon_id
+
+    def _get_addon(self):
+        if self._addon_id:
+            return xbmcaddon.Addon(self._addon_id)
+        return xbmcaddon.Addon()
+
+    def getAddonInfo(self, info_id):
+        return self._get_addon().getAddonInfo(info_id)
+
+    def getLocalizedString(self, string_id):
+        return self._get_addon().getLocalizedString(string_id)
+
+    def getSetting(self, setting_id):
+        return self._get_addon().getSetting(setting_id)
+
+    def setSetting(self, setting_id, value):
+        return self._get_addon().setSetting(setting_id, value)
+
+    def getSettings(self):
+        return _SettingsProxy(self._addon_id)
+
+    def openSettings(self):
+        return self._get_addon().openSettings()
+
+
+class _WindowProxy:
+    """Lightweight on-demand proxy for xbmcgui.Window avoiding persistent SWIG wrapper leaks."""
+
+    def __init__(self, window_id=10000):
+        self._window_id = window_id
+
+    def _get_win(self):
+        return xbmcgui.Window(self._window_id)
+
+    def getProperty(self, key):
+        return self._get_win().getProperty(key)
+
+    def setProperty(self, key, value):
+        self._get_win().setProperty(key, str(value))
+
+    def clearProperty(self, key):
+        self._get_win().clearProperty(key)
+
+    def clearProperties(self):
+        self._get_win().clearProperties()
+
+
+class _PlayListProxy:
+    """Lightweight on-demand proxy for xbmc.PlayList avoiding persistent SWIG wrapper leaks."""
+
+    def __init__(self, playlist_type=xbmc.PLAYLIST_VIDEO):
+        self._type = playlist_type
+
+    def _get_pl(self):
+        return xbmc.PlayList(self._type)
+
+    def clear(self):
+        self._get_pl().clear()
+
+    def add(self, url, listitem=None, index=-1):
+        pl = self._get_pl()
+        if listitem is not None:
+            pl.add(url=url, listitem=listitem, index=index)
+        else:
+            pl.add(url=url, index=index)
+
+    def size(self):
+        return self._get_pl().size()
+
+    def getposition(self):
+        return self._get_pl().getposition()
+
+    def __getitem__(self, index):
+        return self._get_pl()[index]
+
+    def __len__(self):
+        return self._get_pl().size()
+
+
+class _ProgressDialogProxy:
+    """Lightweight on-demand proxy for xbmcgui.DialogProgress avoiding persistent SWIG wrapper leaks."""
+
+    def __init__(self):
+        self._dialog = None
+
+    def _ensure_dialog(self):
+        if self._dialog is None:
+            self._dialog = xbmcgui.DialogProgress()
+        return self._dialog
+
+    def create(self, heading, *args):
+        self._ensure_dialog()
+        try:
+            return self._dialog.create(heading, *args)
+        except TypeError:
+            msg = "\n".join(str(a) for a in args if a)
+            return self._dialog.create(heading, msg)
+
+    def update(self, percent, *args):
+        if self._dialog is not None:
+            try:
+                return self._dialog.update(percent, *args)
+            except TypeError:
+                msg = "\n".join(str(a) for a in args if a)
+                return self._dialog.update(percent, msg)
+
+    def iscanceled(self):
+        if self._dialog is not None:
+            return self._dialog.iscanceled()
+        return False
+
+    def close(self):
+        if self._dialog is not None:
+            try:
+                self._dialog.close()
+            except Exception:
+                pass
+            self._dialog = None
+
+
+_init_addon = xbmcaddon.Addon()
+ADDON_ID = _init_addon.getAddonInfo('id')
+_target_addon = xbmcaddon.Addon(ADDON_ID)
+ADDON_NAME = _target_addon.getAddonInfo('name')
+ADDON_VERSION = _target_addon.getAddonInfo('version')
+ADDON_ICON = _target_addon.getAddonInfo('icon')
+OTAKU_FANART = _target_addon.getAddonInfo('fanart')
+ADDON_PATH = _target_addon.getAddonInfo('path')
+dataPath = xbmcvfs.translatePath(_target_addon.getAddonInfo('profile'))
+del _target_addon
+del _init_addon
+
+_kodi_addon = xbmcaddon.Addon('xbmc.addon')
+kodi_version = float(_kodi_addon.getAddonInfo('version')[:4])
+del _kodi_addon
+
 ADDONS_PATH = xbmcvfs.translatePath('special://home/addons/')
 pathExists = xbmcvfs.exists
-dataPath = xbmcvfs.translatePath(addonInfo('profile'))
-kodi_version = float(xbmcaddon.Addon('xbmc.addon').getAddonInfo('version')[:4])
 
 _settings_cache = {}
 
 CONTEXT_ADDON_ID = 'context.otaku.rpdev'
-CONTEXT_ADDON = xbmcaddon.Addon(CONTEXT_ADDON_ID)
-CONTEXT_ADDON_PATH = CONTEXT_ADDON.getAddonInfo('path')
+_temp_context = xbmcaddon.Addon(CONTEXT_ADDON_ID)
+CONTEXT_ADDON_PATH = _temp_context.getAddonInfo('path')
 infoDB = os.path.join(CONTEXT_ADDON_PATH, 'info.db')
+del _temp_context
+
+ADDON = _AddonProxy(ADDON_ID)
+CONTEXT_ADDON = _AddonProxy(CONTEXT_ADDON_ID)
+settings = _SettingsProxy(ADDON_ID)
+
+
+def language(string_id):
+    return xbmcaddon.Addon(ADDON_ID).getLocalizedString(string_id)
+
+
+def addonInfo(info_id):
+    return xbmcaddon.Addon(ADDON_ID).getAddonInfo(info_id)
+
 
 # — External API endpoints —
 # Jikan v4-schema-compatible MAL metadata provider. Centralized here so a
@@ -142,13 +335,13 @@ OTAKU_GENRE_PATH = os.path.join(CONTEXT_ADDON_PATH, 'resources', 'images', 'genr
 
 # — Kodi GUI objects —
 dialogWindow = xbmcgui.WindowDialog
-homeWindow = xbmcgui.Window(10000)
+homeWindow = _WindowProxy(10000)
 menuItem = xbmcgui.ListItem
 execute = xbmc.executebuiltin
 get_region = xbmc.getRegion
 trakt_gmt_format = '%Y-%m-%dT%H:%M:%S.000Z'
-progressDialog = xbmcgui.DialogProgress()
-playList = xbmc.PlayList(xbmc.PLAYLIST_VIDEO)
+progressDialog = _ProgressDialogProxy()
+playList = _PlayListProxy(xbmc.PLAYLIST_VIDEO)
 sleep = xbmc.sleep
 
 
@@ -629,6 +822,16 @@ def clean_memory():
         log(f"malloc_trim warning: {e}", 'debug')
 
 
+def cleanup():
+    """Explicitly release Kodi GUI dialogs and C++ resources on script shutdown."""
+    global progressDialog
+    try:
+        progressDialog.close()
+    except Exception:
+        pass
+    clean_memory()
+
+
 _RE_KODI_TAG = re.compile(r'\[/?(?:COLOR(?:\s+[^\]]+|=.*?)?|B|I|LIGHT|UPPERCASE|LOWERCASE|CAPITALIZE|CR)\]', re.IGNORECASE)
 _RE_CONTROL_CHARS = re.compile(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]')
 
@@ -810,6 +1013,16 @@ def set_videotags(li, info):
 
     if resume := info.get('resume'):
         vinfo.setResumePoint(float(resume), 1)
+
+    if hdr_type := info.get('hdr_type') or info.get('hdr'):
+        if hasattr(vinfo, 'setHdrType'):
+            try:
+                hdr_map = {'none': 0, 'hdr10': 1, 'hlg': 2, 'dolbyvision': 3, 'dv': 3, 'hdr10plus': 4, 'hdr': 1}
+                val = hdr_map.get(str(hdr_type).lower(), int(hdr_type) if str(hdr_type).isdigit() else 1)
+                vinfo.setHdrType(val)
+            except Exception:
+                pass
+        li.setProperty('VideoResolution.HDRType', str(hdr_type))
 
 
 def jsonrpc(json_data):
