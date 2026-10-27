@@ -1,3 +1,8 @@
+Changelog v5.5.19 (2026-10-27):
+- Auto Skip Chapter Resolution: Remove prologue and cold open keywords from intro detection to prevent skipping episode story content; rank candidate intro chapters by OP confidence and ~90s anime OP duration
+- Auto Skip Telemetry: Log intro and outro auto-skip seek events at info level for clear diagnostic visibility in standard Kodi logs
+- SWIG Memory Leak Prevention: Break circular bound-method callback references in SourceSelect and Resolver, register and clean up modal WindowXMLDialog instances on close/shutdown, and eliminate CPythonInvoker SwigDirector_WindowXMLDialog warnings
+
 Changelog v5.5.18 (2026-10-27):
 - Playback & Stop Responsiveness: Fast-path ffprobe chapters bypassing 3s wait, low-RAM 70% pre-scrape throttling, and 200ms abort-responsive player monitoring loop for instant playback stop
 - Browsing & Concurrency Speed: Flatten nested ThreadPoolExecutor in get_meta.py, O(1) dictionary fanart lookup in control.py, and eliminate ephemeral window churn in smart scroll
