@@ -7,6 +7,8 @@ from unittest.mock import MagicMock, patch
 from resources.lib.ui.player import (
     score_subtitle_stream,
     select_subtitle_stream,
+    is_language_match,
+    LANGUAGE_SYNONYMS,
     WatchlistPlayer,
     SIGNS_SUBTITLE_KEYWORDS,
     DIALOG_SUBTITLE_KEYWORDS,
@@ -111,6 +113,17 @@ class TestSubtitleScoring(unittest.TestCase):
 
         single = [{"index": 0, "language": "eng", "name": "", "isdefault": True}]
         self.assertEqual(select_subtitle_stream(single, target_mode="dialog", preferred_lang="eng"), 0)
+
+    def test_kodi22_bcp47_subtitle_scoring(self):
+        """Verify that score_subtitle_stream awards +1000 for BCP 47 'en' with preferred_lang='eng'."""
+        stream_en = {"index": 0, "language": "en", "name": "English", "isdefault": False}
+        stream_ja = {"index": 1, "language": "ja", "name": "Japanese", "isdefault": False}
+
+        score_en = score_subtitle_stream(stream_en, target_mode="dialog", preferred_lang="eng")
+        score_ja = score_subtitle_stream(stream_ja, target_mode="dialog", preferred_lang="eng")
+
+        self.assertGreater(score_en, 500)
+        self.assertLess(score_ja, 0)  # Penalized
 
 
 class TestWatchlistPlayerAudioSubtitles(unittest.TestCase):
@@ -278,6 +291,124 @@ class TestWatchlistPlayerAudioSubtitles(unittest.TestCase):
         self.player.setup_audio_and_subtitles()
 
         self.player.showSubtitles.assert_called_with(False)
+
+    @patch("resources.lib.ui.control.getBool")
+    @patch("resources.lib.ui.control.getInt")
+    @patch("resources.lib.ui.control.jsonrpc")
+    def test_kodi22_bcp47_english_audio_selection(self, mock_jsonrpc, mock_getInt, mock_getBool):
+        """
+        Verify that WatchlistPlayer selects English audio when Kodi 22 reports language: 'en'
+        instead of 'eng'.
+        """
+        mock_jsonrpc.return_value = {
+            "result": {
+                "audiostreams": [
+                    {"index": 0, "language": "ja", "name": "Japanese Stereo", "isdefault": True},
+                    {"index": 1, "language": "en", "name": "English 5.1", "isdefault": False},
+                ],
+                "subtitles": [
+                    {"index": 0, "language": "en", "name": "Signs & Songs", "isdefault": True},
+                    {"index": 1, "language": "en", "name": "English Dialog", "isdefault": False},
+                ],
+            }
+        }
+        mock_getBool.side_effect = lambda setting: {
+            "general.kodi_language": False,
+            "general.subtitles.keyword": True,
+            "general.subtitles.type": True,
+            "general.dubsubtitles": True,
+        }.get(setting, False)
+
+        self.player.preferred_audio = 1  # 'eng'
+        self.player.preferred_subtitle_setting = 1  # 'eng'
+        self.player.preferred_subtitle_type = 0
+        self.player.preferred_subtitle_keyword = 4  # Smart Pair
+
+        self.player.setup_audio_and_subtitles()
+
+        # Audio stream 1 (English 'en') MUST be selected despite index 0 having isdefault=True
+        self.player.setAudioStream.assert_called_with(1)
+        # Smart Pair on English Dub selects Signs & Songs (index 0)
+        self.player.setSubtitleStream.assert_called_with(0)
+        self.player.showSubtitles.assert_called_with(True)
+
+    @patch("xbmc.sleep")
+    @patch("resources.lib.ui.control.getBool")
+    @patch("resources.lib.ui.control.getInt")
+    @patch("resources.lib.ui.control.jsonrpc")
+    def test_demuxer_async_retry_success(self, mock_jsonrpc, mock_getInt, mock_getBool, mock_sleep):
+        """
+        Verify retry loop in setup_audio_and_subtitles: first call returns empty arrays,
+        second call returns populated streams.
+        """
+        mock_jsonrpc.side_effect = [
+            {"result": {"audiostreams": [], "subtitles": []}},
+            {
+                "result": {
+                    "audiostreams": [{"index": 0, "language": "en", "name": "English", "isdefault": True}],
+                    "subtitles": [{"index": 0, "language": "en", "name": "English", "isdefault": True}],
+                }
+            }
+        ]
+        mock_getBool.side_effect = lambda setting: {
+            "general.kodi_language": False,
+            "general.subtitles.keyword": True,
+            "general.subtitles.type": True,
+            "general.dubsubtitles": True,
+        }.get(setting, False)
+
+        self.player.preferred_audio = 1
+        self.player.preferred_subtitle_setting = 1
+        self.player.preferred_subtitle_type = 0
+        self.player.preferred_subtitle_keyword = 1
+
+        self.player.setup_audio_and_subtitles()
+
+        self.assertEqual(mock_jsonrpc.call_count, 2)
+        mock_sleep.assert_called_with(200)
+        self.player.setAudioStream.assert_called_with(0)
+
+
+class TestLanguageMatchingKodi22(unittest.TestCase):
+    """Test suite for Kodi 22 BCP 47 language matching and normalization."""
+
+    def test_bcp47_two_letter_code_matches_iso639_three_letter_target(self):
+        """Kodi 22 emits 'en' for English; target is 'eng'."""
+        self.assertTrue(is_language_match('en', '', 'eng'))
+        self.assertTrue(is_language_match('ja', '', 'jpn'))
+        self.assertTrue(is_language_match('es', '', 'spa'))
+        self.assertTrue(is_language_match('fr', '', 'fre'))
+        self.assertTrue(is_language_match('de', '', 'ger'))
+
+    def test_iso639_three_letter_code_matches_two_letter_target(self):
+        self.assertTrue(is_language_match('eng', '', 'en'))
+        self.assertTrue(is_language_match('jpn', '', 'ja'))
+
+    def test_regional_bcp47_subtags(self):
+        """Sub-tags like 'en-US', 'ja-JP', 'es-419', 'pt-BR' match base languages."""
+        self.assertTrue(is_language_match('en-US', '', 'eng'))
+        self.assertTrue(is_language_match('en-GB', '', 'eng'))
+        self.assertTrue(is_language_match('ja-JP', '', 'jpn'))
+        self.assertTrue(is_language_match('es-419', '', 'spa'))
+        self.assertTrue(is_language_match('pt-BR', '', 'por'))
+
+    def test_stream_name_fallback_matching(self):
+        """Stream language is missing or undefined ('und'), but stream title specifies language."""
+        self.assertTrue(is_language_match('', 'English 5.1', 'eng'))
+        self.assertTrue(is_language_match('und', '[Dual-Audio] English', 'eng'))
+        self.assertTrue(is_language_match(None, 'Japanese Audio', 'jpn'))
+        self.assertTrue(is_language_match('', 'Español Latino', 'spa'))
+
+    def test_non_matching_languages_return_false(self):
+        self.assertFalse(is_language_match('ja', 'Japanese', 'eng'))
+        self.assertFalse(is_language_match('es', 'Spanish', 'jpn'))
+        self.assertFalse(is_language_match('de', 'German', 'fre'))
+
+    def test_empty_or_none_inputs_handled_safely(self):
+        self.assertFalse(is_language_match(None, None, 'eng'))
+        self.assertFalse(is_language_match('', '', 'eng'))
+        self.assertFalse(is_language_match('en', 'English', None))
+        self.assertFalse(is_language_match('en', 'English', ''))
 
 
 if __name__ == "__main__":

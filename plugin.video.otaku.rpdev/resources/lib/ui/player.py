@@ -30,6 +30,62 @@ player = xbmc.Player
 SIGNS_SUBTITLE_KEYWORDS = ('signs', 'songs', 's&s', 's/s', 's & s', 's_s', 'forced')
 DIALOG_SUBTITLE_KEYWORDS = ('dialogue', 'dialog', 'full', 'main', 'complete')
 
+LANGUAGE_SYNONYMS = {
+    'eng': {'eng', 'en', 'en-us', 'en-gb', 'en-au', 'en-ca', 'english'},
+    'jpn': {'jpn', 'ja', 'ja-jp', 'japanese', 'jap'},
+    'spa': {'spa', 'es', 'es-es', 'es-419', 'es-la', 'es-mx', 'spanish', 'español', 'espanol'},
+    'fre': {'fre', 'fra', 'fr', 'fr-fr', 'fr-ca', 'french', 'français', 'francais'},
+    'ger': {'ger', 'deu', 'de', 'de-de', 'de-at', 'de-ch', 'german', 'deutsch'},
+    'ita': {'ita', 'it', 'it-it', 'italian', 'italiano'},
+    'dut': {'dut', 'nld', 'nl', 'nl-nl', 'dutch', 'nederlands'},
+    'rus': {'rus', 'ru', 'ru-ru', 'russian', 'русский'},
+    'por': {'por', 'pt', 'pt-pt', 'pt-br', 'portuguese', 'português', 'portugues'},
+    'kor': {'kor', 'ko', 'ko-kr', 'korean', '한국어'},
+    'chi': {'chi', 'zho', 'zh', 'zh-cn', 'zh-tw', 'zh-hans', 'zh-hant', 'chinese', '中文'},
+    'ara': {'ara', 'ar', 'arabic', 'العربية'},
+    'hin': {'hin', 'hi', 'hindi', 'हिन्दी'},
+    'tur': {'tur', 'tr', 'turkish', 'türkçe'},
+    'pol': {'pol', 'pl', 'polish', 'polski'},
+    'swe': {'swe', 'sv', 'swedish', 'svenska'},
+    'nor': {'nor', 'no', 'norwegian', 'norsk'},
+    'dan': {'dan', 'da', 'danish', 'dansk'},
+    'fin': {'fin', 'fi', 'finnish', 'suomi'},
+}
+
+
+def is_language_match(stream_lang, stream_name, target_lang):
+    """
+    Check if a stream's language code or name matches the target language.
+    Handles Kodi 22 BCP 47 (en, ja, fr), ISO 639-2 (eng, jpn, fra), and full language names.
+    """
+    if not target_lang:
+        return False
+    target = target_lang.lower().strip()
+
+    # Find the synonym set for the target
+    synonyms = LANGUAGE_SYNONYMS.get(target)
+    if not synonyms:
+        for k, syns in LANGUAGE_SYNONYMS.items():
+            if target in syns:
+                synonyms = syns
+                break
+        else:
+            synonyms = {target}
+
+    s_lang = (stream_lang or '').lower().strip()
+    s_lang_prefix = s_lang.split('-')[0].split('_')[0] if s_lang else ''
+
+    if s_lang in synonyms or (s_lang_prefix and s_lang_prefix in synonyms):
+        return True
+
+    s_name = (stream_name or '').lower().strip()
+    if s_name:
+        for syn in synonyms:
+            if len(syn) > 2 and syn in s_name:
+                return True
+
+    return False
+
 
 def score_subtitle_stream(sub, target_mode='dialog', preferred_lang='eng', custom_keyword='', preferred_type='isdefault'):
     """
@@ -50,8 +106,8 @@ def score_subtitle_stream(sub, target_mode='dialog', preferred_lang='eng', custo
 
     score = 0
 
-    # 1. Preferred Language Match
-    if preferred_lang and sub_lang == preferred_lang.lower():
+    # 1. Preferred Language Match (handles Kodi 22 BCP 47 'en', 'ja', etc.)
+    if preferred_lang and is_language_match(sub_lang, sub_name, preferred_lang):
         score += 1000
     elif sub_lang:
         # Penalize non-matching languages when preferred_lang is specified
@@ -129,7 +185,7 @@ def select_subtitle_stream(subtitle_streams, target_mode='dialog', preferred_lan
 
 class WatchlistPlayer(player):
     def __init__(self):
-        super(WatchlistPlayer, self).__init__()
+        super().__init__()
         self.player = xbmc.Player()
         self.vtag = None
         self.episode = None
@@ -513,7 +569,6 @@ class WatchlistPlayer(player):
 
     def setup_audio_and_subtitles(self):
         """Handle audio and subtitle setup"""
-        # This contains your existing audio/subtitle setup code from keepAlive
         if not control.getBool('general.kodi_language'):
             query = {
                 'jsonrpc': '2.0',
@@ -538,26 +593,32 @@ class WatchlistPlayer(player):
                 "isdefault", "isforced", "isimpaired"
             ]
 
-            response = control.jsonrpc(query)
-
-            if 'result' in response:
-                player_properties = response['result']
-                audio_streams = player_properties.get('audiostreams', [])
-                subtitle_streams = player_properties.get('subtitles', [])
-            else:
-                audio_streams = []
-                subtitle_streams = []
+            # Allow Kodi's demuxer a brief window to asynchronously populate stream lists
+            audio_streams = []
+            subtitle_streams = []
+            for attempt in range(10):
+                response = control.jsonrpc(query)
+                if 'result' in response:
+                    player_properties = response['result']
+                    audio_streams = player_properties.get('audiostreams', [])
+                    subtitle_streams = player_properties.get('subtitles', [])
+                    if audio_streams or subtitle_streams:
+                        break
+                xbmc.sleep(200)
 
             preferred_audio_streams = audios[self.preferred_audio] if self.preferred_audio < len(audios) else 'jpn'
             preferred_subtitle_lang = subtitles[self.preferred_subtitle_setting] if self.preferred_subtitle_setting < len(subtitles) else 'eng'
             preferred_subtitle_type = types[self.preferred_subtitle_type] if self.preferred_subtitle_type < len(types) else 'isdefault'
 
-            # Set preferred audio stream
+            # Set preferred audio stream using multi-format language and name matching
             selected_audio_stream = None
             for stream in audio_streams:
-                if stream.get('language') == preferred_audio_streams:
+                s_lang = stream.get('language') or ''
+                s_name = stream.get('name') or ''
+                if is_language_match(s_lang, s_name, preferred_audio_streams):
                     self.setAudioStream(stream['index'])
                     selected_audio_stream = stream
+                    control.log(f"Player: Selected audio stream {stream['index']} (lang={s_lang}, name={s_name}) matching '{preferred_audio_streams}'", 'info')
                     break
             else:
                 # If no preferred audio stream is found, set to the default audio stream
@@ -565,21 +626,27 @@ class WatchlistPlayer(player):
                     if stream.get('isdefault', False):
                         self.setAudioStream(stream['index'])
                         selected_audio_stream = stream
+                        control.log(f"Player: Fallback to default audio stream {stream['index']} (lang={stream.get('language')}, name={stream.get('name')})", 'info')
                         break
                 else:
                     # If no default audio stream is found, set to the first available audio stream
                     if audio_streams:
                         self.setAudioStream(audio_streams[0]['index'])
                         selected_audio_stream = audio_streams[0]
+                        control.log(f"Player: Fallback to first audio stream {audio_streams[0]['index']} (lang={audio_streams[0].get('language')}, name={audio_streams[0].get('name')})", 'info')
 
-            active_audio_lang = (selected_audio_stream.get('language') or '').lower() if selected_audio_stream else preferred_audio_streams
+            is_eng_audio = is_language_match(
+                selected_audio_stream.get('language') if selected_audio_stream else '',
+                selected_audio_stream.get('name') if selected_audio_stream else '',
+                'eng'
+            )
 
             # Determine target subtitle mode: 'dialog', 'signs', 'custom', or None
             if control.getBool('general.subtitles.keyword'):
                 kw_setting = self.preferred_subtitle_keyword
                 if kw_setting == 4:
                     # Option 4: Smart Pair (Dialog for Sub / Signs for Dub)
-                    target_mode = 'signs' if active_audio_lang == 'eng' else 'dialog'
+                    target_mode = 'signs' if is_eng_audio else 'dialog'
                 elif kw_setting == 2:
                     # Option 2: Signs & Songs
                     target_mode = 'signs'
@@ -610,7 +677,7 @@ class WatchlistPlayer(player):
             # Enable and Disable Subtitles based on active audio stream
             if preferred_subtitle_lang == "none":
                 self.showSubtitles(False)
-            elif active_audio_lang == "eng":
+            elif is_eng_audio:
                 # English Dub playing: respect general.dubsubtitles
                 if control.getBool('general.dubsubtitles'):
                     self.showSubtitles(True)
@@ -796,7 +863,7 @@ class WatchlistPlayer(player):
 
 class PlayerDialogs(xbmc.Player):
     def __init__(self):
-        super(PlayerDialogs, self).__init__()
+        super().__init__()
         self.playing_file = self.getPlayingFile()
 
     def display_dialog(self, skipoutro_aniskip, skipoutro_end):

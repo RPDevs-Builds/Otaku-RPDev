@@ -39,7 +39,7 @@ class StatsWindow(xbmcgui.WindowXMLDialog):
 
     def onAction(self, action):
         action_id = action.getId()
-        if action_id in (xbmcgui.ACTION_NAV_BACK, xbmcgui.ACTION_PREVIOUS_MENU):
+        if action_id in (9, 10, 92, 216, xbmcgui.ACTION_NAV_BACK, xbmcgui.ACTION_PREVIOUS_MENU):
             self.close()
 
     def onClick(self, control_id):

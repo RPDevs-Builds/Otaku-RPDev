@@ -70,9 +70,9 @@ class Anichart(BaseWindow):
         actionID = action.getId()
         control.log(f"Action detected: {actionID}")
 
-        # back navigation
-        if actionID in [xbmcgui.ACTION_NAV_BACK,
-                        xbmcgui.ACTION_BACKSPACE,
+        # back navigation (including Android TV remote back action 9)
+        if actionID in [9, 10, 92, 216,
+                        xbmcgui.ACTION_NAV_BACK,
                         xbmcgui.ACTION_PREVIOUS_MENU]:
             self.close()
         # Handle different input methods differently

@@ -444,8 +444,8 @@ class SortSelect(BaseWindow):
     def onAction(self, action):
         actionID = action.getId()
 
-        if actionID in [92, 10]:
-            # BACKSPACE / ESCAPE
+        if actionID in [9, 10, 92, 216]:
+            # BACK / BACKSPACE / ESCAPE (including Android TV remote back action 9)
             self.close()
 
     def onClick(self, control_id):

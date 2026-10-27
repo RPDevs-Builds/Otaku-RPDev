@@ -751,7 +751,15 @@ def set_videotags(li, info):
                 li.setProperty('Studios', studio)
                 li.setProperty('Studio', clean_studios[0])
     if cast := info.get('cast'):
-        vinfo.setCast([xbmc.Actor(c['name'], c['role'], c['index'], c['thumbnail']) for c in cast])
+        vinfo.setCast([
+            xbmc.Actor(
+                str(c.get('name') or ''),
+                str(c.get('role') or ''),
+                int(c.get('index') or 0),
+                str(c.get('thumbnail') or '')
+            )
+            for c in cast if isinstance(c, dict)
+        ])
     if country := info.get('country'):
         vinfo.setCountries(country)
     if originaltitle := info.get('OriginalTitle'):
