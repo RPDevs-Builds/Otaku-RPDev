@@ -125,6 +125,10 @@ class MockInfoTagVideo:
     def getOriginalLanguage(self): return self._original_language
     def setHdrType(self, hdr_type): self._hdr_type = int(hdr_type) if str(hdr_type).isdigit() else 1
     def getHdrType(self): return getattr(self, '_hdr_type', 0)
+    def setSeasonPlot(self, plot): self._season_plot = str(plot or '')
+    def getSeasonPlot(self): return getattr(self, '_season_plot', '')
+    def setAvailableFanart(self, fanarts): self._available_fanart = list(fanarts or [])
+    def getAvailableFanart(self): return getattr(self, '_available_fanart', [])
 
 
 class MockPlayer:

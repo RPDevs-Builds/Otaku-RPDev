@@ -910,40 +910,77 @@ def browse(type_, heading, shares, mask=''):
 def set_videotags(li, info):
     vinfo: xbmc.InfoTagVideo = li.getVideoInfoTag()
     if title := info.get('title') or info.get('title_userPreferred'):
-        vinfo.setTitle(title)
+        vinfo.setTitle(str(title))
     if media_type := info.get('mediatype') or info.get('format'):
-        vinfo.setMediaType(media_type)
+        vinfo.setMediaType(str(media_type))
     if tvshow_title := info.get('tvshowtitle'):
-        vinfo.setTvShowTitle(tvshow_title)
+        vinfo.setTvShowTitle(str(tvshow_title))
     if plot := info.get('plot'):
-        vinfo.setPlot(plot)
+        vinfo.setPlot(str(plot))
+    if season_plot := info.get('season_plot'):
+        if hasattr(vinfo, 'setSeasonPlot'):
+            try:
+                vinfo.setSeasonPlot(str(season_plot))
+            except Exception:
+                pass
+        li.setProperty('SeasonPlot', str(season_plot))
     if year := info.get('year'):
-        vinfo.setYear(int(year))
+        try:
+            vinfo.setYear(int(year))
+        except (ValueError, TypeError):
+            pass
+    elif premiered := info.get('premiered'):
+        # Fallback year extraction from Premiered date (YYYY-MM-DD)
+        if len(str(premiered)) >= 4 and str(premiered)[:4].isdigit():
+            try:
+                vinfo.setYear(int(str(premiered)[:4]))
+            except (ValueError, TypeError):
+                pass
     if premiered := info.get('premiered'):
-        vinfo.setPremiered(premiered)
+        vinfo.setPremiered(str(premiered))
+    elif year := info.get('year'):
+        try:
+            vinfo.setPremiered(f"{int(year):04d}-01-01")
+        except (ValueError, TypeError):
+            pass
     if status := info.get('status'):
-        vinfo.setTvShowStatus(status)
+        vinfo.setTvShowStatus(str(status))
     if genre := info.get('genre'):
-        vinfo.setGenres(genre)
+        vinfo.setGenres([str(g) for g in genre] if isinstance(genre, list) else [str(genre)])
     if mpaa := info.get('mpaa'):
-        vinfo.setMpaa(mpaa)
+        vinfo.setMpaa(str(mpaa))
     if rating := info.get('rating'):
         if isinstance(rating, dict):
-            vinfo.setRating(rating.get('score', 0), rating.get('votes', 0))
+            try:
+                vinfo.setRating(float(rating.get('score', 0) or 0), int(rating.get('votes', 0) or 0))
+            except (ValueError, TypeError):
+                vinfo.setRating(0.0, 0)
         else:
-            vinfo.setRating(0, 0)
+            vinfo.setRating(0.0, 0)
     if season := info.get('season'):
-        vinfo.setSeason(int(season))
+        try:
+            vinfo.setSeason(int(season))
+        except (ValueError, TypeError):
+            pass
     if episode := info.get('episode'):
-        vinfo.setEpisode(int(episode))
+        try:
+            vinfo.setEpisode(int(episode))
+        except (ValueError, TypeError):
+            pass
     if aired := info.get('aired'):
-        vinfo.setFirstAired(aired)
+        vinfo.setFirstAired(str(aired))
     if playcount := info.get('playcount'):
-        vinfo.setPlaycount(playcount)
+        try:
+            vinfo.setPlaycount(int(playcount))
+        except (ValueError, TypeError):
+            pass
     if duration := info.get('duration'):
-        vinfo.setDuration(duration)
+        try:
+            vinfo.setDuration(int(duration))
+        except (ValueError, TypeError):
+            pass
     if code := info.get('code'):
-        vinfo.setProductionCode(code)
+        vinfo.setProductionCode(str(code))
     if studio := info.get('studio'):
         if isinstance(studio, list):
             primary_studio = [s.strip() for s in studio if s and isinstance(s, str) and s.strip()][:1]
@@ -968,11 +1005,11 @@ def set_videotags(li, info):
             for c in cast if isinstance(c, dict)
         ])
     if country := info.get('country'):
-        vinfo.setCountries(country)
+        vinfo.setCountries([str(c) for c in country] if isinstance(country, list) else [str(country)])
     if originaltitle := info.get('OriginalTitle'):
-        vinfo.setOriginalTitle(originaltitle)
+        vinfo.setOriginalTitle(str(originaltitle))
     if trailer := info.get('trailer'):
-        vinfo.setTrailer(trailer)
+        vinfo.setTrailer(str(trailer))
 
     # Kodi 22+ InfoTagVideo enhancements: Tagline & BCP 47 OriginalLanguage
     if tagline := info.get('tagline'):
@@ -1002,17 +1039,28 @@ def set_videotags(li, info):
                     pass
             li.setProperty('OriginalLanguage', inferred_lang)
 
+    # Kodi 22+ InfoTagVideo available fanart registration
+    if fanarts := info.get('available_fanart') or info.get('fanarts'):
+        if hasattr(vinfo, 'setAvailableFanart'):
+            try:
+                if isinstance(fanarts, list):
+                    vinfo.setAvailableFanart([str(f) for f in fanarts if f])
+            except Exception:
+                pass
+
     if uniqueids := info.get('UniqueIDs'):
-        uniqueids = {key: str(value) for key, value in uniqueids.items()}
+        uniqueids = {str(key): str(value) for key, value in uniqueids.items() if value is not None}
         vinfo.setUniqueIDs(uniqueids)
         if 'imdb' in uniqueids:
-            vinfo.setIMDBNumber(uniqueids['imdb'])
+            vinfo.setIMDBNumber(str(uniqueids['imdb']))
         for key, value in uniqueids.items():
-            if value is not None:
-                li.setProperty(key, str(value))
+            li.setProperty(key, str(value))
 
     if resume := info.get('resume'):
-        vinfo.setResumePoint(float(resume), 1)
+        try:
+            vinfo.setResumePoint(float(resume), 1)
+        except (ValueError, TypeError):
+            pass
 
     if hdr_type := info.get('hdr_type') or info.get('hdr'):
         if hasattr(vinfo, 'setHdrType'):
@@ -1027,6 +1075,57 @@ def set_videotags(li, info):
 
 def jsonrpc(json_data):
     return json.loads(xbmc.executeJSONRPC(json.dumps(json_data)))
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  Kodi 22 Native Power, CEC & Database Helpers
+# ═══════════════════════════════════════════════════════════════════════════
+
+def get_device_power_status():
+    """Query HDMI/CEC display power state natively via Kodi 22 C++ API."""
+    if hasattr(xbmc, 'getDevicePowerStatus'):
+        try:
+            status = xbmc.getDevicePowerStatus()
+            if isinstance(status, str):
+                return status
+        except Exception:
+            pass
+    return 'on'
+
+
+def is_device_in_standby():
+    """Return True if connected display/AVR is in standby or suspend mode."""
+    return str(get_device_power_status()).lower() in ('standby', 'suspend', 'off')
+
+
+def get_cec_adapter_names():
+    """Enumerate active HDMI-CEC adapters via Kodi 22 C++ API."""
+    if hasattr(xbmc, 'getCecAdapterNames'):
+        try:
+            names = xbmc.getCecAdapterNames()
+            if isinstance(names, list):
+                return names
+        except Exception:
+            pass
+    return []
+
+
+def get_database_name(db_type='video'):
+    """Resolve Kodi database filename dynamically via Kodi 22 C++ API or JSON-RPC."""
+    if hasattr(xbmc, 'getDatabaseName'):
+        try:
+            name = xbmc.getDatabaseName(db_type)
+            if isinstance(name, str):
+                return name
+        except Exception:
+            pass
+    try:
+        res = jsonrpc({'jsonrpc': '2.0', 'method': 'Database.GetDatabaseName', 'params': {'type': db_type}, 'id': 1})
+        if name := res.get('result', {}).get('name'):
+            return name
+    except Exception:
+        pass
+    return 'MyVideos149.db' if db_type == 'video' else 'MyMusic84.db'
 
 
 # ═══════════════════════════════════════════════════════════════════════════

@@ -150,7 +150,7 @@ def PLAY_CLOUD_FILE(payload, params):
         control.notify(control.ADDON_NAME, f"Failed to resolve {provider.capitalize()} streaming link", icon=control.ADDON_ICON)
         return control.exit_code()
 
-    item = xbmcgui.ListItem(path=stream_url)
+    item = xbmcgui.ListItem(path=stream_url, offscreen=True)
     item.setProperty('IsPlayable', 'true')
     xbmcplugin.setResolvedUrl(control.HANDLE, True, item)
 

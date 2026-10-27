@@ -106,9 +106,13 @@ def score_subtitle_stream(sub, target_mode='dialog', preferred_lang='eng', custo
 
     score = 0
 
-    # 1. Preferred Language Match (handles Kodi 22 BCP 47 'en', 'ja', etc.)
+    # 1. Preferred Language Match (handles Kodi 22 BCP 47 'en', 'ja', 'pt-br', etc.)
     if preferred_lang and is_language_match(sub_lang, sub_name, preferred_lang):
-        score += 1000
+        # Exact BCP 47 tag match receives higher priority (+1200) over generic language family match (+1000)
+        if preferred_lang.lower().strip() == sub_lang.strip():
+            score += 1200
+        else:
+            score += 1000
     elif sub_lang:
         # Penalize non-matching languages when preferred_lang is specified
         score -= 200
@@ -467,6 +471,11 @@ class WatchlistPlayer(player):
         prescrape_triggered = False
 
         while self.isPlaying() and not (intro_handled and self.updated and outro_handled):
+            # When player is paused, yield to prevent CPU churn and preserve hardware-plane rendering
+            if xbmc.getCondVisibility("Player.Paused"):
+                xbmc.sleep(1000)
+                continue
+
             self.current_time = int(self.getTime())
             if self.total_time <= 0:
                 self.total_time = int(self.getTotalTime())

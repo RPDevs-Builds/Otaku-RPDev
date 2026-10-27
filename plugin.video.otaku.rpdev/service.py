@@ -456,6 +456,9 @@ if __name__ == "__main__":
     while not monitor.abortRequested():
         if monitor.waitForAbort(900):
             break
+        if control.is_device_in_standby():
+            control.log('Device display is in standby - pausing periodic memory trim')
+            continue
         control.clean_memory()
     # Checkpoint WAL databases to 0 bytes on shutdown
     try:

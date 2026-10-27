@@ -1,3 +1,6 @@
+Changelog v5.5.16 (2026-10-26):
+- Kodi 22 Piers RC1 hardening: strict InfoTagVideo typemaps, HDMI-CEC power throttling, pause rendering yield, and BCP 47 matching precision
+
 Changelog v5.5.15 (2026-10-26):
 - Resolve Kodi 22 CPythonInvoker N9XBMCAddon7xbmcgui6WindowE memory warning by converting database._window to proxy
 
