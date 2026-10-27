@@ -1,12 +1,10 @@
 import datetime
 import re
-import time
 
 from bs4 import BeautifulSoup
 from resources.lib.ui import client, control, database
 
 base_url = "https://animeschedule.net/api/v3"
-dub_list = []
 
 
 def get_route(mal_id):
@@ -23,6 +21,7 @@ def get_route(mal_id):
 
 
 def get_dub_time(mal_id):
+    dub_list = []
     show = database.get_show(mal_id)
     if not show:
         return dub_list
@@ -54,23 +53,26 @@ def get_dub_time(mal_id):
                         if match:
                             ep_begin = int(match.group(1))
                             ep_end = int(match.group(2))
-                            for ep_number in range(ep_begin, ep_end):
-                                add_to_list(ep_number, date_time)
+                            for ep_number in range(ep_begin, ep_end + 1):
+                                add_to_list(dub_list, ep_number, date_time)
                     else:
                         match = re.match(r'Episode (\d+)', dub_text)
                         if match:
                             ep_number = int(match.group(1))
-                            add_to_list(ep_number, date_time)
+                            add_to_list(dub_list, ep_number, date_time)
                     return dub_list
         except Exception as e:
             control.log(f"get_dub_time parse error for mal_id={mal_id}: {e}", 'debug')
     return dub_list
 
 
-def add_to_list(ep_number, date_time):
+def add_to_list(dub_list, ep_number, date_time):
     try:
-        dub_time = datetime.datetime.fromtimestamp(time.mktime(time.strptime(date_time[:16], '%Y-%m-%dT%H:%M')))
-        dub_time = str(dub_time - datetime.timedelta(hours=5))[:16]
+        parsed = datetime.datetime.fromisoformat(date_time)
+        if parsed.tzinfo is not None:
+            # Page times carry an explicit UTC offset; convert to the device's local time
+            parsed = parsed.astimezone().replace(tzinfo=None)
+        dub_time = str(parsed)[:16]
         dub_list.append({"season": 0, "episode": ep_number, "release_time": dub_time})
-    except (ValueError, TypeError) as e:
+    except (ValueError, TypeError, OverflowError, OSError) as e:
         control.log(f"animeschedule date parse error: {e}", 'debug')

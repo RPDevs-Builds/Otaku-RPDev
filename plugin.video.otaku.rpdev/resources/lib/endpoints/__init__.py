@@ -1,4 +1,18 @@
+import datetime
+
 from resources.lib.ui import control
+
+
+def _dub_is_upcoming(release_time):
+    """True when the dub release time (local 'YYYY-MM-DD HH:MM') is still in the future.
+
+    Unparseable values are treated as upcoming so third-party formats are not hidden.
+    """
+    try:
+        released = datetime.datetime.strptime(str(release_time)[:16], '%Y-%m-%d %H:%M')
+    except (ValueError, TypeError):
+        return True
+    return released > datetime.datetime.now()
 
 
 def get_second_label(info, dub_data, filler=None):
@@ -23,7 +37,8 @@ def get_second_label(info, dub_data, filler=None):
         for dub_dat in dub_data:
             season = int(info.get('season', 1))
             if (int(dub_dat['season']) == season or dub_dat['season'] == 0) and int(dub_dat['episode']) == episode:
-                code_dub = dub_dat["release_time"]
+                if _dub_is_upcoming(dub_dat["release_time"]):
+                    code_dub = dub_dat["release_time"]
 
     if code_dub and code_sub:
         code = f'Sub {code_sub} / Dub {code_dub}'

@@ -1240,6 +1240,10 @@ def xbmc_add_dir(name, url, art, info, draw_cm, bulk_add, isfolder, isplayable, 
     liz = xbmcgui.ListItem(name, offscreen=True)
     if info:
         set_videotags(liz, info)
+        # Upcoming dub release: render in Label2 (right-aligned between title and watch indicator)
+        _code = info.get('code')
+        if isinstance(_code, str) and _code.startswith(('Dub ', 'Sub ')):
+            liz.setLabel2(_code)
     if draw_cm:
         cm = [
             (

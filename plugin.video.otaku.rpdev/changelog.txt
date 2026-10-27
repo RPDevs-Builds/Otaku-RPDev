@@ -1,3 +1,7 @@
+Changelog v5.5.20 (2026-10-27):
+- Upcoming Dub Dates: Show the dub release date right-aligned in the episode row (between title and watch indicator) only for episodes whose dub has not yet been released
+- Animeschedule Fixes: Convert page times (with UTC offset) to local time instead of a fixed -5h shift, stop dub data leaking between shows via a shared module list, and include the last episode of dub ranges
+
 Changelog v5.5.19 (2026-10-27):
 - Auto Skip Chapter Resolution: Remove prologue and cold open keywords from intro detection to prevent skipping episode story content; rank candidate intro chapters by OP confidence and ~90s anime OP duration
 - Auto Skip Telemetry: Log intro and outro auto-skip seek events at info level for clear diagnostic visibility in standard Kodi logs
