@@ -86,6 +86,54 @@ class TestDatabaseAndClient(unittest.TestCase):
             opener2 = client._session_openers.get('https://api.example.com')
             self.assertIs(opener1, opener2, "Domain opener must be reused across requests")
 
+    def test_format_db_bytes(self):
+        """database._format_db_bytes formats sizes into appropriate units."""
+        self.assertEqual(database._format_db_bytes(0), "0.00 B")
+        self.assertEqual(database._format_db_bytes(512), "512.00 B")
+        self.assertEqual(database._format_db_bytes(1024), "1.00 KB")
+        self.assertEqual(database._format_db_bytes(1024 * 1024), "1.00 MB")
+        self.assertEqual(database._format_db_bytes(1024 * 1024 * 1024), "1.00 GB")
+        self.assertEqual(database._format_db_bytes(None), "0.00 B")
+        self.assertEqual(database._format_db_bytes("invalid"), "0 B")
+
+    def test_database_stats(self):
+        """database.get_database_stats generates formatted report with tables and sizes."""
+        report = database.get_database_stats()
+        self.assertIsInstance(report, str)
+        self.assertIn("OTAKU DATABASE & STORAGE TELEMETRY REPORT", report)
+        self.assertIn("Cache Database", report)
+        self.assertIn("Footprint", report)
+
+    def test_scraper_metrics_report(self):
+        """database.get_scraper_metrics_report summarizes circuit breaker and provider cache."""
+        report = database.get_scraper_metrics_report()
+        self.assertIsInstance(report, str)
+        self.assertIn("OTAKU SCRAPER HEALTH & LATENCY DASHBOARD", report)
+        self.assertIn("Circuit Breaker Status", report)
+
+    def test_clear_scraper_metrics(self):
+        """database.clear_scraper_metrics resets circuit breakers without error."""
+        from resources.lib.pages import circuit_breaker
+        for _ in range(4):
+            circuit_breaker.record_failure("test_scraper")
+        self.assertTrue(circuit_breaker.is_tripped("test_scraper"))
+        database.clear_scraper_metrics()
+        self.assertFalse(circuit_breaker.is_tripped("test_scraper"))
+
+    def test_vacuum_all_databases(self):
+        """database.vacuum_all_databases executes VACUUM on existing databases safely."""
+        reclaimed = database.vacuum_all_databases()
+        self.assertIsInstance(reclaimed, int)
+        self.assertGreaterEqual(reclaimed, 0)
+
+    def test_check_database_integrity(self):
+        """database.check_database_integrity executes PRAGMA integrity_check."""
+        all_ok, results = database.check_database_integrity()
+        self.assertIsInstance(all_ok, bool)
+        self.assertIsInstance(results, dict)
+        self.assertTrue(all_ok)
+
+
 
 if __name__ == '__main__':
     unittest.main()

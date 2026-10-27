@@ -311,8 +311,14 @@ class MockDialog:
     def yesno(self, heading, message, nolabel='', yeslabel='', autoclose=0):
         return self.yesno_response
 
+    def yesnocustom(self, heading, message, customlabel='', nolabel='', yeslabel='', autoclose=0, defaultbutton=0):
+        return 0
+
     def select(self, heading, list_, autoclose=0, preselect=-1, useDetails=False):
         return self.select_response
+
+    def multiselect(self, heading, list_, autoclose=0, preselect=None, useDetails=False):
+        return preselect or []
 
     def contextmenu(self, list_):
         return self.contextmenu_response

@@ -1248,3 +1248,270 @@ def get_last_played_source(mal_id):
             control.log(f"cache_get parse error for {key}: {e}", 'debug')
     return None
 
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  Database & Scraper Maintenance & Telemetry
+# ═══════════════════════════════════════════════════════════════════════════
+
+def _format_db_bytes(bytes_count):
+    """Format byte count into human-readable string (B, KB, MB, GB)."""
+    try:
+        b = float(bytes_count or 0)
+    except (ValueError, TypeError):
+        return "0 B"
+    for unit in ['B', 'KB', 'MB', 'GB']:
+        if b < 1024.0:
+            return f"{b:.2f} {unit}"
+        b /= 1024.0
+    return f"{b:.2f} TB"
+
+
+def get_database_stats():
+    """
+    Generate structured telemetry report on all Otaku SQLite databases,
+    table row counts, page allocations, and storage footprint.
+    """
+    db_paths = [
+        ('Cache Database', getattr(control, 'cacheFile', None)),
+        ('Watchlist & Metadata Sync', getattr(control, 'malSyncDB', None)),
+        ('Search History', getattr(control, 'searchHistoryDB', None)),
+        ('Anime ID Mappings', getattr(control, 'mappingDB', None)),
+    ]
+
+    lines = []
+    lines.append("═══════════════════════════════════════════════════════════════════")
+    lines.append("       OTAKU DATABASE & STORAGE TELEMETRY REPORT")
+    lines.append("═══════════════════════════════════════════════════════════════════")
+    lines.append("")
+
+    total_storage = 0
+
+    for db_label, db_path in db_paths:
+        lines.append(f"▶ {db_label}")
+        if not db_path:
+            lines.append("   Path: [Not Configured]")
+            lines.append("")
+            continue
+        lines.append(f"   Path: {db_path}")
+        if not os.path.exists(db_path):
+            lines.append("   Status: File does not exist yet (created on first write)")
+            lines.append("")
+            continue
+
+        try:
+            main_size = os.path.getsize(db_path)
+            wal_path = f"{db_path}-wal"
+            shm_path = f"{db_path}-shm"
+            wal_size = os.path.getsize(wal_path) if os.path.exists(wal_path) else 0
+            shm_size = os.path.getsize(shm_path) if os.path.exists(shm_path) else 0
+            db_total = main_size + wal_size + shm_size
+            total_storage += db_total
+
+            lines.append(f"   Storage: {_format_db_bytes(main_size)} (Main) | {_format_db_bytes(wal_size)} (WAL) | {_format_db_bytes(shm_size)} (SHM)")
+            lines.append(f"   Total Footprint: {_format_db_bytes(db_total)}")
+
+            with SQL(db_path) as cur:
+                cur.execute("PRAGMA journal_mode")
+                j_mode = (cur.fetchone() or {}).get('journal_mode', 'unknown')
+                cur.execute("PRAGMA page_count")
+                p_count = (cur.fetchone() or {}).get('page_count', 0)
+                cur.execute("PRAGMA page_size")
+                p_size = (cur.fetchone() or {}).get('page_size', 0)
+                cur.execute("PRAGMA freelist_count")
+                f_count = (cur.fetchone() or {}).get('freelist_count', 0)
+
+                lines.append(f"   Engine: Journal={str(j_mode).upper()} | PageSize={p_size} B | Pages={p_count:,} (Free: {f_count:,})")
+
+                # Table row counts
+                cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name")
+                tables = [r['name'] for r in cur.fetchall()]
+                if tables:
+                    table_summaries = []
+                    for tbl in tables:
+                        try:
+                            cur.execute(f"SELECT COUNT(*) as c FROM \"{tbl}\"")
+                            cnt = (cur.fetchone() or {}).get('c', 0)
+                            table_summaries.append(f"{tbl}: {cnt:,} rows")
+                        except Exception:
+                            table_summaries.append(f"{tbl}: ?")
+                    lines.append(f"   Tables ({len(tables)}): " + " | ".join(table_summaries))
+                else:
+                    lines.append("   Tables: None")
+        except Exception as e:
+            lines.append(f"   Error reading telemetry: {e}")
+        lines.append("")
+
+    lines.append("───────────────────────────────────────────────────────────────────")
+    lines.append(f"Total Otaku Database Footprint: {_format_db_bytes(total_storage)}")
+    lines.append("═══════════════════════════════════════════════════════════════════")
+    return "\n".join(lines)
+
+
+def get_scraper_metrics_report():
+    """
+    Generate telemetry dashboard report for scrapers, circuit breakers,
+    and provider cache health.
+    """
+    lines = []
+    lines.append("═══════════════════════════════════════════════════════════════════")
+    lines.append("       OTAKU SCRAPER HEALTH & LATENCY DASHBOARD")
+    lines.append("═══════════════════════════════════════════════════════════════════")
+    lines.append("")
+
+    # 1. Scraper Circuit Breaker Status
+    try:
+        from resources.lib.pages import circuit_breaker
+        with circuit_breaker._lock:
+            failures = dict(circuit_breaker._failures)
+            cooldowns = dict(circuit_breaker._cooldown_until)
+
+        lines.append("▶ Scraper Circuit Breaker Status")
+        now = time.time()
+        active_cooldowns = {p: int(cd - now) for p, cd in cooldowns.items() if cd > now}
+
+        if active_cooldowns:
+            lines.append("   ⚠️ Tripped Scrapers (Cooling Down):")
+            for provider, rem_sec in sorted(active_cooldowns.items()):
+                fail_cnt = failures.get(provider, 0)
+                lines.append(f"      • {provider}: {rem_sec}s remaining ({fail_cnt} consecutive errors)")
+        else:
+            lines.append("   ✓ All Scraper Circuits Healthy (No Active Tripped Breakers)")
+
+        if failures:
+            lines.append("   Current Failure Counters:")
+            for p, cnt in sorted(failures.items()):
+                lines.append(f"      • {p}: {cnt} error(s)")
+        else:
+            lines.append("   Failure Counters: All zero")
+    except Exception as e:
+        lines.append(f"   Circuit Breaker Telemetry Error: {e}")
+    lines.append("")
+
+    # 2. Dynamic Domain Mirrors Status
+    lines.append("▶ Dynamic Domain Mirrors")
+    try:
+        from resources.lib.ui import domains
+        active_domains = getattr(domains, 'DOMAINS', {})
+        if active_domains:
+            for scraper_name, d_url in sorted(active_domains.items()):
+                lines.append(f"   • {scraper_name}: {d_url}")
+        else:
+            lines.append("   Using default hardcoded scraper domains")
+    except Exception as e:
+        lines.append(f"   Domain Mirror Error: {e}")
+    lines.append("")
+
+    # 3. Provider Cache Statistics
+    lines.append("▶ Scraper & Provider Cache Health")
+    try:
+        if control.cacheFile and os.path.exists(control.cacheFile):
+            with SQL(control.cacheFile) as cur:
+                cur.execute("SELECT COUNT(*) as c FROM cache")
+                total_cache = (cur.fetchone() or {}).get('c', 0)
+
+                cur.execute("SELECT COUNT(*) as c FROM cache WHERE key LIKE 'show_sources_%' OR key LIKE 'show_scrapers_%' OR key LIKE 'last_played_%'")
+                provider_entries = (cur.fetchone() or {}).get('c', 0)
+
+                cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='debrid_cache'")
+                has_debrid = cur.fetchone()
+                debrid_entries = 0
+                if has_debrid:
+                    cur.execute("SELECT COUNT(*) as c FROM debrid_cache")
+                    debrid_entries = (cur.fetchone() or {}).get('c', 0)
+
+                lines.append(f"   • Total Cache Rows: {total_cache:,}")
+                lines.append(f"   • Provider Source Cache Rows: {provider_entries:,}")
+                lines.append(f"   • Debrid Hash Availability Cache Rows: {debrid_entries:,}")
+        else:
+            lines.append("   • Cache database not yet created")
+    except Exception as e:
+        lines.append(f"   Provider Cache Error: {e}")
+
+    lines.append("")
+    lines.append("───────────────────────────────────────────────────────────────────")
+    lines.append("Tip: Use 'Clear Scraper Telemetry' in Settings to reset all circuit")
+    lines.append("breakers and clear stale scraper result caches.")
+    lines.append("═══════════════════════════════════════════════════════════════════")
+    return "\n".join(lines)
+
+
+def clear_scraper_metrics():
+    """Reset scraper circuit breakers and clear scraper cache entries."""
+    try:
+        from resources.lib.pages import circuit_breaker
+        circuit_breaker.reset()
+        control.log("ScraperCircuitBreaker: All circuits and counters reset", 'info')
+    except Exception as e:
+        control.log(f"Error resetting scraper circuit breaker: {e}", 'warning')
+
+    cache_clear_providers()
+
+
+def vacuum_all_databases():
+    """
+    Run SQLite VACUUM and WAL checkpoints across all Otaku databases,
+    reclaiming fragmented space and returning the total bytes reclaimed.
+    """
+    db_paths = [
+        getattr(control, 'cacheFile', None),
+        getattr(control, 'malSyncDB', None),
+        getattr(control, 'searchHistoryDB', None),
+        getattr(control, 'mappingDB', None),
+    ]
+
+    total_reclaimed = 0
+
+    for path in db_paths:
+        if path and os.path.exists(path):
+            try:
+                wal_path = f"{path}-wal"
+                size_before = os.path.getsize(path) + (os.path.getsize(wal_path) if os.path.exists(wal_path) else 0)
+
+                with SQL(path) as cur:
+                    cur.execute("VACUUM")
+                    cur.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+                    cur.execute("PRAGMA optimize")
+
+                size_after = os.path.getsize(path) + (os.path.getsize(wal_path) if os.path.exists(wal_path) else 0)
+                reclaimed = max(0, size_before - size_after)
+                total_reclaimed += reclaimed
+                control.log(f"Vacuumed {os.path.basename(path)}: reclaimed {_format_db_bytes(reclaimed)}", 'info')
+            except Exception as e:
+                control.log(f"Failed to vacuum {path}: {e}", 'warning')
+
+    return total_reclaimed
+
+
+def check_database_integrity():
+    """
+    Run PRAGMA quick_check / integrity_check across all databases.
+    Returns (all_ok: bool, results: dict of {db_name: status_str}).
+    """
+    db_paths = [
+        ('Cache Database', getattr(control, 'cacheFile', None)),
+        ('Watchlist & Metadata Sync', getattr(control, 'malSyncDB', None)),
+        ('Search History', getattr(control, 'searchHistoryDB', None)),
+        ('Anime ID Mappings', getattr(control, 'mappingDB', None)),
+    ]
+
+    results = {}
+    all_ok = True
+
+    for name, path in db_paths:
+        if not path or not os.path.exists(path):
+            results[name] = "Not initialized"
+            continue
+        try:
+            with SQL(path) as cur:
+                cur.execute("PRAGMA integrity_check")
+                row = cur.fetchone()
+                status = row.get('integrity_check', 'ok') if row else 'ok'
+                results[name] = status
+                if str(status).lower() != 'ok':
+                    all_ok = False
+        except Exception as e:
+            results[name] = f"Error: {e}"
+            all_ok = False
+
+    return all_ok, results
+

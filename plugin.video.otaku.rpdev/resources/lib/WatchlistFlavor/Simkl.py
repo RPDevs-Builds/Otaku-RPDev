@@ -34,9 +34,10 @@ class SimklWLF(WatchlistFlavorBase):
 
         r = client.get(f'{self._URL}/oauth/pin', params=params)
         device_code = r.json() if r else {}
-
-        verification_url = 'https://simkl.com/pin'
-        user_code = device_code["user_code"]
+        user_code = device_code.get("user_code")
+        if not user_code or not device_code.get('interval'):
+            control.notify(control.ADDON_NAME, "Failed to connect to Simkl. Check network connection.", time=4000)
+            return None
         control.copy2clip(user_code)
 
         qr_path = os.path.join(control.dataPath, 'qr_code.png')

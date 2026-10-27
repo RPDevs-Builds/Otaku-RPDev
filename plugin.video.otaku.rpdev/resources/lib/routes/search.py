@@ -155,7 +155,8 @@ def SEARCH_MENU(payload, params):
 @multi_route(*_CLEAR_SEARCH_HISTORY_ROUTES)
 def CLEAR_SEARCH_HISTORY(payload, params):
     from resources.lib import Main
-    format = _CLEAR_SEARCH_HISTORY_MAP.get(Main.plugin_url)
+    clean_url = (Main.plugin_url or '').split('?')[0].rstrip('/')
+    format = _CLEAR_SEARCH_HISTORY_MAP.get(clean_url, 'all')
 
     if format == 'all':
         database.clearSearchHistory()
