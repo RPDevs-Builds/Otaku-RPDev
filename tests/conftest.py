@@ -658,9 +658,12 @@ def addon_side_effect(addon_id=None):
         mock_settings = MagicMock()
         mock_settings.getString.side_effect = lambda k: _settings_store.get(k, '')
         mock_settings.setString.side_effect = lambda k, v: _settings_store.__setitem__(k, str(v))
-        mock_settings.getBool.side_effect = lambda k: _settings_store.get(k, '').lower() == 'true'
+        mock_settings.getBool.side_effect = lambda k: str(_settings_store.get(k, '')).lower() == 'true'
+        mock_settings.setBool.side_effect = lambda k, v: _settings_store.__setitem__(k, 'true' if v else 'false')
         mock_settings.getInt.side_effect = lambda k: int(_settings_store.get(k, 0))
+        mock_settings.setInt.side_effect = lambda k, v: _settings_store.__setitem__(k, str(v))
         mock_settings.getNumber.side_effect = lambda k: float(_settings_store.get(k, 0))
+        mock_settings.setNumber.side_effect = lambda k, v: _settings_store.__setitem__(k, str(v))
 
         def _get_str_list(k):
             val = _settings_store.get(k, '')
@@ -677,7 +680,11 @@ def addon_side_effect(addon_id=None):
         mock_settings.getStringList.side_effect = _get_str_list
         mock_settings.setStringList.side_effect = _set_str_list
         mock_settings.getIntList.side_effect = lambda k: [int(x) for x in _get_str_list(k)]
+        mock_settings.setIntList.side_effect = lambda k, v: _settings_store.__setitem__(k, ','.join([str(x) for x in v]))
         mock_settings.getBoolList.side_effect = lambda k: [x.lower() == 'true' for x in _get_str_list(k)]
+        mock_settings.setBoolList.side_effect = lambda k, v: _settings_store.__setitem__(k, ','.join(['true' if x else 'false' for x in v]))
+        mock_settings.getNumberList.side_effect = lambda k: [float(x) for x in _get_str_list(k)]
+        mock_settings.setNumberList.side_effect = lambda k, v: _settings_store.__setitem__(k, ','.join([str(x) for x in v]))
 
         addon_mock.getLocalizedString.side_effect = lambda string_id: f"String_{string_id}"
         addon_mock.getSettings.return_value = mock_settings

@@ -11,7 +11,9 @@ class TestCPythonInvokerLifecycle(unittest.TestCase):
     def test_window_proxy(self):
         """Test _WindowProxy delegates correctly to xbmcgui.Window without holding static SWIG wrappers."""
         win_proxy = control._WindowProxy(10000)
+        self.assertIsNone(win_proxy._cached)
         win_proxy.setProperty('test_key', 'test_val')
+        self.assertIsNotNone(win_proxy._cached)
         self.assertEqual(win_proxy.getProperty('test_key'), 'test_val')
         self.assertEqual(control.homeWindow.getProperty('test_key'), 'test_val')
 
@@ -24,13 +26,19 @@ class TestCPythonInvokerLifecycle(unittest.TestCase):
         self.assertEqual(win_proxy.getProperty('bulk_1'), '')
         self.assertEqual(win_proxy.getProperty('bulk_2'), '')
 
+        # Assert cleanup resets cached SWIG wrapper to None
+        win_proxy.cleanup()
+        self.assertIsNone(win_proxy._cached)
+
         # Assert database memory cache uses the proxy rather than leaking a static Window
         self.assertIs(database._window, control.homeWindow)
 
     def test_playlist_proxy(self):
         """Test _PlayListProxy delegates correctly to xbmc.PlayList without persistent SWIG wrapper leaks."""
         pl_proxy = control._PlayListProxy(xbmc.PLAYLIST_VIDEO)
+        self.assertIsNone(pl_proxy._cached)
         pl_proxy.clear()
+        self.assertIsNotNone(pl_proxy._cached)
         self.assertEqual(pl_proxy.size(), 0)
         self.assertEqual(len(pl_proxy), 0)
 
@@ -51,6 +59,10 @@ class TestCPythonInvokerLifecycle(unittest.TestCase):
         control.playList.clear()
         self.assertEqual(control.playList.size(), 0)
 
+        # Assert cleanup resets cached SWIG wrapper to None
+        pl_proxy.cleanup()
+        self.assertIsNone(pl_proxy._cached)
+
     def test_progress_dialog_proxy(self):
         """Test _ProgressDialogProxy lifecycle, lazy creation, and explicit teardown to None."""
         prog = control._ProgressDialogProxy()
@@ -70,19 +82,23 @@ class TestCPythonInvokerLifecycle(unittest.TestCase):
         prog.update(75, 'Almost done')
         self.assertEqual(prog._dialog._pct, 75)
 
-        # Close releases underlying SWIG reference
-        prog.close()
+        # Close and cleanup release underlying SWIG reference
+        prog.cleanup()
         self.assertIsNone(prog._dialog)
 
     def test_settings_and_addon_proxy(self):
         """Test _SettingsProxy and _AddonProxy delegating without holding persistent SWIG objects."""
         addon = control._AddonProxy(control.ADDON_ID)
+        self.assertIsNone(addon._cached)
         self.assertEqual(addon.getAddonInfo('id'), control.ADDON_ID)
+        self.assertIsNotNone(addon._cached)
         self.assertIsInstance(addon.getLocalizedString(32000), str)
 
         settings = addon.getSettings()
         self.assertIsInstance(settings, control._SettingsProxy)
-        self.assertIsInstance(control.settings.getString('general.source'), str)
+        self.assertIsNone(settings._cached)
+        self.assertIsInstance(settings.getString('general.source'), str)
+        self.assertIsNotNone(settings._cached)
         self.assertIsInstance(control.settings.getBool('general.autostart'), bool)
         self.assertIsInstance(control.settings.getInt('general.timeout'), int)
         self.assertIsInstance(control.settings.getNumber('general.timeout'), (int, float))
@@ -91,14 +107,86 @@ class TestCPythonInvokerLifecycle(unittest.TestCase):
         control.settings.setStringList('test.list', ['a', 'b'])
         self.assertEqual(control.settings.getStringList('test.list'), ['a', 'b'])
 
+        addon.cleanup()
+        settings.cleanup()
+        self.assertIsNone(addon._cached)
+        self.assertIsNone(settings._cached)
+
+    def test_settings_cache_priority_and_eviction(self):
+        """Test in-memory settings cache priority, typed resolution, and cache eviction."""
+        control.clearSettingsCache()
+
+        # 1. String setting
+        control.setSetting('test.str', 'hello')
+        self.assertEqual(control.getSetting('test.str'), 'hello')
+        self.assertIn('s_test.str', control._settings_cache)
+
+        # 2. Boolean setting
+        control.setBool('test.bool', True)
+        self.assertTrue(control.getBool('test.bool'))
+        self.assertIn('b_test.bool', control._settings_cache)
+
+        # 3. Integer setting
+        control.setInt('test.int', 42)
+        self.assertEqual(control.getInt('test.int'), 42)
+        self.assertIn('i_test.int', control._settings_cache)
+
+        # 4. Number / Float setting
+        control.setNumber('test.num', 3.14)
+        self.assertAlmostEqual(control.getNumber('test.num'), 3.14, places=2)
+        self.assertIn('n_test.num', control._settings_cache)
+
+        # 5. List settings
+        control.setStringList('test.slist', ['one', 'two'])
+        self.assertEqual(control.getStringList('test.slist'), ['one', 'two'])
+        self.assertIn('sl_test.slist', control._settings_cache)
+
+        control.setBoolList('test.blist', [True, False])
+        self.assertEqual(control.getBoolList('test.blist'), [True, False])
+        self.assertIn('bl_test.blist', control._settings_cache)
+
+        control.setIntList('test.ilist', [1, 2, 3])
+        self.assertEqual(control.getIntList('test.ilist'), [1, 2, 3])
+        self.assertIn('il_test.ilist', control._settings_cache)
+
+        control.setNumberList('test.nlist', [1.1, 2.2])
+        self.assertEqual(control.getNumberList('test.nlist'), [1.1, 2.2])
+        self.assertIn('nl_test.nlist', control._settings_cache)
+
+        # 6. Test eviction on update
+        control.setBool('test.bool', False)
+        self.assertFalse(control.getBool('test.bool'))
+
+        # 7. Test clearSettingsCache
+        control.clearSettingsCache()
+        self.assertEqual(len(control._settings_cache), 0)
+
     def test_control_cleanup(self):
-        """Test control.cleanup explicitly shuts down open dialogs and triggers memory cleanup."""
+        """Test control.cleanup explicitly shuts down open dialogs, resets all proxies, and frees memory."""
         control.progressDialog.create('Cleanup Test', 'Working...')
         self.assertIsNotNone(control.progressDialog._dialog)
+
+        # Populate settings and session caches
+        control.getSetting('general.source')
+        control.homeWindow.getProperty('test_prop')
+        control.playList.size()
+        control.ADDON.getAddonInfo('id')
+        control.settings.getBool('general.autostart')
+
+        self.assertIsNotNone(control.homeWindow._cached)
+        self.assertIsNotNone(control.playList._cached)
+        self.assertIsNotNone(control.ADDON._cached)
+        self.assertIsNotNone(control.settings._cached)
+        self.assertGreater(len(control._settings_cache), 0)
 
         with patch('resources.lib.ui.control.clean_memory') as mock_clean:
             control.cleanup()
             self.assertIsNone(control.progressDialog._dialog)
+            self.assertIsNone(control.homeWindow._cached)
+            self.assertIsNone(control.playList._cached)
+            self.assertIsNone(control.ADDON._cached)
+            self.assertIsNone(control.settings._cached)
+            self.assertEqual(len(control._settings_cache), 0)
             mock_clean.assert_called_once()
 
     def test_set_videotags_hdr_migration(self):

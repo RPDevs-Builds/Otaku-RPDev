@@ -1,3 +1,6 @@
+Changelog v5.5.17 (2026-10-26):
+- Optimize control.py proxies with session caching and prioritize in-memory Python dictionary settings cache over repetitive C++ Window property queries
+
 Changelog v5.5.16 (2026-10-26):
 - Kodi 22 Piers RC1 hardening: strict InfoTagVideo typemaps, HDMI-CEC power throttling, pause rendering yield, and BCP 47 matching precision
 

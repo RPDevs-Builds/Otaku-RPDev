@@ -82,15 +82,22 @@ except (IndexError, ValueError):
     HANDLE = 0
 
 class _SettingsProxy:
-    """Lightweight on-demand proxy for xbmcaddon.Settings avoiding persistent SWIG wrapper leaks."""
+    """Lightweight session-cached proxy for xbmcaddon.Settings avoiding persistent SWIG wrapper leaks."""
 
     def __init__(self, addon_id=None):
         self._addon_id = addon_id
+        self._cached = None
 
     def _get_settings(self):
-        if self._addon_id:
-            return xbmcaddon.Addon(self._addon_id).getSettings()
-        return xbmcaddon.Addon().getSettings()
+        if self._cached is None:
+            if self._addon_id:
+                self._cached = xbmcaddon.Addon(self._addon_id).getSettings()
+            else:
+                self._cached = xbmcaddon.Addon().getSettings()
+        return self._cached
+
+    def cleanup(self):
+        self._cached = None
 
     def getBool(self, key):
         return self._get_settings().getBool(key)
@@ -131,17 +138,33 @@ class _SettingsProxy:
     def setStringList(self, key, value):
         return self._get_settings().setStringList(key, value)
 
+    def setBoolList(self, key, value):
+        return self._get_settings().setBoolList(key, value)
+
+    def setIntList(self, key, value):
+        return self._get_settings().setIntList(key, value)
+
+    def setNumberList(self, key, value):
+        return self._get_settings().setNumberList(key, value)
+
 
 class _AddonProxy:
-    """Lightweight on-demand proxy for xbmcaddon.Addon avoiding persistent SWIG wrapper leaks."""
+    """Lightweight session-cached proxy for xbmcaddon.Addon avoiding persistent SWIG wrapper leaks."""
 
     def __init__(self, addon_id=None):
         self._addon_id = addon_id
+        self._cached = None
 
     def _get_addon(self):
-        if self._addon_id:
-            return xbmcaddon.Addon(self._addon_id)
-        return xbmcaddon.Addon()
+        if self._cached is None:
+            if self._addon_id:
+                self._cached = xbmcaddon.Addon(self._addon_id)
+            else:
+                self._cached = xbmcaddon.Addon()
+        return self._cached
+
+    def cleanup(self):
+        self._cached = None
 
     def getAddonInfo(self, info_id):
         return self._get_addon().getAddonInfo(info_id)
@@ -163,13 +186,19 @@ class _AddonProxy:
 
 
 class _WindowProxy:
-    """Lightweight on-demand proxy for xbmcgui.Window avoiding persistent SWIG wrapper leaks."""
+    """Lightweight session-cached proxy for xbmcgui.Window avoiding persistent SWIG wrapper leaks."""
 
     def __init__(self, window_id=10000):
         self._window_id = window_id
+        self._cached = None
 
     def _get_win(self):
-        return xbmcgui.Window(self._window_id)
+        if self._cached is None:
+            self._cached = xbmcgui.Window(self._window_id)
+        return self._cached
+
+    def cleanup(self):
+        self._cached = None
 
     def getProperty(self, key):
         return self._get_win().getProperty(key)
@@ -185,13 +214,19 @@ class _WindowProxy:
 
 
 class _PlayListProxy:
-    """Lightweight on-demand proxy for xbmc.PlayList avoiding persistent SWIG wrapper leaks."""
+    """Lightweight session-cached proxy for xbmc.PlayList avoiding persistent SWIG wrapper leaks."""
 
     def __init__(self, playlist_type=xbmc.PLAYLIST_VIDEO):
         self._type = playlist_type
+        self._cached = None
 
     def _get_pl(self):
-        return xbmc.PlayList(self._type)
+        if self._cached is None:
+            self._cached = xbmc.PlayList(self._type)
+        return self._cached
+
+    def cleanup(self):
+        self._cached = None
 
     def clear(self):
         self._get_pl().clear()
@@ -255,6 +290,9 @@ class _ProgressDialogProxy:
             except Exception:
                 pass
             self._dialog = None
+
+    def cleanup(self):
+        self.close()
 
 
 _init_addon = xbmcaddon.Addon()
@@ -467,26 +505,32 @@ def refresh():
 # ═══════════════════════════════════════════════════════════════════════════
 
 def getSetting(key):
-    """Get setting as string - first checks window property cache, then Kodi API"""
-    cache = homeWindow.getProperty(f'{ADDON_ID}_{key}')
-    if cache:
-        return cache
+    """Get setting as string - checks in-memory cache, then window property, then Kodi API"""
     ck = f's_{key}'
     if ck in _settings_cache:
         return _settings_cache[ck]
-    val = settings.getString(key)
+    cache = homeWindow.getProperty(f'{ADDON_ID}_{key}')
+    if cache:
+        _settings_cache[ck] = cache
+        return cache
+    try:
+        val = settings.getString(key)
+    except Exception:
+        val = ''
     _settings_cache[ck] = val
     return val
 
 
 def getBool(key, default=False):
-    """Get setting as boolean - first checks window property cache, then Kodi API"""
-    cache = homeWindow.getProperty(f'{ADDON_ID}_{key}')
-    if cache:
-        return cache == 'true'
+    """Get setting as boolean - checks in-memory cache, then window property, then Kodi API"""
     ck = f'b_{key}'
     if ck in _settings_cache:
         return _settings_cache[ck]
+    cache = homeWindow.getProperty(f'{ADDON_ID}_{key}')
+    if cache:
+        val = (cache == 'true')
+        _settings_cache[ck] = val
+        return val
     try:
         val = settings.getBool(key)
     except Exception:
@@ -496,16 +540,18 @@ def getBool(key, default=False):
 
 
 def getInt(key, default=0):
-    """Get setting as integer - first checks window property cache, then Kodi API"""
-    cache = homeWindow.getProperty(f'{ADDON_ID}_{key}')
-    if cache:
-        try:
-            return int(cache)
-        except ValueError:
-            pass
+    """Get setting as integer - checks in-memory cache, then window property, then Kodi API"""
     ck = f'i_{key}'
     if ck in _settings_cache:
         return _settings_cache[ck]
+    cache = homeWindow.getProperty(f'{ADDON_ID}_{key}')
+    if cache:
+        try:
+            val = int(cache)
+            _settings_cache[ck] = val
+            return val
+        except ValueError:
+            pass
     try:
         val = settings.getInt(key)
     except Exception:
@@ -515,81 +561,118 @@ def getInt(key, default=0):
 
 
 def getStr(key):
-    """Get setting as string - first checks window property cache, then Kodi API"""
-    cache = homeWindow.getProperty(f'{ADDON_ID}_{key}')
-    if cache:
-        return cache
-    ck = f'gs_{key}'
-    if ck in _settings_cache:
-        return _settings_cache[ck]
-    val = settings.getString(key)
-    _settings_cache[ck] = val
-    return val
+    """Get setting as string - checks in-memory cache, then window property, then Kodi API"""
+    return getSetting(key)
 
 
-def getNumber(key):
-    """Get setting as float/number - first checks window property cache, then Kodi API"""
-    cache = homeWindow.getProperty(f'{ADDON_ID}_{key}')
-    if cache:
-        try:
-            return float(cache)
-        except ValueError:
-            pass
+def getNumber(key, default=0.0):
+    """Get setting as float/number - checks in-memory cache, then window property, then Kodi API"""
     ck = f'n_{key}'
     if ck in _settings_cache:
         return _settings_cache[ck]
-    val = settings.getNumber(key)
+    cache = homeWindow.getProperty(f'{ADDON_ID}_{key}')
+    if cache:
+        try:
+            val = float(cache)
+            _settings_cache[ck] = val
+            return val
+        except ValueError:
+            pass
+    try:
+        val = settings.getNumber(key)
+    except Exception:
+        val = default
     _settings_cache[ck] = val
     return val
 
 
 def getStringList(settingid):
-    """Get setting as list of strings - first checks window property cache, then Kodi API"""
+    """Get setting as list of strings - checks in-memory cache, then window property, then Kodi API"""
+    ck = f'sl_{settingid}'
+    if ck in _settings_cache:
+        return _settings_cache[ck]
     cache = homeWindow.getProperty(f'{ADDON_ID}_{settingid}')
     if cache:
         try:
-            return json.loads(cache)
+            val = json.loads(cache)
+            _settings_cache[ck] = val
+            return val
         except (ValueError, TypeError):
             pass
-    return settings.getStringList(settingid)
+    try:
+        val = settings.getStringList(settingid)
+    except Exception:
+        val = []
+    _settings_cache[ck] = val
+    return val
 
 
 def getBoolList(settingid):
-    """Get setting as list of booleans - first checks window property cache, then Kodi API"""
+    """Get setting as list of booleans - checks in-memory cache, then window property, then Kodi API"""
+    ck = f'bl_{settingid}'
+    if ck in _settings_cache:
+        return _settings_cache[ck]
     cache = homeWindow.getProperty(f'{ADDON_ID}_{settingid}')
     if cache:
         try:
-            return json.loads(cache)
+            val = json.loads(cache)
+            _settings_cache[ck] = val
+            return val
         except (ValueError, TypeError):
             pass
-    return settings.getBoolList(settingid)
+    try:
+        val = settings.getBoolList(settingid)
+    except Exception:
+        val = []
+    _settings_cache[ck] = val
+    return val
 
 
 def getIntList(settingid):
-    """Get setting as list of integers - first checks window property cache, then Kodi API"""
+    """Get setting as list of integers - checks in-memory cache, then window property, then Kodi API"""
+    ck = f'il_{settingid}'
+    if ck in _settings_cache:
+        return _settings_cache[ck]
     cache = homeWindow.getProperty(f'{ADDON_ID}_{settingid}')
     if cache:
         try:
-            return json.loads(cache)
+            val = json.loads(cache)
+            _settings_cache[ck] = val
+            return val
         except (ValueError, TypeError):
             pass
-    return settings.getIntList(settingid)
+    try:
+        val = settings.getIntList(settingid)
+    except Exception:
+        val = []
+    _settings_cache[ck] = val
+    return val
 
 
 def getNumberList(settingid):
-    """Get setting as list of numbers - first checks window property cache, then Kodi API"""
+    """Get setting as list of numbers - checks in-memory cache, then window property, then Kodi API"""
+    ck = f'nl_{settingid}'
+    if ck in _settings_cache:
+        return _settings_cache[ck]
     cache = homeWindow.getProperty(f'{ADDON_ID}_{settingid}')
     if cache:
         try:
-            return json.loads(cache)
+            val = json.loads(cache)
+            _settings_cache[ck] = val
+            return val
         except (ValueError, TypeError):
             pass
-    return settings.getNumberList(settingid)
+    try:
+        val = settings.getNumberList(settingid)
+    except Exception:
+        val = []
+    _settings_cache[ck] = val
+    return val
 
 
 def _evict_setting(settingid):
     """Evict all cached variants of a setting key."""
-    for prefix in ('s_', 'gs_', 'b_', 'i_', 'n_'):
+    for prefix in ('s_', 'gs_', 'b_', 'i_', 'n_', 'sl_', 'bl_', 'il_', 'nl_'):
         _settings_cache.pop(f'{prefix}{settingid}', None)
     homeWindow.clearProperty(f'{ADDON_ID}_{settingid}')
 
@@ -627,25 +710,25 @@ def setNumber(settingid, value):
 def setStringList(settingid, value):
     """Set setting as list of strings"""
     settings.setStringList(settingid, value)
-    homeWindow.clearProperty(f'{ADDON_ID}_{settingid}')
+    _evict_setting(settingid)
 
 
 def setBoolList(settingid, value):
     """Set setting as list of booleans"""
     settings.setBoolList(settingid, value)
-    homeWindow.clearProperty(f'{ADDON_ID}_{settingid}')
+    _evict_setting(settingid)
 
 
 def setIntList(settingid, value):
     """Set setting as list of integers"""
     settings.setIntList(settingid, value)
-    homeWindow.clearProperty(f'{ADDON_ID}_{settingid}')
+    _evict_setting(settingid)
 
 
 def setNumberList(settingid, value):
     """Set setting as list of numbers"""
     settings.setNumberList(settingid, value)
-    homeWindow.clearProperty(f'{ADDON_ID}_{settingid}')
+    _evict_setting(settingid)
 
 
 def clearSettingsCache():
@@ -824,11 +907,12 @@ def clean_memory():
 
 def cleanup():
     """Explicitly release Kodi GUI dialogs and C++ resources on script shutdown."""
-    global progressDialog
-    try:
-        progressDialog.close()
-    except Exception:
-        pass
+    clearSettingsCache()
+    for proxy in (progressDialog, homeWindow, playList, ADDON, CONTEXT_ADDON, settings):
+        try:
+            proxy.cleanup()
+        except Exception:
+            pass
     clean_memory()
 
 
