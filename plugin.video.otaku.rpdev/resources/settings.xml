@@ -4170,6 +4170,27 @@
 						<allowempty>true</allowempty>
 					</constraints>
 				</setting>
+				<setting id="dub.etag" type="string" label="" help="">
+					<level>4</level>
+					<default/>
+					<constraints>
+						<allowempty>true</allowempty>
+					</constraints>
+				</setting>
+				<setting id="mappings.etag" type="string" label="" help="">
+					<level>4</level>
+					<default/>
+					<constraints>
+						<allowempty>true</allowempty>
+					</constraints>
+				</setting>
+				<setting id="mappings.last_modified" type="string" label="" help="">
+					<level>4</level>
+					<default/>
+					<constraints>
+						<allowempty>true</allowempty>
+					</constraints>
+				</setting>
 				<setting id="alldebrid.token" type="string" label="" help="">
 					<level>4</level>
 					<default/>

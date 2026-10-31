@@ -281,3 +281,8 @@ def _get_dmm_secret():
 
     solution = _slice_hash(s, n)
     return dmm_key, solution
+
+
+# Backward compatibility alias
+clean_database = prune_expired_hashes
+

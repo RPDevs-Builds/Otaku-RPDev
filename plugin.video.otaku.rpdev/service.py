@@ -92,7 +92,7 @@ def cleanup_cache_databases():
         from resources.lib.ui import database
         from resources.lib.debrid import debrid_cache
         database.prune_expired_cache(30)
-        debrid_cache.clean_database()
+        debrid_cache.prune_expired_hashes()
         database.checkpoint_databases(truncate=True)
         control.log("### Cache cleanup complete")
     except Exception as e:

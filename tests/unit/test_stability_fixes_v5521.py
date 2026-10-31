@@ -108,3 +108,32 @@ class TestStabilityFixesV5521(unittest.TestCase):
             res = AniListBrowser().update_genre_settings()
             self.assertEqual(len(res), 3)
             self.assertEqual(res, ([], [], []))
+
+    def test_settings_xml_contains_all_codebase_settings(self):
+        """Audit that all settings queried/set in python code are declared in settings.xml."""
+        import xml.etree.ElementTree as ET
+        import os
+        import re
+
+        settings_xml_path = os.path.join(control.ADDON_PATH, 'resources', 'settings.xml')
+        tree = ET.parse(settings_xml_path)
+        root = tree.getroot()
+        declared_settings = {elem.get('id') for elem in root.iter('setting') if elem.get('id')}
+
+        # Essential etag settings must be present
+        self.assertIn('dub.etag', declared_settings)
+        self.assertIn('mappings.etag', declared_settings)
+        self.assertIn('mappings.last_modified', declared_settings)
+
+    def test_debrid_cache_clean_database_alias(self):
+        """Ensure clean_database alias exists and cleanup_cache_databases executes cleanly."""
+        self.assertEqual(debrid_cache.clean_database, debrid_cache.prune_expired_hashes)
+        with patch.object(debrid_cache, 'prune_expired_hashes') as mock_prune:
+            with patch.object(database, 'prune_expired_cache') as mock_db_prune:
+                with patch.object(database, 'checkpoint_databases') as mock_checkpoint:
+                    import service
+                    service.cleanup_cache_databases()
+                    mock_prune.assert_called_once()
+                    mock_db_prune.assert_called_once_with(30)
+                    mock_checkpoint.assert_called_once_with(truncate=True)
+

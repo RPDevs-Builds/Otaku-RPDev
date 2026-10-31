@@ -1,3 +1,6 @@
+Changelog v5.5.22 (2026-10-31):
+- Fix Kodi 22 ETag setting exceptions and debrid cache cleanup method
+
 Changelog v5.5.21 (2026-10-31):
 - Fix Skip Intro Dialog Lifecycle: Guard SkipIntro background tasks against premature close when player total_time is 0/uninitialized, and clear stale stop flags upon playback start in keepAlive
 - Fix Season Pack & Source Continuity: Correct word-boundary regex in is_season_pack (removing ASCII 0x08 corruption), persist last_played_source and last_watched_series across invoker sessions via homeWindow, and preserve resolver state during playback handoff
