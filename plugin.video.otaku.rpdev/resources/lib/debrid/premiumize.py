@@ -21,24 +21,50 @@ class Premiumize:
         return {'Authorization': f"Bearer {self.token}"}
 
     def auth(self):
-        import pyqrcode
         import os
         from resources.lib.windows.progress_dialog import Progress_dialog
 
-        data = {'client_id': self.client_id, 'response_type': 'device_code'}
-        r = client.post('https://www.premiumize.me/token', json_data=data)
-        resp = r.json() if r else {}
-        self.OauthTotalTimeout = self.OauthTimeout = resp['expires_in']
-        self.OauthTimeStep = int(resp['interval'])
-        copied = control.copy2clip(resp['user_code'])
-        display_dialog = (f"{control.lang(30081).format(control.colorstr(resp['verification_uri']))}[CR]"
-                          f"{control.lang(30082).format(control.colorstr(resp['user_code']))}")
+        client_id = self.client_id or '807831898'
+        data = {'client_id': client_id, 'response_type': 'device_code'}
+        response = client.post('https://www.premiumize.me/token', json_data=data)
+        if not response or not response.ok:
+            control.ok_dialog(control.ADDON_NAME, 'Failed to connect to Premiumize')
+            return
+
+        try:
+            resp = response.json()
+        except (ValueError, TypeError) as e:
+            control.ok_dialog(control.ADDON_NAME, f'Premiumize API error: {str(e)}')
+            return
+
+        if not resp or 'device_code' not in resp:
+            control.ok_dialog(control.ADDON_NAME, 'Failed to retrieve device code from Premiumize')
+            return
+
+        self.OauthTotalTimeout = self.OauthTimeout = int(resp.get('expires_in', 600))
+        self.OauthTimeStep = int(resp.get('interval', 5))
+        user_code = resp['user_code']
+        verification_uri = resp.get('verification_uri', 'https://www.premiumize.me/device')
+
+        copied = control.copy2clip(user_code)
+        display_dialog = (f"{control.lang(30081).format(control.colorstr(verification_uri))}[CR]"
+                          f"{control.lang(30082).format(control.colorstr(user_code))}")
         if copied:
             display_dialog = f"{display_dialog}[CR]{control.lang(30083)}"
 
-        qr_path = os.path.join(control.dataPath, 'qr_code.png')
-        qr = pyqrcode.create(resp['verification_uri'])
-        qr.png(qr_path, scale=20)
+        # Generate QR code pointing directly to enrollment URL with user_code embedded
+        qr_path = ''
+        try:
+            import pyqrcode
+            os.makedirs(control.dataPath, exist_ok=True)
+            qr_target = f"{verification_uri}?user_code={user_code}"
+            qr_file = os.path.join(control.dataPath, 'qr_code.png')
+            qr = pyqrcode.create(qr_target)
+            qr.png(qr_file, scale=20)
+            qr_path = qr_file
+        except Exception as e:
+            control.log(f"Premiumize pyqrcode generation error: {e}", 'warning')
+
         config = {
             'heading': f'{control.ADDON_NAME}: Premiumize Auth',
             'text': display_dialog,
@@ -53,17 +79,21 @@ class Premiumize:
             self.OauthTimeout -= self.OauthTimeStep
             control.sleep(self.OauthTimeStep * 1000)
             auth_done = self.auth_loop(resp['device_code'])
-            self.dialog.update(int(self.OauthTimeout / self.OauthTotalTimeout * 100))
-        self.dialog.close()
+            if self.dialog:
+                self.dialog.update(int(self.OauthTimeout / self.OauthTotalTimeout * 100))
+        if self.dialog:
+            self.dialog.close()
 
         if auth_done:
             self.status()
 
     def status(self):
         r = client.get(f'{self.base_url}/account/info', headers=self.headers())
-        user_information = r.json() if r else {}
-        premium = user_information['premium_until'] > 0
-        control.setSetting('premiumize.username', user_information['customer_id'])
+        user_information = r.json() if (r and r.ok) else {}
+        premium_until = user_information.get('premium_until') or 0
+        premium = int(premium_until) > 0 if str(premium_until).isdigit() else False
+        customer_id = str(user_information.get('customer_id', ''))
+        control.setSetting('premiumize.username', customer_id)
         control.ok_dialog(control.ADDON_NAME, f'Premiumize {control.lang(30084)}')
         if not premium:
             control.setSetting('premiumize.auth.status', 'Expired')
@@ -72,21 +102,28 @@ class Premiumize:
             control.setSetting('premiumize.auth.status', 'Premium')
 
     def auth_loop(self, device_code):
-        if self.dialog.iscanceled():
+        if not self.dialog or self.dialog.iscanceled():
             self.OauthTimeout = 0
             return False
-        data = {'client_id': self.client_id, 'code': device_code, 'grant_type': 'device_code'}
+        client_id = self.client_id or '807831898'
+        data = {'client_id': client_id, 'code': device_code, 'grant_type': 'device_code'}
         r = client.post('https://www.premiumize.me/token', json_data=data)
-        token = r.json() if r else {}
-        if r and 'access_token' in token:
+        try:
+            token = r.json() if r is not None else {}
+        except Exception:
+            token = {}
+
+        if r and r.ok and 'access_token' in token:
             self.token = token['access_token']
             control.setSetting('premiumize.token', self.token)
             return True
         else:
-            if token.get('error') == 'access_denied':
+            error = token.get('error')
+            if error in ('access_denied', 'invalid_grant'):
                 self.OauthTimeout = 0
-            if token.get('error') == 'slow_down':
-                control.sleep(1000)
+            elif error == 'slow_down':
+                self.OauthTimeStep += 5
+                control.sleep(5000)
         return False
 
     def search_folder(self, query):

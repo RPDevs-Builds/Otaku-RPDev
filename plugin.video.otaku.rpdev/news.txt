@@ -1,12 +1,27 @@
 ================================================================================
-                    OTAKU RPDEV v5.6.0 - WHAT'S NEW & MILESTONES
+                    OTAKU RPDEV v5.6.1 - WHAT'S NEW & MILESTONES
 ================================================================================
 
-[ Kodi 22 (Piers RC) Ready • Universal Backwards Compatibility • Milestone v5.6.0 ]
+[ Kodi 22 (Piers RC) Ready • Universal Backwards Compatibility • Milestone v5.6.1 ]
 
-Welcome to Otaku RPDev v5.6.0! This release marks a major architectural milestone,
-bringing native readiness for the upcoming Kodi 22 (Piers) Release Candidates while
-preserving flawless backwards compatibility for Kodi 21 (Omega) and Kodi 20 (Nexus).
+Welcome to Otaku RPDev v5.6.1! This release delivers critical OAuth 2.0 device
+authorization resilience and QR code enrollment improvements for Premiumize,
+alongside the milestone v5.6.0 architectural upgrades for Kodi 22 (Piers RC).
+
+--------------------------------------------------------------------------------
+New in v5.6.1: Premiumize OAuth 2.0 & Device Enrollment
+--------------------------------------------------------------------------------
+• Progress Dialog Resilience: Guarded pyqrcode import and render routines so
+  missing modules or initial data directory states never prevent the authorization
+  progress dialog from rendering.
+• Instant QR Code Enrollment: Embedded user_code into the generated QR code URL
+  (https://www.premiumize.me/device?user_code=xxxx-xxxx), letting mobile devices
+  instantly navigate and confirm approval without manually typing the code.
+• Resilient Polling & HTTP 400 Handling: Fixed client response evaluation during
+  token polling so HTTP 400 authorization_pending, slow_down (+5s backoff), and
+  access_denied payloads properly update the countdown progress bar.
+• Account Expiration Hardening: Handled null and non-numeric premium_until
+  timestamps safely to avoid comparison errors during account status checks.
 
 --------------------------------------------------------------------------------
 Original Project Credit & Heartfelt Acknowledgement

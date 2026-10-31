@@ -1,3 +1,9 @@
+Changelog v5.6.1 (2026-10-31):
+- Premiumize OAuth 2.0 Hardening: Resolve issue where clicking 'Authorize Premiumize' failed to populate the authorization progress window due to an unguarded pyqrcode import. Guard pyqrcode imports and PNG generation with clean fallback to ensure the dialog always renders.
+- QR Code Direct Device Enrollment: Embed the user code directly into the generated QR code URL (https://www.premiumize.me/device?user_code=xxxx-xxxx), allowing mobile camera scans to automatically prefill the user code and jump straight to authorization without manual entry.
+- Device Code Polling HTTP 400 Resilience: Correct client response evaluation during device code polling. In client.py, Response.__bool__ evaluates to False on HTTP 400; by checking `r is not None`, the add-on properly extracts and handles `authorization_pending`, `slow_down` (increasing timestep by 5s), and `access_denied` payloads without aborting.
+- Status Account Expiration Safety: Handle null or non-numeric `premium_until` timestamps safely to prevent comparison exceptions.
+
 Changelog v5.6.0 (2026-10-31):
 - Kodi 22 (Piers RC) Compatibility & Backwards Compatibility: Certified and hardened for Kodi 22 Piers RC while maintaining 100% compatibility with Kodi 21 Omega and Kodi 20 Nexus. Formalized and declared all hidden settings in settings.xml to eliminate C++ setting exceptions.
 - Zero-Wait Fast-Path Pre-Caching: Cache sorted whole-episode sources in database.set_episode_sources during 70% playback background pre-fetch. MetaBrowser Fast-Path 2 returns pre-cached streams instantly (0.001s) on next episode, bypassing the scraping dialog and eliminating UI freezes.
