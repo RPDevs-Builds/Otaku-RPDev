@@ -592,7 +592,9 @@ class WatchlistPlayer(player):
                         control.log("Player: Throttling background pre-scrape on low-memory device", level='info')
                         xbmc.sleep(1000)
                     from resources.lib import MetaBrowser
-                    MetaBrowser.get_sources(self.mal_id, next_ep, 'show', rescrape=False, source_select=False, silent=True)
+                    sources = MetaBrowser.get_sources(self.mal_id, next_ep, 'show', rescrape=False, source_select=False, silent=True)
+                    if sources:
+                        control.log(f"Player: Background pre-scrape complete for ep {next_ep} ({len(sources)} source(s) pre-cached)", level='info')
                 except Exception as e:
                     control.log(f"Player: Pre-scrape background task error: {e}", level='warning')
 

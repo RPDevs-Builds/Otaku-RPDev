@@ -139,17 +139,14 @@ def PLAY(payload, params):
 
         # SmartPlay Enabled
         if control.getBool('general.smartplay'):
-            # Check if the same series is already being watched
-            if last_watched == mal_id:
-                # If the same series is being watched, check if the last played source is available
-                if last_played == "None" or source_select or rescrape:
-                    _show_source_select(_mock_args, sources, rescrape)
-                else:
-                    # If the last played source is available, resolve it directly
-                    _show_resolver(_mock_args, sources)
+            last_played_profile = database.get_last_played_source(mal_id)
+            has_last_source = (last_played not in ("None", "0", "", None)) or bool(last_played_profile)
+            is_same_series = (last_watched == str(mal_id)) or bool(last_played_profile)
+            control.setSetting('last_watched_series', str(mal_id))
+
+            if is_same_series and has_last_source and not source_select and not rescrape:
+                _show_resolver(_mock_args, sources)
             else:
-                # If a different series is being watched, prompt for source selection and update last watched Series
-                control.setSetting('last_watched_series', mal_id)
                 _show_source_select(_mock_args, sources, rescrape)
         # SmartPlay Disabled
         else:

@@ -1,3 +1,8 @@
+Changelog v5.5.23 (2026-10-31):
+- Fix Background Pre-Fetch Caching: Cache whole-episode pre-scraped sources via database.set_episode_sources and add Fast-Path 2 in MetaBrowser.get_sources to instantly return pre-scraped sources without launching scraping dialog or re-running failing scrapers
+- Implement SmartPlay Embed Continuity: Honor smartplay.prefer_same_embed by prioritizing matching embed providers in sortSources and resolver.reorder_sources, persist provider + info key for embed/direct types in last_played_source setting, and allow direct resolver handoff when show has an existing playback profile
+- Harden Anikoto Scraper: Prevent early abort when database.get_show returns None by falling back to shows_meta, episodes, or synthetic title; elevate scraper diagnostic logs to info level
+
 Changelog v5.5.22 (2026-10-31):
 - Fix Kodi 22 ETag setting exceptions and debrid cache cleanup method
 

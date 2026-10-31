@@ -115,6 +115,15 @@ def get_sources(mal_id, episode, media_type, rescrape=False, source_select=False
                 control.log(f"MetaBrowser: Cached season pack does not cover ep {episode}, clearing pack cache and rescanning", level='info')
                 database.clear_season_pack(mal_id, season)
 
+    # Fast-path 2: Check for pre-scraped / cached episode sources
+    if not rescrape:
+        cached_sources = database.get_episode_sources(mal_id, episode)
+        if cached_sources:
+            control.log(f"MetaBrowser: Reusing pre-scraped sources for {mal_id} ep {episode} ({len(cached_sources)} sources)", level='info')
+            return cached_sources
+    else:
+        database.clear_episode_sources(mal_id, episode)
+
     part = None
     mal_mapping = database.get_mappings(mal_id, 'mal_id')
     if mal_mapping and 'thetvdb_part' in mal_mapping:
@@ -136,6 +145,8 @@ def get_sources(mal_id, episode, media_type, rescrape=False, source_select=False
     }
 
     sources = pages.getSourcesHelper(actionArgs)
+    if sources:
+        database.set_episode_sources(mal_id, episode, sources)
     return sources
 
 

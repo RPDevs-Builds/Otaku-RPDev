@@ -97,6 +97,10 @@ class Resolver(BaseWindow):
             ep = str(self.episode)
             L = len(ep)
 
+            # SmartPlay embed / provider continuity
+            last_played_profile = database.get_last_played_source(self.mal_id) if hasattr(self, 'mal_id') and self.mal_id else None
+            prefer_same_embed = control.getBool('smartplay.prefer_same_embed', default=True)
+
             # 1) Precompute all offsets where exactly L digits occur in a row
             digit_positions = [
                 i for i in range(len(lp) - L + 1)
@@ -111,6 +115,11 @@ class Resolver(BaseWindow):
                     if key == lp:
                         sources[0], sources[idx] = sources[idx], sources[0]
                         return sources
+                    if prefer_same_embed and last_played_profile:
+                        if source.get('provider') == last_played_profile.get('provider'):
+                            if not last_played_profile.get('lang') or source.get('lang') == last_played_profile.get('lang'):
+                                sources[0], sources[idx] = sources[idx], sources[0]
+                                return sources
 
                 # torrent-style
                 elif stype in ['torrent', 'torrent (uncached)', 'cloud', 'hoster', 'local']:
@@ -412,7 +421,11 @@ class Resolver(BaseWindow):
 
                 if resolved_source:
                     database.save_last_played_source(self.mal_id, resolved_source)
-                    control.setSetting('last_played_source', str(resolved_source.get('release_title') or resolved_source.get('name') or ''))
+                    if resolved_source.get('type') in ['embed', 'direct']:
+                        lp_key = f"{resolved_source.get('provider', '')} {' '.join(map(str, resolved_source.get('info') or []))}".strip()
+                    else:
+                        lp_key = str(resolved_source.get('release_title') or resolved_source.get('name') or '')
+                    control.setSetting('last_played_source', lp_key)
                     control.setSetting('last_watched_series', str(self.mal_id))
 
                 link_info = self.return_data.get('linkinfo') or {}

@@ -506,6 +506,7 @@ def cache_clear_providers():
     with SQL(control.cacheFile) as cur:
         # 1. Purge season pack torrent listings and last played sources
         cur.execute("DELETE FROM cache WHERE key LIKE 'season_pack_%'")
+        cur.execute("DELETE FROM cache WHERE key LIKE 'episode_sources_%'")
         cur.execute("DELETE FROM cache WHERE key LIKE 'last_played_%'")
 
         # 2. Purge cached scraper results for all providers (torrents, embeds, hosters)
@@ -1223,6 +1224,58 @@ def clear_season_pack(mal_id=None, season=None):
                 _mem_del(f"season_pack_{mal_id}_{s}")
         else:
             cur.execute("DELETE FROM cache WHERE key LIKE 'season_pack_%'")
+            _bump_mem_generation()
+        cur.connection.commit()
+
+
+def set_episode_sources(mal_id, episode, sources):
+    """Cache the scraped/sorted sources list for an episode (e.g. from background pre-scraping)."""
+    if not sources or not mal_id:
+        return
+    key = f"episode_sources_{mal_id}_{episode}"
+    sources_repr = repr(sources)
+    duration = 4  # 4 hours cache for pre-scraped sources
+    _cache_write(key, sources_repr)
+    _mem_set(key, sources_repr, duration)
+
+
+def get_episode_sources(mal_id, episode):
+    """Retrieve pre-scraped sources for an episode if valid."""
+    if not mal_id:
+        return None
+    key = f"episode_sources_{mal_id}_{episode}"
+    mem = _mem_get(key)
+    if mem is not None:
+        return mem
+    _init_cache_table()
+    row = None
+    with SQL(control.cacheFile) as cur:
+        cur.execute('SELECT value, date FROM cache WHERE key=?', (key,))
+        row = cur.fetchone()
+    if row and is_cache_valid(row['date'], 4):
+        try:
+            data = ast.literal_eval(row['value'])
+            if data:
+                _mem_set(key, row['value'], 4)
+                return data
+        except (ValueError, SyntaxError) as e:
+            control.log(f"cache_get parse error for {key}: {e}", 'debug')
+    return None
+
+
+def clear_episode_sources(mal_id=None, episode=None):
+    """Purge cached episode sources from SQLite and memory cache."""
+    _init_cache_table()
+    with SQL(control.cacheFile) as cur:
+        if mal_id and episode:
+            key = f"episode_sources_{mal_id}_{episode}"
+            cur.execute('DELETE FROM cache WHERE key=?', (key,))
+            _mem_del(key)
+        elif mal_id:
+            cur.execute("DELETE FROM cache WHERE key LIKE ?", (f"episode_sources_{mal_id}_%",))
+            _bump_mem_generation()
+        else:
+            cur.execute("DELETE FROM cache WHERE key LIKE 'episode_sources_%'")
             _bump_mem_generation()
         cur.connection.commit()
 

@@ -264,7 +264,7 @@ class Sources(GetSources):
             if len(self.torrentSources) + len(self.hosterSources) + len(self.embedSources) + len(self.cloud_files) + len(self.local_files) == 0:
                 self.return_data = []
             else:
-                self.return_data = self.sortSources(self.torrentSources, self.hosterSources, self.embedSources, self.cloud_files, self.local_files, media_type, duration)
+                self.return_data = self.sortSources(self.torrentSources, self.hosterSources, self.embedSources, self.cloud_files, self.local_files, media_type, duration, mal_id=mal_id)
         except Exception as e:
             control.log(f"Error in getSources: {e}", 'error')
             self.return_data = []
@@ -415,7 +415,7 @@ class Sources(GetSources):
                 control.setInt(f'{prefix}.skipoutro.end', int(outro['end']))
 
     @staticmethod
-    def sortSources(torrent_list, hoster_list, embed_list, cloud_files, local_files, media_type, duration):
+    def sortSources(torrent_list, hoster_list, embed_list, cloud_files, local_files, media_type, duration, mal_id=None):
         all_list = torrent_list + hoster_list + embed_list + cloud_files + local_files
         sortedList = [x for x in all_list if control.getInt('general.minResolution') <= x['quality'] <= control.getInt('general.maxResolution')]
 
@@ -575,6 +575,24 @@ class Sources(GetSources):
 
         # Sort sources (Seren-style composite keys; fresh sort_options.json)
         sortedList = sort_select.sort_sources_list(sortedList)
+
+        # SmartPlay: prioritize preferred embed provider if enabled
+        if mal_id and control.getBool('general.smartplay', default=True) and control.getBool('smartplay.prefer_same_embed', default=True):
+            last_played_profile = database.get_last_played_source(mal_id)
+            if last_played_profile and last_played_profile.get('type') in ('embed', 'direct'):
+                last_prov = last_played_profile.get('provider')
+                last_lang = last_played_profile.get('lang')
+                match_idx = -1
+                for idx, src in enumerate(sortedList):
+                    if src.get('provider') == last_prov:
+                        if not last_lang or src.get('lang') == last_lang:
+                            match_idx = idx
+                            break
+                        elif match_idx == -1:
+                            match_idx = idx
+                if match_idx > 0:
+                    matching_source = sortedList.pop(match_idx)
+                    sortedList.insert(0, matching_source)
 
         return sortedList
 

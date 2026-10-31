@@ -12,18 +12,28 @@ class Sources(BrowserBase):
     _REFERER = 'https://anikototv.to/'
 
     def get_sources(self, mal_id, episode):
-        control.log(f"Anikoto: Getting sources for MAL ID {mal_id}, Episode {episode}")
+        control.log(f"Anikoto: Getting sources for MAL ID {mal_id}, Episode {episode}", level='info')
+        title = ''
         show = database.get_show(mal_id)
-        if not show:
-            return []
-
-        kodi_meta = database.loads(show.get('kodi_meta'))
-        title = self._clean_title(kodi_meta.get('name') or '')
+        if show and show.get('kodi_meta'):
+            kodi_meta = database.loads(show.get('kodi_meta'))
+            title = self._clean_title(kodi_meta.get('name') or '')
+        else:
+            show_meta = database.get_show_meta(mal_id)
+            if show_meta and show_meta.get('name'):
+                title = self._clean_title(show_meta.get('name'))
+            else:
+                ep_data = database.get_episode(mal_id)
+                if ep_data and ep_data.get('kodi_meta'):
+                    kodi_meta = database.loads(ep_data.get('kodi_meta'))
+                    title = self._clean_title(kodi_meta.get('name') or '')
+        if not title:
+            title = f"MAL-{mal_id}"
 
         try:
             ep_num = int(episode)
         except (TypeError, ValueError):
-            control.log(f"Anikoto: Invalid episode number: {episode}")
+            control.log(f"Anikoto: Invalid episode number: {episode}", level='warning')
             return []
 
         langs = ['sub', 'dub']
@@ -39,7 +49,7 @@ class Sources(BrowserBase):
             if source:
                 all_results.append(source)
 
-        control.log(f"Anikoto: Returning {len(all_results)} source(s)")
+        control.log(f"Anikoto: Returning {len(all_results)} source(s)", level='info')
         return all_results
 
     def _build_source(self, embed_url, title, episode, lang):
