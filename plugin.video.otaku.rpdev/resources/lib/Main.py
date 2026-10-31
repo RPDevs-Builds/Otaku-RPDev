@@ -633,9 +633,12 @@ def GENRES(payload, params):
 @Route('update_genre_settings')
 def UPDATE_GENRE_SETTINGS(payload, params):
     try:
-        selected_genres_mal, selected_genres_anilist, selected_tags = BROWSER.update_genre_settings()
-    except ValueError:
-        return  # Break the code if ValueError occurs
+        res = BROWSER.update_genre_settings()
+        if not res or len(res) != 3:
+            return
+        selected_genres_mal, selected_genres_anilist, selected_tags = res
+    except (ValueError, TypeError):
+        return  # Break the code if error occurs
 
     settings = {
         'selected_genres_mal': selected_genres_mal,

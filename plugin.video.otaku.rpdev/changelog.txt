@@ -1,3 +1,9 @@
+Changelog v5.5.21 (2026-10-31):
+- Fix Skip Intro Dialog Lifecycle: Guard SkipIntro background tasks against premature close when player total_time is 0/uninitialized, and clear stale stop flags upon playback start in keepAlive
+- Fix Season Pack & Source Continuity: Correct word-boundary regex in is_season_pack (removing ASCII 0x08 corruption), persist last_played_source and last_watched_series across invoker sessions via homeWindow, and preserve resolver state during playback handoff
+- Fix Debrid Cache Availability: Prevent false-negative cache poisoning by only persisting confirmed positive cached hashes in debrid_cache, and generate fresh DMM request secrets per batch chunk
+- Fix Genre Settings Exception: Harden AniListBrowser and MalBrowser update_genre_settings against empty/None API responses and return valid 3-tuples
+
 Changelog v5.5.20 (2026-10-27):
 - Upcoming Dub Dates: Show the dub release date right-aligned in the episode row (between title and watch indicator) only for episodes whose dub has not yet been released
 - Animeschedule Fixes: Convert page times (with UTC offset) to local time instead of a fixed -5h shift, stop dub data leaking between shows via a shared module list, and include the last episode of dub ranges

@@ -96,22 +96,26 @@ except (IndexError, ValueError):
     HANDLE = 0
 
 class _SettingsProxy:
-    """Lightweight session-cached proxy for xbmcaddon.Settings avoiding persistent SWIG wrapper leaks."""
+    """Session-cached proxy for xbmcaddon.Settings avoiding persistent SWIG wrapper leaks."""
 
     def __init__(self, addon_id=None):
         self._addon_id = addon_id
+        self._addon = None
         self._cached = None
+
+    def _get_addon(self):
+        if self._addon is None:
+            self._addon = xbmcaddon.Addon(self._addon_id) if self._addon_id else xbmcaddon.Addon()
+        return self._addon
 
     def _get_settings(self):
         if self._cached is None:
-            if self._addon_id:
-                self._cached = xbmcaddon.Addon(self._addon_id).getSettings()
-            else:
-                self._cached = xbmcaddon.Addon().getSettings()
+            self._cached = self._get_addon().getSettings()
         return self._cached
 
     def cleanup(self):
         self._cached = None
+        self._addon = None
 
     def getBool(self, key):
         return self._get_settings().getBool(key)
@@ -138,16 +142,16 @@ class _SettingsProxy:
         return self._get_settings().getNumberList(key)
 
     def setBool(self, key, value):
-        return self._get_settings().setBool(key, value)
+        return self._get_settings().setBool(key, bool(value))
 
     def setInt(self, key, value):
-        return self._get_settings().setInt(key, value)
+        return self._get_settings().setInt(key, int(value))
 
     def setNumber(self, key, value):
-        return self._get_settings().setNumber(key, value)
+        return self._get_settings().setNumber(key, float(value))
 
     def setString(self, key, value):
-        return self._get_settings().setString(key, value)
+        return self._get_settings().setString(key, str(value))
 
     def setStringList(self, key, value):
         return self._get_settings().setStringList(key, value)
@@ -695,30 +699,40 @@ def setSetting(settingid, value):
     """Set setting as string - kept for backward compatibility"""
     settings.setString(settingid, str(value))
     _evict_setting(settingid)
+    _settings_cache[f's_{settingid}'] = str(value)
+    homeWindow.setProperty(f'{ADDON_ID}_{settingid}', str(value))
 
 
 def setBool(settingid, value):
     """Set setting as boolean"""
     settings.setBool(settingid, value)
     _evict_setting(settingid)
+    _settings_cache[f'b_{settingid}'] = bool(value)
+    homeWindow.setProperty(f'{ADDON_ID}_{settingid}', 'true' if value else 'false')
 
 
 def setInt(settingid, value):
     """Set setting as integer"""
     settings.setInt(settingid, value)
     _evict_setting(settingid)
+    _settings_cache[f'i_{settingid}'] = int(value)
+    homeWindow.setProperty(f'{ADDON_ID}_{settingid}', str(value))
 
 
 def setStr(settingid, value):
     """Set setting as string"""
     settings.setString(settingid, value)
     _evict_setting(settingid)
+    _settings_cache[f's_{settingid}'] = str(value)
+    homeWindow.setProperty(f'{ADDON_ID}_{settingid}', str(value))
 
 
 def setNumber(settingid, value):
     """Set setting as float/number"""
     settings.setNumber(settingid, value)
     _evict_setting(settingid)
+    _settings_cache[f'n_{settingid}'] = float(value)
+    homeWindow.setProperty(f'{ADDON_ID}_{settingid}', str(value))
 
 
 def setStringList(settingid, value):

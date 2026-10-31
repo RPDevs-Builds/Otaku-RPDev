@@ -724,13 +724,15 @@ class MalBrowser(BrowserBase):
 
     def update_genre_settings(self):
         res = database.get(self.get_base_res, 24, f'{self._BASE_URL}/genres/anime')
+        if not res or not isinstance(res, dict) or 'data' not in res:
+            return [], [], []
 
         genre = res['data']
         genres_list = [x['name'] for x in genre]
 
         multiselect = control.multiselect_dialog(control.lang(30040), genres_list, preselect=[])
         if not multiselect:
-            return []
+            return [], [], []
 
         selected_genres_mal = [str(genre[selection]['mal_id']) for selection in multiselect if selection < len(genres_list)]
 

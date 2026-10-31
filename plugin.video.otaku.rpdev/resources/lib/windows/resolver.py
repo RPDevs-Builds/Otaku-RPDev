@@ -410,6 +410,11 @@ class Resolver(BaseWindow):
                     season = episode_data.get('season') if episode_data else None
                     database.set_season_pack(self.mal_id, season, resolved_source)
 
+                if resolved_source:
+                    database.save_last_played_source(self.mal_id, resolved_source)
+                    control.setSetting('last_played_source', str(resolved_source.get('release_title') or resolved_source.get('name') or ''))
+                    control.setSetting('last_watched_series', str(self.mal_id))
+
                 link_info = self.return_data.get('linkinfo') or {}
                 ch = link_info.get('chapters') if isinstance(link_info, dict) else None
                 player.WatchlistPlayer().handle_player(
@@ -629,9 +634,9 @@ class Resolver(BaseWindow):
         return self.return_data
 
     def close(self):
+        # Only drop the parent-window callback here. self.sources must survive close():
+        # resolve() calls close() before its failover logic advances to the next candidate.
         self.source_select_close = None
-        self.sources = None
-        self.args = None
         super().close()
 
     def onAction(self, action):

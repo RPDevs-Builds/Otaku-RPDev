@@ -58,7 +58,7 @@ def get_cached_hashes(hash_list):
             placeholders = ', '.join('?' for _ in chunk)
             cur.execute(
                 f'SELECT hash, debrid, cached FROM debrid_cache '
-                f'WHERE hash IN ({placeholders}) AND expires > ?',
+                f'WHERE hash IN ({placeholders}) AND cached = "True" AND expires > ?',
                 chunk + [now]
             )
             rows = cur.fetchall()
@@ -209,21 +209,20 @@ def _dmm_check_cache(hash_list, imdb_id, collector):
         if not clean_hashes:
             return
 
-        dmm_key, solution = _get_dmm_secret()
-        url = 'https://debridmediamanager.com/api/availability/check'
-
         # Batch in chunks of 100 up to 300 total hashes so candidate hashes are verified without random drop
         chunk_size = 100
         hashes_to_check = clean_hashes[:300]
+        url = 'https://debridmediamanager.com/api/availability/check'
         for i in range(0, len(hashes_to_check), chunk_size):
             chunk = hashes_to_check[i:i + chunk_size]
+            dmm_key, solution = _get_dmm_secret()
             data = {
                 'dmmProblemKey': dmm_key,
                 'solution': solution,
                 'imdbId': imdb_id,
                 'hashes': chunk
             }
-            response = client.post(url, json_data=data, timeout=7)
+            response = client.post(url, json_data=data, timeout=5)
             if response and response.ok:
                 available = response.json().get('available', [])
                 for f in available:

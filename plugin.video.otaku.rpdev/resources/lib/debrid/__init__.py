@@ -96,9 +96,7 @@ class Debrid:
         else:
             cached_from_db = debrid_cache.get_cached_hashes(hash_list)
             db_cached = {r['hash'] for r in cached_from_db if r['debrid'] == 'ad' and r['cached'] == 'True'}
-            db_uncached = {r['hash'] for r in cached_from_db if r['debrid'] == 'ad' and r['cached'] == 'False'}
-            db_known = db_cached | db_uncached
-            unknown_hashes = [h for h in hash_list if h not in db_known]
+            unknown_hashes = [h for h in hash_list if h not in db_cached]
 
         # External check for unknown hashes
         external_cached = set()
@@ -106,12 +104,10 @@ class Debrid:
             imdb_id, season = self._get_imdb_and_season(mal_id, episode, media_type)
             if imdb_id:
                 external_cached = set(debrid_cache.check_ad_cache(imdb_id, season, episode))
-                # Save results to local DB
-                hashes_to_cache = []
-                for h in unknown_hashes:
-                    status = 'True' if h in external_cached else 'False'
-                    hashes_to_cache.append((h, status))
-                threading.Thread(target=debrid_cache.set_cached_hashes, args=(hashes_to_cache, 'ad'), daemon=True).start()
+                # Save confirmed cached hashes to local DB
+                if external_cached:
+                    hashes_to_cache = [(h, 'True') for h in external_cached]
+                    threading.Thread(target=debrid_cache.set_cached_hashes, args=(hashes_to_cache, 'ad'), daemon=True).start()
 
         all_cached = db_cached | external_cached
         for torrent in torrent_list:
@@ -140,9 +136,7 @@ class Debrid:
         else:
             cached_from_db = debrid_cache.get_cached_hashes(hash_list)
             db_cached = {r['hash'] for r in cached_from_db if r['debrid'] == 'rd' and r['cached'] == 'True'}
-            db_uncached = {r['hash'] for r in cached_from_db if r['debrid'] == 'rd' and r['cached'] == 'False'}
-            db_known = db_cached | db_uncached
-            unknown_hashes = [h for h in hash_list if h not in db_known]
+            unknown_hashes = [h for h in hash_list if h not in db_cached]
 
         # External check for unknown hashes
         external_cached = set()
@@ -150,12 +144,10 @@ class Debrid:
             imdb_id, season = self._get_imdb_and_season(mal_id, episode, media_type)
             if imdb_id:
                 external_cached = set(debrid_cache.check_rd_cache(unknown_hashes, imdb_id, season, episode))
-                # Save results to local DB
-                hashes_to_cache = []
-                for h in unknown_hashes:
-                    status = 'True' if h in external_cached else 'False'
-                    hashes_to_cache.append((h, status))
-                threading.Thread(target=debrid_cache.set_cached_hashes, args=(hashes_to_cache, 'rd'), daemon=True).start()
+                # Save confirmed cached hashes to local DB
+                if external_cached:
+                    hashes_to_cache = [(h, 'True') for h in external_cached]
+                    threading.Thread(target=debrid_cache.set_cached_hashes, args=(hashes_to_cache, 'rd'), daemon=True).start()
 
         all_cached = db_cached | external_cached
         for torrent in torrent_list:

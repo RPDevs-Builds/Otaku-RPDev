@@ -1649,17 +1649,18 @@ class AniListBrowser(BrowserBase):
         '''
 
         response = client.post(self._BASE_URL, json_data={'query': query})
-        results = response.json()
-        if not results:
+        results = response.json() if response and getattr(response, 'ok', False) else None
+        data = results.get('data') if isinstance(results, dict) else None
+        if not data or not data.get('genres'):
             genres_list = ['Action', 'Adventure', 'Comedy', 'Drama', 'Ecchi', 'Fantasy', 'Hentai', "Horror", 'Mahou Shoujo', 'Mecha', 'Music', 'Mystery', 'Psychological', 'Romance', 'Sci-Fi', 'Slice of Life', 'Sports', 'Supernatural', 'Thriller']
         else:
-            genres_list = results['data']['genres']
+            genres_list = data['genres']
 
-        tags_list = control.safe_call(lambda: [x['name'] for x in results['data']['tags'] if not x['isAdult']], default=[])
+        tags_list = control.safe_call(lambda: [x['name'] for x in data.get('tags', []) if not x.get('isAdult')], default=[]) if data else []
 
         multiselect = control.multiselect_dialog(control.lang(30040), genres_list + tags_list, preselect=[])
         if not multiselect:
-            return [], []
+            return [], [], []
 
         selected_genres_anilist = []
         selected_tags = []

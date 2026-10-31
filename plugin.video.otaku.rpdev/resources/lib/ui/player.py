@@ -400,6 +400,9 @@ class WatchlistPlayer(player):
             control.log('Failed to start video playback', 'warning')
             return
 
+        # Video playback confirmed active; clear any stale stop flag from earlier transitions
+        self._playback_stopped = False
+
         # Grab the seek time if available
         if self.resume:
             self.seekTime(self.resume)

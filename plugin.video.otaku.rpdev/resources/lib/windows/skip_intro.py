@@ -26,10 +26,12 @@ class SkipIntro(BaseWindow):
             if not p:
                 break
             try:
-                if self.playing_file != p.getPlayingFile():
+                if not p.isPlaying():
                     break
                 self.current_time = int(p.getTime())
-                if (self.total_time - self.current_time <= 2) or (self.current_time > self.skipintro_end_skip_time):
+                if self.total_time <= 0:
+                    self.total_time = int(p.getTotalTime())
+                if (self.total_time > 0 and (self.total_time - self.current_time <= 2)) or (self.current_time > self.skipintro_end_skip_time):
                     break
             except Exception:
                 break

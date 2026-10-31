@@ -153,9 +153,8 @@ class BaseWindow(xbmcgui.WindowXMLDialog):
     def cleanup(self):
         """Release internal references, callbacks, and clear properties to allow clean SWIG director destruction."""
         self.item_information = None
-        if hasattr(self, 'actionArgs') and isinstance(self.actionArgs, dict):
-            self.actionArgs.pop('close', None)
-            self.actionArgs = None
+        # Note: actionArgs is a dict shared with parent windows/callers; do not mutate
+        # or null it here (callers still read it after close()).
         if hasattr(self, 'display_list'):
             self.display_list = None
         try:

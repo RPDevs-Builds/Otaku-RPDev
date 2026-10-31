@@ -902,7 +902,7 @@ def is_season_pack(source):
     lower = title.lower()
     if any(k in lower for k in ('batch', 'complete series', 'complete season', 'entire series', 'all episodes')):
         return True
-    if re.search(r'(?:season\s*\d+|s\d{1,2})', lower) and not re.search(r'(?:e|ep|episode)\s*\d{1,4}', lower):
+    if re.search(r'\b(?:season\s*\d+|s\d{1,2})\b', lower) and not re.search(r'\b(?:e|ep|episode)\s*\d{1,4}\b|\bs\d{1,2}e\d{1,4}\b', lower):
         return True
     return False
 
