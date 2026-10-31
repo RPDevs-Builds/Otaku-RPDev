@@ -1,12 +1,24 @@
 ================================================================================
-                    OTAKU RPDEV v5.6.2 - WHAT'S NEW & MILESTONES
+                    OTAKU RPDEV v5.6.3 - WHAT'S NEW & MILESTONES
 ================================================================================
 
-[ Kodi 22 (Piers RC) Ready • Universal Backwards Compatibility • Milestone v5.6.2 ]
+[ Kodi 22 (Piers RC) Ready • Universal Backwards Compatibility • Milestone v5.6.3 ]
 
-Welcome to Otaku RPDev v5.6.2! This release delivers scraper resilience fixes for
-batch torrent searches and validates full feature and debrid stream compatibility
-across the local Kodi 22 (Piers RC 1) and Kodi 21 (Omega) environments.
+Welcome to Otaku RPDev v5.6.3! This release delivers scraper resilience fixes across
+torrent and embed providers, adds dictionary yield counting and provider expansion
+to the automated health monitor, and certifies 263 unit tests.
+
+--------------------------------------------------------------------------------
+New in v5.6.3: Scraper Resilience & Multi-Provider Health Monitor
+--------------------------------------------------------------------------------
+• Scraper Resilience Hardening: Guarded AnimeTosho and WatchNixtoons2 against
+  NoneType exceptions when shows or episodes lack pre-cached metadata in local SQLite.
+• Automated Scraper Health Monitor: Expanded check_scraper_health.py to monitor all
+  10 providers (Nyaa, AnimeTosho, HiAnime, AnimePahe, AniKoto, AnimeKai, Gogoanime,
+  Torrentio, NekoBT, WatchNixtoons2) with accurate dict/list yield metrics.
+• Verified Embed & Debrid Streams: Validated AniKoto 1080p master HLS direct streams
+  with multi-language subtitles and intro/outro skips, alongside Premiumize debrid
+  torrent cache. 263/263 unit tests passing.
 
 --------------------------------------------------------------------------------
 New in v5.6.2: Scraper Hardening & Kodi 22 Feature Certification

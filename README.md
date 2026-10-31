@@ -3,7 +3,7 @@
 [![Kodi version](https://img.shields.io/badge/Kodi-20%20(Nexus)%20%7C%2021%20(Omega)%20%7C%2022%20(Piers%20RC)-blue?style=for-the-badge&logo=kodi)](https://kodi.tv/)
 [![Python versions](https://img.shields.io/badge/Python-3.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue?style=for-the-badge&logo=python)](https://python.org/)
 [![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/GPL-3.0)
-[![Test Suite](https://img.shields.io/badge/Tests-261%20Passing-brightgreen?style=for-the-badge&logo=checkmarx)](https://github.com/RPDevs-Builds/Otaku-RPDev/actions)
+[![Test Suite](https://img.shields.io/badge/Tests-263%20Passing-brightgreen?style=for-the-badge&logo=checkmarx)](https://github.com/RPDevs-Builds/Otaku-RPDev/actions)
 [![CDN Repository](https://img.shields.io/badge/CDN-kodi.repo.iamrp.dev-blueviolet?style=for-the-badge)](https://kodi.repo.iamrp.dev/)
 [![Original Project](https://img.shields.io/badge/Forked%20From-Goldenfreddy0703%2FOtaku-orange?style=for-the-badge&logo=github)](https://github.com/Goldenfreddy0703/Otaku)
 
@@ -146,6 +146,9 @@ Every single subsystem has been audited, benchmarked, hardened, and expanded:
 
 | Version | Highlights |
 | :--- | :--- |
+| **v5.6.3** | Scraper yield counting and health monitor dashboard (`check_scraper_health.py`), AnimeTosho & WatchNixtoons2 NoneType fallback guards, 263/263 unit tests passing. |
+| **v5.6.2** | Nyaa batch query NoneType metadata fallback guard, 38/38 Kodi 22 subsystem audits certified. |
+| **v5.6.1** | Premiumize OAuth 2.0 device flow with direct QR code enrollment (`/device?user_code=`), pyqrcode import error fallback. |
 | **v5.6.0** | **Major Milestone**: Kodi 22 (Piers RC) compatibility and universal backward compatibility (Kodi 20 & 21); Fast-Path whole-episode pre-scrape caching (bypassing scraping dialogs on next episodes); SmartPlay embed continuity (`smartplay.prefer_same_embed`); Anikoto scraper hardening; documentation & original developer acknowledgements refresh. |
 | **v5.5.23**| Fast-Path 2 pre-cached episode sources in `MetaBrowser`, embed continuity matching in `resolver.reorder_sources`, Anikoto metadata fallback. |
 | **v5.5.22**| Kodi 22 hidden string settings declarations (`dub.etag`, `mappings.etag`, `mappings.last_modified`), debrid cache maintenance method alignment. |

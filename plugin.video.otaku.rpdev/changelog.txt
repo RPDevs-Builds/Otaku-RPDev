@@ -1,3 +1,6 @@
+Changelog v5.6.3 (2026-10-31):
+- Hardened AnimeTosho and WatchNixtoons2 NoneType fallbacks, expanded scraper health monitor
+
 Changelog v5.6.2 (2026-10-31):
 - Harden Nyaa Torrent Scraper: Guard show metadata extraction during batch/complete series search against NoneType when shows are queried directly without pre-cached show metadata.
 - Kodi 22 RC Comprehensive Feature Audit: Validated all 525 routes, settings schema, and live Premiumize debrid stream resolution with zero C++ setting exceptions or SWIG memory leaks.

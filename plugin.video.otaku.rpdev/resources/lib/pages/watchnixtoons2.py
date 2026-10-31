@@ -141,9 +141,14 @@ class Sources(BrowserBase):
             return []
 
         show = database.get_show(mal_id)
+        if not show:
+            return []
         database_meta = database.get_mappings(mal_id, 'mal_id')
-        kodi_meta = database.loads(show.get('kodi_meta'))
-        season = database.get_episode(mal_id)['season']
+        if not isinstance(database_meta, dict):
+            database_meta = {}
+        kodi_meta = database.loads(show.get('kodi_meta') or '{}')
+        ep_row = database.get_episode(mal_id, episode) or database.get_episode(mal_id)
+        season = ep_row['season'] if ep_row and 'season' in ep_row else 1
         anime_media_episodes = database_meta.get('anime_media_episodes', {})
         global_media_episodes = database_meta.get('global_media_episodes', {})
         romaji_title = kodi_meta.get('name')

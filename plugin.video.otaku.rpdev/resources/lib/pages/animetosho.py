@@ -80,7 +80,14 @@ class Sources(BrowserBase):
         # Batch/complete series search for finished shows
         if status in ["FINISHED", "Finished Airing"]:
             batch_terms = ["Batch", "Complete Series"]
-            episodes_info = database.loads(database.get_show(mal_id)['kodi_meta'])['episodes']
+            show_data = database.get_show(mal_id)
+            if show_data and show_data.get('kodi_meta'):
+                try:
+                    episodes_info = database.loads(show_data['kodi_meta']).get('episodes')
+                except Exception:
+                    episodes_info = None
+            else:
+                episodes_info = None
             episode_formats = []
             if episodes_info:
                 episode_formats = [f'01-{episode_zfill}', f'01~{episode_zfill}', f'01 - {episode_zfill}', f'01 ~ {episode_zfill}']

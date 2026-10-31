@@ -64,6 +64,9 @@ def check_provider(name, func, *args, timeout=20):
         if isinstance(results, list):
             count = len(results)
             status = 'PASS' if count > 0 else 'WARN (0 items)'
+        elif isinstance(results, dict):
+            count = sum(len(v) for v in results.values() if isinstance(v, list))
+            status = 'PASS' if count > 0 else 'WARN (0 items)'
         else:
             status = 'PASS' if results else 'WARN (empty)'
     except Exception as e:
@@ -126,6 +129,24 @@ def run_health_checks(target_provider=None, timeout=20):
         providers['Gogoanime'] = ('Embed/Direct', lambda: gogoanime.Sources().get_sources("52991", "1"))
     except Exception as e:
         providers['Gogoanime'] = ('Embed/Direct', lambda: (_ for _ in ()).throw(e))
+
+    try:
+        from resources.lib.pages import torrentio
+        providers['Torrentio'] = ('Torrent/Stremio', lambda: torrentio.Sources().get_sources("Frieren", "52991", "1", "Ongoing", "tv"))
+    except Exception as e:
+        providers['Torrentio'] = ('Torrent/Stremio', lambda: (_ for _ in ()).throw(e))
+
+    try:
+        from resources.lib.pages import nekobt
+        providers['NekoBT'] = ('Torrent/Tracker', lambda: nekobt.Sources().get_sources("Frieren", "52991", "1", "Ongoing", "tv"))
+    except Exception as e:
+        providers['NekoBT'] = ('Torrent/Tracker', lambda: (_ for _ in ()).throw(e))
+
+    try:
+        from resources.lib.pages import watchnixtoons2
+        providers['WatchNixtoons2'] = ('Direct/WCO', lambda: watchnixtoons2.Sources().get_sources("52991", "1", "tv"))
+    except Exception as e:
+        providers['WatchNixtoons2'] = ('Direct/WCO', lambda: (_ for _ in ()).throw(e))
 
     results = []
     for prov_name, (ptype, pfunc) in providers.items():

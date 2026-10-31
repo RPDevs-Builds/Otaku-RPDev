@@ -94,6 +94,25 @@ class TestScrapersAll(unittest.TestCase):
         self.assertIn("cached", res)
         self.assertIn("uncached", res)
 
+    @patch("resources.lib.ui.database.get_show", return_value=None)
+    @patch("resources.lib.pages.animetosho.client.get", return_value=None)
+    def test_animetosho_get_sources_none_show_data_fallback(self, mock_client_get, mock_get_show):
+        """Verify AnimeTosho batch search does not crash when get_show returns None."""
+        from resources.lib.pages.animetosho import Sources as ToshoSources
+        ts = ToshoSources()
+        res = ts.get_sources("Sample Anime", "99999", "1", "Finished Airing", "tv")
+        self.assertIsInstance(res, dict)
+        self.assertIn("cached", res)
+        self.assertIn("uncached", res)
+
+    @patch("resources.lib.ui.database.get_show", return_value=None)
+    def test_watchnixtoons2_get_sources_none_show_fallback(self, mock_get_show):
+        """Verify WatchNixtoons2 safely returns [] when get_show returns None."""
+        from resources.lib.pages.watchnixtoons2 import Sources as WNT2Sources
+        wn = WNT2Sources()
+        res = wn.get_sources("99999", "1", "tv")
+        self.assertEqual(res, [])
+
 
 if __name__ == "__main__":
     unittest.main()
