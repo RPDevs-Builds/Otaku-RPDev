@@ -1,3 +1,7 @@
+Changelog v5.6.2 (2026-10-31):
+- Harden Nyaa Torrent Scraper: Guard show metadata extraction during batch/complete series search against NoneType when shows are queried directly without pre-cached show metadata.
+- Kodi 22 RC Comprehensive Feature Audit: Validated all 525 routes, settings schema, and live Premiumize debrid stream resolution with zero C++ setting exceptions or SWIG memory leaks.
+
 Changelog v5.6.1 (2026-10-31):
 - Premiumize OAuth 2.0 Hardening: Resolve issue where clicking 'Authorize Premiumize' failed to populate the authorization progress window due to an unguarded pyqrcode import. Guard pyqrcode imports and PNG generation with clean fallback to ensure the dialog always renders.
 - QR Code Direct Device Enrollment: Embed the user code directly into the generated QR code URL (https://www.premiumize.me/device?user_code=xxxx-xxxx), allowing mobile camera scans to automatically prefill the user code and jump straight to authorization without manual entry.

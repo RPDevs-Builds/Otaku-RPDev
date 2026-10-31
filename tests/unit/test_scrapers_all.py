@@ -83,6 +83,17 @@ class TestScrapersAll(unittest.TestCase):
         self.assertEqual(qualities[1], 3)
         self.assertEqual(qualities[2], 2)
 
+    @patch("resources.lib.ui.database.get_show", return_value=None)
+    @patch("resources.lib.pages.nyaa.client.get", return_value=None)
+    def test_nyaa_get_sources_none_show_data_fallback(self, mock_client_get, mock_get_show):
+        """Verify Nyaa batch query construction does not crash when get_show returns None."""
+        from resources.lib.pages.nyaa import Sources as NyaaSources
+        ny = NyaaSources()
+        res = ny.get_sources("Sample Anime", "99999", "1", "Finished Airing", "tv")
+        self.assertIsInstance(res, dict)
+        self.assertIn("cached", res)
+        self.assertIn("uncached", res)
+
 
 if __name__ == "__main__":
     unittest.main()
