@@ -1,3 +1,10 @@
+Changelog v5.6.0 (2026-10-31):
+- Kodi 22 (Piers RC) Compatibility & Backwards Compatibility: Certified and hardened for Kodi 22 Piers RC while maintaining 100% compatibility with Kodi 21 Omega and Kodi 20 Nexus. Formalized and declared all hidden settings in settings.xml to eliminate C++ setting exceptions.
+- Zero-Wait Fast-Path Pre-Caching: Cache sorted whole-episode sources in database.set_episode_sources during 70% playback background pre-fetch. MetaBrowser Fast-Path 2 returns pre-cached streams instantly (0.001s) on next episode, bypassing the scraping dialog and eliminating UI freezes.
+- SmartPlay Embed Continuity: Honor smartplay.prefer_same_embed by persisting selected provider and audio language (Sub vs. Dub) in last_played_source, reordering matching web embed streams (Anikoto/MegaPlay, AnimePahe, HiAnime) to top priority for hands-free binge-watching.
+- Scraper Resilience: Harden Anikoto scraper with multi-tier show metadata fallbacks (shows_meta, episodes, synthetic IDs) and info-level diagnostics to guarantee reliable link resolution.
+- UI & News Display: Overhauled news.txt presented in the add-on's startup/changelog viewer and refreshed documentation with prominent credits and links to original author Goldenfreddy0703 and Team Otaku (https://github.com/Goldenfreddy0703/Otaku).
+
 Changelog v5.5.23 (2026-10-31):
 - Fix Background Pre-Fetch Caching: Cache whole-episode pre-scraped sources via database.set_episode_sources and add Fast-Path 2 in MetaBrowser.get_sources to instantly return pre-scraped sources without launching scraping dialog or re-running failing scrapers
 - Implement SmartPlay Embed Continuity: Honor smartplay.prefer_same_embed by prioritizing matching embed providers in sortSources and resolver.reorder_sources, persist provider + info key for embed/direct types in last_played_source setting, and allow direct resolver handoff when show has an existing playback profile

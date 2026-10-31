@@ -1,83 +1,87 @@
 ================================================================================
-                           OTAKU RPDEV - WHAT'S NEW
+                    OTAKU RPDEV v5.6.0 - WHAT'S NEW & MILESTONES
 ================================================================================
 
-[ The "I Didn't Mean To Go This Far" Notice ]
-Look, I honestly only intended to submit a couple of small bug fixes to upstream
-v5.4.3. Really, just a tidy PR or two. But then one refactor led to another, a
-rogue thread pool turned into a complete concurrency overhaul, and before I knew
-it, I had rewritten half the architecture, implemented an in-process video
-decryptor, built an atomic database persistence engine, and added a 168-test
-automated mock harness. At this point, opening a pull request would probably melt
-GitHub's diff viewer. So welcome to my personal sovereign build, maintained with
-unreasonable care and served directly from my personal Kodi repo!
+[ Kodi 22 (Piers RC) Ready • Universal Backwards Compatibility • Milestone v5.6.0 ]
+
+Welcome to Otaku RPDev v5.6.0! This release marks a major architectural milestone,
+bringing native readiness for the upcoming Kodi 22 (Piers) Release Candidates while
+preserving flawless backwards compatibility for Kodi 21 (Omega) and Kodi 20 (Nexus).
 
 --------------------------------------------------------------------------------
-Major Highlights & Architectural Upgrades Since Upstream v5.4.3:
+Original Project Credit & Heartfelt Acknowledgement
+--------------------------------------------------------------------------------
+Otaku RPDev is built upon the incredible foundational work of Goldenfreddy0703
+and the original Team Otaku developers:
+  • Original Project: https://github.com/Goldenfreddy0703/Otaku
+  • Original Authors: Goldenfreddy0703, Team Otaku, and community contributors.
+We extend our deepest appreciation to Goldenfreddy0703 for creating the original
+Otaku add-on and architecture. All original licenses and contributor credits are
+proudly preserved.
+
+--------------------------------------------------------------------------------
+Major Highlights & Upgrades in v5.6.0
 --------------------------------------------------------------------------------
 
-1. Multi-Dimensional Sorting Architecture & SQLite Views (v5.5.3)
-   • Kodi skin sidebar sorting: instant in-view re-ordering by Title, Rating,
-     Date, Episode Count, and Watched Status across all browser & watchlist lists.
-   • SQLite view v_watchlist_items: cross-service JSON extraction normalizing
-     titles, scores, dates, and episodes remaining (AniList, MAL, Simkl, Kitsu).
-   • Database-level pre-pagination sorting: zero memory overhead on low-spec devices.
-   • Added "Episodes Remaining" and "Total Episodes" sort modes in settings.xml.
+1. Zero-Wait Fast-Path Background Pre-Caching
+   • Background pre-scraping at 70% playback progress now persists whole-episode
+     sorted sources with a 4-hour TTL directly into SQLite database cache.
+   • When starting the next episode (or auto-playing via SmartPlay), MetaBrowser
+     uses Fast-Path 2 to return the pre-cached stream immediately in 0.001s.
+   • Completely eliminates the scraping dialog (get_sources.xml) and stops
+     45-second UI freezes caused by unresponsive or failing scrapers.
 
-2. Multi-Option Cache & Maintenance System (v5.5.1)
-   • Context Menu "Clear Addon Cache" now opens an interactive modal window.
-   • Defaults to "Provider Cache": instantly clears torrent scrapes, embed links,
-     season packs, and debrid hashes without wiping your watchlist or metadata.
-   • "All Cache & Database" option provides a full nuclear purge when needed.
-   • Real-time descriptions update on navigation; dedicated Cancel button.
+2. SmartPlay Web Embed Continuity (smartplay.prefer_same_embed)
+   • Hands-free binge watching on web embed providers (Anikoto/MegaPlay,
+     AnimePahe, HiAnime, etc.)!
+   • When you select an embed source for Episode 1, SmartPlay preserves your
+     chosen provider and audio language (Sub vs. Dub) across subsequent episodes.
+   • resolver.reorder_sources and pages.sortSources prioritize the matching
+     provider at index 0 and hand off directly to playback without prompting.
 
-3. Comprehensive Test Harness & 100% Error Catching (v5.5.0)
-   • 168 automated tests covering all 9 architectural phases in CI.
-   • Full Kodi mock harness simulating players, lists, dialogs, and plugins.
-   • Typed error guards and circuit breakers on all external API requests,
-     scrapers, watchlist sync endpoints, and cloud storage providers.
+3. Kodi 22 (Piers RC) Strict Settings Typing & Zero C++ Exceptions
+   • Kodi 22 strictly enforces declared setting types, throwing fatal C++
+     exceptions if an add-on touches an undeclared setting.
+   • All internal settings (dub.etag, mappings.etag, mappings.last_modified,
+     verify_ssl, last_played_source, last_watched_series, prefer_same_embed)
+     are now formally registered and typed in resources/settings.xml.
+   • Zero C++ setting exceptions across Kodi 20, Kodi 21, and Kodi 22 RC!
 
-3. In-Process Megacloud & Rabbitstream Decryption (v5.4.6)
-   • Pure Python in-process AES-CBC / key-derivation engine for video hosters.
-   • Zero external Node.js, wasm, or external worker dependencies.
+4. SWIG Director Memory Leak Elimination
+   • Addressed Python invoker C++ SWIG wrapper leaks during playback transitions.
+   • WindowXMLDialog instances (SourceSelect, Resolver, SkipIntro, PlayingNext)
+     are explicitly tracked, closed, and unbound to prevent SwigDirector warnings
+     and memory accumulation during extended viewing sessions.
 
-4. Multi-Debrid Failover & Cloud VFS Management (v5.4.4 - v5.4.11)
-   • Instant failover across Real-Debrid, AllDebrid, TorBox, and Premiumize.
-   • Full Debrid Cloud VFS browser: stream, organize, rename, and manage cloud
-     files and torrent downloads directly from your couch.
-   • Elimination of the 5MB download cap on remote debrid media files.
+5. Anikoto Scraper Hardening
+   • Fixed an issue where Anikoto aborted early if show records were not yet
+     indexed in the database.
+   • Added multi-tier fallbacks (shows_meta, episodes, synthetic IDs) so the
+     MegaPlay API endpoint is always queried.
+   • Scraper diagnostics elevated to info level for transparent troubleshooting.
 
-5. Subtitle Intelligence & Dub Pairing (v5.4.9 - v5.4.12)
-   • Intelligent distinction between full dialogue subtitles and signs/songs.
-   • Automated .ass / .ssa stream header inspection and preferred audio sync.
+6. Upcoming Dub Release Date Badges (v5.5.20)
+   • For anime with upcoming dub releases, the exact dub broadcast date is
+     displayed right-aligned in the episode row (Label2) next to the watch icon.
+   • AnimeSchedule scraper parses ISO timezones and converts to your local time.
 
-6. Concurrency, Cancellation & Scraper Circuit Breakers (v5.4.7 - v5.4.14)
-   • Bounded worker threadpools preventing UI lockups on low-spec hardware.
-   • Cooperative cancellation tokens (self.canceled) terminating background
-     scrapes the instant a user presses Back or selects a source.
-   • Scraper circuit breaker: automatically pauses failing providers to prevent
-     infinite retry storms and sluggish scraping.
+7. Auto-Skip Chapter Resolution & Heuristics (v5.5.19)
+   • Evaluates embedded MKV/MP4 chapters with OP/ED confidence detection and a
+     90-second duration heuristic, preventing false skips during story prologues.
 
-7. Database & Memory Hardening (v5.4.7 - v5.4.13)
-   • Complete removal of unsafe Python pickle storage in favor of SQLite + JSON.
-   • SQLite WAL checkpointing, atomic file persistence, and automatic memory
-     trimming (malloc_trim) on video playback end.
-   • Unicode NFKD transliteration for robust Japanese romaji and title matching.
+8. Debrid Cache Availability Integrity (v5.5.21)
+   • Prevents false-negative cache poisoning by storing only confirmed positive
+     hashes in SQLite debrid_cache and generating fresh DMM request secrets.
 
-8. Living-Room UI Polish & Instant Refresh (v5.4.15 - v5.4.16)
-   • Instant main menu refresh upon saving menu customization (no restarts).
-   • AnimeSchedule Bearer authentication for reliable broadcast scheduling.
-   • Non-blocking changelog presentations and zero C++ skin exceptions.
+9. Multi-Option Cache & Maintenance System (v5.5.1)
+   • Context Menu "Clear Addon Cache" launches an interactive modal window.
+   • Selective Provider Cache clearing flushes torrents, embeds, season packs,
+     and debrid hashes without touching your watchlist or show metadata.
 
-9. Comprehensive Context Menu Suite (context.otaku.rpdev v1.0.40)
-   • "Clear Addon Cache": Now launches the multi-option modal window.
-   • "Mark Episodes Up To Here as Watched": One-click bulk progress sync for
-     seasons, marking all prior episodes as watched locally and on remote
-     watchlists (AniList, MAL, Kitsu, Simkl).
-   • Normalized Movie & Episode Watched Routing: Robust URL target extraction
-     without IndexError across all play formats (play_movie, play_oot, play_al).
-   • Safe Metadata Forwarding: Rescrape and Source Select preserve full video
-     info tags, artwork, and resume timestamps.
-   • Deep Discovery: Instant access to Find Recommendations, Find Relations,
-     Get Watch Order, Anime Statistics, Fanart Selection, and Database Deletion.
+10. 252 Automated CI Tests Harness (100% Error Catching)
+   • Comprehensive automated test suite in CI testing every subsystem: mock Kodi
+     environment, debrid resolvers, scrapers, indexers, windows, and lifecycles.
 
+================================================================================
+Thank you for using Otaku RPDev! Enjoy seamless, zero-wait living-room streaming.
+================================================================================

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<addon id="plugin.video.otaku.rpdev" name="Otaku RPDev" provider-name="RPDevs" version="5.5.23">
+<addon id="plugin.video.otaku.rpdev" name="Otaku RPDev" provider-name="RPDevs" version="5.6.0">
   <requires>
     <import addon="xbmc.python" version="3.0.1"/>
     <import addon="script.module.beautifulsoup4"/>
@@ -15,13 +15,11 @@
   <extension point="xbmc.service" library="service.py"/>
   <extension point="xbmc.addon.metadata">
     <reuselanguageinvoker>false</reuselanguageinvoker> <!-- You can enable this if you want, expect some instability but much faster menu speeds -->
-    <summary lang="en">Otaku video plugin</summary>
-    <description lang="en">Otaku is a provider based, streaming software that is tightly
-            interwoven with Mal. Otaku provides the freedom to view media from a single menu system from service
-            providers of the users choosing. Please Note: We do not host, create, or distribute any of the content displayed in the addon.
+    <summary lang="en">Hardened, Kodi 22 RC ready anime streaming add-on for Kodi (Nexus, Omega, Piers)</summary>
+    <description lang="en">Otaku RPDev is a hardened, resilient, high-performance anime streaming add-on for Kodi 20 (Nexus), Kodi 21 (Omega), and Kodi 22 (Piers RC). Originally developed by Goldenfreddy0703 and Team Otaku (https://github.com/Goldenfreddy0703/Otaku), this sovereign distribution by RPDevs features zero-wait background pre-caching, SmartPlay web embed continuity, multi-debrid auto-failover, native stream decryption, SWIG memory management, and 100% automated test coverage. Please Note: We do not host, create, or distribute any media content.
     </description>
     <platform>all</platform>
-    <disclaimer>Otaku is and always will be free and open-source. None of its code and resources may be sold or redistributed for any commercial purposes.[CR]This addon and its developers [B]DO NOT[/B] host, create, or distribute any of the content displayed in the addon, it simply scrapes ad financed public websites. It is the responsibility of the user to ensure that they are following all applicable laws and regulations in their country.[CR]This addon and its developers are not in any way affiliated with Team Kodi or any of the sites and providers used in the addon.</disclaimer>
+    <disclaimer>Otaku is and always will be free and open-source software built upon the foundational work of Goldenfreddy0703 and Team Otaku. None of its code and resources may be sold or redistributed for commercial purposes.[CR]This addon and its developers [B]DO NOT[/B] host, create, or distribute any of the content displayed in the addon; it simply scrapes ad-financed public websites. It is the user's responsibility to adhere to all local laws.[CR]This addon and its developers are not affiliated with Team Kodi or any media providers.</disclaimer>
     <license>GPL-3.0</license>
     <assets>
       <icon>icon.png</icon>
