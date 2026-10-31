@@ -113,6 +113,53 @@ class TestScrapersAll(unittest.TestCase):
         res = wn.get_sources("99999", "1", "tv")
         self.assertEqual(res, [])
 
+    @patch("resources.lib.ui.database.get_show", return_value=None)
+    def test_hianime_get_sources_none_show_fallback(self, mock_get_show):
+        """Verify HiAnime safely returns [] when get_show returns None."""
+        from resources.lib.pages.hianime import Sources as HiAnimeSources
+        ha = HiAnimeSources()
+        res = ha.get_sources("99999", "1")
+        self.assertEqual(res, [])
+
+    @patch("resources.lib.ui.database.get_show")
+    @patch("resources.lib.ui.domains.get_hianime_mirrors")
+    def test_hianime_failover_and_internet_guard_online(self, mock_mirrors, mock_get_show):
+        """Verify that when all mirrors throw exceptions and internet is online, refresh_hianime_domains is triggered."""
+        from resources.lib.pages.hianime import Sources as HiAnimeSources
+        mock_get_show.return_value = {
+            'kodi_meta': '{"name": "Attack on Titan", "episodes": 25}'
+        }
+        mock_mirrors.return_value = ["https://mirror1.test/", "https://mirror2.test/"]
+
+        ha = HiAnimeSources()
+        with patch.object(ha, '_scrape_mirror', side_effect=Exception("Connection Refused")):
+            with patch("resources.lib.ui.domains.is_internet_available", return_value=True) as mock_net:
+                with patch("resources.lib.ui.domains.refresh_hianime_domains", return_value=(False, [])) as mock_refresh:
+                    res = ha.get_sources("16498", "1")
+                    self.assertEqual(res, [])
+                    mock_net.assert_called_once()
+                    mock_refresh.assert_called_once_with(force=True)
+
+    @patch("resources.lib.ui.database.get_show")
+    @patch("resources.lib.ui.domains.get_hianime_mirrors")
+    def test_hianime_failover_and_internet_guard_offline(self, mock_mirrors, mock_get_show):
+        """Verify that when all mirrors fail and internet is offline, refresh_hianime_domains is NOT triggered."""
+        from resources.lib.pages.hianime import Sources as HiAnimeSources
+        mock_get_show.return_value = {
+            'kodi_meta': '{"name": "Attack on Titan", "episodes": 25}'
+        }
+        mock_mirrors.return_value = ["https://mirror1.test/"]
+
+        ha = HiAnimeSources()
+        with patch.object(ha, '_scrape_mirror', side_effect=Exception("DNS Error")):
+            with patch("resources.lib.ui.domains.is_internet_available", return_value=False) as mock_net:
+                with patch("resources.lib.ui.domains.refresh_hianime_domains") as mock_refresh:
+                    res = ha.get_sources("16498", "1")
+                    self.assertEqual(res, [])
+                    mock_net.assert_called_once()
+                    mock_refresh.assert_not_called()
+
+
 
 if __name__ == "__main__":
     unittest.main()

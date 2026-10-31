@@ -3,7 +3,7 @@ import os
 import xml.etree.ElementTree as ET
 
 from resources.lib import MetaBrowser
-from resources.lib.ui import control, database, utils
+from resources.lib.ui import control, database, domains, utils
 from resources.lib.ui.router import Route
 
 
@@ -221,6 +221,23 @@ def CLEAR_DEBRID_CACHE(payload, params):
 @Route('clear_metadata_cache')
 def CLEAR_METADATA_CACHE(payload, params):
     database.cache_clear_metadata()
+
+
+@Route('refresh_hianime_domains')
+def REFRESH_HIANIME_DOMAINS(payload, params):
+    success, mirrors = domains.refresh_hianime_domains(force=True)
+    if success:
+        control.notify(
+            f'{control.ADDON_NAME}: HiAnime Domains',
+            f'Updated {len(mirrors)} mirror(s) from hianime.pw',
+            time=5000, sound=False
+        )
+    else:
+        control.notify(
+            f'{control.ADDON_NAME}: HiAnime Domains',
+            'Failed to update domains from hianime.pw',
+            time=5000, sound=False
+        )
 
 
 @Route('clear_selected_fanart')

@@ -1180,6 +1180,13 @@
 						<close>true</close>
 					</control>
 				</setting>
+				<setting id="refresh_hianime_domains" type="action" label="30567" help="30568">
+					<level>0</level>
+					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/refresh_hianime_domains?setting=true)</data>
+					<control type="button" format="action">
+						<close>true</close>
+					</control>
+				</setting>
 			</group>
 
 			<!-- Cache Duration (TTL) -->

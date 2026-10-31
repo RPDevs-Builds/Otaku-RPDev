@@ -1,5 +1,13 @@
 {
-  "hianime": "https://hianime.to/",
+  "hianime": "https://hianime.at/",
+  "hianime_mirrors": [
+    "https://hianime.at/",
+    "https://hianime.ba/",
+    "https://hianime.gy/",
+    "https://hianime.lu/",
+    "https://hianime.tr/",
+    "https://hianimetv.bz/"
+  ],
   "gogoanime": "https://anitaku.so/",
   "animepahe": "https://animepahe.ru/",
   "animekai": "https://animekai.to/",
@@ -12,6 +20,6 @@
   "_meta": {
     "source": "bundled_fallback",
     "description": "Otaku Scraper Canonical Domain Map",
-    "last_updated": "2026-10-25T01:00:00Z"
+    "last_updated": "2026-10-31T23:30:00Z"
   }
 }

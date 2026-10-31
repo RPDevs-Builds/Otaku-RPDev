@@ -5,14 +5,12 @@ import urllib.parse
 
 from bs4 import BeautifulSoup
 from resources.lib.endpoints import malsync
-from resources.lib.ui import control, database, utils, domains
+from resources.lib.ui import client, control, database, domains, utils
 from resources.lib.ui.BrowserBase import BrowserBase
 from resources.lib.ui.megaplay_extractor import extract_megaplay_sources
 
 
 class Sources(BrowserBase):
-    _BASE_URL = domains.get_domain('hianime', 'https://hianime.to/')
-
     _MEGAPLAY_S2 = 'https://megaplay.buzz/stream/s-2/{0}/{1}'
     _MEGAPLAY_ANI = 'https://megaplay.buzz/stream/ani/{0}/{1}/{2}'
     _MEGAPLAY_MAL = 'https://megaplay.buzz/stream/mal/{0}/{1}/{2}'
@@ -49,16 +47,67 @@ class Sources(BrowserBase):
             control.log("HiAnime: No embed servers enabled (ryu/volt/ayame)")
             return []
 
-        meta = self._resolve_show_meta(title, kodi_meta, mal_id, ep_num)
-        if not meta:
-            control.log(f"HiAnime: Could not resolve show '{title}' on hianime.ms")
+        mirrors = domains.get_hianime_mirrors()
+        sources = []
+        all_failed = True
+        failed_count = 0
+
+        for mirror in mirrors:
+            try:
+                sources = self._scrape_mirror(mirror, title, kodi_meta, mal_id, ep_num, langs, enabled)
+                all_failed = False
+                if sources:
+                    control.log(f"HiAnime: Successfully extracted {len(sources)} source(s) from mirror {mirror}", 'info')
+                    return sources
+            except Exception as e:
+                failed_count += 1
+                control.log(f"HiAnime: Mirror {mirror} failed: {e}", 'warning')
+
+        # Conditional fallback: ONLY if all mirrors failed AND internet is verified
+        if all_failed and failed_count >= len(mirrors):
+            if domains.is_internet_available():
+                control.log("HiAnime: All mirrors failed but internet is available; refreshing domains from hianime.pw", 'info')
+                success, new_mirrors = domains.refresh_hianime_domains(force=True)
+                if success:
+                    for mirror in new_mirrors:
+                        if mirror not in mirrors:
+                            try:
+                                sources = self._scrape_mirror(mirror, title, kodi_meta, mal_id, ep_num, langs, enabled)
+                                if sources:
+                                    control.log(f"HiAnime: Extracted {len(sources)} source(s) from refreshed mirror {mirror}", 'info')
+                                    return sources
+                            except Exception as e:
+                                control.log(f"HiAnime: Refreshed mirror {mirror} failed: {e}", 'warning')
+            else:
+                control.log("HiAnime: All mirrors failed and internet connectivity check failed; skipping domain refresh", 'warning')
+
+        control.log(f"HiAnime: Returning {len(sources)} source(s)")
+        return sources
+
+    def _scrape_mirror(self, mirror, title, kodi_meta, mal_id, ep_num, langs, enabled):
+        headers = {'Referer': mirror, 'User-Agent': client.randomagent()}
+        anime_id = self._resolve_anime_id(mirror, title, kodi_meta, mal_id, headers)
+        if not anime_id:
             return []
 
-        def fetch_lang_res(lang):
-            embed_url = self._megaplay_embed_url(meta, lang)
-            return lang, extract_megaplay_sources(embed_url, self._BASE_URL)
+        ep_id = self._resolve_episode_id(mirror, anime_id, ep_num, headers)
+        if not ep_id:
+            return []
 
-        lang_results = dict(utils.parallel_process(langs, fetch_lang_res))
+        servers = self._resolve_servers(mirror, ep_id, langs, headers)
+        if not servers:
+            return []
+
+        lang_results = {}
+        for lang in langs:
+            megaplay_url = servers.get(lang)
+            if megaplay_url:
+                try:
+                    res = extract_megaplay_sources(megaplay_url, mirror)
+                    if res and res.get('sources'):
+                        lang_results[lang] = res
+                except Exception as e:
+                    control.log(f"HiAnime: Megaplay extraction error for {lang}: {e}", 'warning')
 
         tasks = []
         for lang in langs:
@@ -66,12 +115,10 @@ class Sources(BrowserBase):
             if not res or not res.get('sources'):
                 continue
             for server in enabled:
-                tasks.append((server, lang, res, meta, title, ep_num))
+                tasks.append((server, lang, res, {'mal_id': mal_id, 'episode': ep_num}, title, ep_num))
 
         results = utils.parallel_process(tasks, self._extract_server_source)
-        sources = [src for src in results if src]
-        control.log(f"HiAnime: Returning {len(sources)} source(s)")
-        return sources
+        return [src for src in results if src]
 
     def _enabled_servers(self):
         allowed = set(self.embeds())
@@ -84,35 +131,7 @@ class Sources(BrowserBase):
             return list(self._SERVER_NAMES)
         return enabled
 
-    def _resolve_show_meta(self, title, kodi_meta, mal_id, episode):
-        headers = {'Referer': self._BASE_URL}
-        details_url = self._resolve_details_url(title, mal_id, headers)
-        if not details_url:
-            return None
-
-        parsed = self._parse_details_slug(details_url)
-        if not parsed:
-            return None
-
-        show_path, short_id = parsed
-        watch_url = '{0}watch-{1}-episode-{2}-{3}'.format(
-            self._BASE_URL, show_path, episode, short_id
-        )
-        watch_html = database.get(self._get_request, 8, watch_url, headers=headers)
-        if not watch_html:
-            control.log(f"HiAnime: Watch page not found: {watch_url}", level='info')
-            return None
-
-        meta = self._parse_watch_meta(watch_html, episode, mal_id)
-        if meta and not meta.get('anilist_id'):
-            details_html = database.get(self._get_request, 8, details_url, headers=headers)
-            if details_html:
-                ani = re.search(r'anilist\.co/anime/(\d+)', details_html)
-                if ani:
-                    meta['anilist_id'] = ani.group(1)
-        return meta
-
-    def _search_keywords(self, title, mal_id):
+    def _search_keywords(self, title, mal_id, kodi_meta=None):
         keywords = []
         seen = set()
 
@@ -124,14 +143,24 @@ class Sources(BrowserBase):
                 keywords.append(value)
 
         add(title)
+        if kodi_meta and isinstance(kodi_meta, dict):
+            add(kodi_meta.get('ename'))
+            add(kodi_meta.get('title_english'))
+            add(kodi_meta.get('title_romaji'))
+
         if ':' in title:
             add(title.split(':', 1)[1].strip())
             add(title.split(':', 1)[0].strip())
         words = [w for w in re.split(r'\s+', title) if len(w) > 2]
         if len(words) >= 2:
             add(words[-1])
-        zoro_title = malsync.get_title(mal_id, site='Zoro')
-        add(zoro_title)
+
+        try:
+            zoro_title = malsync.get_title(mal_id, site='Zoro')
+            add(zoro_title)
+        except Exception:
+            pass
+
         return keywords
 
     @staticmethod
@@ -139,45 +168,17 @@ class Sources(BrowserBase):
         soup = BeautifulSoup(html, 'html.parser')
         items = []
         for block in soup.select('.flw-item'):
-            link = block.select_one('a[href*="/details/"]')
+            link = block.select_one('.film-name a') or block.select_one('a.film-poster-ahref')
             if not link:
                 continue
             href = link.get('href', '').split('?')[0]
-            if href.startswith('/'):
-                href = 'https://hianime.ms' + href
-            name_el = block.select_one('.film-name')
-            name = name_el.get_text(strip=True) if name_el else ''
-            if not name:
-                name = link.get('title') or link.get('data-jname') or ''
-            if href and name:
-                items.append({'href': href, 'name': name})
+            name = link.get_text(strip=True) or link.get('title') or ''
+            slug = href.strip('/').split('/')[-1]
+            if '-' in slug:
+                anime_id = slug.split('-')[-1]
+                if anime_id.isdigit():
+                    items.append({'id': anime_id, 'name': name, 'slug': slug, 'href': href})
         return items
-
-    def _collect_search_candidates(self, title, mal_id, headers):
-        candidates = {}
-        for keyword in self._search_keywords(title, mal_id):
-            res = database.get(
-                self._get_request,
-                8,
-                self._BASE_URL + 'search',
-                data={'q': keyword},
-                headers=headers,
-            )
-            if not res:
-                continue
-            for item in self._parse_search_results(res):
-                candidates[item['href']] = item['name']
-        return candidates
-
-    def _details_mal_id(self, details_url, headers):
-        html = self._get_request(details_url, headers=headers)
-        if not html:
-            return None
-        match = re.search(r'myanimelist\.net/anime/(\d+)', html)
-        return match.group(1) if match else None
-
-    def _details_mal_id_cached(self, details_url, headers):
-        return database.get(self._details_mal_id, 24, details_url, headers)
 
     @staticmethod
     def _season_number(text):
@@ -191,13 +192,24 @@ class Sources(BrowserBase):
             return int(match.group(1))
         return None
 
-    def _score_candidate(self, candidate_name, title):
+    def _score_candidate(self, candidate_name, title, kodi_meta=None):
         name_lower = candidate_name.lower()
         title_lower = title.lower()
         score = 0
 
-        if title_lower in name_lower or name_lower in title_lower:
+        if title_lower == name_lower:
+            score += 150
+        elif title_lower in name_lower or name_lower in title_lower:
             score += 100
+
+        if kodi_meta and isinstance(kodi_meta, dict):
+            for key in ('ename', 'title_english', 'title_romaji'):
+                val = (kodi_meta.get(key) or '').lower()
+                if val:
+                    if val == name_lower:
+                        score += 140
+                    elif val in name_lower:
+                        score += 90
 
         title_tokens = [w for w in re.split(r'[^a-z0-9]+', title_lower) if len(w) > 2]
         name_tokens = set(re.split(r'[^a-z0-9]+', name_lower))
@@ -217,89 +229,86 @@ class Sources(BrowserBase):
 
         return score
 
-    def _resolve_details_url(self, title, mal_id, headers):
-        candidates = self._collect_search_candidates(title, mal_id, headers)
-        if not candidates:
-            control.log(f"HiAnime: No search results for '{title}'", level='info')
-            return None
+    def _resolve_anime_id(self, mirror, title, kodi_meta, mal_id, headers):
+        keywords = self._search_keywords(title, mal_id, kodi_meta)
+        candidates = {}
+        for keyword in keywords:
+            search_url = f"{mirror}search?keyword={urllib.parse.quote_plus(keyword)}"
+            html = database.get(self._get_request, 8, search_url, headers=headers)
+            if not html:
+                continue
+            for item in self._parse_search_results(html):
+                if item['id'] not in candidates:
+                    candidates[item['id']] = item['name']
+            if candidates:
+                break
 
-        for href, name in candidates.items():
-            page_mal = self._details_mal_id_cached(href, headers)
-            if page_mal and str(page_mal) == str(mal_id):
-                control.log(f"HiAnime: Matched '{name}' via MAL ID {mal_id}", level='info')
-                return href
+        if not candidates:
+            control.log(f"HiAnime: No search matches on {mirror} for '{title}'", level='info')
+            return None
 
         ranked = sorted(
             candidates.items(),
-            key=lambda row: self._score_candidate(row[1], title),
+            key=lambda row: self._score_candidate(row[1], title, kodi_meta),
             reverse=True,
         )
         if ranked:
-            best_href, best_name = ranked[0]
-            control.log(
-                "HiAnime: Using best search match '{0}' (score {1})".format(
-                    best_name,
-                    self._score_candidate(best_name, title),
-                ),
-                level='info',
-            )
-            return best_href
+            best_id, best_name = ranked[0]
+            control.log(f"HiAnime: Selected '{best_name}' (ID: {best_id}) on {mirror}", level='info')
+            return best_id
         return None
 
-    @staticmethod
-    def _parse_details_slug(details_url):
-        match = re.search(r'/details/(.+)-([a-z0-9]{4,8})$', details_url)
-        if not match:
-            return None
-        return match.group(1), match.group(2)
-
-    @staticmethod
-    def _parse_watch_meta(html, episode, mal_id):
-        anilist_match = re.search(r'var anilistId = (\d+);', html)
-        mal_match = re.search(r'var malId = (\d+);', html)
-        token_match = re.search(
-            r'class="ws-ep[^"]*"[^>]*data-episode="{0}"[^>]*data-stream-token="([^"]+)"'.format(episode),
-            html,
-        )
-        if not token_match:
-            token_match = re.search(
-                r'data-episode="{0}"[^>]*data-stream-token="([^"]+)"'.format(episode),
-                html,
-            )
-
-        anilist_id = anilist_match.group(1) if anilist_match else None
-        page_mal_id = mal_match.group(1) if mal_match else None
-        stream_token = token_match.group(1) if token_match else None
-
-        if not anilist_id and not page_mal_id and not stream_token:
+    def _resolve_episode_id(self, mirror, anime_id, ep_num, headers):
+        ep_url = f"{mirror}api/theme/episode/list/{anime_id}"
+        resp_json = database.get(self._get_json_request, 8, ep_url, headers=headers)
+        if not resp_json or not isinstance(resp_json, dict) or not resp_json.get('html'):
             return None
 
-        return {
-            'anilist_id': anilist_id,
-            'mal_id': page_mal_id or str(mal_id),
-            'stream_token': stream_token,
-            'episode': int(episode),
-        }
+        soup = BeautifulSoup(resp_json['html'], 'html.parser')
+        # 1. Direct data-number match
+        ep_item = soup.select_one(f'a.ep-item[data-number="{ep_num}"]')
+        if ep_item and ep_item.get('data-id'):
+            return ep_item.get('data-id')
 
-    @staticmethod
-    def _decode_stream_token(token):
-        if not token:
-            return None
-        try:
-            padded = token.replace('-', '+').replace('_', '/')
-            padded += '=' * (-len(padded) % 4)
-            decoded = base64.b64decode(padded).decode('utf-8', errors='replace')
-            return decoded.split(':')[0]
-        except (ValueError, TypeError):
-            return None
+        # 2. Sequential fallback if data-number is missing
+        items = soup.select('a.ep-item')
+        if 0 < ep_num <= len(items):
+            return items[ep_num - 1].get('data-id')
 
-    def _megaplay_embed_url(self, meta, lang):
-        token_id = self._decode_stream_token(meta.get('stream_token'))
-        if token_id:
-            return self._MEGAPLAY_S2.format(token_id, lang)
-        if meta.get('anilist_id'):
-            return self._MEGAPLAY_ANI.format(meta['anilist_id'], meta['episode'], lang)
-        return self._MEGAPLAY_MAL.format(meta['mal_id'], meta['episode'], lang)
+        return None
+
+    def _resolve_servers(self, mirror, ep_id, langs, headers):
+        servers_url = f"{mirror}api/theme/episode/servers?episodeId={ep_id}"
+        resp_json = database.get(self._get_json_request, 8, servers_url, headers=headers)
+        if not resp_json or not isinstance(resp_json, dict) or not resp_json.get('html'):
+            return {}
+
+        soup = BeautifulSoup(resp_json['html'], 'html.parser')
+        server_map = {}
+        for s in soup.select('.server-item'):
+            stype = (s.get('data-type') or '').lower()
+            if stype not in langs or stype in server_map:
+                continue
+            raw_hash = s.get('data-hash')
+            if not raw_hash:
+                continue
+            try:
+                decoded = base64.b64decode(raw_hash).decode('utf-8', errors='ignore')
+                if 'megaplay.buzz' in decoded:
+                    server_map[stype] = decoded
+            except Exception:
+                continue
+
+        return server_map
+
+    def _get_json_request(self, url, headers=None):
+        raw = self._get_request(url, headers=headers)
+        if raw:
+            try:
+                return json.loads(raw)
+            except Exception:
+                pass
+        return None
 
     @staticmethod
     def _proxy_playlist(m3u8_url, proxy_base, referer=None):
@@ -319,7 +328,6 @@ class Sources(BrowserBase):
 
     @staticmethod
     def _proxy_subtitle(sub_url, fetch_base, ref=None):
-        """Proxy remote VTT through animanga fetch (same as the site player)."""
         if not sub_url:
             return sub_url
         if 'animanga.fun/fetch' in sub_url or 'anixx.cloud/proxy' in sub_url:
@@ -411,7 +419,7 @@ class Sources(BrowserBase):
                 'size': 'NA',
                 'seeders': 0,
                 'byte_size': 0,
-                'info': [server + (' DUB' if lang == 'dub' else ' SUB')],
+                'info': [server.upper() + (' DUB' if lang == 'dub' else ' SUB')],
                 'lang': 3 if lang == 'dub' else 2,
                 'channel': 3,
                 'sub': 1,
@@ -430,7 +438,7 @@ class Sources(BrowserBase):
         quality = 0
         m3u8_res = self._get_request(srclink, headers=headers)
         if not m3u8_res:
-            return quality
+            return 3
         quals = re.findall(r'#EXT.+?RESOLUTION=\d+x(\d+).*\n(?!#)(.+)', m3u8_res)
         if quals:
             qual = int(sorted(quals, key=lambda x: int(x[0]), reverse=True)[0][0])
@@ -440,4 +448,6 @@ class Sources(BrowserBase):
                 quality = 2
             elif qual <= 1080:
                 quality = 3
-        return quality
+            else:
+                quality = 4
+        return quality or 3

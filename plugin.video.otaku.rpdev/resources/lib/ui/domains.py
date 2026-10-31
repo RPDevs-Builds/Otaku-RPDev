@@ -18,6 +18,27 @@ DOMAIN_MIRRORS = [
     "https://raw.githubusercontent.com/RPDevs-Builds/Otaku-RPDev/main/plugin.video.otaku.rpdev/resources/data/domains.json",
 ]
 
+DEFAULT_DOMAINS = {
+    "hianime": "https://hianime.at/",
+    "hianime_mirrors": [
+        "https://hianime.at/",
+        "https://hianime.ba/",
+        "https://hianime.gy/",
+        "https://hianime.lu/",
+        "https://hianime.tr/",
+        "https://hianimetv.bz/",
+    ],
+    "gogoanime": "https://anitaku.so/",
+    "animepahe": "https://animepahe.ru/",
+    "animekai": "https://animekai.to/",
+    "anikoto": "https://anikoto.com/",
+    "nyaa": "https://nyaa.si/",
+    "animetosho": "https://animetosho.org/",
+    "nekobt": "https://nekobt.to/api/v1",
+    "torrentio": "https://torrentio.strem.fun",
+    "watchnixtoons2": "https://www.wcostream.tv/",
+}
+
 
 def _get_bundled_domains_path():
     addon_path = getattr(control, 'ADDON_PATH', '') or ''
@@ -68,18 +89,7 @@ def _load_domains(force_refresh=False):
             control.log(f"Domains: error reading bundled file: {e}", 'warning')
 
     # 3. Fallback hardcoded defaults if files missing
-    return {
-        "hianime": "https://hianime.to/",
-        "gogoanime": "https://anitaku.so/",
-        "animepahe": "https://animepahe.ru/",
-        "animekai": "https://animekai.to/",
-        "anikoto": "https://anikoto.com/",
-        "nyaa": "https://nyaa.si/",
-        "animetosho": "https://animetosho.org/",
-        "nekobt": "https://nekobt.to/api/v1",
-        "torrentio": "https://torrentio.strem.fun",
-        "watchnixtoons2": "https://www.wcostream.tv/"
-    }
+    return dict(DEFAULT_DOMAINS)
 
 
 def get_domain(provider_key, default=None):
@@ -102,9 +112,156 @@ def get_domain(provider_key, default=None):
     return default or ''
 
 
+def get_hianime_mirrors():
+    """
+    Return ordered list of live HiAnime mirrors, ensuring primary domain is first
+    and all entries are normalized with trailing slashes.
+    """
+    domains = _load_domains()
+    primary = domains.get('hianime') or DEFAULT_DOMAINS['hianime']
+    if not primary.endswith('/'):
+        primary += '/'
+
+    raw_mirrors = domains.get('hianime_mirrors')
+    if not isinstance(raw_mirrors, list) or not raw_mirrors:
+        raw_mirrors = list(DEFAULT_DOMAINS['hianime_mirrors'])
+
+    mirrors = []
+    if primary not in mirrors:
+        mirrors.append(primary)
+
+    for m in raw_mirrors:
+        if not isinstance(m, str):
+            continue
+        m = m.strip()
+        if not m.startswith('http'):
+            continue
+        if not m.endswith('/'):
+            m += '/'
+        if m not in mirrors:
+            mirrors.append(m)
+
+    return mirrors
+
+
 def get_all_domains():
     """Return dictionary of all canonical provider domains."""
     return dict(_load_domains())
+
+
+def save_profile_domains(data):
+    """Save domain mapping dictionary to user profile disk cache and update memory cache."""
+    global _DOMAINS_CACHE, _DOMAINS_CACHE_TIME
+    if not isinstance(data, dict):
+        return False
+    _DOMAINS_CACHE = data
+    _DOMAINS_CACHE_TIME = time.time()
+    profile_file = _get_profile_domains_path()
+    if profile_file:
+        try:
+            os.makedirs(os.path.dirname(profile_file), exist_ok=True)
+            tmp_file = f"{profile_file}.tmp"
+            with open(tmp_file, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=2)
+            os.replace(tmp_file, profile_file)
+            return True
+        except Exception as e:
+            control.log(f"Domains: error writing profile cache: {e}", 'warning')
+    return False
+
+
+def is_internet_available(timeout=3):
+    """
+    Check if the local device has functional internet connectivity.
+    Performs quick TCP probes to reliable public DNS resolvers (1.1.1.1, 8.8.8.8)
+    without relying on local DNS, with an HTTP fallback.
+    """
+    import socket
+    for host, port in [("1.1.1.1", 53), ("8.8.8.8", 53), ("1.1.1.1", 80)]:
+        try:
+            sock = socket.create_connection((host, port), timeout=timeout)
+            sock.close()
+            return True
+        except (OSError, socket.timeout):
+            continue
+
+    try:
+        from resources.lib.ui import client
+        resp = client.get("https://1.1.1.1", timeout=timeout)
+        return resp is not None and resp.status_code in (200, 301, 302, 403)
+    except Exception:
+        return False
+
+
+def fetch_domains_from_hianime_pw(timeout=10):
+    """
+    Query https://hianime.pw/ and extract canonical domain and mirror links.
+    Returns (canonical_url, list_of_mirrors) or None on failure.
+    """
+    import re
+    from urllib.parse import urlparse
+    from resources.lib.ui import client
+
+    landing_url = "https://hianime.pw/"
+    try:
+        resp = client.get(landing_url, timeout=timeout)
+        if not resp or resp.status_code != 200:
+            control.log(f"Domains: fetch hianime.pw returned status {resp.status_code if resp else 'None'}", 'warning')
+            return None
+
+        html = resp.text
+        canonical = None
+        canon_match = re.search(r"<link\s+rel=[\x22\x27]canonical[\x22\x27]\s+href=[\x22\x27]([^\x22\x27]+)[\x22\x27]", html, re.I)
+        if canon_match:
+            c = canon_match.group(1).strip()
+            if c.startswith('http'):
+                canonical = c if c.endswith('/') else f"{c}/"
+
+        raw_domains = re.findall(r"https?://(?:[a-z0-9\-]+\.)*hianime[^\x22\x27\s/]*", html, re.I)
+        mirrors = []
+        if canonical and canonical not in mirrors:
+            mirrors.append(canonical)
+
+        for d in raw_domains:
+            d = d.strip().lower()
+            parsed = urlparse(d)
+            if not parsed.scheme or not parsed.netloc:
+                continue
+            if 'hianime.pw' in parsed.netloc:
+                continue
+            formatted = f"{parsed.scheme}://{parsed.netloc}/"
+            if formatted not in mirrors:
+                mirrors.append(formatted)
+
+        if mirrors:
+            primary = canonical or mirrors[0]
+            return primary, mirrors
+    except Exception as e:
+        control.log(f"Domains: error fetching from hianime.pw: {e}", 'warning')
+
+    return None
+
+
+def refresh_hianime_domains(force=False):
+    """
+    Refresh HiAnime canonical domain and mirrors by querying https://hianime.pw/.
+    Updates user profile cache and returns (success, list_of_mirrors).
+    """
+    res = fetch_domains_from_hianime_pw()
+    if not res:
+        control.log("Domains: failed to fetch HiAnime mirrors from hianime.pw", 'warning')
+        return False, []
+
+    primary, mirrors = res
+    domains = dict(_load_domains())
+    domains['hianime'] = primary
+    domains['hianime_mirrors'] = mirrors
+    domains.setdefault('_meta', {})
+    domains['_meta']['hianime_last_refreshed'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+
+    saved = save_profile_domains(domains)
+    control.log(f"Domains: refreshed HiAnime domains (primary: {primary}, {len(mirrors)} mirrors, saved: {saved})", 'info')
+    return True, mirrors
 
 
 def refresh_domains():
@@ -112,7 +269,6 @@ def refresh_domains():
     Background worker to refresh domains from remote GitHub mirror.
     Saves to profile disk cache on success.
     """
-    global _DOMAINS_CACHE, _DOMAINS_CACHE_TIME
     from resources.lib.ui import client
 
     for mirror in DOMAIN_MIRRORS:
@@ -121,15 +277,7 @@ def refresh_domains():
             if resp and resp.status_code == 200:
                 data = resp.json()
                 if isinstance(data, dict) and data.get('hianime'):
-                    _DOMAINS_CACHE = data
-                    _DOMAINS_CACHE_TIME = time.time()
-                    profile_file = _get_profile_domains_path()
-                    if profile_file:
-                        os.makedirs(os.path.dirname(profile_file), exist_ok=True)
-                        tmp_file = f"{profile_file}.tmp"
-                        with open(tmp_file, 'w', encoding='utf-8') as f:
-                            json.dump(data, f, indent=2)
-                        os.replace(tmp_file, profile_file)
+                    save_profile_domains(data)
                     control.log("Domains: successfully refreshed domain mappings from mirror", 'info')
                     return True
         except Exception as e:

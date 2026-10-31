@@ -119,6 +119,11 @@ def main():
     # Determine paths
     script_dir = os.path.dirname(os.path.abspath(__file__))
     repo_root = os.path.dirname(script_dir)
+    if not os.path.isdir(os.path.join(repo_root, args.addon_id)):
+        if os.path.isdir(os.path.join(os.getcwd(), args.addon_id)):
+            repo_root = os.getcwd()
+        elif os.path.isdir(f"/mnt/sharedroot/projects/RPDevs-Builds/Otaku-RPDev/{args.addon_id}"):
+            repo_root = "/mnt/sharedroot/projects/RPDevs-Builds/Otaku-RPDev"
     addon_dir = os.path.join(repo_root, args.addon_id)
     addon_xml = os.path.join(addon_dir, "addon.xml")
     changelog = os.path.join(addon_dir, "changelog.txt")

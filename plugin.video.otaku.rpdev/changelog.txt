@@ -1,3 +1,6 @@
+Changelog v5.6.4 (2026-10-31):
+- Add HiAnime cache update button and multi-mirror failover architecture
+
 Changelog v5.6.3 (2026-10-31):
 - Hardened AnimeTosho and WatchNixtoons2 NoneType fallbacks, expanded scraper health monitor
 
