@@ -110,17 +110,37 @@ def _scraper_cache_ttl():
     return control.getInt('cache.scrapers.ttl') or 8
 
 
+_scrape_semaphore = threading.Semaphore(control.max_threads)
+_current_workers = None
+_semaphore_lock = threading.Lock()
+
+
+def _get_scrape_semaphore():
+    global _scrape_semaphore, _current_workers
+    workers = control.getInt('scraper.concurrency.workers') or control.max_threads
+    if _current_workers != workers:
+        with _semaphore_lock:
+            if _current_workers != workers:
+                _current_workers = workers
+                _scrape_semaphore = threading.Semaphore(max(2, min(workers, 16)))
+    return _scrape_semaphore
+
+
 class Sources(GetSources):
-    _scrape_semaphore = threading.Semaphore(control.max_threads)
+    _scrape_semaphore = _scrape_semaphore
+    _current_semaphore = None
+    _current_workers = None
 
     @classmethod
     def _get_semaphore(cls):
-        workers = control.getInt('scraper.concurrency.workers') or control.max_threads
-        if not hasattr(cls, '_current_semaphore') or getattr(cls, '_current_workers', None) != workers:
-            cls._current_workers = workers
-            cls._current_semaphore = threading.Semaphore(max(2, min(workers, 16)))
-            cls._scrape_semaphore = cls._current_semaphore
-        return cls._current_semaphore
+        sem = _get_scrape_semaphore()
+        try:
+            cls._current_workers = _current_workers
+            cls._current_semaphore = sem
+            cls._scrape_semaphore = sem
+        except Exception:
+            pass
+        return sem
 
     def __init__(self, xml_file, location, actionArgs=None):
         super(Sources, self).__init__(xml_file, location, actionArgs=actionArgs)
@@ -151,7 +171,7 @@ class Sources(GetSources):
 
     @classmethod
     def _start_worker(cls, fn):
-        sem = cls._get_semaphore()
+        sem = _get_scrape_semaphore()
         def _throttled_fn():
             with sem:
                 fn()

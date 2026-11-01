@@ -1,3 +1,7 @@
+Changelog v5.8.4 (2026-11-01):
+- Fix SWIG metaclass AttributeError on Sources._current_workers during scraping
+- Move scraper worker semaphore to module-level with safe thread locking
+
 Changelog v5.8.3 (2026-11-01):
 - Restore mandatory id attribute to settings.xml section tag
 - Add schema attribute unit test asserting all sections categories and groups define ids

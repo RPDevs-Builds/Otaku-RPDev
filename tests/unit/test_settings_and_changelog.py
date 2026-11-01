@@ -162,16 +162,17 @@ class TestChangelogLifecycle(unittest.TestCase):
 class TestScraperAndCacheWiring(unittest.TestCase):
 
     def test_scraper_concurrency_workers_semaphore(self):
-        from resources.lib.pages import Sources
+        from resources.lib.pages import Sources, _get_scrape_semaphore
+        import resources.lib.pages as pages_mod
         control.setInt('scraper.concurrency.workers', 12)
         sem = Sources._get_semaphore()
         self.assertIsNotNone(sem)
-        self.assertEqual(Sources._current_workers, 12)
+        self.assertEqual(pages_mod._current_workers, 12)
 
         # Clamping test: maximum 16
         control.setInt('scraper.concurrency.workers', 32)
         sem2 = Sources._get_semaphore()
-        self.assertEqual(Sources._current_workers, 32)
+        self.assertEqual(pages_mod._current_workers, 32)
 
     def test_cache_ttl_dynamically_applied_in_database_get(self):
         control.setInt('cache.metadata.ttl', 48)
