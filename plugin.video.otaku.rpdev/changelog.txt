@@ -1,3 +1,9 @@
+Changelog v5.8.2 (2026-11-01):
+- Add Bitsearch and ThePirateBay (Apibay) torrent providers
+- Reorganize Settings into 12 logical categories and add end-user configuration guide
+- Standardize test suite harness with hermetic SQLite isolation across 45 test files
+- Pass 361 unit tests and 38/38 Kodi 22 Piers RC 1 audits
+
 Changelog v5.8.1 (2026-10-31):
 - Fix Changelog Display on Update: Correct root route comparison in default.py, decouple UI changelog version tracking from background service migrations, and prevent first-time setup wizard from muting showchangelog to No.
 - Comprehensive Settings Audit & Functional Wiring:
