@@ -1787,6 +1787,202 @@
 			</group>
 		</category>
 
+		<!-- Subtitles -->
+		<category id="Subtitles" label="30600" help="">
+			<group id="1" label="30600" help="">
+				<setting id="subtitles.enabled" type="boolean" label="30601" help="">
+					<level>0</level>
+					<default>true</default>
+					<control type="toggle"/>
+				</setting>
+				<setting id="subtitles.auto_search" type="boolean" label="30602" help="30603" parent="subtitles.enabled">
+					<level>0</level>
+					<default>true</default>
+					<control type="toggle"/>
+					<dependencies>
+						<dependency type="visible" setting="subtitles.enabled">true</dependency>
+					</dependencies>
+				</setting>
+				<setting id="subtitles.auto_download" type="boolean" label="30604" help="30605" parent="subtitles.auto_search">
+					<level>0</level>
+					<default>true</default>
+					<control type="toggle"/>
+					<dependencies>
+						<dependency type="visible" setting="subtitles.enabled">true</dependency>
+						<dependency type="visible" setting="subtitles.auto_search">true</dependency>
+					</dependencies>
+				</setting>
+				<setting id="subtitles.prefer_sdh" type="boolean" label="30606" help="30607" parent="subtitles.enabled">
+					<level>0</level>
+					<default>false</default>
+					<control type="toggle"/>
+					<dependencies>
+						<dependency type="visible" setting="subtitles.enabled">true</dependency>
+					</dependencies>
+				</setting>
+				<setting id="subtitles.prefer_forced" type="boolean" label="30608" help="30609" parent="subtitles.enabled">
+					<level>0</level>
+					<default>false</default>
+					<control type="toggle"/>
+					<dependencies>
+						<dependency type="visible" setting="subtitles.enabled">true</dependency>
+					</dependencies>
+				</setting>
+				<setting id="subtitles.use_chardet" type="boolean" label="30610" help="30611" parent="subtitles.enabled">
+					<level>1</level>
+					<default>true</default>
+					<control type="toggle"/>
+					<dependencies>
+						<dependency type="visible" setting="subtitles.enabled">true</dependency>
+					</dependencies>
+				</setting>
+				<setting id="subtitles.timeout" type="integer" label="30612" help="" parent="subtitles.enabled">
+					<level>1</level>
+					<default>15</default>
+					<constraints>
+						<minimum>5</minimum>
+						<step>1</step>
+						<maximum>30</maximum>
+					</constraints>
+					<control type="slider" format="integer"/>
+					<dependencies>
+						<dependency type="visible" setting="subtitles.enabled">true</dependency>
+					</dependencies>
+				</setting>
+				<setting id="subtitles.results_limit" type="integer" label="30613" help="" parent="subtitles.enabled">
+					<level>1</level>
+					<default>20</default>
+					<constraints>
+						<minimum>5</minimum>
+						<step>5</step>
+						<maximum>50</maximum>
+					</constraints>
+					<control type="slider" format="integer"/>
+					<dependencies>
+						<dependency type="visible" setting="subtitles.enabled">true</dependency>
+					</dependencies>
+				</setting>
+			</group>
+			<group id="2" label="30614" help="">
+				<!-- OpenSubtitles -->
+				<setting id="subtitles.provider.opensubtitles" type="boolean" label="30615" help="" parent="subtitles.enabled">
+					<level>0</level>
+					<default>true</default>
+					<control type="toggle"/>
+					<dependencies>
+						<dependency type="visible" setting="subtitles.enabled">true</dependency>
+					</dependencies>
+				</setting>
+				<setting id="subtitles.opensubtitles.username" type="string" label="30616" help="" parent="subtitles.provider.opensubtitles">
+					<level>0</level>
+					<default/>
+					<constraints>
+						<allowempty>true</allowempty>
+					</constraints>
+					<control type="edit" format="string">
+						<heading>30616</heading>
+					</control>
+					<dependencies>
+						<dependency type="visible" setting="subtitles.enabled">true</dependency>
+						<dependency type="visible" setting="subtitles.provider.opensubtitles">true</dependency>
+					</dependencies>
+				</setting>
+				<setting id="subtitles.opensubtitles.password" type="string" label="30617" help="" parent="subtitles.provider.opensubtitles">
+					<level>0</level>
+					<default/>
+					<constraints>
+						<allowempty>true</allowempty>
+					</constraints>
+					<control type="edit" format="string">
+						<heading>30617</heading>
+						<hidden>true</hidden>
+					</control>
+					<dependencies>
+						<dependency type="visible" setting="subtitles.enabled">true</dependency>
+						<dependency type="visible" setting="subtitles.provider.opensubtitles">true</dependency>
+					</dependencies>
+				</setting>
+
+				<!-- SubDL -->
+				<setting id="subtitles.provider.subdl" type="boolean" label="30618" help="" parent="subtitles.enabled">
+					<level>0</level>
+					<default>true</default>
+					<control type="toggle"/>
+					<dependencies>
+						<dependency type="visible" setting="subtitles.enabled">true</dependency>
+					</dependencies>
+				</setting>
+				<setting id="subtitles.subdl.apikey" type="string" label="30619" help="" parent="subtitles.provider.subdl">
+					<level>0</level>
+					<default/>
+					<constraints>
+						<allowempty>true</allowempty>
+					</constraints>
+					<control type="edit" format="string">
+						<heading>30619</heading>
+					</control>
+					<dependencies>
+						<dependency type="visible" setting="subtitles.enabled">true</dependency>
+						<dependency type="visible" setting="subtitles.provider.subdl">true</dependency>
+					</dependencies>
+				</setting>
+
+				<!-- SubSource -->
+				<setting id="subtitles.provider.subsource" type="boolean" label="30620" help="" parent="subtitles.enabled">
+					<level>0</level>
+					<default>true</default>
+					<control type="toggle"/>
+					<dependencies>
+						<dependency type="visible" setting="subtitles.enabled">true</dependency>
+					</dependencies>
+				</setting>
+				<setting id="subtitles.subsource.apikey" type="string" label="30621" help="" parent="subtitles.provider.subsource">
+					<level>0</level>
+					<default/>
+					<constraints>
+						<allowempty>true</allowempty>
+					</constraints>
+					<control type="edit" format="string">
+						<heading>30621</heading>
+					</control>
+					<dependencies>
+						<dependency type="visible" setting="subtitles.enabled">true</dependency>
+						<dependency type="visible" setting="subtitles.provider.subsource">true</dependency>
+					</dependencies>
+				</setting>
+
+				<!-- Podnadpisi -->
+				<setting id="subtitles.provider.podnadpisi" type="boolean" label="30622" help="" parent="subtitles.enabled">
+					<level>0</level>
+					<default>true</default>
+					<control type="toggle"/>
+					<dependencies>
+						<dependency type="visible" setting="subtitles.enabled">true</dependency>
+					</dependencies>
+				</setting>
+
+				<!-- BSPlayer -->
+				<setting id="subtitles.provider.bsplayer" type="boolean" label="30623" help="" parent="subtitles.enabled">
+					<level>0</level>
+					<default>true</default>
+					<control type="toggle"/>
+					<dependencies>
+						<dependency type="visible" setting="subtitles.enabled">true</dependency>
+					</dependencies>
+				</setting>
+
+				<!-- Addic7ed -->
+				<setting id="subtitles.provider.addic7ed" type="boolean" label="30624" help="" parent="subtitles.enabled">
+					<level>0</level>
+					<default>true</default>
+					<control type="toggle"/>
+					<dependencies>
+						<dependency type="visible" setting="subtitles.enabled">true</dependency>
+					</dependencies>
+				</setting>
+			</group>
+		</category>
+
 		<!-- Sort & Filter -->
 		<category id="Sort and Filter" label="30151" help="">
 			<group id="1" label="30152" help="">

@@ -2345,5 +2345,114 @@ msgctxt "#30581"
 msgid "5 Episodes"
 msgstr ""
 
+msgctxt "#30600"
+msgid "Subtitles"
+msgstr ""
+
+msgctxt "#30601"
+msgid "Enable Native Subtitles"
+msgstr ""
+
+msgctxt "#30602"
+msgid "Automatically Search Subtitles"
+msgstr ""
+
+msgctxt "#30603"
+msgid "Search external subtitle providers when video lacks matching subtitles."
+msgstr ""
+
+msgctxt "#30604"
+msgid "Automatically Download Best Match"
+msgstr ""
+
+msgctxt "#30605"
+msgid "Download and attach the top-ranked subtitle automatically."
+msgstr ""
+
+msgctxt "#30606"
+msgid "Prefer Hearing Impaired (SDH)"
+msgstr ""
+
+msgctxt "#30607"
+msgid "Prioritize SDH / hearing impaired subtitles."
+msgstr ""
+
+msgctxt "#30608"
+msgid "Prefer Forced Subtitles"
+msgstr ""
+
+msgctxt "#30609"
+msgid "Prioritize forced / Signs & Songs subtitles."
+msgstr ""
+
+msgctxt "#30610"
+msgid "Auto Detect Charset (Chardet)"
+msgstr ""
+
+msgctxt "#30611"
+msgid "Detect non-UTF8 subtitle encodings and transcode to UTF-8."
+msgstr ""
+
+msgctxt "#30612"
+msgid "Subtitle Search Timeout (Seconds)"
+msgstr ""
+
+msgctxt "#30613"
+msgid "Maximum Results per Provider"
+msgstr ""
+
+msgctxt "#30614"
+msgid "Subtitle Providers"
+msgstr ""
+
+msgctxt "#30615"
+msgid "OpenSubtitles"
+msgstr ""
+
+msgctxt "#30616"
+msgid "OpenSubtitles Username"
+msgstr ""
+
+msgctxt "#30617"
+msgid "OpenSubtitles Password"
+msgstr ""
+
+msgctxt "#30618"
+msgid "SubDL"
+msgstr ""
+
+msgctxt "#30619"
+msgid "SubDL API Key"
+msgstr ""
+
+msgctxt "#30620"
+msgid "SubSource"
+msgstr ""
+
+msgctxt "#30621"
+msgid "SubSource API Key"
+msgstr ""
+
+msgctxt "#30622"
+msgid "Podnadpisi"
+msgstr ""
+
+msgctxt "#30623"
+msgid "BSPlayer"
+msgstr ""
+
+msgctxt "#30624"
+msgid "Addic7ed"
+msgstr ""
+
+msgctxt "#30625"
+msgid "Manual Subtitle Search"
+msgstr ""
+
+msgctxt "#30626"
+msgid "Search and download external subtitles for current playing video."
+msgstr ""
+
+
 
 

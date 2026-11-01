@@ -807,6 +807,18 @@ class WatchlistPlayer(player):
                 else:
                     # Japanese or foreign audio playing: show subtitles
                     self.showSubtitles(True)
+            elif preferred_subtitle_lang != "none" and control.getBool('subtitles.enabled', True) and control.getBool('subtitles.auto_search', True):
+                # No matching internal subtitle stream found in video container:
+                # Trigger native external subtitle search and auto-download
+                try:
+                    from resources.lib import subtitles
+                    control.log("Player: No internal subtitle match found, triggering native subtitles engine", 'info')
+                    loaded = subtitles.auto_download_subtitles()
+                    if not loaded:
+                        self.showSubtitles(False)
+                except Exception as e:
+                    control.log(f"Player: Native subtitles trigger error: {e}", 'warning')
+                    self.showSubtitles(False)
             elif not subtitle_streams or preferred_subtitle_lang == "none":
                 # No valid subtitle stream found for current stream: ensure subtitles are disabled
                 # so lingering external or temp subtitles from earlier episodes are not displayed

@@ -13,3 +13,6 @@ __pycache__/
 *.db-wal
 *.db-shm
 dist/
+.env*
+*credentials*
+*test_config*.json

@@ -592,6 +592,15 @@ def del_subs():
     except Exception:
         pass
 
+    try:
+        otaku_sub_temp = 'special://profile/addon_data/plugin.video.otaku.rpdev/temp/subtitles/'
+        if xbmcvfs.exists(otaku_sub_temp):
+            dirs, files = xbmcvfs.listdir(otaku_sub_temp)
+            for fname in files:
+                xbmcvfs.delete(f'{otaku_sub_temp}{fname}')
+    except Exception:
+        pass
+
 
 __register_extractor(["https://www.mp4upload.com/",
                       "https://mp4upload.com/"],

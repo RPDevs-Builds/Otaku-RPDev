@@ -961,3 +961,4 @@ from resources.lib.routes.tools import (  # noqa: F401,E402
     _get_advancedsettings_status,
     _update_network_status,
 )
+from resources.lib.routes.subtitles import *  # noqa: F401,F403,E402
