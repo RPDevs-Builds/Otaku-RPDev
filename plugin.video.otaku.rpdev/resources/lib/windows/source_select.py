@@ -97,12 +97,31 @@ class SourceSelect(BaseWindow):
             p_color = colors.get_provider_color(provider_name or source_type)
             d_color = colors.get_provider_color(debrid_name or source_type)
 
+            info_list = source.get('info', [])
+            info_str = ' '.join(info_list) if isinstance(info_list, list) else str(info_list)
+
+            codec = next((t for t in info_list if t.upper() in ('HEVC', 'AVC', 'AV1', 'VP9', 'XVID', 'DIVX', 'MP4', 'H.264', 'H.265')), '')
+            audio_channels = next((t for t in info_list if t in ('7.1', '5.1', '2.0', '1.0')), '')
+            audio_codec = next((t for t in info_list if t.upper() in ('AAC', 'DTS', 'DTS-HDMA', 'DTS-X', 'ATMOS', 'TRUEHD', 'DD+', 'DD', 'OPUS', 'FLAC', 'MP3')), '')
+            hdr_badge = next((t for t in info_list if t.upper() in ('DV', 'DOVI', 'HDR', 'HDR10', 'HDR10+', 'HYBRID')), '')
+
+            seeders_raw = source.get('seeders', -1)
+            seeders_str = str(seeders_raw) if seeders_raw != -1 else 'na'
+
             if show_badges:
                 colored_debrid = f"[COLOR {d_color}]{debrid_name}[/COLOR]" if debrid_name else f"[COLOR {p_color}]{source_type.upper()}[/COLOR]"
                 colored_provider = f"[COLOR {p_color}]{provider_name}[/COLOR]" if provider_name else ""
+                colored_codec = colors.colorize_badge(codec) if codec else ""
+                colored_audio = colors.colorize_badge(audio_channels or audio_codec) if (audio_channels or audio_codec) else ""
+                colored_hdr = colors.colorize_badge(hdr_badge) if hdr_badge else ""
+                colored_seeders = f"[COLOR {colors.get_seeder_color(seeders_str)}]{seeders_str}[/COLOR]" if seeders_str != 'na' else 'na'
             else:
                 colored_debrid = debrid_name if debrid_name else source_type.upper()
                 colored_provider = provider_name
+                colored_codec = codec
+                colored_audio = audio_channels or audio_codec
+                colored_hdr = hdr_badge
+                colored_seeders = seeders_str
 
             menu_item = xbmcgui.ListItem(source.get('release_title', ''), offscreen=True)
             properties = {
@@ -114,8 +133,16 @@ class SourceSelect(BaseWindow):
                 'colored_debrid': colored_debrid,
                 'colored_provider': colored_provider,
                 'quality': str(source.get('quality', '')),
-                'info': ' '.join(source.get('info', [])),
-                'seeders': str(source.get('seeders', '')) if source.get('seeders', -1) != -1 else 'na',
+                'info': info_str,
+                'codec': codec,
+                'audio_channels': audio_channels,
+                'audio_codec': audio_codec,
+                'hdr_badge': hdr_badge,
+                'colored_codec': colored_codec,
+                'colored_audio': colored_audio,
+                'colored_hdr': colored_hdr,
+                'seeders': seeders_str,
+                'colored_seeders': colored_seeders,
                 'size': source.get('size', '')
             }
             menu_item.setProperties(properties)

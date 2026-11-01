@@ -1216,6 +1216,16 @@ def jsonrpc(json_data):
     return json.loads(xbmc.executeJSONRPC(json.dumps(json_data)))
 
 
+def kodi_get_setting(setting_id):
+    """Retrieve a Kodi system/GUI setting value via JSON-RPC."""
+    try:
+        res = jsonrpc({'jsonrpc': '2.0', 'method': 'Settings.GetSettingValue', 'params': {'setting': setting_id}, 'id': 1})
+        val = res.get('result', {}).get('value')
+        return val if val is not None else ''
+    except Exception:
+        return ''
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 #  Kodi 22 Native Power, CEC & Database Helpers
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1379,6 +1389,8 @@ def xbmc_add_dir(name, url, art, info, draw_cm, bulk_add, isfolder, isplayable, 
             liz.setProperty('Studio.1.Icon', studio_art)
             liz.setProperty('Studio.1.Logo', studio_art)
             liz.setProperty('Studio.1.Art', studio_art)
+            liz.setProperty('tvshow.studio', studio_art)
+            liz.setProperty('Studio', primary_studio_name)
 
     if isplayable:
         if 'poster' in art and art['poster']:

@@ -77,3 +77,75 @@ def colorize_label(text, provider_name):
         return ''
     color = get_provider_color(provider_name)
     return f"[COLOR {color}]{text}[/COLOR]"
+
+
+# Codec, audio channel, and dynamic range badges for Source Select
+BADGE_COLORS = {
+    # Video codecs
+    'hevc': 'FF00E5FF',     # Bright Cyan
+    'h265': 'FF00E5FF',
+    'x265': 'FF00E5FF',
+    'avc': 'FF64B5F6',      # Soft Blue
+    'h264': 'FF64B5F6',
+    'x264': 'FF64B5F6',
+    'av1': 'FFFFB74D',      # Gold / Orange
+    'vp9': 'FFAED581',      # Light Green
+    '10bit': 'FFFF80AB',    # Neon Pink
+    '10-bit': 'FFFF80AB',
+
+    # Dynamic Range / HDR
+    'dv': 'FFFF4081',       # Dolby Vision Pink/Magenta
+    'dovi': 'FFFF4081',
+    'hdr': 'FFFFD700',      # Bright Gold
+    'hdr10': 'FFFFD700',
+    'hdr10+': 'FFFFD700',
+    'hybrid': 'FFE040FB',   # Purple
+    'sdr': 'FF9E9E9E',      # Grey
+
+    # Audio channels & codecs
+    '7.1': 'FF76FF03',      # Neon Lime
+    '5.1': 'FF00E676',      # Emerald Green
+    '2.0': 'FF81D4FA',      # Pale Blue
+    'atmos': 'FFFF5252',    # Red / Coral
+    'truehd': 'FFFF7043',   # Coral Orange
+    'dts-hdma': 'FFFFAB40', # Amber
+    'dts-x': 'FFFFAB40',
+    'flac': 'FFB388FF',     # Violet
+    'aac': 'FF90CAF9',      # Light Blue
+    'opus': 'FF80CBC4',     # Teal
+}
+
+
+def get_badge_color(tag, default='FFCFD8DC'):
+    """Return ARGB hex color code for a badge (codec, HDR, audio)."""
+    if not tag:
+        return default
+    clean = str(tag).strip().lower().replace(' ', '')
+    return BADGE_COLORS.get(clean, default)
+
+
+def colorize_badge(text, tag=None):
+    """Wrap badge text in [COLOR <hex>] tags."""
+    if not text:
+        return ''
+    color = get_badge_color(tag or text)
+    return f"[COLOR {color}]{text}[/COLOR]"
+
+
+def get_seeder_color(count):
+    """
+    Return ARGB hex color code based on seeder count:
+    >= 50: Green (High health)
+    10-49: Yellow (Moderate health)
+    < 10:  Red (Low health)
+    """
+    try:
+        c = int(count)
+        if c >= 50:
+            return 'FF00E676'  # Emerald Green
+        elif c >= 10:
+            return 'FFFFD600'  # Yellow
+        else:
+            return 'FFFF5252'  # Coral Red
+    except (ValueError, TypeError):
+        return 'FFB0BEC5'      # Slate Grey

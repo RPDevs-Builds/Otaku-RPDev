@@ -25,36 +25,26 @@ _ROMAN_PARTS = {
     '1': 1, '2': 2, '3': 3, '4': 4, '5': 5
 }
 
+_RE_PART_OR_COUR = re.compile(r'\b(?:part|cour)\s*([0-9]+|[ivx]+)\b', re.IGNORECASE)
+
 
 def _get_mappings_info(mal_id):
-    """Query mappings.db for anime franchise metadata."""
+    """Query mappings.db for anime franchise metadata using connection pool."""
     if not mal_id:
         return None
 
-    db_path = getattr(control, 'mappingDB', None)
-    if not db_path or not os.path.exists(db_path):
-        return None
-
     try:
-        conn = sqlite3.connect(db_path, timeout=5.0)
-        cursor = conn.cursor()
-        cursor.execute(
-            "SELECT thetvdb_season, thetvdb_part, anime_media_episodes, global_media_episodes, mal_title "
-            "FROM anime WHERE mal_id = ?",
-            (int(mal_id),)
-        )
-        row = cursor.fetchone()
-        conn.close()
-        if not row:
+        from resources.lib.ui import database
+        mapping = database.get_mappings(int(mal_id), 'mal_id')
+        if not mapping:
             return None
 
-        season, part, a_eps, g_eps, title = row
         return {
-            'thetvdb_season': season,
-            'thetvdb_part': part,
-            'anime_media_episodes': a_eps or '',
-            'global_media_episodes': g_eps or '',
-            'mal_title': title or ''
+            'thetvdb_season': mapping.get('thetvdb_season'),
+            'thetvdb_part': mapping.get('thetvdb_part'),
+            'anime_media_episodes': mapping.get('anime_media_episodes') or '',
+            'global_media_episodes': mapping.get('global_media_episodes') or '',
+            'mal_title': mapping.get('mal_title') or ''
         }
     except Exception as e:
         control.log(f"part_filter: Error reading mappings.db: {e}", 'warning')
@@ -85,9 +75,9 @@ def _has_chinese_hardsub(title_lower):
 def _user_wants_chinese():
     """Check if the user has Chinese subtitles configured in Kodi or Otaku."""
     try:
-        # Check Otaku preferred subtitle language (e.g. 'chi', 'chinese', 'zho')
-        pref_lang = control.getSetting('general.subtitles')
-        if pref_lang and pref_lang.lower() in ('chi', 'chinese', 'zho', 'zh'):
+        from resources.lib.subtitles.languages import get_preferred_subtitle_language
+        pref_code = get_preferred_subtitle_language()
+        if pref_code in ('zh', 'chi', 'zho'):
             return True
 
         # Check Kodi subtitle language setting
@@ -101,7 +91,7 @@ def _user_wants_chinese():
 
 def _extract_part_from_title(title_lower):
     """Extract explicit 'Part X' or 'Cour X' from title string."""
-    m = re.search(r'\b(?:part|cour)\s*([0-9]+|[ivx]+)\b', title_lower)
+    m = _RE_PART_OR_COUR.search(title_lower)
     if m:
         val = m.group(1).lower()
         return _ROMAN_PARTS.get(val)

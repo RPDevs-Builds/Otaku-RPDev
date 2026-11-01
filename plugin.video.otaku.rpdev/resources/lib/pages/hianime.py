@@ -47,7 +47,7 @@ class Sources(BrowserBase):
             control.log("HiAnime: No embed servers enabled (ryu/volt/ayame)")
             return []
 
-        mirrors = domains.get_hianime_mirrors()
+        mirrors = domains.get_healthy_mirrors('hianime')
         sources = []
         all_failed = True
         failed_count = 0
@@ -61,6 +61,7 @@ class Sources(BrowserBase):
                     return sources
             except Exception as e:
                 failed_count += 1
+                domains.mark_mirror_failure(mirror)
                 control.log(f"HiAnime: Mirror {mirror} failed: {e}", 'warning')
 
         # Conditional fallback: ONLY if all mirrors failed AND internet is verified

@@ -19,6 +19,53 @@ from resources.lib.ui import control, client, database
 # ═══════════════════════════════════════════════════════════════════════════
 
 _CACHE_EXPIRY_HOURS = 24
+_IN_FLIGHT_LOCK = threading.Lock()
+_IN_FLIGHT_CHECKS = {}  # key: (hash_lower, debrid_lower), value: threading.Event()
+
+
+def acquire_in_flight(hash_list, debrid):
+    """
+    Deduplicate concurrent external cache checks across multiple scrapers.
+    Returns:
+        (ready_to_query_hashes, in_flight_events)
+    where:
+        ready_to_query_hashes: hashes that this thread must query and subsequently release.
+        in_flight_events: list of threading.Event objects to await for hashes currently being queried.
+    """
+    if not hash_list:
+        return [], []
+    d_clean = (debrid or '').strip().lower()
+    ready = []
+    events = []
+    with _IN_FLIGHT_LOCK:
+        for h in hash_list:
+            if not h:
+                continue
+            key = (str(h).strip().lower(), d_clean)
+            if key in _IN_FLIGHT_CHECKS:
+                events.append(_IN_FLIGHT_CHECKS[key])
+            else:
+                ev = threading.Event()
+                _IN_FLIGHT_CHECKS[key] = ev
+                ready.append(h)
+    return ready, events
+
+
+def release_in_flight(hash_list, debrid):
+    """
+    Signal waiting threads that external checks have completed and unregister hashes.
+    """
+    if not hash_list:
+        return
+    d_clean = (debrid or '').strip().lower()
+    with _IN_FLIGHT_LOCK:
+        for h in hash_list:
+            if not h:
+                continue
+            key = (str(h).strip().lower(), d_clean)
+            ev = _IN_FLIGHT_CHECKS.pop(key, None)
+            if ev:
+                ev.set()
 
 
 def _ensure_debrid_cache_table():

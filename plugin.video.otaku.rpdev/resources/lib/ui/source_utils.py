@@ -61,6 +61,15 @@ INFO_STRUCT = {
 _CHAPTER_SHORT_INTRO = frozenset({'op', 'op1', 'op2', 'ncop'})
 _CHAPTER_SHORT_OUTRO = frozenset({'ed', 'ed1', 'ed2', 'ed3', 'nced', 'pv'})
 
+_RE_CHAPTER_SHORT_INTRO = re.compile(
+    r'\b(?:' + '|'.join(re.escape(k) for k in sorted(_CHAPTER_SHORT_INTRO, key=len, reverse=True)) + r')\b',
+    re.IGNORECASE
+)
+_RE_CHAPTER_SHORT_OUTRO = re.compile(
+    r'\b(?:' + '|'.join(re.escape(k) for k in sorted(_CHAPTER_SHORT_OUTRO, key=len, reverse=True)) + r')\b',
+    re.IGNORECASE
+)
+
 # Longer phrases first (checked in order for documentation; matching uses any()).
 CHAPTER_INTRO_KEYWORDS = (
     'opening theme',
@@ -147,14 +156,14 @@ def chapter_title_matches_intro(title):
     """
     Return True if title looks like an opening / OP chapter (substring / word match).
     """
-    return _chapter_title_matches_bucket(title, CHAPTER_INTRO_KEYWORDS, _CHAPTER_SHORT_INTRO)
+    return _chapter_title_matches_bucket(title, CHAPTER_INTRO_KEYWORDS, _RE_CHAPTER_SHORT_INTRO)
 
 
 def chapter_title_matches_outro(title):
     """
     Return True if title looks like an ending / ED / credits / preview chapter.
     """
-    return _chapter_title_matches_bucket(title, CHAPTER_OUTRO_KEYWORDS, _CHAPTER_SHORT_OUTRO)
+    return _chapter_title_matches_bucket(title, CHAPTER_OUTRO_KEYWORDS, _RE_CHAPTER_SHORT_OUTRO)
 
 
 def _chapter_title_matches_bucket(title, phrases, short_tokens):
@@ -164,6 +173,8 @@ def _chapter_title_matches_bucket(title, phrases, short_tokens):
     for phrase in phrases:
         if phrase in t:
             return True
+    if hasattr(short_tokens, 'search'):
+        return bool(short_tokens.search(t))
     for tok in short_tokens:
         if re.search(r'\b' + re.escape(tok) + r'\b', t):
             return True
@@ -188,10 +199,8 @@ def score_intro_chapter(title, duration=0.0):
             score = 100
             break
     if score < 100:
-        for tok in _CHAPTER_SHORT_INTRO:
-            if re.search(r'\b' + re.escape(tok) + r'\b', t):
-                score = 100
-                break
+        if _RE_CHAPTER_SHORT_INTRO.search(t):
+            score = 100
 
     # Standard anime OP duration is ~90s (typically 80-100s)
     if duration > 0:
@@ -479,12 +488,15 @@ def get_fuzzy_match(query, filenames):
     return []
 
 
+_RE_SQUARE_BRACKETS = re.compile(r'\[.*?\]')
+
+
 def get_best_match(dict_key, dictionary_list, episode, pack_select=False, filename=None):
     control.setBool('best_match', True)
     regex = get_cache_check_reg(episode)
     files = []
     for i in dictionary_list:
-        path = re.sub(r'\[.*?]', '', i[dict_key].split('/')[-1])
+        path = _RE_SQUARE_BRACKETS.sub('', i[dict_key].split('/')[-1])
         if not is_file_ext_valid(path):
             continue
         if filename and filename in i.get(dict_key, ''):
@@ -528,6 +540,8 @@ _RE_FILTER_TRAILING_NUMBER = re.compile(r"""(?ix)
     \b(?:[a-z]{3,})\s+(\d{1,3})\b
 """)
 _RE_FILTER_ORDINAL_CHECK = re.compile(r"\b\d+(?:st|nd|rd|th)\b", re.IGNORECASE)
+_RE_FILTER_S_E = re.compile(r"s\d{1,2}e(\d{1,4})", re.IGNORECASE)
+_RE_BTIH_HASH = re.compile(r'btih:(.*?)(?:&|$)', re.IGNORECASE)
 
 
 def filter_sources(provider, torrent_list, mal_id, season=None, episode=None, part=None, anidb_id=True):
@@ -553,6 +567,7 @@ def filter_sources(provider, torrent_list, mal_id, season=None, episode=None, pa
     regex_ordinal_check = _RE_FILTER_ORDINAL_CHECK
 
     filtered = []
+    seen_hashes = set()
 
     # Loop over each torrent in the list
     for torrent in torrent_list:
@@ -561,7 +576,8 @@ def filter_sources(provider, torrent_list, mal_id, season=None, episode=None, pa
             if 'hash' not in torrent:
                 continue
         elif provider == 'nyaa':
-            torrent['hash'] = re.findall(r'btih:(.*?)(?:&|$)', torrent['magnet'])[0]
+            m = _RE_BTIH_HASH.search(torrent.get('magnet', ''))
+            torrent['hash'] = m.group(1) if m else ''
         elif provider == 'realdebrid':
             torrent['hash'] = torrent.get('hash', '')
         elif provider == 'alldebrid':
@@ -605,13 +621,13 @@ def filter_sources(provider, torrent_list, mal_id, season=None, episode=None, pa
             extracted_seasons = ", ".join(season_matches)
 
         # For episode extraction, remove part tokens from the clean title
-        clean_title_no_parts = re.sub(regex_part, "", clean_title)
+        clean_title_no_parts = regex_part.sub("", clean_title)
 
         # Extract episode using the improved logic from testing.py
         extracted_episode = None
 
         # First, if an sXXeYY pattern exists, extract the episode number directly
-        se_match = re.search(r"s\d{1,2}e(\d{1,4})", clean_title_no_parts, re.IGNORECASE)
+        se_match = _RE_FILTER_S_E.search(clean_title_no_parts)
         if se_match:
             epnum = se_match.group(1)
             if not (extracted_parts and epnum in extracted_parts):
@@ -737,6 +753,11 @@ def filter_sources(provider, torrent_list, mal_id, season=None, episode=None, pa
                     valid = False
 
         if valid:
+            thash = (torrent.get('hash') or '').strip().lower()
+            if thash:
+                if thash in seen_hashes:
+                    continue
+                seen_hashes.add(thash)
             filtered.append(torrent)
 
     return filtered
@@ -746,30 +767,37 @@ def filter_sources(provider, torrent_list, mal_id, season=None, episode=None, pa
 #  Text Cleaning
 # ═══════════════════════════════════════════════════════════════════════════
 
+_RE_COMBINED_PATTERNS = re.compile(
+    r"\b(?:360p|480p|720p|1080p|2160p|4k)(?!\d)|"
+    r"\b10\s?bits?\b|"
+    r"\b(?:h\.?\s?264|x\.?\s?264|h\.?\s?265|x\.?\s?265|hevc|avc|hls)(?!\d)|"
+    r"\b(?:web-dl|webrip|bluray|hdrip|dvdrip|hdtv|pdtv|cam|screener)\b|"
+    r"\b(?:hdr10|hdr|sdr|dv|dolby vision|dovi)\b|"
+    r"\b(?:mp4|vp9|av1|mpeg|xvid|divx|wmv|flac)\b|"
+    r"\b(?:aac|mp3|opus|ddp|dd(?:\s?(?:2|5|7))|ac3|dts(?:-hdma|-hdhr|-x)?|atmos|truehd)(?:\d+(?:\.\d+)?)?\b|"
+    r"\b(?:1\.0|2\.0|5\.1|7\.1|2ch|5ch|7ch|8ch)\b|"
+    r"\b(?:3d|60[-\s]?fps)\b|"
+    r"\b(?:multi audio|dual audio|dub(?:bed)?|multi sub|batch|complete series)\b",
+    re.IGNORECASE
+)
+
+_RE_BRACKETS_AND_PARENS = re.compile(r"\[.*?\]|\(.*?\)")
+_RE_SPECIAL_CHARS = re.compile(r"[:/,!?()'\"\\\[\]_.]")
+_RE_COLLAPSE_SPACES = re.compile(r"\s+")
+_RE_CLEANTITLE_PUNCT = re.compile(r'[:/,!?()\'"\\\[\]\-_.]')
+
+
 def remove_patterns(text):
-    patterns = [
-        r"\b(?:360p|480p|720p|1080p|2160p|4k)(?!\d)",
-        r"\b10\s?bits?\b",  # matches 10bit, 10bits, 10 bit, 10 bits
-        r"\b(?:h\.?\s?264|x\.?\s?264|h\.?\s?265|x\.?\s?265|hevc|avc|hls)(?!\d)",
-        r"\b(?:web-dl|webrip|bluray|hdrip|dvdrip|hdtv|pdtv|cam|screener)\b",
-        r"\b(?:hdr10|hdr|sdr|dv|dolby vision|dovi)\b",
-        r"\b(?:mp4|vp9|av1|mpeg|xvid|divx|wmv|flac)\b",
-        r"\b(?:aac|mp3|opus|ddp|dd(?:\s?(?:2|5|7))|ac3|dts(?:-hdma|-hdhr|-x)?|atmos|truehd)(?:\d+(?:\.\d+)?)?\b",
-        r"\b(?:1\.0|2\.0|5\.1|7\.1|2ch|5ch|7ch|8ch)\b",
-        r"\b(?:3d|60[-\s]?fps)\b",
-        r"\b(?:multi audio|dual audio|dub(?:bed)?|multi sub|batch|complete series)\b"
-    ]
-    combined_pattern = "|".join(patterns)
-    return re.sub(combined_pattern, "", text, flags=re.I)
+    return _RE_COMBINED_PATTERNS.sub("", text)
 
 
 def cleanup_text(text):
     # Remove content within brackets or parentheses
-    text = re.sub(r"\[.*?\]|\(.*?\)", "", text).strip()
+    text = _RE_BRACKETS_AND_PARENS.sub("", text).strip()
     # Replace special characters with a space, but preserve dashes for episode range detection
-    text = re.sub(r"[:/,!?()'\"\\\[\]_.]", " ", text)
+    text = _RE_SPECIAL_CHARS.sub(" ", text)
     # Collapse multiple spaces into one
-    return re.sub(r"\s+", " ", text).strip()
+    return _RE_COLLAPSE_SPACES.sub(" ", text).strip()
 
 
 def clean_text(text):
@@ -791,9 +819,9 @@ def cleanTitle(title):
     title = title.replace("'s", apostrophe_replacement)
     title = title.replace("&#039;s", apostrophe_replacement)
     title = title.replace(" 039 s", apostrophe_replacement)
-    title = re.sub(r'[:/,!?()\'"\\\[\]\-_.]', ' ', title)
-    title = re.sub(r'\s+', ' ', title)
-    title = re.sub(r'&', 'and', title)
+    title = _RE_CLEANTITLE_PUNCT.sub(' ', title)
+    title = _RE_COLLAPSE_SPACES.sub(' ', title)
+    title = title.replace('&', 'and')
     return title.strip()
 
 
@@ -838,9 +866,12 @@ def user_select(files, dict_key):
     return file
 
 
+_RE_EMBED_HOST = re.compile(r'(?://|\.)([^.]+)\.')
+
+
 def get_embedhost(url):
-    s = re.search(r'(?://|\.)([^.]+)\.', url)
-    return s.group(1)
+    s = _RE_EMBED_HOST.search(url)
+    return s.group(1) if s else ''
 
 # ═══════════════════════════════════════════════════════════════════════════
 #  Season Pack & Release Group Detection
@@ -881,6 +912,11 @@ def extract_episode_range(release_title):
     return None
 
 
+_RE_SEASON_PACK_CHECK = re.compile(r'\b(?:season\s*\d+|s\d{1,2})\b', re.IGNORECASE)
+_RE_EPISODE_CHECK = re.compile(r'\b(?:e|ep|episode)\s*\d{1,4}\b|\bs\d{1,2}e\d{1,4}\b', re.IGNORECASE)
+_RE_INVALID_FILENAME_CHARS = re.compile(r'[\\/*?:"<>|]')
+
+
 def is_season_pack(source):
     """
     Determine whether a source represents a season pack / batch torrent.
@@ -899,7 +935,7 @@ def is_season_pack(source):
     lower = title.lower()
     if any(k in lower for k in ('batch', 'complete series', 'complete season', 'entire series', 'all episodes')):
         return True
-    if re.search(r'\b(?:season\s*\d+|s\d{1,2})\b', lower) and not re.search(r'\b(?:e|ep|episode)\s*\d{1,4}\b|\bs\d{1,2}e\d{1,4}\b', lower):
+    if _RE_SEASON_PACK_CHECK.search(lower) and not _RE_EPISODE_CHECK.search(lower):
         return True
     return False
 
@@ -959,8 +995,8 @@ def format_video_filename(video_info):
     episode = video_info.get('episode')
     year = video_info.get('year')
 
-    clean_show = re.sub(r'[\\/*?:"<>|]', '', str(show)).strip() if show else ''
-    clean_title = re.sub(r'[\\/*?:"<>|]', '', str(title)).strip() if title else ''
+    clean_show = _RE_INVALID_FILENAME_CHARS.sub('', str(show)).strip() if show else ''
+    clean_title = _RE_INVALID_FILENAME_CHARS.sub('', str(title)).strip() if title else ''
 
     if clean_show and season is not None and episode is not None:
         try:

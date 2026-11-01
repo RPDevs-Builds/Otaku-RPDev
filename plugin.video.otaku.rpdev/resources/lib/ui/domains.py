@@ -146,6 +146,54 @@ def get_hianime_mirrors():
     return mirrors
 
 
+_FAILED_MIRRORS = {}
+_FAILURE_COOLDOWN = 600  # 10 minutes
+
+
+def mark_mirror_failure(url):
+    """Mark a mirror URL as temporarily failing with a 10-minute cooldown."""
+    if not url:
+        return
+    url_norm = url.strip().rstrip('/') + '/'
+    _FAILED_MIRRORS[url_norm] = time.time()
+    control.log(f"Domains: marked mirror {url_norm} as failing (cooldown {int(_FAILURE_COOLDOWN)}s)", 'debug')
+
+
+def is_mirror_healthy(url):
+    """Check if a mirror URL is healthy (not currently in failure cooldown)."""
+    if not url:
+        return False
+    url_norm = url.strip().rstrip('/') + '/'
+    last_fail = _FAILED_MIRRORS.get(url_norm)
+    if not last_fail:
+        return True
+    if time.time() - last_fail > _FAILURE_COOLDOWN:
+        _FAILED_MIRRORS.pop(url_norm, None)
+        return True
+    return False
+
+
+def get_healthy_mirrors(provider_key):
+    """
+    Get ordered mirrors for a provider with healthy ones prioritized first,
+    placing failed mirrors in cooldown at the tail of the list.
+    """
+    if provider_key == 'hianime':
+        all_mirrors = get_hianime_mirrors()
+    else:
+        domains = _load_domains()
+        raw = domains.get(f"{provider_key}_mirrors")
+        if isinstance(raw, list):
+            all_mirrors = [m if m.endswith('/') else f"{m}/" for m in raw if isinstance(m, str)]
+        else:
+            base = get_domain(provider_key)
+            all_mirrors = [base] if base else []
+
+    healthy = [m for m in all_mirrors if is_mirror_healthy(m)]
+    unhealthy = [m for m in all_mirrors if not is_mirror_healthy(m)]
+    return healthy + unhealthy
+
+
 def get_all_domains():
     """Return dictionary of all canonical provider domains."""
     return dict(_load_domains())

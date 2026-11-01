@@ -101,13 +101,25 @@ class Debrid:
         # External check for unknown hashes
         external_cached = set()
         if unknown_hashes:
-            imdb_id, season = self._get_imdb_and_season(mal_id, episode, media_type)
-            if imdb_id:
-                external_cached = set(debrid_cache.check_ad_cache(imdb_id, season, episode))
-                # Save confirmed cached hashes to local DB
-                if external_cached:
-                    hashes_to_cache = [(h, 'True') for h in external_cached]
-                    threading.Thread(target=debrid_cache.set_cached_hashes, args=(hashes_to_cache, 'ad'), daemon=True).start()
+            ready_hashes, waiting_events = debrid_cache.acquire_in_flight(unknown_hashes, 'ad')
+            if waiting_events:
+                for ev in waiting_events:
+                    ev.wait(timeout=4.0)
+                # Re-check DB for results written by sibling scrapers
+                cached_from_db_post = debrid_cache.get_cached_hashes(unknown_hashes)
+                db_cached.update(r['hash'] for r in cached_from_db_post if r['debrid'] == 'ad' and r['cached'] == 'True')
+                ready_hashes = [h for h in ready_hashes if h not in db_cached]
+
+            try:
+                if ready_hashes:
+                    imdb_id, season = self._get_imdb_and_season(mal_id, episode, media_type)
+                    if imdb_id:
+                        external_cached = set(debrid_cache.check_ad_cache(imdb_id, season, episode))
+                        if external_cached:
+                            hashes_to_cache = [(h, 'True') for h in external_cached]
+                            debrid_cache.set_cached_hashes(hashes_to_cache, 'ad')
+            finally:
+                debrid_cache.release_in_flight(ready_hashes, 'ad')
 
         all_cached = db_cached | external_cached
         for torrent in torrent_list:
@@ -141,13 +153,25 @@ class Debrid:
         # External check for unknown hashes
         external_cached = set()
         if unknown_hashes:
-            imdb_id, season = self._get_imdb_and_season(mal_id, episode, media_type)
-            if imdb_id:
-                external_cached = set(debrid_cache.check_rd_cache(unknown_hashes, imdb_id, season, episode))
-                # Save confirmed cached hashes to local DB
-                if external_cached:
-                    hashes_to_cache = [(h, 'True') for h in external_cached]
-                    threading.Thread(target=debrid_cache.set_cached_hashes, args=(hashes_to_cache, 'rd'), daemon=True).start()
+            ready_hashes, waiting_events = debrid_cache.acquire_in_flight(unknown_hashes, 'rd')
+            if waiting_events:
+                for ev in waiting_events:
+                    ev.wait(timeout=4.0)
+                # Re-check DB for results written by sibling scrapers
+                cached_from_db_post = debrid_cache.get_cached_hashes(unknown_hashes)
+                db_cached.update(r['hash'] for r in cached_from_db_post if r['debrid'] == 'rd' and r['cached'] == 'True')
+                ready_hashes = [h for h in ready_hashes if h not in db_cached]
+
+            try:
+                if ready_hashes:
+                    imdb_id, season = self._get_imdb_and_season(mal_id, episode, media_type)
+                    if imdb_id:
+                        external_cached = set(debrid_cache.check_rd_cache(ready_hashes, imdb_id, season, episode))
+                        if external_cached:
+                            hashes_to_cache = [(h, 'True') for h in external_cached]
+                            debrid_cache.set_cached_hashes(hashes_to_cache, 'rd')
+            finally:
+                debrid_cache.release_in_flight(ready_hashes, 'rd')
 
         all_cached = db_cached | external_cached
         for torrent in torrent_list:
