@@ -1,3 +1,6 @@
+Changelog v6.0.0 (2026-11-01):
+- Milestone v6.0.0 Transformation - 4-Tier Settings Hierarchy, Modernized Setup Wizard with Torrent/Embed Selector Screens, Multi-Part Anime Release Filter (PR #501), ISO 639-2 Stream Normalization (PR #497), Airing Calendar Badges, and Dual Kodi 21 & 22 Headless Smoke Testing
+
 Changelog v5.8.6 (2026-11-01):
 - Filter scraper embed subtitles by preferred language in resolver and playback; prevent multi-language temp subtitle downloading
 

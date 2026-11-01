@@ -2621,6 +2621,15 @@ msgctxt "#30668"
 msgid "Search ThePirateBay via Apibay JSON API for anime torrents and complete series batches."
 msgstr ""
 
+msgctxt "#30669"
+msgid "Verify SSL Certificates"
+msgstr ""
+
+msgctxt "#30670"
+msgid "Verify HTTPS SSL/TLS certificates when scraping or downloading metadata. Disable only if experiencing certificate validation errors on legacy Android devices."
+msgstr ""
+
+
 
 
 

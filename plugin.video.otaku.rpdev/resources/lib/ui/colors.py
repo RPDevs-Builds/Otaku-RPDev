@@ -18,8 +18,10 @@ PROVIDER_COLORS = {
     'easydebrid': 'FF00BFFF',       # EasyDebrid Sky Blue
     'easynews': 'FFFFD700',         # Easynews Gold
     'hianime': 'FF00E5FF',          # HiAnime Cyan
+    'animepahe': 'FFE91E63',        # AnimePahe Magenta/Pink
     'anikoto': 'FFFF4081',          # AniKoto Pink
     'aniwave': 'FFAEEA00',          # AniWave Lime Green
+    'animix': 'FF9C27B0',           # Animix Amethyst
     'animetosho': 'FF26A69A',       # AnimeTosho Teal
     'nyaa': 'FFFF7043',             # Nyaa Deep Coral
     'torrentio': 'FFAB47BC',        # Torrentio Violet

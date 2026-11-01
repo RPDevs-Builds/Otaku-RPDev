@@ -419,86 +419,41 @@ def TRAKT_SCRIPT(payload, params):
         xbmc.executebuiltin('InstallAddon(script.trakt)')
 
 
-@Route('setup_wizard')
-def SETUP_WIZARD(payload, params):
+def apply_hardware_preset(preset_idx):
+    """
+    preset_idx:
+      0 = High-End (Shield Pro / PC / Mac)
+      1 = Balanced (Onn 4K Pro / Fire TV 4K Max)
+      2 = Low-RAM (Firestick Lite / Budget TV / RPi)
+    """
+    if preset_idx == 0:
+        control.setInt('scraper.concurrency.workers', 14)
+        control.setInt('general.timeout', 20)
+        control.setBool('general.kodi.cache', True)
+        control.setBool('smartplay.preresolve', True)
+        control.log("Setup Wizard: High-End Hardware preset applied (14 workers, 20s timeout)")
+    elif preset_idx == 1:
+        control.setInt('scraper.concurrency.workers', 8)
+        control.setInt('general.timeout', 15)
+        control.setBool('general.kodi.cache', True)
+        control.setBool('smartplay.preresolve', True)
+        control.log("Setup Wizard: Balanced Hardware preset applied (8 workers, 15s timeout)")
+    elif preset_idx == 2:
+        control.setInt('scraper.concurrency.workers', 4)
+        control.setInt('general.timeout', 12)
+        control.setBool('general.kodi.cache', False)
+        control.setBool('smartplay.preresolve', False)
+        control.log("Setup Wizard: Low-RAM Hardware preset applied (4 workers, 12s timeout)")
+
+
+def apply_playback_profile(profile_idx):
+    """
+    profile_idx:
+      0 = Subbed (Japanese Audio + English Subtitles)
+      1 = Dubbed (English Audio + Signs/Songs Subtitles)
+    """
     from resources.lib.windows.sort_select import SortSelect
-    import xbmcgui
-    choice = control.yesno_dialog(
-        control.ADDON_NAME,
-        "Would you like to enable search history?",
-        "No", "Yes",
-    )
-
-    if choice == 1:
-        control.setInt('searchhistory', 0)
-    elif choice == 0:
-        control.setInt('searchhistory', 1)
-
-    choice = control.yesno_dialog(
-        control.ADDON_NAME,
-        "Would you like to show change log every update?",
-        "No", "Yes",
-    )
-
-    if choice == 1:
-        control.setInt('showchangelog', 0)
-    elif choice == 0:
-        control.setInt('showchangelog', 1)
-
-    choice = control.yesno_dialog(
-        control.ADDON_NAME,
-        "Please choose your preferred Title Language for your Anime Content:",
-        "English", "Romaji",
-    )
-
-    if choice == 1:
-        control.setInt('titlelanguage', 0)
-    elif choice == 0:
-        control.setInt('titlelanguage', 1)
-
-    choice = control.yesnocustom_dialog(
-        control.ADDON_NAME,
-        "Please choose where you would like to get your Anime Content from:",
-        "Anilist", "Mal", "Otaku",
-        defaultbutton=xbmcgui.DLG_YESNO_YES_BTN
-    )
-
-    if choice == 1:
-        control.setSetting('browser.api', 'otaku')
-    elif choice == 0:
-        control.setSetting('browser.api', 'mal')
-    elif choice == 2:
-        control.setSetting('browser.api', 'anilist')
-
-        choice = control.yesno_dialog(
-            control.ADDON_NAME,
-            "Would you like to replace Anilist Posters with Mal Posters?",
-            "No", "Yes",
-        )
-
-        if choice == 1:
-            control.setBool('general.malposters', True)
-        elif choice == 0:
-            control.setBool('general.malposters', False)
-
-    choice = control.yesno_dialog(
-        control.ADDON_NAME,
-        "Would you like to have the rest of the menus enabled?\n(Note: This will enabled menus such as Movies, TV Shows, TV Shorts, Specials, OVAs, ONAs, and Music Videos. A restart may be required for the changes to take effect.)",
-        "No", "Yes",
-    )
-
-    if choice == 1:
-        control.setStringList('menu.mainmenu.config', ['last_watched', 'watch_history', 'next_up', 'my_cloud', 'airing_calendar', 'airing_last_season', 'airing_this_season', 'airing_next_season', 'movies', 'tv_shows', 'tv_shorts', 'specials', 'ovas', 'onas', 'music', 'trending', 'popular', 'voted', 'favourites', 'top_100', 'genres', 'search', 'tools'])
-    elif choice == 0:
-        control.setStringList('menu.mainmenu.config', ['last_watched', 'watch_history', 'next_up', 'my_cloud', 'airing_calendar', 'airing_last_season', 'airing_this_season', 'airing_next_season', 'trending', 'popular', 'voted', 'favourites', 'top_100', 'genres', 'search', 'tools'])
-
-    choice = control.yesno_dialog(
-        control.ADDON_NAME,
-        "Please choose your preferred language option for playback:",
-        "Dubs", "Subs",
-    )
-
-    if choice == 1:
+    if profile_idx == 0:
         control.setInt('general.audio', 0)
         control.setInt('general.subtitles', 1)
         control.setBool('general.subtitles.type', True)
@@ -510,8 +465,8 @@ def SETUP_WIZARD(payload, params):
         control.setBool('divflavors.showdub', False)
         control.setBool('jz.dub', False)
         SortSelect.auto_action(0)
-        control.log("Subs settings applied.")
-    elif choice == 0:
+        control.log("Setup Wizard: Subbed playback profile applied")
+    elif profile_idx == 1:
         control.setInt('general.audio', 1)
         control.setInt('general.subtitles', 0)
         control.setBool('general.subtitles.type', True)
@@ -523,19 +478,172 @@ def SETUP_WIZARD(payload, params):
         control.setBool('divflavors.showdub', True)
         control.setBool('jz.dub', True)
         SortSelect.auto_action(1)
-        control.log("Dubs settings applied.")
+        control.log("Setup Wizard: Dubbed playback profile applied")
 
-        choice = control.yesno_dialog(
-            control.ADDON_NAME,
-            "Would you like subtitles for dub streams?\n(Note: This may not work for all streams.)",
-            "No", "Yes",
-        )
 
-        if choice == 1:
-            control.setBool('general.dubsubtitles', True)
-            control.setInt('general.subtitles', 1)
-            control.setInt('subtitles.types', 1)
-            control.setInt('subtitles.keywords', 1)
+def apply_torrent_providers_preset(choice_idx):
+    """
+    choice_idx:
+      0 = Recommended (Nyaa, AnimeTosho, Bitsearch, ThePirateBay)
+      1 = All (All 6 torrent indexers)
+      2 = None (Disable all torrent scrapers)
+    """
+    if choice_idx == 0:
+        control.setBool('provider.nyaa', True)
+        control.setBool('provider.animetosho', True)
+        control.setBool('provider.bitsearch', True)
+        control.setBool('provider.piratebay', True)
+        control.setBool('provider.torrentio', False)
+        control.setBool('provider.nekobt', False)
+        control.log("Setup Wizard: Recommended torrent providers enabled")
+    elif choice_idx == 1:
+        control.setBool('provider.nyaa', True)
+        control.setBool('provider.animetosho', True)
+        control.setBool('provider.bitsearch', True)
+        control.setBool('provider.piratebay', True)
+        control.setBool('provider.torrentio', True)
+        control.setBool('provider.nekobt', True)
+        control.log("Setup Wizard: All torrent providers enabled")
+    elif choice_idx == 2:
+        control.setBool('provider.nyaa', False)
+        control.setBool('provider.animetosho', False)
+        control.setBool('provider.bitsearch', False)
+        control.setBool('provider.piratebay', False)
+        control.setBool('provider.torrentio', False)
+        control.setBool('provider.nekobt', False)
+        control.log("Setup Wizard: All torrent providers disabled")
+
+
+def apply_embed_providers_preset(choice_idx):
+    """
+    choice_idx:
+      0 = Recommended (HiAnime, AnimePahe, AniKoto, WatchNixtoons2)
+      1 = All (All embed scrapers including Animix)
+      2 = None (Disable all embed scrapers)
+    """
+    if choice_idx == 0:
+        control.setBool('provider.hianime', True)
+        control.setBool('provider.animepahe', True)
+        control.setBool('provider.anikoto', True)
+        control.setBool('provider.watchnixtoons2', True)
+        control.setBool('provider.animix', False)
+        control.log("Setup Wizard: Recommended embed providers enabled")
+    elif choice_idx == 1:
+        control.setBool('provider.hianime', True)
+        control.setBool('provider.animepahe', True)
+        control.setBool('provider.anikoto', True)
+        control.setBool('provider.watchnixtoons2', True)
+        control.setBool('provider.animix', True)
+        control.log("Setup Wizard: All embed providers enabled")
+    elif choice_idx == 2:
+        control.setBool('provider.hianime', False)
+        control.setBool('provider.animepahe', False)
+        control.setBool('provider.anikoto', False)
+        control.setBool('provider.watchnixtoons2', False)
+        control.setBool('provider.animix', False)
+        control.log("Setup Wizard: All embed providers disabled")
+
+
+@Route('setup_wizard')
+def SETUP_WIZARD(payload, params):
+    # Step 1: Hardware Performance Preset
+    hw_choice = control.select_dialog(
+        "Otaku Setup: Hardware Performance Preset",
+        [
+            "[High-End] Nvidia Shield Pro / PC / Apple TV (14 workers, 20s timeout)",
+            "[Balanced] Onn 4K Pro / Fire TV 4K Max / Chromecast (8 workers, 15s timeout)",
+            "[Low-RAM] Firestick Lite / Budget Smart TV / Raspberry Pi (4 workers, 12s timeout)"
+        ]
+    )
+    if hw_choice in (0, 1, 2):
+        apply_hardware_preset(hw_choice)
+
+    # Step 2: Playback & Language Profile
+    play_choice = control.select_dialog(
+        "Otaku Setup: Playback & Language Profile",
+        [
+            "[Subbed] Original Japanese Audio + English Subtitles",
+            "[Dubbed] English Audio + Signs/Songs Subtitles"
+        ]
+    )
+    if play_choice in (0, 1):
+        apply_playback_profile(play_choice)
+
+    # Step 3: Title Language
+    title_choice = control.yesno_dialog(
+        control.ADDON_NAME,
+        "Please choose your preferred Title Language for Anime content:",
+        "English", "Romaji"
+    )
+    control.setInt('titlelanguage', 0 if title_choice == 1 else 1)
+
+    # Step 4: Torrent Providers Setup (None / All / Recommended)
+    torrent_choice = control.select_dialog(
+        "Otaku Setup: Torrent Providers",
+        [
+            "[Recommended] Nyaa, AnimeTosho, Bitsearch, ThePirateBay (Fast & reliable)",
+            "[All] Enable all 6 torrent indexers (Includes Torrentio & NekoBT)",
+            "[None] Disable all torrent indexers (Optimized for free streaming)"
+        ]
+    )
+    if torrent_choice in (0, 1, 2):
+        apply_torrent_providers_preset(torrent_choice)
+
+    # Step 5: Embed Providers Setup (None / All / Recommended)
+    embed_choice = control.select_dialog(
+        "Otaku Setup: Embed Streaming Providers",
+        [
+            "[Recommended] HiAnime, AnimePahe, AniKoto, WatchNixtoons2 (Fast & 1080p)",
+            "[All] Enable all embed scrapers (Includes Animix & mirrors)",
+            "[None] Disable all embed scrapers (Optimized for pure Debrid users)"
+        ]
+    )
+    if embed_choice in (0, 1, 2):
+        apply_embed_providers_preset(embed_choice)
+
+    # Step 6: Debrid Account Authorization (Optional)
+    debrid_choice = control.select_dialog(
+        "Otaku Setup: Debrid Account Authorization (Optional)",
+        [
+            "Real-Debrid",
+            "TorBox",
+            "Premiumize",
+            "AllDebrid",
+            "Debrid-Link",
+            "Skip / Already Authorized"
+        ]
+    )
+    debrid_map = {0: 'realdebrid', 1: 'torbox', 2: 'premiumize', 3: 'alldebrid', 4: 'debridlink'}
+    if debrid_choice in debrid_map:
+        try:
+            AUTH(debrid_map[debrid_choice], {})
+        except Exception as e:
+            control.log(f"Setup Wizard: Debrid auth failed: {e}", 'warning')
+
+    # Step 7: Watchlist Synchronization (Optional)
+    watch_choice = control.select_dialog(
+        "Otaku Setup: Watchlist Synchronization (Optional)",
+        [
+            "AniList",
+            "MyAnimeList",
+            "Simkl",
+            "Kitsu",
+            "Skip / Already Authorized"
+        ]
+    )
+    watchlist_map = {0: 'anilist', 1: 'mal', 2: 'simkl', 3: 'kitsu'}
+    if watch_choice in watchlist_map:
+        service_name = watchlist_map[watch_choice]
+        try:
+            control.execute(f'RunPlugin(plugin://plugin.video.otaku.rpdev/watchlist_login/{service_name}?auth_dialog=true)')
+        except Exception as e:
+            control.log(f"Setup Wizard: Watchlist auth failed: {e}", 'warning')
+
+    # Final confirmation
+    control.ok_dialog(
+        control.ADDON_NAME,
+        "Setup Wizard complete! Performance presets, playback preferences, and provider profiles have been successfully applied."
+    )
 
 
 @Route('toggleLanguageInvoker')

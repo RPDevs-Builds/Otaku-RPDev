@@ -727,11 +727,26 @@ class AnimeScheduleCalendar:
                 rating_average = "-" if rating_average in (0, 0.0) else f"{rating_average}%"
                 rating_anilist = "-" if rating_anilist in (0, 0.0) else str(rating_anilist)
 
+                # Determine format badge
+                badge = ""
+                has_sub = bool(sub_ep or sub_date)
+                has_dub = bool(dub_ep or dub_date)
+                if has_sub and has_dub:
+                    badge = "[SUB/DUB]"
+                elif has_sub:
+                    badge = "[SUB]"
+                elif has_dub:
+                    badge = "[DUB]"
+                elif raw_ep or raw_date:
+                    badge = "[RAW]"
+
                 # Build Anichart item
                 anichart_item = {
                     'id': anime.get('mal_id') or anime.get('route'),
                     'release_title': title,
                     'title': title,
+                    'badge': badge,
+                    'format_badge': badge,
                     'romaji': anime.get('romaji', ''),
                     'english': anime.get('english', ''),
                     'native': anime.get('native', ''),

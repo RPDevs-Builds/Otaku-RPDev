@@ -299,6 +299,63 @@ mock_xbmc.LOGERROR = 3
 mock_xbmc.LOGDEBUG = 0
 mock_xbmc.LOGNONE = -1
 mock_xbmc.PLAYLIST_VIDEO = 1
+mock_xbmc.ISO_639_1 = 0
+mock_xbmc.ISO_639_2 = 1
+mock_xbmc.ENGLISH_NAME = 2
+
+_MOCK_ISO_MAP_2 = {
+    'ja': 'jpn', 'jpn': 'jpn', 'japanese': 'jpn',
+    'en': 'eng', 'eng': 'eng', 'english': 'eng',
+    'fr': 'fre', 'fra': 'fre', 'french': 'fre',
+    'de': 'ger', 'deu': 'ger', 'german': 'ger',
+    'es': 'spa', 'spanish': 'spa',
+    'it': 'ita', 'italian': 'ita',
+    'pt': 'por', 'portuguese': 'por',
+    'ru': 'rus', 'russian': 'rus',
+    'zh': 'chi', 'zho': 'chi', 'chinese': 'chi',
+    'ko': 'kor', 'korean': 'kor',
+    'ar': 'ara', 'arabic': 'ara',
+}
+
+_MOCK_ISO_MAP_1 = {
+    'ja': 'ja', 'jpn': 'ja', 'japanese': 'ja',
+    'en': 'en', 'eng': 'en', 'english': 'en',
+    'fr': 'fr', 'fra': 'fr', 'french': 'fr',
+    'de': 'de', 'deu': 'de', 'german': 'de',
+    'es': 'es', 'spa': 'es', 'spanish': 'es',
+    'it': 'it', 'ita': 'it', 'italian': 'it',
+    'pt': 'pt', 'por': 'pt', 'portuguese': 'pt',
+    'ru': 'ru', 'rus': 'ru', 'russian': 'ru',
+    'zh': 'zh', 'chi': 'zh', 'zho': 'zh', 'chinese': 'zh',
+    'ko': 'ko', 'kor': 'ko', 'korean': 'ko',
+    'ar': 'ar', 'ara': 'ar', 'arabic': 'ar',
+}
+
+_MOCK_ENGLISH_MAP = {
+    'ja': 'Japanese', 'jpn': 'Japanese', 'japanese': 'Japanese',
+    'en': 'English', 'eng': 'English', 'english': 'English',
+    'fr': 'French', 'fra': 'French', 'fre': 'French', 'french': 'French',
+    'de': 'German', 'deu': 'German', 'ger': 'German', 'german': 'German',
+    'es': 'Spanish', 'spa': 'Spanish', 'spanish': 'Spanish',
+    'it': 'Italian', 'ita': 'Italian', 'italian': 'Italian',
+    'pt': 'Portuguese', 'por': 'Portuguese', 'portuguese': 'Portuguese',
+    'ru': 'Russian', 'rus': 'Russian', 'russian': 'Russian',
+    'zh': 'Chinese', 'chi': 'Chinese', 'zho': 'Chinese', 'chinese': 'Chinese',
+    'ko': 'Korean', 'kor': 'Korean', 'korean': 'Korean',
+    'ar': 'Arabic', 'ara': 'Arabic', 'arabic': 'Arabic',
+}
+
+def _mock_convert_language(lang, fmt=1):
+    if not lang:
+        return ''
+    lang_clean = str(lang).lower().strip()
+    if fmt == 0 or str(fmt) == '0':  # ISO_639_1
+        return _MOCK_ISO_MAP_1.get(lang_clean, lang_clean[:2])
+    elif fmt == 2 or str(fmt) == '2' or 'ENGLISH' in str(fmt):  # ENGLISH_NAME
+        return _MOCK_ENGLISH_MAP.get(lang_clean, lang_clean.capitalize())
+    return _MOCK_ISO_MAP_2.get(lang_clean, lang_clean)
+
+mock_xbmc.convertLanguage.side_effect = _mock_convert_language
 mock_xbmc.Actor = MockActor
 mock_xbmc.InfoTagVideo = MockInfoTagVideo
 mock_xbmc.Player = MockPlayer

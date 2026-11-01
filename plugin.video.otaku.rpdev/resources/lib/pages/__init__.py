@@ -302,6 +302,11 @@ class Sources(GetSources):
             if len(self.torrentSources) + len(self.hosterSources) + len(self.embedSources) + len(self.cloud_files) + len(self.local_files) == 0:
                 self.return_data = []
             else:
+                from resources.lib.ui import part_filter
+                self.torrentSources = part_filter.filter_sources(self.torrentSources, mal_id=mal_id, episode=episode, season=season, part=part)
+                self.hosterSources = part_filter.filter_sources(self.hosterSources, mal_id=mal_id, episode=episode, season=season, part=part)
+                self.embedSources = part_filter.filter_sources(self.embedSources, mal_id=mal_id, episode=episode, season=season, part=part)
+                self.cloud_files = part_filter.filter_sources(self.cloud_files, mal_id=mal_id, episode=episode, season=season, part=part)
                 self.return_data = self.sortSources(self.torrentSources, self.hosterSources, self.embedSources, self.cloud_files, self.local_files, media_type, duration, mal_id=mal_id)
         except Exception as e:
             control.log(f"Error in getSources: {e}", 'error')

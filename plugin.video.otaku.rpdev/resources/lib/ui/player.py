@@ -78,6 +78,18 @@ def is_language_match(stream_lang, stream_name, target_lang):
     if s_lang in synonyms or (s_lang_prefix and s_lang_prefix in synonyms):
         return True
 
+    # Try Kodi C++ native ISO 639-2 language normalization (PR #497)
+    if s_lang:
+        try:
+            import xbmc
+            if hasattr(xbmc, 'convertLanguage') and hasattr(xbmc, 'ISO_639_2'):
+                c_target = str(xbmc.convertLanguage(target, xbmc.ISO_639_2) or '').lower().strip()
+                c_stream = str(xbmc.convertLanguage(s_lang, xbmc.ISO_639_2) or '').lower().strip()
+                if c_target and c_stream and c_target == c_stream:
+                    return True
+        except Exception:
+            pass
+
     s_name = (stream_name or '').lower().strip()
     if s_name:
         for syn in synonyms:

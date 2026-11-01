@@ -200,7 +200,7 @@ class SQL:
                     except dbapi2.DatabaseError:
                         pass
                     # Cache size setting (negative value in KiB)
-                    cache_mb = control.getInt('db.sqlite.cache_size_mb') or 16
+                    cache_mb = control.getInt('db.sqlite.cache_size_mb') or (16 if control.is_low_memory() else 32)
                     if cache_mb > 0:
                         conn.execute(f"PRAGMA cache_size = -{cache_mb * 1024}")
                     # Memory map size setting

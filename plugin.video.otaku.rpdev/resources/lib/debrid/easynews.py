@@ -35,6 +35,7 @@ class Easynews:
     def search(self, query):
         if not self.username or not self.password:
             return []
+        query = (query or '').replace(':', ' ')
         params = dict(_SEARCH_PARAMS)
         params['safeO'] = self.moderation
         params['gps'] = query

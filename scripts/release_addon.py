@@ -104,30 +104,31 @@ def update_changelog(changelog_path, new_ver, message):
         f.write(entry + old_content)
 
 
-def run_headless_kodi_smoke_test(repo_root):
-    """Pre-flight Step 1b: Boots real Kodi 22 via Xvfb and inspects kodi.log for C++ deserialization/SWIG errors."""
+def run_headless_kodi_smoke_test(repo_root, version="22", addon_id="plugin.video.otaku.rpdev"):
+    """Pre-flight Step: Boots real Kodi via Xvfb and inspects kodi.log for C++ deserialization/SWIG errors."""
     kodi_env = shutil.which("kodi-env")
     xvfb = shutil.which("xvfb-run")
     flatpak = shutil.which("flatpak")
 
     if not (kodi_env and xvfb and flatpak):
-        print("\n⚠️  Step 1b: Skipping headless Kodi 22 smoke test (kodi-env, xvfb-run, or flatpak missing on host).")
+        print(f"\n⚠️  Step: Skipping headless Kodi {version} smoke test (kodi-env, xvfb-run, or flatpak missing on host).")
         return True
 
-    print("\n🖥️  Step 1b: Running Headless Real-Kodi 22 Smoke Test (Piers RC 1 & Python 3.14)...")
+    version_name = "21 (Omega & Python 3.12/3.13)" if str(version) == "21" else "22 (Piers RC 1 & Python 3.14)"
+    print(f"\n🖥️  Step 1b: Running Headless Real-Kodi {version} Smoke Test ({version_name})...")
 
-    # 1. Ensure latest development add-on tree is linked into Kodi 22 profile
+    # 1. Ensure latest development add-on tree is linked into profiles
     run_cmd("kodi-env link-addons", cwd=repo_root, check=False)
 
-    log_path = "/mnt/sharedroot/projects/kodi-test-env/profiles/kodi22/temp/kodi.log"
+    log_path = f"/mnt/sharedroot/projects/kodi-test-env/profiles/kodi{version}/temp/kodi.log"
     if os.path.exists(log_path):
         try:
             os.remove(log_path)
         except Exception:
             pass
 
-    # 2. Boot headless Kodi 22 via Xvfb for 5 seconds
-    proc = subprocess.Popen("kodi-env headless 22", shell=True, cwd=repo_root, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    # 2. Boot headless Kodi via Xvfb for 5 seconds
+    proc = subprocess.Popen(f"kodi-env headless {version}", shell=True, cwd=repo_root, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     try:
         proc.wait(timeout=5)
     except subprocess.TimeoutExpired:
@@ -140,7 +141,7 @@ def run_headless_kodi_smoke_test(repo_root):
             pass
 
     if not os.path.exists(log_path):
-        print("  ⚠️ Warning: kodi.log was not created during headless boot. Skipping log analysis.")
+        print(f"  ⚠️ Warning: kodi.log for Kodi {version} was not created during headless boot. Skipping log analysis.")
         return True
 
     with open(log_path, "r", encoding="utf-8", errors="ignore") as f:
@@ -151,7 +152,6 @@ def run_headless_kodi_smoke_test(repo_root):
         "csettingsection::deserialize",
         "attributeerror: type '",
         "swig director",
-        "failed to load addon",
         "segmentation fault",
     ]
 
@@ -160,15 +160,19 @@ def run_headless_kodi_smoke_test(repo_root):
         line_lower = line.lower()
         if any(p in line_lower for p in fatal_patterns):
             fatal_matches.append(line.strip())
+        elif "failed to load addon" in line_lower and addon_id.lower() in line_lower:
+            fatal_matches.append(line.strip())
+        elif "failed to load user settings" in line_lower and addon_id.lower() in line_lower:
+            fatal_matches.append(line.strip())
 
     if fatal_matches:
-        print(f"\n[FAIL] Headless Kodi 22 booted with {len(fatal_matches)} fatal C++ or runtime errors in kodi.log!")
+        print(f"\n[FAIL] Headless Kodi {version} booted with {len(fatal_matches)} fatal C++ or runtime errors in kodi.log!")
         for m in fatal_matches[:10]:
             print(f"  • {m}")
-        print("\nAborting release due to fatal Kodi 22 runtime errors.")
+        print(f"\nAborting release due to fatal Kodi {version} runtime errors.")
         sys.exit(1)
 
-    print("  ✓ Real Kodi 22 booted cleanly via Xvfb: zero settings deserialization or SWIG errors logged.")
+    print(f"  ✓ Real Kodi {version} booted cleanly via Xvfb: zero settings deserialization or SWIG errors logged.")
     return True
 
 
@@ -229,11 +233,12 @@ def main():
     else:
         print("\n⚠️  Step 1: Skipping pre-flight tests (--skip-tests active)")
 
-    # 1b. Real Headless Kodi 22 Smoke Test
+    # 1b. Real Headless Kodi 21 & Kodi 22 Smoke Tests
     if not args.skip_kodi_smoke and not args.skip_tests:
-        run_headless_kodi_smoke_test(repo_root)
+        run_headless_kodi_smoke_test(repo_root, version="21", addon_id=args.addon_id)
+        run_headless_kodi_smoke_test(repo_root, version="22", addon_id=args.addon_id)
     else:
-        print("\n⚠️  Step 1b: Skipping headless Kodi smoke test")
+        print("\n⚠️  Step 1b: Skipping headless Kodi smoke tests")
 
     if args.dry_run:
         print("\n[DRY RUN] Pre-flight checks complete.")
