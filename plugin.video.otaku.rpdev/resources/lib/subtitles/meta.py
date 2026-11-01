@@ -81,7 +81,7 @@ def get_meta_from_player() -> VideoMeta:
             except (ValueError, TypeError):
                 filename = f"{clean_show} - E{episode}.mkv"
 
-    # Preferred language from Otaku settings
+    # Preferred language from Otaku settings (general.subtitles)
     sub_setting_idx = control.getInt('general.subtitles')
     subtitle_langs = [
         "none", "English", "Japanese", "Spanish", "French", "German",
@@ -89,12 +89,14 @@ def get_meta_from_player() -> VideoMeta:
         "Arabic", "Hindi", "Turkish", "Polish", "Swedish", "Norwegian",
         "Danish", "Finnish"
     ]
-    pref_name = subtitle_langs[sub_setting_idx] if sub_setting_idx < len(subtitle_langs) else "English"
-    pref_code = languages.to_iso639_1(pref_name)
-
-    languages_list = [pref_name]
-    if pref_name != "English":
-        languages_list.append("English")
+    if sub_setting_idx == 0:
+        pref_name = "none"
+        pref_code = "none"
+        languages_list = []
+    else:
+        pref_name = subtitle_langs[sub_setting_idx] if sub_setting_idx < len(subtitle_langs) else "English"
+        pref_code = languages.to_iso639_1(pref_name)
+        languages_list = [pref_name]
 
     return VideoMeta(
         title=title,
@@ -141,12 +143,14 @@ def get_meta_from_dict(video_info: Dict[str, Any], mal_id: Optional[str] = None)
         "Arabic", "Hindi", "Turkish", "Polish", "Swedish", "Norwegian",
         "Danish", "Finnish"
     ]
-    pref_name = subtitle_langs[sub_setting_idx] if sub_setting_idx < len(subtitle_langs) else "English"
-    pref_code = languages.to_iso639_1(pref_name)
-
-    languages_list = [pref_name]
-    if pref_name != "English":
-        languages_list.append("English")
+    if sub_setting_idx == 0:
+        pref_name = "none"
+        pref_code = "none"
+        languages_list = []
+    else:
+        pref_name = subtitle_langs[sub_setting_idx] if sub_setting_idx < len(subtitle_langs) else "English"
+        pref_code = languages.to_iso639_1(pref_name)
+        languages_list = [pref_name]
 
     return VideoMeta(
         title=title,

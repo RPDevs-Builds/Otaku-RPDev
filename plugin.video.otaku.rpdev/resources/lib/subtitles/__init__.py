@@ -12,6 +12,7 @@ import xbmcgui
 
 from resources.lib.ui import control
 from resources.lib.subtitles.models import VideoMeta, SubtitleResult
+from resources.lib.subtitles import languages
 from resources.lib.subtitles.search import search_all_services
 from resources.lib.subtitles.download import download_and_prepare_subtitle, purge_temp_subtitles
 from resources.lib.subtitles.meta import get_meta_from_player, get_meta_from_dict
@@ -52,6 +53,11 @@ def search_subtitles(meta: Optional[VideoMeta] = None, settings: Optional[Dict[s
     if not settings.get('subtitles.enabled', True):
         return []
 
+    # If preferred language is "none", do not scrape external subtitles
+    if not meta.preferred_lang or meta.preferred_lang.lower() == 'none':
+        control.log("Native Subtitles: Preferred subtitle language is 'none', skipping external search", 'info')
+        return []
+
     return search_all_services(meta, settings)
 
 
@@ -82,7 +88,12 @@ def auto_download_subtitles(meta: Optional[VideoMeta] = None, settings: Optional
     if meta is None:
         meta = get_meta_from_player()
 
-    control.log(f"Native Subtitles: Initiating auto-search for {meta.tvshow or meta.title} S{meta.season}E{meta.episode}", 'info')
+    # If preferred language is "none", do not auto-download external subtitles
+    if not meta.preferred_lang or meta.preferred_lang.lower() == 'none':
+        control.log("Native Subtitles: Preferred subtitle language is 'none', skipping auto-download", 'info')
+        return False
+
+    control.log(f"Native Subtitles: Initiating auto-search for {meta.tvshow or meta.title} S{meta.season}E{meta.episode} (pref_lang={meta.preferred_lang})", 'info')
     results = search_subtitles(meta, settings)
 
     if not results:
@@ -93,8 +104,13 @@ def auto_download_subtitles(meta: Optional[VideoMeta] = None, settings: Optional
         # Auto-download is disabled: prompt user with selection dialog
         return manual_select_dialog(results, meta, settings)
 
-    # Attempt download on highest ranking candidates
+    # Attempt download on highest ranking candidates matching preferred language
     for candidate in results:
+        cand_code = candidate.lang_code or languages.to_iso639_1(candidate.lang)
+        if not languages.is_language_match(cand_code, meta.preferred_lang):
+            control.log(f"Native Subtitles: Skipping {candidate.name} ({candidate.lang}) - does not match preferred {meta.preferred_lang}", 'debug')
+            continue
+
         local_path = download_subtitle(candidate, meta, settings)
         if local_path:
             player = xbmc.Player()

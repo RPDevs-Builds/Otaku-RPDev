@@ -1320,6 +1320,38 @@
 		</category>
 		<category id="Subtitles" label="30600" help="">
 			<group id="1" label="30600">
+				<setting id="general.subtitles" type="integer" label="30297" help="30648">
+					<level>0</level>
+					<default>1</default>
+					<constraints>
+						<options>
+							<option label="None">0</option>
+							<option label="English">1</option>
+							<option label="Japanese">2</option>
+							<option label="Spanish">3</option>
+							<option label="French">4</option>
+							<option label="German">5</option>
+							<option label="Italian">6</option>
+							<option label="Dutch">7</option>
+							<option label="Russian">8</option>
+							<option label="Portuguese">9</option>
+							<option label="Korean">10</option>
+							<option label="Chinese">11</option>
+							<option label="Arabic">12</option>
+							<option label="Hindi">13</option>
+							<option label="Turkish">14</option>
+							<option label="Polish">15</option>
+							<option label="Swedish">16</option>
+							<option label="Norwegian">17</option>
+							<option label="Danish">18</option>
+							<option label="Finnish">19</option>
+						</options>
+					</constraints>
+					<dependencies>
+						<dependency type="enable" setting="general.kodi_language">false</dependency>
+					</dependencies>
+					<control type="spinner" format="string" />
+				</setting>
 				<setting id="subtitles.enabled" type="boolean" label="30601" help="">
 					<level>0</level>
 					<default>true</default>
@@ -1394,38 +1426,6 @@
 				</setting>
 			</group>
 			<group id="2" label="30647">
-				<setting id="general.subtitles" type="integer" label="30297" help="30648">
-					<level>0</level>
-					<default>1</default>
-					<constraints>
-						<options>
-							<option label="None">0</option>
-							<option label="English">1</option>
-							<option label="Japanese">2</option>
-							<option label="Spanish">3</option>
-							<option label="French">4</option>
-							<option label="German">5</option>
-							<option label="Italian">6</option>
-							<option label="Dutch">7</option>
-							<option label="Russian">8</option>
-							<option label="Portuguese">9</option>
-							<option label="Korean">10</option>
-							<option label="Chinese">11</option>
-							<option label="Arabic">12</option>
-							<option label="Hindi">13</option>
-							<option label="Turkish">14</option>
-							<option label="Polish">15</option>
-							<option label="Swedish">16</option>
-							<option label="Norwegian">17</option>
-							<option label="Danish">18</option>
-							<option label="Finnish">19</option>
-						</options>
-					</constraints>
-					<dependencies>
-						<dependency type="enable" setting="general.kodi_language">false</dependency>
-					</dependencies>
-					<control type="spinner" format="string" />
-				</setting>
 				<setting id="general.subtitles.type" type="boolean" label="30417" help="30649">
 					<level>1</level>
 					<default>true</default>

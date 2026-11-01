@@ -24,10 +24,10 @@ def score_result(sub: SubtitleResult, meta: VideoMeta, settings: Dict[str, Any])
     sub_lang = (sub.lang_code or sub.lang).lower()
 
     # 1. Language Preference
-    if pref_lang and (sub_lang == pref_lang or languages.to_iso639_1(sub_lang) == languages.to_iso639_1(pref_lang)):
+    if pref_lang and languages.is_language_match(sub_lang, pref_lang):
         score += 1.0
     elif sub_lang:
-        score -= 0.5
+        score -= 1.0
 
     # 2. Episode & Season Matching Heuristics
     if meta.is_tvshow and meta.season and meta.episode:
@@ -111,6 +111,10 @@ def search_all_services(meta: VideoMeta, settings: Dict[str, Any]) -> List[Subti
     Queries all enabled subtitle services in parallel, applies intelligent scoring,
     and returns sorted results.
     """
+    if not meta.preferred_lang or meta.preferred_lang.lower() == 'none':
+        control.log("Native Subtitles: Preferred subtitle language is 'none', skipping external provider queries", 'info')
+        return []
+
     timeout = int(settings.get('subtitles.timeout', 15))
     results_limit = int(settings.get('subtitles.results_limit', 20))
 
@@ -168,6 +172,19 @@ def search_all_services(meta: VideoMeta, settings: Dict[str, Any]) -> List[Subti
                 control.log(f"Search future exception: {e}", 'warning')
 
     if not all_results:
+        return []
+
+    # Filter strictly to the preferred language
+    if meta.preferred_lang and meta.preferred_lang.lower() != 'none':
+        filtered: List[SubtitleResult] = []
+        for sub in all_results:
+            sub_code = (sub.lang_code or languages.to_iso639_1(sub.lang)).lower()
+            if languages.is_language_match(sub_code, meta.preferred_lang):
+                filtered.append(sub)
+        all_results = filtered
+
+    if not all_results:
+        control.log(f"Native Subtitles: Zero results matched preferred language '{meta.preferred_lang}'", 'info')
         return []
 
     # Compute scores for all results

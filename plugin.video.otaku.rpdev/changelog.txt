@@ -1,3 +1,6 @@
+Changelog v5.8.5 (2026-11-01):
+- Unify preferred subtitle language across embedded track selection and external search/download; relocate setting to top of Subtitles menu
+
 Changelog v5.8.4 (2026-11-01):
 - Fix SWIG metaclass AttributeError on Sources._current_workers during scraping
 - Move scraper worker semaphore to module-level with safe thread locking

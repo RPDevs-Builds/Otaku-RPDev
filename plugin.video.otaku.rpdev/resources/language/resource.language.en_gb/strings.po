@@ -2538,7 +2538,7 @@ msgid "Embedded Subtitle Selection"
 msgstr ""
 
 msgctxt "#30648"
-msgid "Automatically select an embedded subtitle track matching your language preference during playback."
+msgid "Preferred language for embedded subtitle track selection and external subtitle search/download."
 msgstr ""
 
 msgctxt "#30649"

@@ -114,3 +114,15 @@ def map_languages_to_iso639_1(languages: List[str]) -> List[str]:
             seen.add(code)
             res.append(code)
     return res or ['en']
+
+
+def is_language_match(lang_a: str, lang_b: str) -> bool:
+    """Check if two language names, 2-letter, or 3-letter codes represent the same language."""
+    if not lang_a or not lang_b:
+        return False
+    a_clean = str(lang_a).lower().strip()
+    b_clean = str(lang_b).lower().strip()
+    if a_clean == 'none' or b_clean == 'none':
+        return a_clean == b_clean
+    return to_iso639_1(a_clean) == to_iso639_1(b_clean)
+

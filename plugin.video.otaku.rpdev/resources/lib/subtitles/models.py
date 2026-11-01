@@ -36,8 +36,8 @@ class VideoMeta:
         self.imdb_id = str(imdb_id or '').strip()
         self.tvshow_year = str(tvshow_year or '').strip()
         self.filename = str(filename or '').strip()
-        self.languages = list(languages or ['English'])
-        self.preferred_lang = str(preferred_lang or 'eng').strip().lower()
+        self.languages = list(languages) if languages is not None else ['English']
+        self.preferred_lang = str(preferred_lang if preferred_lang is not None else 'eng').strip().lower()
         self.filehash = str(filehash or '').strip()
         self.filesize = int(filesize or 0)
 

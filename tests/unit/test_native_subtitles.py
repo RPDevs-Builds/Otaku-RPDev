@@ -32,6 +32,8 @@ from resources.lib.subtitles import encoding
 from resources.lib.subtitles import archive
 from resources.lib.subtitles import search
 from resources.lib.subtitles import download
+from resources.lib.subtitles import meta as sub_meta
+from resources.lib.ui import control
 from resources.lib.subtitles.services import ALL_SERVICES
 from resources.lib.subtitles.services.opensubtitles import OpenSubtitlesService
 from resources.lib.subtitles.services.subdl import SubDLService
@@ -108,6 +110,15 @@ class TestSubtitleLanguages(unittest.TestCase):
         langs = ["English", "Spanish", "English", "eng"]
         codes = languages.map_languages_to_iso639_1(langs)
         self.assertEqual(codes, ["en", "es"])
+
+    def test_is_language_match(self):
+        self.assertTrue(languages.is_language_match("en", "English"))
+        self.assertTrue(languages.is_language_match("Spanish", "spa"))
+        self.assertTrue(languages.is_language_match("es", "spa"))
+        self.assertFalse(languages.is_language_match("es", "eng"))
+        self.assertTrue(languages.is_language_match("none", "none"))
+        self.assertFalse(languages.is_language_match("none", "en"))
+        self.assertFalse(languages.is_language_match("", "en"))
 
 
 class TestSubtitleEncoding(unittest.TestCase):
@@ -249,6 +260,34 @@ class TestSubtitleSearchRanking(unittest.TestCase):
         score_no_pref = search.score_result(sdh_sub, self.meta, {'subtitles.prefer_sdh': False, 'subtitles.prefer_forced': False})
         self.assertGreater(score_pref, score_no_pref)
 
+    def test_search_all_services_returns_empty_when_lang_none(self):
+        meta_none = VideoMeta(
+            tvshow="Black Butler",
+            season=5,
+            episode=3,
+            preferred_lang="none"
+        )
+        results = search.search_all_services(meta_none, {})
+        self.assertEqual(results, [])
+
+    @patch('resources.lib.subtitles.search.ALL_SERVICES')
+    def test_search_all_services_filters_non_preferred_languages(self, mock_services):
+        mock_service = MagicMock()
+        mock_service.search.return_value = [
+            SubtitleResult(service_name="mock", display_name="Mock", name="es.srt", lang="Spanish", lang_code="es", season=5, episode=3),
+            SubtitleResult(service_name="mock", display_name="Mock", name="en.srt", lang="English", lang_code="en", season=5, episode=3),
+            SubtitleResult(service_name="mock", display_name="Mock", name="fr.srt", lang="French", lang_code="fr", season=5, episode=3),
+        ]
+        mock_services.items.return_value = [('mock', mock_service)]
+
+        meta_es = VideoMeta(tvshow="Black Butler", season=5, episode=3, preferred_lang="es")
+        results = search.search_all_services(meta_es, {'subtitles.provider.mock': True})
+
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].name, "es.srt")
+        self.assertEqual(results[0].lang_code, "es")
+
+
 
 class TestProviderImplementations(unittest.TestCase):
     @patch('resources.lib.ui.client.get')
@@ -342,6 +381,45 @@ class TestNativeSubtitlesIntegration(unittest.TestCase):
         self.assertTrue(success)
         mock_player.setSubtitles.assert_called_once_with("/mock/temp/subtitles/Black_Butler_S05E03.en.srt")
         mock_player.showSubtitles.assert_called_once_with(True)
+
+    def test_auto_download_skips_when_lang_none(self):
+        meta_none = VideoMeta(tvshow="Black Butler", season=5, episode=3, preferred_lang="none")
+        success = subtitles.auto_download_subtitles(meta=meta_none, settings={'subtitles.enabled': True})
+        self.assertFalse(success)
+
+    @patch('resources.lib.subtitles.search_subtitles')
+    @patch('resources.lib.subtitles.download_subtitle')
+    def test_auto_download_skips_candidate_with_different_language(self, mock_download, mock_search):
+        cand_fr = SubtitleResult(
+            service_name="subdl",
+            display_name="SubDL",
+            name="Black.Butler.S05E03.fr.srt",
+            lang="French",
+            lang_code="fr"
+        )
+        mock_search.return_value = [cand_fr]
+        meta_es = VideoMeta(tvshow="Black Butler", season=5, episode=3, preferred_lang="es")
+        settings = {'subtitles.enabled': True, 'subtitles.auto_search': True, 'subtitles.auto_download': True}
+
+        success = subtitles.auto_download_subtitles(meta=meta_es, settings=settings)
+        self.assertFalse(success)
+        mock_download.assert_not_called()
+
+    @patch('resources.lib.ui.control.getInt')
+    def test_get_meta_from_dict_preferred_language(self, mock_get_int):
+        # 0 = "none"
+        mock_get_int.return_value = 0
+        video_info = {'title': 'Attack on Titan', 'season': 1, 'episode': 1}
+        meta_0 = sub_meta.get_meta_from_dict(video_info)
+        self.assertEqual(meta_0.preferred_lang, "none")
+        self.assertEqual(meta_0.languages, [])
+
+        # 3 = "Spanish"
+        mock_get_int.return_value = 3
+        meta_3 = sub_meta.get_meta_from_dict(video_info)
+        self.assertEqual(meta_3.preferred_lang, "es")
+        self.assertEqual(meta_3.languages, ["Spanish"])
+
 
 
 if __name__ == '__main__':
