@@ -1,9 +1,12 @@
+import threading
 import time
 
 from resources.lib.ui import client, control, source_utils, database
 
 
 class RealDebrid:
+    _refresh_lock = threading.Lock()
+
     def __init__(self):
         self.ClientID = control.getSetting('realdebrid.client_id')
         if self.ClientID == '':
@@ -159,32 +162,33 @@ class RealDebrid:
             control.ok_dialog(control.ADDON_NAME, f'Real-Debrid user info error: {str(e)}')
 
     def refreshToken(self):
-        postData = {
-            'grant_type': 'http://oauth.net/grant_type/device/1.0',
-            'code': self.refresh,
-            'client_secret': self.ClientSecret,
-            'client_id': self.ClientID
-        }
-        response = client.post(f"{self.OauthUrl}/token", data=postData)
-        if response and response.ok:
-            try:
-                response = response.json()
-                self.token = response['access_token']
-                self.refresh = response['refresh_token']
-                control.setSetting('realdebrid.token', self.token)
-                control.setSetting('realdebrid.refresh', self.refresh)
-                control.setInt('realdebrid.expiry', int(time.time()) + int(response['expires_in']))
+        with self._refresh_lock:
+            postData = {
+                'grant_type': 'http://oauth.net/grant_type/device/1.0',
+                'code': self.refresh,
+                'client_secret': self.ClientSecret,
+                'client_id': self.ClientID
+            }
+            response = client.post(f"{self.OauthUrl}/token", data=postData)
+            if response and response.ok:
+                try:
+                    response = response.json()
+                    self.token = response['access_token']
+                    self.refresh = response['refresh_token']
+                    control.setSetting('realdebrid.token', self.token)
+                    control.setSetting('realdebrid.refresh', self.refresh)
+                    control.setInt('realdebrid.expiry', int(time.time()) + int(response['expires_in']))
 
-                user_info_response = client.get(f'{self.BaseUrl}/user', headers=self.headers())
-                if user_info_response and user_info_response.ok:
-                    user_info = user_info_response.json()
-                    control.setSetting('realdebrid.username', user_info['username'])
-                    control.setSetting('realdebrid.auth.status', user_info['type'])
-                control.log('refreshed realdebrid.token')
-            except (ValueError, KeyError) as e:
-                control.log(f"realdebrid.refresh error: {str(e)}", 'warning')
-        else:
-            control.log(f"realdebrid.refresh failed: status {response.status_code if response else 'no response'}", 'warning')
+                    user_info_response = client.get(f'{self.BaseUrl}/user', headers=self.headers())
+                    if user_info_response and user_info_response.ok:
+                        user_info = user_info_response.json()
+                        control.setSetting('realdebrid.username', user_info['username'])
+                        control.setSetting('realdebrid.auth.status', user_info['type'])
+                    control.log('refreshed realdebrid.token')
+                except (ValueError, KeyError) as e:
+                    control.log(f"realdebrid.refresh error: {str(e)}", 'warning')
+            else:
+                control.log(f"realdebrid.refresh failed: status {response.status_code if response else 'no response'}", 'warning')
 
     def _request_with_backoff(self, method, url, **kwargs):
         """Execute HTTP request with 1x exponential backoff if HTTP 429 is received."""
@@ -222,7 +226,7 @@ class RealDebrid:
     def torrentSelect(self, torrentid, fileid='all'):
         postData = {'files': fileid}
         response = self._request_with_backoff('post', f'{self.BaseUrl}/torrents/selectFiles/{torrentid}', headers=self.headers(), data=postData)
-        return response is not None
+        return bool(response and getattr(response, 'ok', True))
 
     def resolve_hoster(self, link):
         postData = {'link': link}
@@ -234,7 +238,7 @@ class RealDebrid:
 
     def deleteTorrent(self, torrent_id):
         response = self._request_with_backoff('delete', f'{self.BaseUrl}/torrents/delete/{torrent_id}', headers=self.headers(), timeout=10)
-        return response is not None
+        return bool(response and getattr(response, 'ok', True))
 
     @staticmethod
     def resolve_cloud(source, pack_select):
@@ -291,7 +295,8 @@ class RealDebrid:
                     except (IndexError, KeyError) as e:
                         control.log(f"RD multi file match error: {e}", 'debug')
         finally:
-            self.deleteTorrent(torrent_id)
+            if not stream_link or self.autodelete:
+                self.deleteTorrent(torrent_id)
 
         return stream_link
 

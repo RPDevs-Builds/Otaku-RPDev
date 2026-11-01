@@ -5,6 +5,7 @@
 # -*- coding: utf-8 -*-
 
 import re
+import urllib.parse
 from typing import List, Dict, Any, Optional
 from resources.lib.ui import client, control
 from resources.lib.subtitles.models import VideoMeta, SubtitleResult
@@ -24,8 +25,11 @@ class Addic7edService:
 
         timeout = int(settings.get('subtitles.timeout', 15))
         show_name = meta.tvshow or meta.title
-        s_int = int(meta.season)
-        ep_int = int(meta.episode)
+        try:
+            s_int = int(meta.season)
+            ep_int = int(meta.episode)
+        except (ValueError, TypeError):
+            return []
 
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -34,7 +38,7 @@ class Addic7edService:
 
         # Addic7ed episode search URL
         clean_show = re.sub(r'[^\w\s]', '', show_name).replace(' ', '_')
-        url = f"{BASE_URL}/serie/{clean_show}/{s_int}/{ep_int}/"
+        url = f"{BASE_URL}/serie/{urllib.parse.quote(clean_show)}/{s_int}/{ep_int}/"
 
         try:
             res = client.get(url, headers=headers, timeout=timeout)

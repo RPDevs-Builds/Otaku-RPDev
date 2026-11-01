@@ -28,6 +28,7 @@ import os
 import sys
 import json
 import shutil
+import subprocess
 import threading
 import re
 
@@ -313,6 +314,27 @@ class _ProgressDialogProxy:
         self.close()
 
 
+class _MonitorProxy:
+    """Lightweight session-cached proxy for xbmc.Monitor avoiding repeated SWIG instantiation."""
+
+    def __init__(self):
+        self._cached = None
+
+    def _get_monitor(self):
+        if self._cached is None:
+            self._cached = xbmc.Monitor()
+        return self._cached
+
+    def abortRequested(self):
+        return self._get_monitor().abortRequested()
+
+    def waitForAbort(self, timeout=1.0):
+        return self._get_monitor().waitForAbort(timeout)
+
+    def cleanup(self):
+        self._cached = None
+
+
 _init_addon = xbmcaddon.Addon()
 ADDON_ID = _init_addon.getAddonInfo('id')
 _target_addon = xbmcaddon.Addon(ADDON_ID)
@@ -335,16 +357,20 @@ pathExists = xbmcvfs.exists
 _settings_cache = {}
 
 CONTEXT_ADDON_ID = 'context.otaku.rpdev'
-_temp_context = xbmcaddon.Addon(CONTEXT_ADDON_ID)
-CONTEXT_ADDON_PATH = _temp_context.getAddonInfo('path')
+try:
+    _temp_context = xbmcaddon.Addon(CONTEXT_ADDON_ID)
+    CONTEXT_ADDON_PATH = _temp_context.getAddonInfo('path')
+    del _temp_context
+except Exception:
+    CONTEXT_ADDON_PATH = ADDON_PATH
 infoDB = os.path.join(CONTEXT_ADDON_PATH, 'info.db')
 if not pathExists(infoDB):
     infoDB = os.path.join(ADDON_PATH, 'info.db')
-del _temp_context
 
 ADDON = _AddonProxy(ADDON_ID)
 CONTEXT_ADDON = _AddonProxy(CONTEXT_ADDON_ID)
 settings = _SettingsProxy(ADDON_ID)
+monitor = _MonitorProxy()
 
 
 def language(string_id):
@@ -506,7 +532,7 @@ def copy2clip(txt):
     platform = sys.platform
     if platform == 'win32':
         try:
-            os.system('echo %s|clip' % txt)
+            subprocess.run(['clip'], input=str(txt), text=True, check=False)
             return True
         except (AttributeError, OSError):
             pass
@@ -956,7 +982,7 @@ def clean_memory():
 def cleanup():
     """Explicitly release Kodi GUI dialogs and C++ resources on script shutdown."""
     clearSettingsCache()
-    for proxy in (progressDialog, homeWindow, playerWindow, playList, ADDON, CONTEXT_ADDON, settings):
+    for proxy in (progressDialog, homeWindow, playerWindow, playList, ADDON, CONTEXT_ADDON, settings, monitor):
         try:
             proxy.cleanup()
         except Exception:
@@ -1319,6 +1345,7 @@ def xbmc_add_dir(name, url, art, info, draw_cm, bulk_add, isfolder, isplayable, 
         fanart_selections = None
         fanart_map = None
 
+    art = dict(art or {})
     if not art.get('fanart') or not artwork_fanart_enabled:
         art['fanart'] = OTAKU_FANART
     else:
@@ -1363,7 +1390,7 @@ def xbmc_add_dir(name, url, art, info, draw_cm, bulk_add, isfolder, isplayable, 
 
     # Check new artwork.clearlogo setting (inverted logic from old clearlogo_disable)
     if not artwork_clearlogo_enabled or not art.get('clearlogo'):
-        art['clearlogo'] = OTAKU_ICONS_PATH
+        art.pop('clearlogo', None)
     # If clearlogo is already a string (pre-selected), use it directly
     # No need for random.choice() since get_meta.py pre-selects it
 
@@ -1398,7 +1425,7 @@ def xbmc_add_dir(name, url, art, info, draw_cm, bulk_add, isfolder, isplayable, 
         liz.setProperties({'Video': 'true', 'IsPlayable': 'true'})
     clean_art = {k: str(v) for k, v in art.items() if v and isinstance(v, str)}
     liz.setArt(clean_art)
-    return u, liz, isfolder if bulk_add else xbmcplugin.addDirectoryItem(HANDLE, u, liz, isfolder)
+    return (u, liz, isfolder) if bulk_add else xbmcplugin.addDirectoryItem(HANDLE, u, liz, isfolder)
 
 
 def item_looks_like_next_page_row(item):
@@ -1522,7 +1549,7 @@ def draw_items(video_data, content_type='', cacheToDisc=True):
 
 def _dir_list_item_worker(item, bulk_add, bulk_prefs):
     return xbmc_add_dir(
-        item['name'], item['url'], item['image'], item['info'], item['cm'],
+        item['name'], item['url'], dict(item.get('image') or {}), item['info'], item['cm'],
         bulk_add, item['isfolder'], item['isplayable'], bulk_prefs,
     )
 
@@ -1565,7 +1592,7 @@ def get_view_type(viewtype):
         'Fanart': 502,
         'List': 0
     }
-    return viewTypes[viewtype]
+    return viewTypes.get(viewtype, 50)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1598,17 +1625,11 @@ def is_addon_visible():
 
 
 def abort_requested():
-    monitor = xbmc.Monitor()
-    abort_requested_ = monitor.abortRequested()
-    del monitor
-    return abort_requested_
+    return monitor.abortRequested()
 
 
 def wait_for_abort(timeout=1.0):
-    monitor = xbmc.Monitor()
-    abort_requested_ = monitor.waitForAbort(timeout)
-    del monitor
-    return abort_requested_
+    return monitor.waitForAbort(timeout)
 
 
 def arc4(t, n):

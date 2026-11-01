@@ -44,7 +44,21 @@ def _get_decryption_keys(force_refresh: bool = False):
     if not force_refresh and _KEYS_CACHE and (now - _KEYS_CACHE_TIME < _CACHE_TTL):
         return _KEYS_CACHE
 
-    # 1. Check bundled file first (instant, guaranteed valid)
+    # 1. Check writable disk cache in user profile first
+    cache_dir = getattr(control, 'dataPath', '') or ''
+    cache_file = os.path.join(cache_dir, 'megacloud_keys.json') if cache_dir else ''
+    if not force_refresh and cache_file and os.path.exists(cache_file):
+        try:
+            with open(cache_file, 'r', encoding='utf-8') as f:
+                keys = json.load(f)
+                if keys and keys.get('vidstr'):
+                    _KEYS_CACHE = keys
+                    _KEYS_CACHE_TIME = now
+                    return keys
+        except (json.JSONDecodeError, OSError) as e:
+            control.log(f"Megacloud disk cache parse error: {e}", 'debug')
+
+    # 2. Check bundled fallback file (read-only)
     if not _KEYS_CACHE and not force_refresh:
         addon_path = getattr(control, 'ADDON_PATH', '') or ''
         bundled_file = os.path.join(addon_path, 'resources', 'data', 'keys.json') if addon_path else ''
@@ -59,20 +73,6 @@ def _get_decryption_keys(force_refresh: bool = False):
             except (json.JSONDecodeError, OSError) as e:
                 control.log(f"Megacloud bundled keys parse error: {e}", 'debug')
 
-    # 2. Check disk cache in user profile
-    cache_dir = getattr(control, 'dataPath', '') or ''
-    cache_file = os.path.join(cache_dir, 'megacloud_keys.json') if cache_dir else ''
-    if not force_refresh and cache_file and os.path.exists(cache_file):
-        try:
-            with open(cache_file, 'r', encoding='utf-8') as f:
-                keys = json.load(f)
-                if keys and keys.get('vidstr'):
-                    _KEYS_CACHE = keys
-                    _KEYS_CACHE_TIME = now
-                    return keys
-        except (json.JSONDecodeError, OSError) as e:
-            control.log(f"Megacloud disk cache parse error: {e}", 'debug')
-
     # 3. If force_refresh or missing keys, fetch from remote mirrors
     if force_refresh or not _KEYS_CACHE:
         user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0"
@@ -86,9 +86,7 @@ def _get_decryption_keys(force_refresh: bool = False):
                         _KEYS_CACHE_TIME = now
                         if cache_file:
                             try:
-                                os.makedirs(os.path.dirname(cache_file), exist_ok=True)
-                                with open(cache_file, 'w', encoding='utf-8') as f:
-                                    json.dump(data, f, indent=2)
+                                control.atomic_write_json(cache_file, data)
                             except OSError as e:
                                 control.log(f"Megacloud disk cache write error: {e}", 'debug')
                         control.log("Megacloud: Keys refreshed from remote mirror", level='info')

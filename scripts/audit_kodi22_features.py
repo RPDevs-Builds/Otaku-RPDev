@@ -25,6 +25,7 @@ if ADDON_ROOT not in sys.path:
 KODI22_PROFILE = "/mnt/sharedroot/projects/kodi-test-env/profiles/kodi22"
 KODI22_ADDON_DATA = os.path.join(KODI22_PROFILE, "userdata", "addon_data", "plugin.video.otaku.rpdev")
 
+os.environ['OTAKU_LIVE_AUDIT'] = '1'
 import tests.conftest as conftest
 import xbmcplugin
 from resources.lib.ui import control, database, client

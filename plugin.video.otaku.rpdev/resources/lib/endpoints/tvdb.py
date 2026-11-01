@@ -1,3 +1,4 @@
+import threading
 import time
 from resources.lib.ui import client, control, database
 
@@ -9,14 +10,15 @@ language = ["jpn", 'eng'][control.getInt("titlelanguage")]
 
 _cached_token = None
 _token_expiry = 0
+_token_lock = threading.Lock()
 
 
 def _fetch_tvdb_token(key):
     headers = {'Content-Type': 'application/json'}
     data = {'apikey': key}
     response = client.post(f'{baseUrl}/login', json_data=data, headers=headers)
-    res = control.safe_json(response)
-    return res.get('data', {}).get('token')
+    res = control.safe_json(response, default={})
+    return (res.get('data') or {}).get('token')
 
 
 def get_auth_token():
@@ -25,15 +27,16 @@ def get_auth_token():
     if not api_key:
         return None
 
-    now = time.time()
-    if _cached_token and now < _token_expiry:
-        return _cached_token
+    with _token_lock:
+        now = time.time()
+        if _cached_token and now < _token_expiry:
+            return _cached_token
 
-    token = database.get(_fetch_tvdb_token, 24, api_key)
-    if token:
-        _cached_token = token
-        _token_expiry = now + 82800  # 23 hours
-    return token
+        token = database.get(_fetch_tvdb_token, 24, api_key)
+        if token:
+            _cached_token = token
+            _token_expiry = now + 82800  # 23 hours
+        return token
 
 
 def searchByTitle(title, mtype):
@@ -47,7 +50,7 @@ def searchByTitle(title, mtype):
     search_type = 'movie' if mtype == 'movies' else 'series'
     params = {'query': title, 'type': search_type}
     response = client.get(f'{baseUrl}/search', params=params, headers=headers)
-    res = control.safe_json(response)
+    res = control.safe_json(response, default={})
     results = res.get('data', [])
     if results:
         tvdb_id = results[0].get('tvdb_id') or results[0].get('id')
@@ -80,7 +83,7 @@ def getArt(meta_ids, mtype, limit=None):
     if not response:
         return art
 
-    res = control.safe_json(response)
+    res = control.safe_json(response, default={})
     data = res.get('data', {})
 
     if not data:

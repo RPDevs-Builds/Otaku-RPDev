@@ -47,9 +47,20 @@ CERT_FILE = TRANSLATEPATH('special://xbmc/system/certs/cacert.pem')
 _COOKIE_HEADER = "Cookie"
 _HEADER_RE = re.compile(r"^([\w\d-]+?)=(.*?)$")
 
+class _SessionOpenerDict(dict):
+    """Dict keyed by (domain, bool(verify)) with backward-compatible domain string lookup."""
+
+    def get(self, key, default=None):
+        if key in self:
+            return super().get(key, default)
+        if isinstance(key, str):
+            return super().get((key, True), super().get((key, False), default))
+        return default
+
+
 _session_lock = threading.Lock()
 _session_cookies = {}
-_session_openers = {}
+_session_openers = _SessionOpenerDict()
 _session_timestamps = {}
 _SESSION_TIMEOUT = 600  # 10 minutes
 
@@ -112,7 +123,8 @@ def _cleanup_old_sessions():
     with _session_lock:
         expired_keys = [k for k, v in list(_session_timestamps.items()) if current_time - v > _SESSION_TIMEOUT]
         for key in expired_keys:
-            _session_cookies.pop(key, None)
+            domain_key = key[0] if isinstance(key, tuple) else key
+            _session_cookies.pop(domain_key, None)
             _session_openers.pop(key, None)
             _session_timestamps.pop(key, None)
 
@@ -274,7 +286,7 @@ def request(
 
         if params is not None:
             if isinstance(params, dict):
-                params = urllib.parse.urlencode(params)
+                params = urllib.parse.urlencode(params, doseq=True)
             url = url + '?' + params
 
         if output == 'cookie' or output == 'extended' or not close:
@@ -332,12 +344,13 @@ def request(
 
         # Reuse existing session opener for domain when eligible, otherwise build a new local opener
         can_use_session_opener = (use_session and redirect is not False and proxy is None and not tls_version)
+        session_key = (domain, bool(verify))
         opener = None
         if can_use_session_opener:
             with _session_lock:
-                opener = _session_openers.get(domain)
+                opener = _session_openers.get(session_key)
                 if opener is not None:
-                    _session_timestamps[domain] = time.time()
+                    _session_timestamps[session_key] = time.time()
                     for h in getattr(opener, 'handlers', ()):
                         if isinstance(h, urllib.request.HTTPCookieProcessor):
                             cookies = h.cookiejar
@@ -346,8 +359,8 @@ def request(
             opener = urllib.request.build_opener(*handlers) if handlers else urllib.request.build_opener()
             if can_use_session_opener:
                 with _session_lock:
-                    _session_openers[domain] = opener
-                    _session_timestamps[domain] = time.time()
+                    _session_openers[session_key] = opener
+                    _session_timestamps[session_key] = time.time()
 
         if url.startswith('//'):
             url = 'http:' + url
@@ -377,10 +390,11 @@ def request(
 
         if 'Cookie' in _headers:
             pass
-        elif cookie is not None:
+        elif cookie:
             if isinstance(cookie, dict):
                 cookie = '; '.join(['{0}={1}'.format(x, y) for x, y in cookie.items()])
-            _headers['Cookie'] = cookie
+            if cookie:
+                _headers['Cookie'] = cookie
         else:
             # Check for session cookies first
             session_cookie = None
@@ -424,7 +438,7 @@ def request(
             else:
                 if isinstance(post, (dict, list, tuple)):
                     post = byteify(post)
-                    post = urllib.parse.urlencode(post)
+                    post = urllib.parse.urlencode(post, doseq=True)
                 if len(post) > 0:
                     post = post.encode('utf8')
                     req = urllib.request.Request(url, data=post)
@@ -472,15 +486,22 @@ def request(
                                 url,
                                 close=close,
                                 redirect=redirect,
-                                error=True,
+                                error=error,
                                 verify=verify,
                                 post=post,
                                 headers=_headers,
                                 timeout=timeout,
+                                output=output,
                                 tls_version=tls_ver,
                                 use_session=use_session
                             )
                             if retry_response:
+                                if output == 'extended' and isinstance(retry_response, tuple) and len(retry_response) >= 2:
+                                    try:
+                                        if int(retry_response[1]) >= 400:
+                                            continue
+                                    except (ValueError, TypeError):
+                                        pass
                                 control.log(f"{tls_ver} bypass successful")
                                 return retry_response
                         except Exception as retry_error:
@@ -513,8 +534,10 @@ def request(
                                 return (result, str(error_code), err_headers, _headers, '', getattr(e, 'url', url))
                             if not error:
                                 return None
-                        _headers['Cookie'] = cf_cookie
-                        _headers['User-Agent'] = cf_ua
+                        if cf_cookie:
+                            _headers['Cookie'] = cf_cookie
+                        if cf_ua:
+                            _headers['User-Agent'] = cf_ua
                         req = urllib.request.Request(url, data=post)
                         _add_request_header(req, _headers)
                         response = opener.open(req, timeout=int(timeout))
@@ -548,8 +571,10 @@ def request(
                         control.log('%s has an unsolvable DDos-Guard challenge.' % (netloc))
                         if not error:
                             return None
-                    _headers['Cookie'] = ddg_cookie
-                    _headers['User-Agent'] = ddg_ua
+                    if ddg_cookie:
+                        _headers['Cookie'] = ddg_cookie
+                    if ddg_ua:
+                        _headers['User-Agent'] = ddg_ua
                     req = urllib.request.Request(url, data=post)
                     _add_request_header(req, _headers)
                     response = opener.open(req, timeout=int(timeout))
@@ -654,7 +679,7 @@ def request(
         text_content = any(x in content_type for x in ['text', 'json', 'xml', 'mpegurl'])
 
         if 'charset=' in content_type:
-            encoding = content_type.split('charset=')[-1]
+            encoding = content_type.split('charset=')[-1].split(';')[0].strip().strip('"\'')
 
         if 'text/vtt' in content_type or url.endswith('.srt') or url.endswith('.vtt'):
             encoding = 'utf8'
@@ -942,7 +967,7 @@ def _basic_request(url, headers=None, post=None, timeout=60, jpost=False, limit=
             else:
                 if isinstance(post, (dict, list, tuple)):
                     post = byteify(post)
-                    post = urllib.parse.urlencode(post)
+                    post = urllib.parse.urlencode(post, doseq=True)
                 if len(post) > 0:
                     post = post.encode('utf8')
                     request = urllib.request.Request(url, data=post)
@@ -984,7 +1009,7 @@ def _get_result(response, limit=None):
         result = response.read(5242880)
 
     try:
-        encoding = response.info().getheader('Content-Encoding')
+        encoding = response.headers.get('Content-Encoding')
     except Exception:
         encoding = None
     if encoding == 'gzip':

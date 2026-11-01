@@ -149,6 +149,11 @@ def filter_sources(sources, mal_id=None, episode=1, season=None, part=None):
             offset = g_start - a_start
             global_ep = ep_num + offset
 
+    try:
+        target_part = int(target_part) if target_part is not None else None
+    except (ValueError, TypeError):
+        target_part = None
+
     filtered = []
     dropped_chinese = 0
     dropped_part_mismatch = 0

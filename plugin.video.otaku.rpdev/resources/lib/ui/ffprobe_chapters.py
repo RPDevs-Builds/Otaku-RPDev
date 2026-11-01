@@ -18,7 +18,7 @@ import subprocess
 import sys
 import urllib.parse
 
-from resources.lib.ui import control
+from resources.lib.ui import client, control
 
 _ffprobe_cached: str | None = False  # type: ignore[assignment]
 
@@ -39,7 +39,7 @@ def _xbmc_bin_dir() -> str:
 def find_ffprobe() -> str | None:
     """Return path to ffprobe if found, else None."""
     global _ffprobe_cached
-    if _ffprobe_cached not in (False, None):
+    if _ffprobe_cached is not False:
         return _ffprobe_cached or None
 
     candidates = []
@@ -279,7 +279,7 @@ def probe_mkv_chapters_ebml(play_url: str, timeout: int = 8) -> list[dict]:
                 req_headers['User-Agent'] = 'Mozilla/5.0'
             req = urllib.request.Request(clean_url, headers=req_headers)
             try:
-                with urllib.request.urlopen(req, timeout=timeout) as resp:
+                with urllib.request.urlopen(req, timeout=timeout, context=client._get_ssl_context()) as resp:
                     return resp.read()
             except Exception:
                 return b''
@@ -336,7 +336,7 @@ def probe_mkv_chapters_ebml(play_url: str, timeout: int = 8) -> list[dict]:
             if data_end <= len(buf):
                 chapters_data = buf[pos:data_end]
             else:
-                chapters_data = fetch_bytes(pos, esize)
+                chapters_data = fetch_bytes(pos, min(esize, 2 * 1024 * 1024))
             break
         elif eid == 0x114D9B74:  # SeekHead
             # Scan Seek elements (0x4DBB)
@@ -385,7 +385,7 @@ def probe_mkv_chapters_ebml(play_url: str, timeout: int = 8) -> list[dict]:
                 if cpos + csize <= len(raw_ch):
                     chapters_data = raw_ch[cpos:cpos + csize]
                 else:
-                    chapters_data = fetch_bytes(seek_target_offset + cpos, csize)
+                    chapters_data = fetch_bytes(seek_target_offset + cpos, min(csize, 2 * 1024 * 1024))
 
     if not chapters_data:
         return []

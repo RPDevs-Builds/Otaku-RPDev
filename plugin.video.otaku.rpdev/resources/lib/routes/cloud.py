@@ -136,9 +136,10 @@ def PLAY_CLOUD_FILE(payload, params):
     import xbmcgui
     import xbmcplugin
     from resources.lib.debrid import debrid_cloud
-    parts = [p for p in payload.strip('/').split('/') if p]
+    parts = payload.strip('/').split('/', 2)
     if len(parts) < 3:
         control.notify(control.ADDON_NAME, "Invalid cloud file reference", icon=control.ADDON_ICON)
+        xbmcplugin.setResolvedUrl(control.HANDLE, False, xbmcgui.ListItem())
         return control.exit_code()
 
     provider = parts[0]
@@ -148,6 +149,7 @@ def PLAY_CLOUD_FILE(payload, params):
     stream_url = debrid_cloud.resolve_stream_url(provider, item_id, file_ref)
     if not stream_url:
         control.notify(control.ADDON_NAME, f"Failed to resolve {provider.capitalize()} streaming link", icon=control.ADDON_ICON)
+        xbmcplugin.setResolvedUrl(control.HANDLE, False, xbmcgui.ListItem())
         return control.exit_code()
 
     item = xbmcgui.ListItem(path=stream_url, offscreen=True)

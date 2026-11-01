@@ -339,7 +339,7 @@ class MyAnimeListWLF(WatchlistFlavorBase):
 
         fields = [
             'alternative_titles',
-            'list_status{updated_at}',
+            'list_status',
             'num_episodes',
             'synopsis',
             'mean',
@@ -408,7 +408,7 @@ class MyAnimeListWLF(WatchlistFlavorBase):
                 save_watchlist_cache(self._NAME, cache_status, filtered_data)
 
         # Get items from cache
-        sort_col, sort_dir = self.get_sort_col_and_order()
+        sort_col, sort_dir = ('updated', 'DESC') if cache_status == 'next_up' else self.get_sort_col_and_order()
         total_count = get_watchlist_cache_count(self._NAME, cache_status)
 
         if paging_enabled and per_page > 0:
@@ -706,9 +706,7 @@ class MyAnimeListWLF(WatchlistFlavorBase):
             info['cast'] = cast
         if trailer:
             info['trailer'] = trailer
-        if anilist_res and anilist_res.get('countryOfOrigin'):
-            info['mpaa'] = anilist_res.get('countryOfOrigin')
-        elif res['node'].get('rating'):
+        if res['node'].get('rating'):
             info['mpaa'] = res['node'].get('rating')
 
         tot_str = str(eps) if eps and eps > 0 else '?'

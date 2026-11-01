@@ -87,7 +87,7 @@ class Debrid:
     def all_debrid_worker(self, torrent_list, mal_id=None, episode=None, media_type=None, rescrape=False):
         if not torrent_list:
             return
-        hash_list = [i['hash'] for i in torrent_list]
+        hash_list = [i['hash'].lower() for i in torrent_list if i.get('hash')]
 
         # Check local debrid cache DB unless rescraping
         if rescrape:
@@ -95,7 +95,7 @@ class Debrid:
             unknown_hashes = hash_list
         else:
             cached_from_db = debrid_cache.get_cached_hashes(hash_list)
-            db_cached = {r['hash'] for r in cached_from_db if r['debrid'] == 'ad' and r['cached'] == 'True'}
+            db_cached = {r['hash'].lower() for r in cached_from_db if r['debrid'] == 'ad' and r['cached'] == 'True'}
             unknown_hashes = [h for h in hash_list if h not in db_cached]
 
         # External check for unknown hashes
@@ -107,14 +107,14 @@ class Debrid:
                     ev.wait(timeout=4.0)
                 # Re-check DB for results written by sibling scrapers
                 cached_from_db_post = debrid_cache.get_cached_hashes(unknown_hashes)
-                db_cached.update(r['hash'] for r in cached_from_db_post if r['debrid'] == 'ad' and r['cached'] == 'True')
+                db_cached.update(r['hash'].lower() for r in cached_from_db_post if r['debrid'] == 'ad' and r['cached'] == 'True')
                 ready_hashes = [h for h in ready_hashes if h not in db_cached]
 
             try:
                 if ready_hashes:
                     imdb_id, season = self._get_imdb_and_season(mal_id, episode, media_type)
                     if imdb_id:
-                        external_cached = set(debrid_cache.check_ad_cache(imdb_id, season, episode))
+                        external_cached = {h.lower() for h in debrid_cache.check_ad_cache(imdb_id, season, episode) if h}
                         if external_cached:
                             hashes_to_cache = [(h, 'True') for h in external_cached]
                             debrid_cache.set_cached_hashes(hashes_to_cache, 'ad')
@@ -124,7 +124,7 @@ class Debrid:
         all_cached = db_cached | external_cached
         for torrent in torrent_list:
             torrent['debrid_provider'] = 'Alldebrid'
-            if torrent['hash'] in all_cached:
+            if torrent['hash'].lower() in all_cached:
                 self.alldebridCached.append(torrent)
             else:
                 self.alldebridUnCached.append(torrent)
@@ -139,7 +139,7 @@ class Debrid:
     def real_debrid_worker(self, torrent_list, mal_id=None, episode=None, media_type=None, rescrape=False):
         if not torrent_list:
             return
-        hash_list = [i['hash'] for i in torrent_list]
+        hash_list = [i['hash'].lower() for i in torrent_list if i.get('hash')]
 
         # Check local debrid cache DB unless rescraping
         if rescrape:
@@ -147,7 +147,7 @@ class Debrid:
             unknown_hashes = hash_list
         else:
             cached_from_db = debrid_cache.get_cached_hashes(hash_list)
-            db_cached = {r['hash'] for r in cached_from_db if r['debrid'] == 'rd' and r['cached'] == 'True'}
+            db_cached = {r['hash'].lower() for r in cached_from_db if r['debrid'] == 'rd' and r['cached'] == 'True'}
             unknown_hashes = [h for h in hash_list if h not in db_cached]
 
         # External check for unknown hashes
@@ -159,14 +159,14 @@ class Debrid:
                     ev.wait(timeout=4.0)
                 # Re-check DB for results written by sibling scrapers
                 cached_from_db_post = debrid_cache.get_cached_hashes(unknown_hashes)
-                db_cached.update(r['hash'] for r in cached_from_db_post if r['debrid'] == 'rd' and r['cached'] == 'True')
+                db_cached.update(r['hash'].lower() for r in cached_from_db_post if r['debrid'] == 'rd' and r['cached'] == 'True')
                 ready_hashes = [h for h in ready_hashes if h not in db_cached]
 
             try:
                 if ready_hashes:
                     imdb_id, season = self._get_imdb_and_season(mal_id, episode, media_type)
                     if imdb_id:
-                        external_cached = set(debrid_cache.check_rd_cache(ready_hashes, imdb_id, season, episode))
+                        external_cached = {h.lower() for h in debrid_cache.check_rd_cache(ready_hashes, imdb_id, season, episode) if h}
                         if external_cached:
                             hashes_to_cache = [(h, 'True') for h in external_cached]
                             debrid_cache.set_cached_hashes(hashes_to_cache, 'rd')
@@ -176,7 +176,7 @@ class Debrid:
         all_cached = db_cached | external_cached
         for torrent in torrent_list:
             torrent['debrid_provider'] = 'Real-Debrid'
-            if torrent['hash'] in all_cached:
+            if torrent['hash'].lower() in all_cached:
                 self.realdebridCached.append(torrent)
             else:
                 self.realdebridUnCached.append(torrent)
@@ -200,7 +200,7 @@ class Debrid:
                     self.premiumizeUnCached.append(torrent)
 
     def torbox_worker(self, torrent_list):
-        hash_list = [i['hash'] for i in torrent_list]
+        hash_list = [i['hash'].lower() for i in torrent_list if i.get('hash')]
         if len(hash_list) > 0:
             torbox_result = torbox.TorBox().hash_check(hash_list)
             if not torbox_result:
@@ -208,10 +208,10 @@ class Debrid:
                     torrent['debrid_provider'] = 'TorBox'
                     self.torboxUnCached.append(torrent)
                 return
-            cache_check = [i['hash'] for i in torbox_result]
+            cache_check = {i['hash'].lower() for i in torbox_result if isinstance(i, dict) and i.get('hash')}
             for torrent in torrent_list:
                 torrent['debrid_provider'] = 'TorBox'
-                if torrent['hash'] in cache_check:
+                if torrent['hash'].lower() in cache_check:
                     self.torboxCached.append(torrent)
                 else:
                     self.torboxUnCached.append(torrent)

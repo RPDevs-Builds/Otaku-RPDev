@@ -15,6 +15,8 @@ class Sources(BrowserBase):
         self.uncached = []
         self.sources = []
         self.kitsu_id = None
+        self.imdb_id = None
+        self.thetvdb_season = None
         self.rescrape = False
 
     def _build_config(self):
@@ -30,16 +32,18 @@ class Sources(BrowserBase):
         show_ids = database.get_mappings(mal_id, 'mal_id')
         if show_ids:
             self.kitsu_id = show_ids.get('kitsu_id')
+            self.imdb_id = show_ids.get('imdb_id')
+            self.thetvdb_season = show_ids.get('thetvdb_season') or show_ids.get('season')
 
-        if not self.kitsu_id:
-            control.log('Torrentio: No kitsu_id found, skipping', 'warning')
+        if not self.kitsu_id and not self.imdb_id:
+            control.log('Torrentio: No kitsu_id or imdb_id found, skipping', 'warning')
             return {'cached': [], 'uncached': []}
 
         if media_type == 'movie':
             return self.get_movie_sources(mal_id)
 
-        episode_zfill = str(episode).zfill(2) if episode is not None else '01'
-        self.sources = self.process_torrentio_episodes(mal_id, episode_zfill, season, part)
+        episode_num = int(episode) if episode is not None else 1
+        self.sources = self.process_torrentio_episodes(mal_id, episode_num, season, part)
 
         self.append_cache_uncached_noduplicates()
         return {'cached': self.cached, 'uncached': self.uncached}
@@ -51,10 +55,17 @@ class Sources(BrowserBase):
         return {'cached': self.cached, 'uncached': self.uncached}
 
     def process_torrentio_episodes(self, mal_id, episode, season, part):
+        ep_int = int(episode)
+        ep_zfill = str(ep_int).zfill(2)
         config = self._build_config()
         path = f"/{config}" if config else ""
-        url = f"{self._BASE_URL}{path}/stream/series/kitsu:{self.kitsu_id}:{episode}.json"
-        control.log(f"Torrentio: Fetching episode sources from kitsu:{self.kitsu_id}:{episode}")
+        if self.kitsu_id:
+            stream_id = f"kitsu:{self.kitsu_id}:{ep_int}"
+        else:
+            season_num = int(season or self.thetvdb_season or 1)
+            stream_id = f"{self.imdb_id}:{season_num}:{ep_int}"
+        url = f"{self._BASE_URL}{path}/stream/series/{stream_id}.json"
+        control.log(f"Torrentio: Fetching episode sources from {stream_id}")
 
         response = client.get(url, timeout=10)
         if not response:
@@ -70,27 +81,28 @@ class Sources(BrowserBase):
             return []
 
         season_int = int(season) if season else None
-        filtered_list = source_utils.filter_sources('torrentio', list_, mal_id, season_int, int(episode), part)
+        filtered_list = source_utils.filter_sources('torrentio', list_, mal_id, season_int, ep_int, part)
         control.log(f"Torrentio: {len(filtered_list)} sources after filtering")
 
-        cache_list, uncached_list_ = Debrid().torrentCacheCheck(filtered_list, mal_id=mal_id, episode=episode, media_type=self.media_type, rescrape=self.rescrape)
+        cache_list, uncached_list_ = Debrid().torrentCacheCheck(filtered_list, mal_id=mal_id, episode=ep_zfill, media_type=self.media_type, rescrape=self.rescrape)
         cache_list = sorted(cache_list, key=lambda k: k['seeders'], reverse=True)
 
         uncached_list = [i for i in uncached_list_ if i['seeders'] > 0]
         uncached_list = sorted(uncached_list, key=lambda k: k['seeders'], reverse=True)
 
-        mapfunc = partial(self.parse_torrentio_view, episode=episode)
+        mapfunc = partial(self.parse_torrentio_view, episode=ep_zfill)
         all_results = utils.parallel_process(cache_list, mapfunc) if cache_list else []
         if control.getBool('show.uncached') and uncached_list:
-            mapfunc2 = partial(self.parse_torrentio_view, episode=episode, cached=False)
+            mapfunc2 = partial(self.parse_torrentio_view, episode=ep_zfill, cached=False)
             all_results += utils.parallel_process(uncached_list, mapfunc2)
         return all_results
 
     def process_torrentio_movie(self, mal_id):
         config = self._build_config()
         path = f"/{config}" if config else ""
-        url = f"{self._BASE_URL}{path}/stream/movie/kitsu:{self.kitsu_id}.json"
-        control.log(f"Torrentio: Fetching movie sources from kitsu:{self.kitsu_id}")
+        stream_id = f"kitsu:{self.kitsu_id}" if self.kitsu_id else f"{self.imdb_id}"
+        url = f"{self._BASE_URL}{path}/stream/movie/{stream_id}.json"
+        control.log(f"Torrentio: Fetching movie sources from {stream_id}")
 
         response = client.get(url, timeout=10)
         if not response:
@@ -127,7 +139,7 @@ class Sources(BrowserBase):
 
         list_ = []
         for stream in data.get('streams', []):
-            torrent_hash = stream.get('infoHash', '')
+            torrent_hash = (stream.get('infoHash') or '').lower()
             if not torrent_hash:
                 continue
 

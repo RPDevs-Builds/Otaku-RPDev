@@ -59,6 +59,7 @@ class Resolver(BaseWindow):
         self.mal_id = actionArgs.get('mal_id') if actionArgs else None
         # self.season = database.get_episode(self.mal_id)['season']
         self.episode = int(actionArgs.get('episode', 1)) if actionArgs else 1
+        self.media_type = self.actionArgs.get('media_type', 'tv') if self.actionArgs else 'tv'
         self.play = actionArgs.get('play')
         self.source_select_close = actionArgs.get('close')
         self.resume = actionArgs.get('resume')
@@ -274,6 +275,8 @@ class Resolver(BaseWindow):
         self.setProperty('source_resolution', source_utils.res[source['quality']])
         self.setProperty('source_info', " ".join(source['info']))
         self.setProperty('source_type', source['type'])
+        self.setProperty('source_size', source.get('size', ''))
+        self.setProperty('source_seeders', str(source.get('seeders', '')))
 
     def _handle_playback(self):
         """Separate playback handling to reduce resolve() complexity"""

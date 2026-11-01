@@ -12,12 +12,12 @@ class OtakuAPI:
         self.baseUrl = control.MAL_API_BASE_URL
         # Simkl API setup
         api_info = database.get_info('Simkl')
-        self.simklClientID = api_info['client_id']
+        self.simklClientID = api_info.get('client_id', '') if api_info else ''
         self.simklBaseUrl = "https://api.simkl.com"
         self.simklImagePath = "https://wsrv.nl/?url=https://simkl.in/episodes/%s_w.webp"
         # AniDB API setup
         anidb_info = database.get_info('AniDB')
-        self.anidbClientName = anidb_info['client_id']
+        self.anidbClientName = anidb_info.get('client_id', '') if anidb_info else ''
         self.anidbBaseUrl = 'http://api.anidb.net:9001/httpapi'
         # AniZip API setup
         self.anizipBaseUrl = "https://api.ani.zip"
@@ -30,6 +30,8 @@ class OtakuAPI:
 
     def get_kitsu_episode_meta(self, mal_id):
         kitsu_id = self.get_kitsu_id(mal_id)
+        if not kitsu_id:
+            return []
         url = f'{self.kitsuBaseUrl}/anime/{kitsu_id}/episodes'
 
         # Fetch first page to determine total pages
@@ -107,6 +109,8 @@ class OtakuAPI:
     def get_anidb_episode_meta(self, mal_id):
         import time
         anidb_id = self.get_anidb_id(mal_id)
+        if not anidb_id:
+            return []
         # Rate limit: ensure at least 4 seconds between requests
         last_request = control.getInt('anidb_last_request')
         now = int(time.time())

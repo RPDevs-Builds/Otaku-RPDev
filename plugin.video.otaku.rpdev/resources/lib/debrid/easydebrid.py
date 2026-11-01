@@ -63,7 +63,7 @@ class EasyDebrid:
         elif isinstance(files, list) and files and files[0].get('url'):
             # No episode provided, fallback to first file
             return files[0]['url']
-        return files or resp
+        return None
 
     def lookup_link(self, endpoint):
         """

@@ -135,7 +135,7 @@ class Premiumize:
     def search_folder(self, query):
         params = {'q': query}
         r = client.get(f'{self.base_url}/folder/search', headers=self.headers(), params=params)
-        return r.json()['content'] if r else None
+        return (r.json() or {}).get('content', []) if r else None
 
     def list_folder(self, folderid=None):
         params = {'id': folderid} if (folderid and folderid != 'root') else None
@@ -219,7 +219,7 @@ class Premiumize:
 
     def transfer_list(self):
         r = client.get(f'{self.base_url}/transfer/list', headers=self.headers())
-        return r.json()['transfers'] if r else None
+        return (r.json() or {}).get('transfers', []) if r else None
 
     def delete_torrent(self, torrent_id):
         params = {'id': torrent_id}
@@ -245,7 +245,7 @@ class Premiumize:
 
     def get_oldest_items(self):
         r = client.get(f'{self.base_url}/transfer/list', headers=self.headers())
-        transfers = r.json()['transfers'] if r else []
+        transfers = (r.json() or {}).get('transfers', []) if r else []
         # Filter out items missing 'created_at' to avoid KeyError
         transfers_with_created = [x for x in transfers if 'created_at' in x]
         return sorted(transfers_with_created, key=lambda x: x['created_at'])
@@ -299,7 +299,7 @@ class Premiumize:
                 stream_link = samples_filtered[0]['link']
 
         if stream_link and self.addtocloud:
-            self.add_to_cloud(stream_link)
+            self.add_to_cloud(magnet)
         return stream_link
 
     def resolve_cloud(self, source, pack_select):

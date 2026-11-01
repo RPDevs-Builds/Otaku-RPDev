@@ -461,9 +461,10 @@ class WatchlistFlavorBase:
             "id": mal_id
         }
         response = client.get('https://armkai.vercel.app/api/search', params=params)
-        res = response.json() if response else {}
-        flavor_id = res.get(flavor[:-3])
-        database.add_mapping_id(mal_id, flavor, flavor_id)
+        res = control.safe_json(response, default={})
+        flavor_id = res.get(flavor[:-3]) if isinstance(res, dict) else None
+        if flavor_id:
+            database.add_mapping_id(mal_id, flavor, flavor_id)
         return flavor_id
 
     @staticmethod
@@ -481,9 +482,10 @@ class WatchlistFlavorBase:
             'providor': 'MyAnimeList'
         }
         response = client.get('https://find-my-anime.dtimur.de/api', params=params)
-        res = response.json() if response else []
-        flavor_id = res[0]['providerMapping'][mapping] if res else None
-        database.add_mapping_id(mal_id, flavor, flavor_id)
+        res = control.safe_json(response, default=[])
+        flavor_id = (res[0].get('providerMapping') or {}).get(mapping) if (res and isinstance(res, list) and isinstance(res[0], dict) and mapping) else None
+        if flavor_id:
+            database.add_mapping_id(mal_id, flavor, flavor_id)
         return flavor_id
 
     @staticmethod

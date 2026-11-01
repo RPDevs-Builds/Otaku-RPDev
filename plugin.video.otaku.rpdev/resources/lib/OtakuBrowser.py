@@ -60,18 +60,24 @@ class OtakuBrowser(MalBrowser):
     def process_mal_view(self, mal_res, base_plugin_url, page):
         return self.process_otaku_view(mal_res, base_plugin_url, page)
 
-    def get_anime_data(self, mal_id):
+    def get_anime(self, mal_id):
         """
         Fetch full anime data from Jikan API by MAL ID.
         Returns the parsed JSON response or None on error.
         """
         mal_res = database.get(self.get_mal_base_res, 24, f"{self._BASE_URL}/anime/{mal_id}")
-        data = mal_res.get('data', None)
+        if not mal_res or not mal_res.get('data'):
+            return None
+        data = mal_res['data']
         mal_id = data['mal_id']
         anilist_res = self.get_anilist_base_res([mal_id])
+        anilist_item = anilist_res[0] if isinstance(anilist_res, list) and anilist_res else (anilist_res if isinstance(anilist_res, dict) else None)
         get_meta.collect_meta([data])
         get_meta.collect_meta(anilist_res)
-        return self.database_update_show(data, anilist_res)
+        self.database_update_show(data, anilist_item)
+        return database.get_show(mal_id)
+
+    get_anime_data = get_anime
 
     def get_recommendations(self, mal_id, page, prefix=None):
         recommendations = database.get(self.get_mal_base_res, 24, f"{self._BASE_URL}/anime/{mal_id}/recommendations")
@@ -80,6 +86,8 @@ class OtakuBrowser(MalBrowser):
 
     def get_relations(self, mal_id, page=1, prefix=None):
         relations = database.get(self.get_mal_base_res, 24, f'{self._BASE_URL}/anime/{mal_id}/relations')
+        if not relations:
+            return []
         for item in relations.get('data', []):
             if 'entry' in item and isinstance(item['entry'], list):
                 item['entry'] = [entry for entry in item['entry'] if entry.get('type', '').lower() == 'anime']

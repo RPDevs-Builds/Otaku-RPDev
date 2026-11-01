@@ -4,8 +4,8 @@ import time
 
 from resources.lib.ui import client, control, database
 
-api_info = database.get_info('Teamup')
-api_key = api_info['api_key']
+api_info = database.get_info('Teamup') or {}
+api_key = api_info.get('api_key', '')
 headers = {'Content-Type': "application/json", 'Teamup-Token': api_key}
 token = "ksdhpfjcouprnauwda"
 api_url = "https://api.teamup.com"
@@ -64,7 +64,7 @@ def get_dub_data(mal_id: int = None, en_title: str = None):
                             except Exception:
                                 continue
                         dub_time = str(dub_time.astimezone())[:16] if hasattr(dub_time, 'astimezone') else str(dub_time - datetime.timedelta(hours=5))[:16]
-                        dub_list = [{"season": season, "episode": f'{i}', "release_time": dub_time} for i in range(int(ep_number1), int(ep_number2) + 1)]
+                        dub_list.extend([{"season": season, "episode": f'{i}', "release_time": dub_time} for i in range(int(ep_number1), int(ep_number2) + 1)])
                     # Only one episode in teamup_dat
                     elif len(episode) == 1:
                         ep_number = episode[0]

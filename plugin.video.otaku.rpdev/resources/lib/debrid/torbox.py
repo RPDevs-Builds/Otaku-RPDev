@@ -164,7 +164,7 @@ class TorBox:
             'format': 'list'
         }
         r = self._request_with_backoff('get', url, headers=self.headers(), params=params)
-        return r.json()['data'] if r else None
+        return (r.json() or {}).get('data') if r else None
 
     def addMagnet(self, magnet):
         url = f'{self.BaseUrl}/torrents/createtorrent'
@@ -172,7 +172,7 @@ class TorBox:
             'magnet': magnet
         }
         r = self._request_with_backoff('post', url, headers=self.headers(), data=data)
-        return r.json()['data'] if r else None
+        return (r.json() or {}).get('data') if r else None
 
     def delete_torrent(self, torrent_id):
         url = f'{self.BaseUrl}/torrents/controltorrent'
@@ -181,18 +181,18 @@ class TorBox:
             'operation': 'delete'
         }
         r = self._request_with_backoff('post', url, headers=self.headers(), json_data=data)
-        return r.json()['data'] if r else None
+        return (r.json() or {}).get('data') if r else None
 
     def list_torrents(self):
         url = f'{self.BaseUrl}/torrents/mylist'
         r = self._request_with_backoff('get', url, headers=self.headers())
-        return r.json()['data'] if r else None
+        return (r.json() or {}).get('data') if r else None
 
     def get_torrent_info(self, torrent_id):
         url = f'{self.BaseUrl}/torrents/mylist'
         params = {'id': torrent_id, 'bypass_cache': 'true'}
         r = self._request_with_backoff('get', url, headers=self.headers(), params=params)
-        return r.json()['data'] if r else None
+        return (r.json() or {}).get('data') if r else None
 
     def request_dl_link(self, torrent_id, file_id=-1):
         url = f'{self.BaseUrl}/torrents/requestdl'
@@ -203,7 +203,7 @@ class TorBox:
         if file_id >= 0:
             params['file_id'] = file_id
         r = self._request_with_backoff('get', url, params=params)
-        return r.json()['data'] if r else None
+        return (r.json() or {}).get('data') if r else None
 
     def resolve_single_magnet(self, hash_, magnet, episode, pack_select, filename=None):
         torrent = self.addMagnet(magnet)
@@ -294,8 +294,6 @@ class TorBox:
                 stream_link = self.request_dl_link(torrent_id)
                 if self.autodelete:
                     self.delete_torrent(torrent_id)
-            if self.autodelete:
-                self.delete_torrent(torrent_id)
         else:
             self.delete_torrent(torrent_id)
         if runinforground:

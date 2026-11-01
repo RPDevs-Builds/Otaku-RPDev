@@ -1877,7 +1877,7 @@
 						</dependency>
 					</dependencies>
 					<control type="edit" format="integer">
-						<heading>40490</heading>
+						<heading>30164</heading>
 					</control>
 				</setting>
 				<setting id="general.movie.maxGB" type="integer" label="30301" help="30658" parent="general.fileFilter">
@@ -4700,13 +4700,6 @@
 					<level>4</level>
 					<default>0</default>
 					<control type="edit" format="integer" />
-				</setting>
-				<setting id="april_fools_day" type="string" label="" help="">
-					<level>4</level>
-					<default />
-					<constraints>
-						<allowempty>true</allowempty>
-					</constraints>
 				</setting>
 				<setting id="changelog.version" type="string" label="" help="">
 					<level>4</level>

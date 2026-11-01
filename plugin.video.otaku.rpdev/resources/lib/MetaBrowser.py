@@ -93,6 +93,8 @@ def get_sources(mal_id, episode, media_type, rescrape=False, source_select=False
     from resources.lib import pages
     if not (show := database.get_show(mal_id)):
         show = BROWSER.get_anime(mal_id)
+    if not show:
+        return []
     kodi_meta = database.loads(show['kodi_meta'])
 
     # Pre-fetch season and part once so scrapers don't each do redundant DB lookups
@@ -232,7 +234,7 @@ def get_next_up_meta(mal_id, episode_num):
 
     try:
         # Try Simkl first (best quality metadata)
-        simkl_eps = next_up_api.get_simkl_episode_meta(mal_id)
+        simkl_eps = database.get(next_up_api.get_simkl_episode_meta, 6, mal_id)
         if simkl_eps:
             for ep in simkl_eps:
                 if ep.get('type') == 'episode':
@@ -256,7 +258,7 @@ def get_next_up_meta(mal_id, episode_num):
     # Try AniZip as fallback
     if not episode_meta['title']:
         try:
-            anizip_eps = next_up_api.get_anizip_episode_meta(mal_id)
+            anizip_eps = database.get(next_up_api.get_anizip_episode_meta, 6, mal_id)
             if anizip_eps:
                 for ep in anizip_eps:
                     ep_num = ep.get('episode', 0)

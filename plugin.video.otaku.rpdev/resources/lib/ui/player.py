@@ -192,6 +192,8 @@ def select_subtitle_stream(subtitle_streams, target_mode='dialog', preferred_lan
 
     # Sort descending by score; on ties, preserve earlier stream index
     scored.sort(key=lambda item: (-item[0], item[1]))
+    if scored[0][0] < 0:
+        return None
     return scored[0][1]
 
 
@@ -227,7 +229,7 @@ class WatchlistPlayer(player):
         self.skipintro_aniskip = False
         self.skipoutro_aniskip = False
         self.skipintro_start = control.getInt('skipintro.delay')
-        self.skipintro_end = self.skipintro_start + control.getInt('skipintro.duration') * 60
+        self.skipintro_end = self.skipintro_start + control.getInt('skipintro.duration')
         self.skipoutro_start = 0
         self.skipoutro_end = 0
         self.skipintro_offset = control.getInt('skipintro.aniskip.offset')
@@ -274,10 +276,8 @@ class WatchlistPlayer(player):
         """Process skip times in background to avoid blocking playback"""
         def _process():
             try:
-                self.process_embed('aniwave')
-                self.process_embed('hianime')
-                self.process_embed('animekai')
-                self.process_embed('anikoto')
+                if self.provider in ('aniwave', 'hianime', 'animekai', 'anikoto'):
+                    self.process_embed(self.provider)
                 self.process_aniskip()
                 self.process_animeskip()
                 self._skip_processed = True
@@ -551,7 +551,7 @@ class WatchlistPlayer(player):
                 self.total_time = int(self.getTotalTime())
 
             intro_start = self.skipintro_start if self.skipintro_aniskip else (control.getInt('skipintro.delay') or 1)
-            intro_end = self.skipintro_end if self.skipintro_aniskip else intro_start + (control.getInt('skipintro.duration') * 60)
+            intro_end = self.skipintro_end if self.skipintro_aniskip else intro_start + control.getInt('skipintro.duration')
 
             # 1. Intro Skip check
             if not intro_handled:
@@ -819,18 +819,23 @@ class WatchlistPlayer(player):
                 else:
                     # Japanese or foreign audio playing: show subtitles
                     self.showSubtitles(True)
-            elif preferred_subtitle_lang != "none" and control.getBool('subtitles.enabled', True) and control.getBool('subtitles.auto_search', True):
+            elif preferred_subtitle_lang != "none":
                 # No matching internal subtitle stream found in video container:
-                # Trigger native external subtitle search and auto-download
-                try:
-                    from resources.lib import subtitles
-                    control.log("Player: No internal subtitle match found, triggering native subtitles engine", 'info')
-                    loaded = subtitles.auto_download_subtitles()
-                    if not loaded:
+                # Trigger native external subtitle search and auto-download if enabled
+                loaded = False
+                if control.getBool('subtitles.enabled', True) and control.getBool('subtitles.auto_search', True):
+                    try:
+                        from resources.lib import subtitles
+                        control.log("Player: No internal subtitle match found, triggering native subtitles engine", 'info')
+                        loaded = bool(subtitles.auto_download_subtitles())
+                    except Exception as e:
+                        control.log(f"Player: Native subtitles trigger error: {e}", 'warning')
+                if not loaded:
+                    if len(subtitle_streams) > 0 and (not is_eng_audio or control.getBool('general.dubsubtitles')):
+                        self.setSubtitleStream(0)
+                        self.showSubtitles(True)
+                    else:
                         self.showSubtitles(False)
-                except Exception as e:
-                    control.log(f"Player: Native subtitles trigger error: {e}", 'warning')
-                    self.showSubtitles(False)
             elif not subtitle_streams or preferred_subtitle_lang == "none":
                 # No valid subtitle stream found for current stream: ensure subtitles are disabled
                 # so lingering external or temp subtitles from earlier episodes are not displayed
@@ -1042,17 +1047,23 @@ class WatchlistPlayer(player):
                 self.skipoutro_aniskip = True
 
     def process_embed(self, embed):
+        embed_skipintro_start = control.getInt(f'{embed}.skipintro.start')
+        embed_skipintro_end = control.getInt(f'{embed}.skipintro.end')
+        embed_skipoutro_start = control.getInt(f'{embed}.skipoutro.start')
+        embed_skipoutro_end = control.getInt(f'{embed}.skipoutro.end')
+        control.setInt(f'{embed}.skipintro.start', -1)
+        control.setInt(f'{embed}.skipintro.end', -1)
+        control.setInt(f'{embed}.skipoutro.start', -1)
+        control.setInt(f'{embed}.skipoutro.end', -1)
         if self.skipintro_aniskip_enable and not self.skipintro_aniskip:
-            embed_skipintro_start = control.getInt(f'{embed}.skipintro.start')
             if embed_skipintro_start != -1:
                 self.skipintro_start = embed_skipintro_start + self.skipintro_offset
-                self.skipintro_end = control.getInt(f'{embed}.skipintro.end') + self.skipintro_offset
+                self.skipintro_end = embed_skipintro_end + self.skipintro_offset
                 self.skipintro_aniskip = True
         if self.skipoutro_aniskip_enable and not self.skipoutro_aniskip:
-            embed_skipoutro_start = control.getInt(f'{embed}.skipoutro.start')
             if embed_skipoutro_start != -1:
                 self.skipoutro_start = embed_skipoutro_start + self.skipoutro_offset
-                self.skipoutro_end = control.getInt(f'{embed}.skipoutro.end') + self.skipoutro_offset
+                self.skipoutro_end = embed_skipoutro_end + self.skipoutro_offset
                 self.skipoutro_aniskip = True
 
 
@@ -1176,6 +1187,17 @@ class PlayerDialogs(xbmc.Player):
             'thumb': [_next_info.getArt('thumb')],
             'name': _next_info.getLabel()
         }
+        try:
+            vtag = _next_info.getVideoInfoTag()
+            if vtag:
+                next_info['tvshowtitle'] = getattr(vtag, 'getTVShowTitle', lambda: '')()
+                next_info['season'] = getattr(vtag, 'getSeason', lambda: 0)()
+                next_info['episode'] = getattr(vtag, 'getEpisode', lambda: 0)()
+                next_info['aired'] = getattr(vtag, 'getFirstAired', lambda: '')() or getattr(vtag, 'getPremiered', lambda: '')()
+                next_info['rating'] = getattr(vtag, 'getRating', lambda: 0.0)()
+                next_info['plot'] = getattr(vtag, 'getPlot', lambda: '')()
+        except Exception:
+            pass
         return next_info
 
     @staticmethod

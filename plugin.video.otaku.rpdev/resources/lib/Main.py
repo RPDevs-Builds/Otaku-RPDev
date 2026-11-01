@@ -414,8 +414,11 @@ def ANIME_REVIEWS(payload, params):
 def VIEW_REVIEW(payload, params):
     parts = payload.strip('/').split('/')
     mal_id = parts[0]
-    review_idx = int(parts[1])
-    cached = control.getGlobalProp('otaku.reviews.cache')
+    try:
+        review_idx = int(parts[1])
+    except (IndexError, ValueError):
+        return control.exit_code()
+    cached = control.getGlobalProp('otaku.reviews.cache') if control.getGlobalProp('otaku.reviews.mal_id') == str(mal_id) else ''
     if not cached:
         page = int(control.getGlobalProp('otaku.reviews.page') or 1)
         reviews = BROWSER.refetch_reviews_page(mal_id, page)
@@ -646,8 +649,7 @@ def UPDATE_GENRE_SETTINGS(payload, params):
         'selected_tags': selected_tags
     }
 
-    with open(control.genre_json, 'w') as f:
-        json.dump(settings, f)
+    control.atomic_write_json(control.genre_json, settings)
 
 
 @multi_route(*_browser_list_route_paths('genre_action'))

@@ -37,7 +37,7 @@ class DownloadManager(BaseWindow):
 
         if actionID == 7:
             # ENTER
-            self.handle_action(7)
+            self.handle_action(self.getFocusId())
 
         elif actionID == 117:
             context_response = control.context_menu(['Cancel Download'])
@@ -46,18 +46,17 @@ class DownloadManager(BaseWindow):
                 url_hash = self.display_list.getListItem(position).getProperty('item.info.hash')
                 manager.cancel_task(url_hash)
                 manager.remove_download_task(url_hash)
-                self.close()
-                DownloadManager('download_manager.xml', control.ADDON_PATH).doModal()
+                self.downloads = manager.get_all_tasks_info()
+                self.populate_menu_items()
 
     def onClick(self, controlID):
         self.handle_action(controlID)
 
     def handle_action(self, controlID):
         if controlID == 3100:
-            self.abort = True
             manager.clear_complete()
-            self.close()
-            DownloadManager('download_manager.xml', control.ADDON_PATH).doModal()
+            self.downloads = manager.get_all_tasks_info()
+            self.populate_menu_items()
 
         if controlID == 3101:   # close
             self.abort = True
@@ -76,8 +75,8 @@ class DownloadManager(BaseWindow):
             self.set_menu_item_properties(new_item, download_item)
             return new_item
 
-        # while len(self.downloads) < self.display_list.size():
-        #     self.display_list.removeItem(self.display_list.size() - 1)
+        if len(self.downloads) < self.display_list.size():
+            self.display_list.reset()
 
         for idx, download in enumerate(self.downloads):
             if idx < self.display_list.size():
@@ -138,7 +137,7 @@ class Manager:
         self.download_ids.append(url_hash)
         control.setStringList("DMIndex", self.download_ids)
         self.url_hash = url_hash
-        self.download[url_hash] = self.download_init
+        self.download[url_hash] = dict(self.download_init)
         self.download[url_hash]['hash'] = url_hash
         self.update_task_info(url_hash, self.download[url_hash])
         return True
@@ -212,6 +211,14 @@ class Manager:
                 return control.ok_dialog(control.ADDON_NAME, "Unable to Find Directory")
             control.setSetting('download.location', self.storage_location)
 
+        headers = {}
+        if '|' in url:
+            url, raw_headers = url.split('|', 1)
+            for item in raw_headers.split('&'):
+                if '=' in item:
+                    k, v = item.split('=', 1)
+                    headers[k] = urllib.parse.unquote_plus(v)
+
         self.output_filename = filename
         if self.output_filename is None:
             raw_name = url.split("?")[0].split("/")[-1]
@@ -238,28 +245,28 @@ class Manager:
         self.status = "downloading"
 
         # Use urllib.request to get the headers
-        request = urllib.request.Request(url, method='HEAD')
-        head = urllib.request.urlopen(request, timeout=15)
-        self.file_size = int(head.getheader("content-length", 0) or 0)
+        request = urllib.request.Request(url, headers=headers, method='HEAD')
+        with urllib.request.urlopen(request, timeout=15) as head:
+            self.file_size = int(head.getheader("content-length", 0) or 0)
         self.file_size_display = self.get_display_size(self.file_size)
 
         # Use urllib.request to get the content
-        response = urllib.request.urlopen(url, timeout=15)
-        chunks = iter(lambda: response.read(1024 * 1024 * 8), b'')
+        get_request = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(get_request, timeout=30) as response:
+            chunks = iter(lambda: response.read(1024 * 1024 * 8), b'')
 
-        control.notify(control.ADDON_NAME, 'Download Started')
-        with open(self.output_path, 'wb') as f:
-            for chunk in chunks:
-                if chunk:
-                    with open(control.downloads_json) as file:
-                        data = json.load(file)
-                    if data[self.url_hash].get('canceled'):
-                        os.remove(self.output_path)
-                        control.notify(control.ADDON_NAME, "Download Canceled")
-                        break
-                    f.write(chunk)
-                    self.update_status(len(chunk))
-                    self.update_task_info(self.url_hash, self.download)
+            control.notify(control.ADDON_NAME, 'Download Started')
+            with open(self.output_path, 'wb') as f:
+                for chunk in chunks:
+                    if chunk:
+                        data = self._read_downloads_safe()
+                        if data.get(self.url_hash, {}).get('canceled'):
+                            os.remove(self.output_path)
+                            control.notify(control.ADDON_NAME, "Download Canceled")
+                            break
+                        f.write(chunk)
+                        self.update_status(len(chunk))
+                        self.update_task_info(self.url_hash, self.download)
         self.download['status'] = 'DONE'
         self.update_task_info(self.url_hash, self.download)
 
@@ -269,9 +276,16 @@ class Manager:
         :return: None
         """
         self.bytes_consumed += chunk_size
-        self.progress = int((float(self.bytes_consumed) / self.file_size) * 100)
-        self.speed = self.bytes_consumed / (CLOCK() - self._start_time)
-        self.remaining_seconds = float(self.file_size - self.bytes_consumed) / self.speed
+        if self.file_size > 0:
+            self.progress = int((float(self.bytes_consumed) / self.file_size) * 100)
+        else:
+            self.progress = 0
+        elapsed = CLOCK() - self._start_time
+        self.speed = (self.bytes_consumed / elapsed) if elapsed > 0 else 0
+        if self.speed > 0 and self.file_size > 0:
+            self.remaining_seconds = max(0.0, float(self.file_size - self.bytes_consumed) / self.speed)
+        else:
+            self.remaining_seconds = 0
         self.update_download()
 
     @staticmethod

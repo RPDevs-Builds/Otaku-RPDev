@@ -271,7 +271,7 @@ class SimklWLF(WatchlistFlavorBase):
                 save_watchlist_cache(self._NAME, cache_status, filtered_data)
 
         # Get items from cache
-        sort_col, sort_dir = self.get_sort_col_and_order()
+        sort_col, sort_dir = ('updated', 'DESC') if cache_status == 'next_up' else self.get_sort_col_and_order()
         total_count = get_watchlist_cache_count(self._NAME, cache_status)
 
         if paging_enabled and per_page > 0:
@@ -595,7 +595,7 @@ class SimklWLF(WatchlistFlavorBase):
     def save_completed(self):
         data = self.get_all_items('completed')
         completed = {}
-        for dat in data['anime']:
+        for dat in (data or {}).get('anime', []):
             completed[str(dat['show']['ids']['mal'])] = dat['total_episodes_count']
         return completed
 

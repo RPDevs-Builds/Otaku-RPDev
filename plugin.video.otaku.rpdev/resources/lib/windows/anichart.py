@@ -133,7 +133,12 @@ class Anichart(BaseWindow):
                 return
 
             self.position = self.display_list.getSelectedPosition()
-            anime = self.anime_items[self.position]['id']
+            if not self.anime_items or not (0 <= self.position < len(self.anime_items)):
+                return
+            item = self.anime_items[self.position]
+            anime = item.get('id') or item.get('mal_id')
+            if not anime:
+                return
             page = 1
 
             choice = context_menu_options[context]
@@ -167,6 +172,8 @@ class Anichart(BaseWindow):
             return
 
         self.position = self.display_list.getSelectedPosition()
+        if not self.anime_items or not (0 <= self.position < len(self.anime_items)):
+            return
 
         # Get the selected anime item
         selected_item = self.anime_items[self.position]

@@ -225,6 +225,11 @@ class DebridLink:
             if runinforground:
                 control.progressDialog.close()
             return None
+
+        if runinbackground:
+            control.notify(heading, "The source is downloading to your cloud")
+            return None
+
         while magnet_status.get('downloadPercent') < 100.0:
             if runinforground and (control.progressDialog.iscanceled() or control.wait_for_abort(5)):
                 break
@@ -242,9 +247,8 @@ class DebridLink:
                           f"Seeders: {seeders}[CR]"
                           f"Speed: {source_utils.get_size(speed)}")
                 control.progressDialog.update(int(progress), f_body)
-            control.sleep(5000)
 
-        if magnet_status.get('downloadPercent') == 100.0:
+        if magnet_status and magnet_status.get('downloadPercent') == 100.0:
             folder_details = [{'link': x.get('downloadUrl'), 'path': x.get('name').split('/')[-1]} for x in magnet_status.get('files')]
             if len(folder_details) == 1:
                 stream_link = folder_details[0]['link']
@@ -252,7 +256,9 @@ class DebridLink:
                 selected_file = source_utils.get_best_match('path', folder_details, source['episode_re'], pack_select)
                 if not selected_file or not selected_file['path']:
                     self.delete_magnet(magnet_id)
-                    return
+                    if runinforground:
+                        control.progressDialog.close()
+                    return None
                 stream_link = selected_file['link']
         else:
             self.delete_magnet(magnet_id)

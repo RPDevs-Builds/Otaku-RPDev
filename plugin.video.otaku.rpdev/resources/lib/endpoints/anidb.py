@@ -1,8 +1,8 @@
 from resources.lib.ui import client, control, database
 import xml.etree.ElementTree as ET
 
-api_info = database.get_info('AniDB')
-client_name = api_info['client_id']
+api_info = database.get_info('AniDB') or {}
+client_name = api_info.get('client_id', '')
 base_url = 'http://api.anidb.net:9001/httpapi'
 
 params = {
@@ -14,8 +14,9 @@ params = {
 
 
 def get_episode_meta(anidb_id):
-    params['aid'] = anidb_id
-    r = client.get(base_url, params=params)
+    req_params = dict(params)
+    req_params['aid'] = anidb_id
+    r = client.get(base_url, params=req_params)
     episode_meta = {}
     if r:
         root = control.safe_call(ET.fromstring, r.text, log_msg='AniDB XML parse error')

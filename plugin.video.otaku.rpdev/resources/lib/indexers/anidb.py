@@ -10,7 +10,7 @@ from resources.lib import indexers
 class ANIDBAPI:
     def __init__(self):
         api_info = database.get_info('AniDB')
-        self.client_name = api_info['client_id']
+        self.client_name = api_info.get('client_id', '') if api_info else ''
         self.base_url = 'http://api.anidb.net:9001/httpapi'
 
     def get_anidb_id(self, mal_id):
@@ -20,6 +20,8 @@ class ANIDBAPI:
     def get_episode_meta(self, mal_id):
         import time
         anidb_id = self.get_anidb_id(mal_id)
+        if not anidb_id:
+            return []
         # Use Kodi settings for persistent rate limiting
         last_request = control.getInt('anidb_last_request')
         now = int(time.time())
@@ -39,7 +41,10 @@ class ANIDBAPI:
         alt_titles = []
         episodes = []
         if response:
-            root = ET.fromstring(response.text)
+            try:
+                root = ET.fromstring(response.text)
+            except ET.ParseError:
+                return []
             # Parse the <titles> element for alternative titles.
             titles_elem = root.find('titles')
             if titles_elem is not None:
@@ -160,6 +165,8 @@ class ANIDBAPI:
         update_time, diff = indexers.get_diff(episodes[-1])
         if diff > control.getInt('interface.check.updates'):
             result = self.get_episode_meta(mal_id)
+            if not result or not isinstance(result, dict) or not result.get('episodes'):
+                return []
             season = episodes[0]['season']
             mapfunc2 = partial(self.parse_episode_view, mal_id=mal_id, season=season, poster=poster, fanart=fanart, clearart=clearart, clearlogo=clearlogo, eps_watched=eps_watched, update_time=update_time, tvshowtitle=tvshowtitle, dub_data=dub_data, filler_data=filler_data, episodes=episodes)
             # Parallelize episode parsing

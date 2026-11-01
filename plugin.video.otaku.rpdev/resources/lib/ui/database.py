@@ -153,16 +153,21 @@ class SQL:
             cursor.connection.commit()   # needed for writes
     """
 
-    def __init__(self, path, timeout=30):
+    def __init__(self, path, timeout=30, is_readonly=None):
         self.path = path
         self.timeout = timeout
         self._conn = None
         self._cursor = None
+        abs_path = os.path.abspath(self.path) if self.path else ''
+        info_path = os.path.abspath(control.infoDB) if getattr(control, 'infoDB', None) else ''
+        self.is_readonly = (abs_path == info_path) if is_readonly is None else bool(is_readonly)
 
     def __enter__(self):
         abs_path = os.path.abspath(self.path)
         info_path = os.path.abspath(control.infoDB) if getattr(control, 'infoDB', None) else ''
-        is_readonly = (abs_path == info_path)
+        if not self.is_readonly and abs_path == info_path:
+            self.is_readonly = True
+        is_readonly = self.is_readonly
 
         if not is_readonly and not xbmcvfs.exists(control.dataPath):
             xbmcvfs.mkdirs(control.dataPath)
@@ -186,7 +191,19 @@ class SQL:
 
         try:
             if abs_path not in conns:
-                conn = dbapi2.connect(self.path, timeout=self.timeout, isolation_level=None)
+                if self.is_readonly and os.path.exists(self.path):
+                    try:
+                        conn = dbapi2.connect(
+                            f"file:{self.path}?mode=ro",
+                            uri=True,
+                            timeout=30.0,
+                            isolation_level=None,
+                            check_same_thread=False
+                        )
+                    except Exception:
+                        conn = dbapi2.connect(self.path, timeout=self.timeout, isolation_level=None)
+                else:
+                    conn = dbapi2.connect(self.path, timeout=self.timeout, isolation_level=None)
                 conn.row_factory = _dict_factory
                 if not is_readonly:
                     conn.execute("PRAGMA foreign_keys = ON")
@@ -248,7 +265,9 @@ class SQL:
                 control.log('database OperationalError', level='error')
                 control.log(''.join(traceback.format_exception(
                     exc_type, exc_val, exc_tb)), level='error')
-                return True
+                if 'no such table' in str(exc_val).lower():
+                    return True
+                return False
             import traceback
             control.log('database error', level='error')
             control.log(''.join(traceback.format_exception(
@@ -413,13 +432,18 @@ def get(function, duration, *args, **kwargs):
     return result
 
 
-def get_coalesced(function, duration, *args, **kwargs):
-    """Share overlapping progress / metadata calls across concurrent Kodi Python invocations.
+_coalesce_locks = {}
+_coalesce_meta_lock = threading.Lock()
+_legacy_build_cleaned = False
 
-    The coordination lock uses an isolated micro SQLite database separate from the metadata cache:
-    no write lock is held on cacheFile while fetching remote data. Overlapping callers
-    wait on BEGIN IMMEDIATE and then retrieve the newly cached result.
+
+def get_coalesced(function, duration, *args, **kwargs):
+    """Share overlapping progress / metadata calls across concurrent Kodi threads.
+
+    Uses an in-process per-key threading.Lock() guarded by _coalesce_meta_lock,
+    double-checking RAM and SQLite caches before executing function(*args, **kwargs).
     """
+    global _legacy_build_cleaned
     if duration == 24:
         configured_ttl = control.getInt('cache.metadata.ttl')
         if configured_ttl:
@@ -429,7 +453,6 @@ def get_coalesced(function, duration, *args, **kwargs):
         if configured_ttl:
             duration = configured_ttl
 
-    started = time.time()
     key = _hash_function(function, args, kwargs)
     if 'key' in kwargs:
         key += kwargs.get('key')
@@ -439,53 +462,33 @@ def get_coalesced(function, duration, *args, **kwargs):
     if mem is not None and not _is_empty_result(mem):
         return mem
 
-    # Ensure data directory exists
-    if not os.path.exists(control.dataPath):
+    # Clean up any legacy .build-* SQLite files if present
+    if not _legacy_build_cleaned and getattr(control, 'dataPath', None) and os.path.isdir(control.dataPath):
+        _legacy_build_cleaned = True
         try:
-            os.makedirs(control.dataPath, exist_ok=True)
-        except Exception:
+            for fname in os.listdir(control.dataPath):
+                if '.build-' in fname:
+                    try:
+                        os.remove(os.path.join(control.dataPath, fname))
+                    except OSError:
+                        pass
+        except OSError:
             pass
 
-    lock_path = control.cacheFile + '.build-' + generate_md5(key)
-    con = dbapi2.connect(lock_path, timeout=0.25)
-    try:
-        while True:
-            try:
-                con.execute('BEGIN IMMEDIATE')
-                break
-            except dbapi2.OperationalError as exc:
-                if 'locked' not in str(exc).lower() and 'busy' not in str(exc).lower():
-                    raise
-                if control.monitor.waitForAbort(0.1):
-                    return None
+    with _coalesce_meta_lock:
+        key_lock = _coalesce_locks.get(key)
+        if key_lock is None:
+            key_lock = threading.Lock()
+            _coalesce_locks[key] = key_lock
 
-        con.execute('CREATE TABLE IF NOT EXISTS result (id INTEGER PRIMARY KEY, completed REAL, value TEXT)')
-        row = con.execute('SELECT completed, value FROM result WHERE id=1').fetchone()
-        if row and row[0] >= started:
-            try:
-                data = ast.literal_eval(row[1])
-                if data is not None and not _is_empty_result(data):
-                    _mem_set(key, row[1], duration)
-                    return data
-            except Exception:
-                pass
+    with key_lock:
+        # Double-check Tier 1: RAM
+        mem = _mem_get(key)
+        if mem is not None and not _is_empty_result(mem):
+            return mem
 
-        result = get(function, duration, *args, **kwargs)
-        if result is not None and not _is_empty_result(result):
-            con.execute('INSERT OR REPLACE INTO result VALUES (1, ?, ?)', (time.time(), repr(result)))
-        con.commit()
-        return result
-    finally:
-        try:
-            con.close()
-        except Exception:
-            pass
-        # Clean up stale coordination file if older than 60 seconds
-        try:
-            if os.path.exists(lock_path) and (time.time() - os.path.getmtime(lock_path)) > 60:
-                os.remove(lock_path)
-        except Exception:
-            pass
+        # Double-check Tier 2: SQLite and Tier 3: Fresh call via get()
+        return get(function, duration, *args, **kwargs)
 
 
 def remove(function, *args, **kwargs):
@@ -1592,7 +1595,7 @@ def get_scraper_metrics_report():
     lines.append("▶ Dynamic Domain Mirrors")
     try:
         from resources.lib.ui import domains
-        active_domains = getattr(domains, 'DOMAINS', {})
+        active_domains = domains.get_all_domains()
         if active_domains:
             for scraper_name, d_url in sorted(active_domains.items()):
                 lines.append(f"   • {scraper_name}: {d_url}")

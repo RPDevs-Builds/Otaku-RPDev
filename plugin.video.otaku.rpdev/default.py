@@ -24,7 +24,6 @@ from resources.lib.ui.router import router_process
 
 if __name__ == "__main__":
     try:
-        control.process_context()
         from resources.lib import Main  # noQA
         plugin_url = control.get_plugin_url(sys.argv[0])
         plugin_params = control.get_plugin_params(sys.argv[2])
@@ -46,18 +45,19 @@ if __name__ == "__main__":
         else:
             # Show changelog modal after the root directory invoker finishes if version changed
             is_root = (plugin_url in ('', '/', 'plugin://plugin.video.otaku.rpdev/', 'plugin://plugin.video.otaku.rpdev') and not plugin_params)
+            current_ver = control.ADDON_VERSION
             saved_ver = control.getSetting('changelog.version') or control.getSetting('version')
-            if is_root and control.ADDON_VERSION != saved_ver:
-                control.setSetting('changelog.version', control.ADDON_VERSION)
-                control.setSetting('version', control.ADDON_VERSION)
-                control.setSetting('otaku.version', control.ADDON_VERSION)
+            if is_root and current_ver != saved_ver:
+                control.setSetting('changelog.version', current_ver)
+                control.setSetting('version', current_ver)
+                control.setSetting('otaku.version', current_ver)
                 if control.getInt('showchangelog') == 0:
                     import service
                     service.getChangeLog()
-            elif is_root:
-                control.setSetting('changelog.version', control.ADDON_VERSION)
-                control.setSetting('version', control.ADDON_VERSION)
-                control.setSetting('otaku.version', control.ADDON_VERSION)
+            elif is_root and control.getSetting('otaku.version') != current_ver:
+                control.setSetting('changelog.version', current_ver)
+                control.setSetting('version', current_ver)
+                control.setSetting('otaku.version', current_ver)
 
         control.log(f'Finished Running: {plugin_url=} {plugin_params=}')
     finally:

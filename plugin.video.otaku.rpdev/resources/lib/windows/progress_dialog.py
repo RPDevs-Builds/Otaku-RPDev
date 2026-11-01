@@ -28,7 +28,7 @@ class Progress_dialog(xbmcgui.WindowXMLDialog):
 
     def onAction(self, action):
         actionID = action.getId()
-        if actionID in [9, 10, 92, 216]:
+        if actionID in [9, 10, 92, 110, 216]:
             # BACK / BACKSPACE / ESCAPE (including Android TV remote back action 9)
             self._cancelled = True
             self.close()

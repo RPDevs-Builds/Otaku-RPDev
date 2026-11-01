@@ -67,6 +67,8 @@ class MalBrowser(BrowserBase):
         return ''
 
     def process_mal_view(self, res, base_plugin_url, page):
+        if not res or 'data' not in res:
+            return []
         data = res.get('data') or []
         get_meta.collect_meta(data)
         mapfunc = partial(self.base_mal_view, completed=self.open_completed())
@@ -87,18 +89,6 @@ class MalBrowser(BrowserBase):
         year = date.year
         month = date.month
         seasons = ['winter', 'spring', 'summer', 'fall']
-        season_start_dates = {
-            'winter': datetime.date(year, 1, 1),
-            'spring': datetime.date(year, 4, 1),
-            'summer': datetime.date(year, 7, 1),
-            'fall': datetime.date(year, 10, 1)
-        }
-        season_end_dates = {
-            'winter': datetime.date(year, 3, 31),
-            'spring': datetime.date(year, 6, 30),
-            'summer': datetime.date(year, 9, 30),
-            'fall': datetime.date(year, 12, 31)
-        }
 
         if self.year_type:
             if 1916 < self.year_type <= year + 1:
@@ -107,7 +97,7 @@ class MalBrowser(BrowserBase):
                 control.notify(control.ADDON_NAME, "Invalid year. Please select a year between 1916 and {0}.".format(year + 1))
                 return None, None, None, None, None, None, None, None, None, None, None, None, None, None
 
-        season = None
+        season = 'winter'
         if self.season_type > -1:
             if 0 <= self.season_type < 4:
                 season = seasons[self.season_type]
@@ -132,6 +122,19 @@ class MalBrowser(BrowserBase):
                     year -= 1
             else:
                 season = seasons[int((month - 1) / 3)]
+
+        season_start_dates = {
+            'winter': datetime.date(year, 1, 1),
+            'spring': datetime.date(year, 4, 1),
+            'summer': datetime.date(year, 7, 1),
+            'fall': datetime.date(year, 10, 1)
+        }
+        season_end_dates = {
+            'winter': datetime.date(year, 3, 31),
+            'spring': datetime.date(year, 6, 30),
+            'summer': datetime.date(year, 9, 30),
+            'fall': datetime.date(year, 12, 31)
+        }
 
         season_start_date = season_start_dates[season]
         season_end_date = season_end_dates[season]
@@ -240,6 +243,8 @@ class MalBrowser(BrowserBase):
 
     def _browse_season_airing(self, page, format, prefix, route_slug, period):
         season, year, _, _, _, _, _, _, _, _, _, _, _, _ = self.get_season_year(period)
+        if not season or not year:
+            return []
         params = {
             'page': page,
             'limit': self.perpage,
@@ -283,15 +288,22 @@ class MalBrowser(BrowserBase):
 
     def get_anime(self, mal_id):
         res = database.get(self.get_base_res, 24, f"{self._BASE_URL}/anime/{mal_id}")
+        if not res or 'data' not in res:
+            return None
         return self.process_res(res['data'])
 
     def get_recommendations(self, mal_id, page):
         recommendations = database.get(self.get_base_res, 24, f'{self._BASE_URL}/anime/{mal_id}/recommendations')
-        get_meta.collect_meta(recommendations['data'])
+        if not recommendations or 'data' not in recommendations:
+            return []
+        data_list = recommendations.get('data', [])
+        perpage = getattr(self, 'perpage', 25) or 25
+        page_slice = data_list[(int(page) - 1) * perpage:int(page) * perpage]
+        get_meta.collect_meta(page_slice)
 
         recommendation_res = []
         count = 0
-        for recommendation in recommendations['data']:
+        for recommendation in page_slice:
             entry = recommendation.get('entry')
             if entry and entry.get('mal_id'):
                 data = self._fetch_mal_anime_data(entry['mal_id'])
@@ -306,6 +318,8 @@ class MalBrowser(BrowserBase):
 
     def get_relations(self, mal_id):
         relations = database.get(self.get_base_res, 24, f'{self._BASE_URL}/anime/{mal_id}/relations')
+        if not relations or 'data' not in relations:
+            return []
         meta_ids = [{'mal_id': entry['mal_id']} for relation in relations['data'] for entry in relation['entry']]
         get_meta.collect_meta(meta_ids)
 
@@ -541,6 +555,8 @@ class MalBrowser(BrowserBase):
 
     def get_genres(self, page, format):
         res = database.get(self.get_base_res, 24, f'{self._BASE_URL}/genres/anime')
+        if not res or 'data' not in res:
+            return []
 
         genre = res['data']
         genres_list = [x['name'] for x in genre]

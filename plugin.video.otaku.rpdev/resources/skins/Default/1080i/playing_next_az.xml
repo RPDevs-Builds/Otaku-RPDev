@@ -21,7 +21,7 @@
                 <height>64</height>
                 <aligny>center</aligny>
                 <font>Small</font>
-                <label>$ADDON[plugin.video.otaku.rpdev 40384]</label>
+                <label>$ADDON[plugin.video.otaku.rpdev 30529]</label>
                 <textcolor>ffededed</textcolor>
                 <shadowcolor>bf000000</shadowcolor>
             </control>

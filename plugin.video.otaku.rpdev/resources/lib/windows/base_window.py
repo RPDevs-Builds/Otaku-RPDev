@@ -48,6 +48,12 @@ class BaseWindow(xbmcgui.WindowXMLDialog):
                 self.item_information = {}
         elif item_type == 'playing_next':
             self.item_information = actionArgs
+            for prop_key in ('tvshowtitle', 'season', 'episode', 'aired', 'rating'):
+                val = actionArgs.get(prop_key)
+                if val is not None:
+                    if prop_key == 'rating' and isinstance(val, dict):
+                        val = val.get('score')
+                    self.setProperty(f'item.info.{prop_key}', str(val))
         else:
             self.item_information = {}
 
@@ -129,7 +135,10 @@ class BaseWindow(xbmcgui.WindowXMLDialog):
         # Movie-specific properties
         if self.item_information.get('format') in ['MOVIE', 'Movie']:
             self.setProperty('item.info.plot', self.item_information.get('plot'))
-            self.setProperty('item.info.rating', str(self.item_information.get('rating')))
+            rating = self.item_information.get('rating')
+            if isinstance(rating, dict):
+                rating = rating.get('score')
+            self.setProperty('item.info.rating', str(rating))
             self.setProperty('item.info.title', self.item_information.get('title_userPreferred'))
 
     def getControlList(self, control_id):

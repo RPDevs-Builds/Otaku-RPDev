@@ -27,13 +27,18 @@ def get_episode_ids(anilist_id, episode):
 
     response = client.post(base_url, headers=headers, json_data={'query': query, 'variables': variables})
     if response and response.ok:
-        data = control.safe_json(response)
-        res = data.get('data', {}).get('findShowsByExternalId', [])
+        data = control.safe_json(response, default={})
+        res = (data.get('data') or {}).get('findShowsByExternalId') or []
         id_list = []
         for resx in res:
             for x in resx.get('episodes', []):
-                if x.get('number') and int(x['number']) == episode:
-                    id_list.append(x['id'])
+                if x.get('number') is not None:
+                    try:
+                        ep_num = int(x['number'])
+                    except (ValueError, TypeError):
+                        continue
+                    if ep_num == episode:
+                        id_list.append(x['id'])
         return id_list
     return []
 
@@ -55,8 +60,8 @@ def get_time_stamps(id_list):
         variables['episodeId'] = id_list[x]
         response = client.post(base_url, headers=headers, json_data={'query': query, 'variables': variables})
         if response and response.ok:
-            data = control.safe_json(response)
-            res = data.get('data', {}).get('findTimestampsByEpisodeId', [])
+            data = control.safe_json(response, default={})
+            res = (data.get('data') or {}).get('findTimestampsByEpisodeId') or []
             if res:
                 return res
     return []

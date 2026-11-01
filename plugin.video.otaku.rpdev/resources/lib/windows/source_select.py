@@ -56,6 +56,19 @@ class SourceSelect(BaseWindow):
                 if start_date and isinstance(start_date, str) and '-' in start_date:
                     self.setProperty('item.info.year', start_date.split('-')[0])
 
+        fanart = (actionArgs.get('fanart') if actionArgs else None) or (self.item_information.get('fanart') if isinstance(self.item_information, dict) else None)
+        if fanart:
+            if isinstance(fanart, list):
+                fanart = fanart[0] if fanart else ''
+            if fanart:
+                self.setProperty('item.art.fanart', str(fanart))
+        clearlogo = (actionArgs.get('clearlogo') if actionArgs else None) or (self.item_information.get('clearlogo') if isinstance(self.item_information, dict) else None)
+        if clearlogo:
+            if isinstance(clearlogo, list):
+                clearlogo = clearlogo[0] if clearlogo else ''
+            if clearlogo:
+                self.setProperty('item.art.clearlogo', str(clearlogo))
+
     def onInit(self):
         self.display_list = self.getControl(1000)
         # build all four lists
@@ -176,7 +189,7 @@ class SourceSelect(BaseWindow):
     def onAction(self, action):
         actionID = action.getId()
 
-        if actionID in [9, 10, 92, 216]:
+        if actionID in [9, 10, 92, 110, 216]:
             # BACK / BACKSPACE / ESCAPE (including Android TV remote back action 9)
             control.playList.clear()
             self.stream_link = False

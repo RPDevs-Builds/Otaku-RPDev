@@ -13,6 +13,9 @@ from resources.lib.ui import control, database, source_utils
 from resources.lib.windows.get_sources_window import GetSources
 from resources.lib.windows import sort_select
 
+_SIZE_RE = re.compile(r'([\d.]+)\s*([KMGTP]?B)', re.IGNORECASE)
+_RELEASE_GROUP_RE = re.compile(r'^\[([^\]]+)\]')
+
 
 # (python_module, database.get cache key) — provider ids = dict keys below (insertion order)
 _TORRENT_MODULES = {
@@ -34,7 +37,7 @@ _HOSTER_MODULES = {
 # skip prefix drives _apply_embed_skip (aniwave / hianime / animekai)
 _EMBED_MODULES = (
     ('animepahe', animepahe, 'animepahe', None, False),
-    ('animix', animixplay, 'animix', None, False),
+    # ('animix', animixplay, 'animix', None, False),
     # ('aniwave', aniwave, 'aniwave', 'aniwave', False),
     ('hianime', hianime, 'hianime', 'hianime', False),
     # ('animekai', animekai, 'animekai', 'animekai', False),
@@ -287,12 +290,18 @@ class Sources(GetSources):
                     ))
                 control.sleep(100)
 
+                with self._results_lock:
+                    no_remaining = not self.remainingProviders
+                    has_cloud = len(self.cloud_files) > 0
+                    has_local = len(self.local_files) > 0
+                    has_torrent = len(self.torrentSources) > 0
+
                 if (
                     self.canceled
-                    or not self.remainingProviders
-                    or (control.getBool('general.terminate.oncloud') and len(self.cloud_files) > 0)
-                    or (control.getBool('general.terminate.onlocal') and len(self.local_files) > 0)
-                    or (control.getBool('general.terminate.ontorrent') and len(self.torrentSources) > 0)
+                    or no_remaining
+                    or (control.getBool('general.terminate.oncloud') and has_cloud)
+                    or (control.getBool('general.terminate.onlocal') and has_local)
+                    or (control.getBool('general.terminate.ontorrent') and has_torrent)
                 ):
                     break
 
@@ -477,7 +486,7 @@ class Sources(GetSources):
                 if raw_size and isinstance(raw_size, str):
                     raw_size = raw_size.strip()
                     if raw_size.upper() not in ('NA', 'N/A', 'UNKNOWN', 'NONE', ''):
-                        match = re.search(r'([\d.]+)\s*([KMGTP]?B)', raw_size, re.IGNORECASE)
+                        match = _SIZE_RE.search(raw_size)
                         if match:
                             try:
                                 num = float(match.group(1))
@@ -651,8 +660,7 @@ class Sources(GetSources):
                     last_quality = last_played_profile.get('quality')
                     last_provider = last_played_profile.get('provider')
                     last_release_title = last_played_profile.get('release_title', '')
-                    import re
-                    match = re.match(r'^\[([^\]]+)\]', last_release_title)
+                    match = _RELEASE_GROUP_RE.match(last_release_title)
                     last_group = match.group(1).lower() if match else ''
 
                     match_idx = -1
@@ -678,15 +686,19 @@ class Sources(GetSources):
 
     def updateProgress(self):
         t_counts, h_counts, e_counts = [0] * 5, [0] * 5, [0] * 5
-        for s in self.torrentSources:
+        with self._results_lock:
+            t_sources = list(self.torrentSources)
+            h_sources = list(self.hosterSources)
+            e_sources = list(self.embedSources)
+        for s in t_sources:
             q = s.get('quality', 0)
             if 0 <= q <= 4:
                 t_counts[4 - q] += 1
-        for s in self.hosterSources:
+        for s in h_sources:
             q = s.get('quality', 0)
             if 0 <= q <= 4:
                 h_counts[4 - q] += 1
-        for s in self.embedSources:
+        for s in e_sources:
             q = s.get('quality', 0)
             if 0 <= q <= 4:
                 e_counts[4 - q] += 1

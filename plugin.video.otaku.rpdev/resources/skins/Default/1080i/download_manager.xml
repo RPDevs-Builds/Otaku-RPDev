@@ -1,5 +1,5 @@
 <window type="dialog">
-    <defaultcontrol>2</defaultcontrol>
+    <defaultcontrol>1000</defaultcontrol>
     <controls>
         <!-- Background Texture -->
         <control type="image">

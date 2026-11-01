@@ -43,7 +43,7 @@ def find_file_in_archive_namelist(namelist: List[str], episode_number: str = '',
     # Build regex patterns for episode matching
     ep_patterns = [
         re.compile(rf'[._\s\-\[x]s?\d{{1,2}}e0*{ep_int}[._\s\-\]]', re.IGNORECASE),
-        re.compile(rf'[._\s\-\[x]0*{ep_int}x0*{ep_int}[._\s\-\]]', re.IGNORECASE),
+        re.compile(rf'[._\s\-\[]\d{{1,2}}x0*{ep_int}[._\s\-\]]', re.IGNORECASE),
         re.compile(rf'[._\s\-\[]e0*{ep_int}[._\s\-\]]', re.IGNORECASE),
         re.compile(rf'[._\s\-\[]ep0*{ep_int}[._\s\-\]]', re.IGNORECASE),
         re.compile(rf'[\s\-_]0*{ep_int}[\s\-_\.]', re.IGNORECASE),

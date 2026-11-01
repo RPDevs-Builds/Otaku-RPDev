@@ -78,9 +78,12 @@ class PlayingNext(BaseWindow):
             self.close()
         if controlID == 3003:   # skipoutro
             self.actioned = True
-            skipoutro_end_skip_time = self.skipoutro_end
-            if skipoutro_end_skip_time != 0:
-                self.player.seekTime(skipoutro_end_skip_time)
+            if self.player:
+                if self.skipoutro_end:
+                    self.player.seekTime(self.skipoutro_end)
+                else:
+                    total_t = self.player.getTotalTime() if hasattr(self.player, 'getTotalTime') else 0
+                    self.player.seekTime(max(0, total_t - 5))
             self.close()
 
     def onAction(self, action):

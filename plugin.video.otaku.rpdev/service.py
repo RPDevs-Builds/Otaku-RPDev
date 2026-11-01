@@ -243,9 +243,17 @@ def getChangeLog():
     changelog_path = os.path.join(control.ADDON_PATH, 'changelog.txt')
     news_path = os.path.join(control.ADDON_PATH, 'news.txt')
 
-    with open(changelog_path, encoding='utf-8') as changelog_file, open(news_path, encoding='utf-8') as news_file:
-        changelog_text = changelog_file.read()
-        news_text = news_file.read()
+    try:
+        with open(changelog_path, encoding='utf-8') as changelog_file:
+            changelog_text = changelog_file.read()
+    except OSError:
+        changelog_text = ''
+
+    try:
+        with open(news_path, encoding='utf-8') as news_file:
+            news_text = news_file.read()
+    except OSError:
+        news_text = ''
 
     heading = '[B]%s -  v%s - ChangeLog & News[/B]' % (control.ADDON_NAME, control.ADDON_VERSION)
     from resources.lib.windows.textviewer import TextViewerXML
@@ -257,8 +265,11 @@ def getChangeLog():
 def getInstructions():
     instructions_path = os.path.join(control.ADDON_PATH, 'Instructions.txt')
 
-    with open(instructions_path, encoding='utf-8') as instructions_file:
-        instructions_text = instructions_file.read()
+    try:
+        with open(instructions_path, encoding='utf-8') as instructions_file:
+            instructions_text = instructions_file.read()
+    except OSError:
+        instructions_text = ''
 
     heading = '[B]%s -  v%s - Instructions[/B]' % (control.ADDON_NAME, control.ADDON_VERSION)
     from resources.lib.windows.textviewer import TextViewerXML
@@ -269,24 +280,28 @@ def getInstructions():
 
 def toggle_reuselanguageinvoker(forced_state=None):
     def _store_and_reload(output):
-        with open(file_path, "w+") as addon_xml_:
-            addon_xml_.writelines(output)
+        AddonXml = "".join(output)
+        control.atomic_write_text(file_path, AddonXml)
         if not forced_state:
             control.ok_dialog(control.ADDON_NAME, 'Language Invoker option has been changed, reloading kodi profile')
             control.execute('LoadProfile({})'.format(control.xbmc.getInfoLabel("system.profilename")))
     file_path = os.path.join(control.ADDON_PATH, "addon.xml")
-    with open(file_path) as addon_xml:
-        file_lines = addon_xml.readlines()
+    try:
+        with open(file_path, encoding='utf-8') as addon_xml:
+            file_lines = addon_xml.readlines()
+    except OSError:
+        return
     for i in range(len(file_lines)):
         line_string = file_lines[i]
         if "reuselanguageinvoker" in file_lines[i]:
-            if forced_state == 'Disabled' or ("true" in line_string and forced_state is None):
-                file_lines[i] = file_lines[i].replace("true", "false")
-                control.setSetting("reuselanguageinvoker.status", "Disabled")
-                _store_and_reload(file_lines)
-            elif forced_state == 'Enabled' or ("false" in line_string and forced_state is None):
+            cur_value = "true" if "true" in line_string else ("false" if "false" in line_string else "")
+            if (forced_state == 'Enabled' and cur_value == "false") or (forced_state is None and cur_value == "false"):
                 file_lines[i] = file_lines[i].replace("false", "true")
                 control.setSetting("reuselanguageinvoker.status", "Enabled")
+                _store_and_reload(file_lines)
+            elif (forced_state == 'Disabled' and cur_value == "true") or (forced_state is None and cur_value == "true"):
+                file_lines[i] = file_lines[i].replace("true", "false")
+                control.setSetting("reuselanguageinvoker.status", "Disabled")
                 _store_and_reload(file_lines)
             break
 
@@ -299,19 +314,19 @@ def version_check():
     control.log(f'### Kodi Version: {control.kodi_version}')
 
     if control.getSetting('otaku.version') != control.ADDON_VERSION:
-        reuselang = control.getSetting('reuselanguageinvoker.status')
-        toggle_reuselanguageinvoker(reuselang)
-        control.setSetting('otaku.version', control.ADDON_VERSION)
-        control.log(f"### {reuselang} Re-uselanguageinvoker")
-
-        # Automatically prune orphaned settings on version upgrade
+        # Automatically prune orphaned settings on version upgrade before CAddonSettings writes
         try:
             from resources.lib.ui import clean_settings
-            pruned_count, _ = clean_settings.clean_settings()
+            pruned_count, _ = clean_settings.clean_settings(silent=True)
             if pruned_count > 0:
                 control.log(f"### Version upgrade: Pruned {pruned_count} orphaned setting(s)")
         except Exception as e:
             control.log(f"Failed to prune orphaned settings on startup: {e}", 'warning')
+
+        reuselang = control.getSetting('reuselanguageinvoker.status')
+        toggle_reuselanguageinvoker(reuselang)
+        control.setSetting('otaku.version', control.ADDON_VERSION)
+        control.log(f"### {reuselang} Re-uselanguageinvoker")
 
 
 def load_settings():

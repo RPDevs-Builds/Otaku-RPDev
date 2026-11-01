@@ -37,14 +37,16 @@ class Sources(BrowserBase):
             qual = int(item.get('data-resolution') or 0)
         except (ValueError, TypeError):
             qual = 0
-        if qual <= 577:
+        if qual <= 0:
+            quality = 0
+        elif qual <= 577:
             quality = 1
         elif qual <= 721:
             quality = 2
         elif qual <= 1081:
             quality = 3
         else:
-            quality = 0
+            quality = 4
 
         return {
             'release_title': '{0} - Ep {1}'.format(title, episode),
@@ -56,8 +58,8 @@ class Sources(BrowserBase):
             'size': 'NA',
             'seeders': 0,
             'byte_size': 0,
-            'info': [source_utils.get_embedhost(data_src) + (' DUB' if item.get('data-audio').lower() == 'eng' else ' SUB')],
-            'lang': 3 if item.get('data-audio') == 'eng' else 2,
+            'info': [source_utils.get_embedhost(data_src) + (' DUB' if audio == 'eng' else ' SUB')],
+            'lang': 3 if audio == 'eng' else 2,
             'channel': 3,
             'sub': 1
         }

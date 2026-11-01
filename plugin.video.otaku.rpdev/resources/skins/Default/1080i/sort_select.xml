@@ -6,7 +6,7 @@
 		<width>1920</width>
 		<height>1080</height>
 	</coordinates>
-	<defaultcontrol always="true">6001</defaultcontrol>
+	<defaultcontrol always="true">9001</defaultcontrol>
 	<controls>
 
 		<!-- Background -->
@@ -179,8 +179,8 @@
 					<focusedcolor>deepskyblue</focusedcolor>
 					<align>left</align>
 					<aligny>center</aligny>
-					<onleft>1002</onleft>
-					<onright>1004</onright>
+					<onleft>1003</onleft>
+					<onright>1005</onright>
 					<texturefocus></texturefocus>
                     <texturenofocus></texturenofocus>
 					<label>[B][UPPERCASE]$INFO[Window().Property(sortmethod.1.label.3)][/UPPERCASE][/B]</label>
@@ -204,8 +204,8 @@
 					<focusedcolor>deepskyblue</focusedcolor>
 					<align>left</align>
 					<aligny>center</aligny>
-					<onleft>1002</onleft>
-					<onright>1004</onright>
+					<onleft>1004</onleft>
+					<onright>1006</onright>
 					<texturefocus></texturefocus>
                     <texturenofocus></texturenofocus>
 					<label>[B][UPPERCASE]$INFO[Window().Property(sortmethod.1.label.4)][/UPPERCASE][/B]</label>
@@ -230,7 +230,7 @@
 					<align>left</align>
 					<aligny>center</aligny>
 					<onleft>1005</onleft>
-					<onright>1111</onright>
+					<onright>1007</onright>
 					<texturefocus></texturefocus>
                     <texturenofocus></texturenofocus>
 					<label>[B][UPPERCASE]$INFO[Window().Property(sortmethod.1.label.5)][/UPPERCASE][/B]</label>
@@ -255,7 +255,7 @@
 					<align>left</align>
 					<aligny>center</aligny>
 					<onleft>1006</onleft>
-					<onright>1111</onright>
+					<onright>1008</onright>
 					<texturefocus></texturefocus>
 					<texturenofocus></texturenofocus>
 					<label>[B][UPPERCASE]$INFO[Window().Property(sortmethod.1.label.6)][/UPPERCASE][/B]</label>
@@ -424,8 +424,8 @@
 					<focusedcolor>deepskyblue</focusedcolor>
 					<align>left</align>
 					<aligny>center</aligny>
-					<onleft>1002</onleft>
-					<onright>1004</onright>
+					<onleft>2003</onleft>
+					<onright>2005</onright>
 					<texturefocus></texturefocus>
                     <texturenofocus></texturenofocus>
 					<label>[B][UPPERCASE]$INFO[Window().Property(sortmethod.2.label.3)][/UPPERCASE][/B]</label>
@@ -449,8 +449,8 @@
 					<focusedcolor>deepskyblue</focusedcolor>
 					<align>left</align>
 					<aligny>center</aligny>
-					<onleft>1002</onleft>
-					<onright>1004</onright>
+					<onleft>2004</onleft>
+					<onright>2006</onright>
 					<texturefocus></texturefocus>
                     <texturenofocus></texturenofocus>
 					<label>[B][UPPERCASE]$INFO[Window().Property(sortmethod.2.label.4)][/UPPERCASE][/B]</label>
@@ -475,7 +475,7 @@
 					<align>left</align>
 					<aligny>center</aligny>
 					<onleft>2005</onleft>
-					<onright>2222</onright>
+					<onright>2007</onright>
 					<texturefocus></texturefocus>
                     <texturenofocus></texturenofocus>
 					<label>[B][UPPERCASE]$INFO[Window().Property(sortmethod.2.label.5)][/UPPERCASE][/B]</label>
@@ -500,7 +500,7 @@
 					<align>left</align>
 					<aligny>center</aligny>
 					<onleft>2006</onleft>
-					<onright>2222</onright>
+					<onright>2008</onright>
 					<texturefocus></texturefocus>
 					<texturenofocus></texturenofocus>
 					<label>[B][UPPERCASE]$INFO[Window().Property(sortmethod.2.label.6)][/UPPERCASE][/B]</label>
@@ -671,8 +671,8 @@
 					<focusedcolor>deepskyblue</focusedcolor>
 					<align>left</align>
 					<aligny>center</aligny>
-					<onleft>1002</onleft>
-					<onright>1004</onright>
+					<onleft>3003</onleft>
+					<onright>3005</onright>
 					<texturefocus></texturefocus>
                     <texturenofocus></texturenofocus>
 					<label>[B][UPPERCASE]$INFO[Window().Property(sortmethod.3.label.3)][/UPPERCASE][/B]</label>
@@ -696,8 +696,8 @@
 					<focusedcolor>deepskyblue</focusedcolor>
 					<align>left</align>
 					<aligny>center</aligny>
-					<onleft>1002</onleft>
-					<onright>1004</onright>
+					<onleft>3004</onleft>
+					<onright>3006</onright>
 					<texturefocus></texturefocus>
                     <texturenofocus></texturenofocus>
 					<label>[B][UPPERCASE]$INFO[Window().Property(sortmethod.3.label.4)][/UPPERCASE][/B]</label>
@@ -722,7 +722,7 @@
 					<align>left</align>
 					<aligny>center</aligny>
 					<onleft>3005</onleft>
-					<onright>3333</onright>
+					<onright>3007</onright>
 					<texturefocus></texturefocus>
                     <texturenofocus></texturenofocus>
 					<label>[B][UPPERCASE]$INFO[Window().Property(sortmethod.3.label.5)][/UPPERCASE][/B]</label>
@@ -747,7 +747,7 @@
 					<align>left</align>
 					<aligny>center</aligny>
 					<onleft>3006</onleft>
-					<onright>3333</onright>
+					<onright>3008</onright>
 					<texturefocus></texturefocus>
 					<texturenofocus></texturenofocus>
 					<label>[B][UPPERCASE]$INFO[Window().Property(sortmethod.3.label.6)][/UPPERCASE][/B]</label>
@@ -967,7 +967,7 @@
 					<align>left</align>
 					<aligny>center</aligny>
 					<onleft>4005</onleft>
-					<onright>4006</onright>
+					<onright>4007</onright>
 					<texturefocus></texturefocus>
                     <texturenofocus></texturenofocus>
 					<label>[B][UPPERCASE]$INFO[Window().Property(sortmethod.4.label.5)][/UPPERCASE][/B]</label>
@@ -992,7 +992,7 @@
 					<align>left</align>
 					<aligny>center</aligny>
 					<onleft>4006</onleft>
-					<onright>4007</onright>
+					<onright>4008</onright>
 					<texturefocus></texturefocus>
 					<texturenofocus></texturenofocus>
 					<label>[B][UPPERCASE]$INFO[Window().Property(sortmethod.4.label.6)][/UPPERCASE][/B]</label>
@@ -1212,7 +1212,7 @@
 					<align>left</align>
 					<aligny>center</aligny>
 					<onleft>5005</onleft>
-					<onright>5555</onright>
+					<onright>5007</onright>
 					<texturefocus></texturefocus>
                     <texturenofocus></texturenofocus>
 					<label>[B][UPPERCASE]$INFO[Window().Property(sortmethod.5.label.5)][/UPPERCASE][/B]</label>
@@ -1237,7 +1237,7 @@
 					<align>left</align>
 					<aligny>center</aligny>
 					<onleft>5006</onleft>
-					<onright>5007</onright>
+					<onright>5008</onright>
 					<texturefocus></texturefocus>
 					<texturenofocus></texturenofocus>
 					<label>[B][UPPERCASE]$INFO[Window().Property(sortmethod.5.label.6)][/UPPERCASE][/B]</label>
@@ -1457,7 +1457,7 @@
 					<align>left</align>
 					<aligny>center</aligny>
 					<onleft>6005</onleft>
-					<onright>6666</onright>
+					<onright>6007</onright>
 					<texturefocus></texturefocus>
 					<texturenofocus></texturenofocus>
 					<label>[B][UPPERCASE]$INFO[Window().Property(sortmethod.6.label.5)][/UPPERCASE][/B]</label>
@@ -1482,7 +1482,7 @@
 					<align>left</align>
 					<aligny>center</aligny>
 					<onleft>6006</onleft>
-					<onright>6007</onright>
+					<onright>6008</onright>
 					<texturefocus></texturefocus>
 					<texturenofocus></texturenofocus>
 					<label>[B][UPPERCASE]$INFO[Window().Property(sortmethod.6.label.6)][/UPPERCASE][/B]</label>
@@ -1702,7 +1702,7 @@
 					<align>left</align>
 					<aligny>center</aligny>
 					<onleft>7005</onleft>
-					<onright>7777</onright>
+					<onright>7007</onright>
 					<texturefocus></texturefocus>
 					<texturenofocus></texturenofocus>
 					<label>[B][UPPERCASE]$INFO[Window().Property(sortmethod.7.label.5)][/UPPERCASE][/B]</label>
@@ -1727,7 +1727,7 @@
 					<align>left</align>
 					<aligny>center</aligny>
 					<onleft>7006</onleft>
-					<onright>7007</onright>
+					<onright>7008</onright>
 					<texturefocus></texturefocus>
 					<texturenofocus></texturenofocus>
 					<label>[B][UPPERCASE]$INFO[Window().Property(sortmethod.7.label.6)][/UPPERCASE][/B]</label>
@@ -1794,7 +1794,7 @@
 				<onleft>8000</onleft>
 				<onright>9000</onright>
 				<onup>7777</onup>
-				<ondown>9999</ondown>
+				<ondown>9001</ondown>
 				<texturenofocus colordiffuse="FFFFFFFF">sort/sort_descending.png</texturenofocus>
 				<texturefocus colordiffuse="deepskyblue">sort/sort_descending.png</texturefocus>
 				<alttexturenofocus colordiffuse="FFFFFFFF">sort/sort_ascending.png</alttexturenofocus>
@@ -1947,7 +1947,7 @@
 					<align>left</align>
 					<aligny>center</aligny>
 					<onleft>8005</onleft>
-					<onright>8888</onright>
+					<onright>8007</onright>
 					<texturefocus></texturefocus>
 					<texturenofocus></texturenofocus>
 					<label>[B][UPPERCASE]$INFO[Window().Property(sortmethod.8.label.5)][/UPPERCASE][/B]</label>
@@ -1972,7 +1972,7 @@
 					<align>left</align>
 					<aligny>center</aligny>
 					<onleft>8006</onleft>
-					<onright>8007</onright>
+					<onright>8008</onright>
 					<texturefocus></texturefocus>
 					<texturenofocus></texturenofocus>
 					<label>[B][UPPERCASE]$INFO[Window().Property(sortmethod.8.label.6)][/UPPERCASE][/B]</label>

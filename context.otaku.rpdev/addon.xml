@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<addon id="context.otaku.rpdev" version="1.0.42" name="Otaku RPDev - Context Menu" provider-name="RPDevs">
+<addon id="context.otaku.rpdev" version="1.0.43" name="Otaku RPDev - Context Menu" provider-name="RPDevs">
   <requires>
      <import addon="xbmc.python" version="3.0.1"/>
   </requires>
@@ -31,7 +31,7 @@
       </item>
       <item library="default.py" args="markedasunwatched">
         <label>Mark as Unwatched [COLOR blue]WatchList[/COLOR]</label>
-        <visible>String.IsEqual(Window(home).Property(context.otaku.rpdev.markedaswatched),true) + String.StartsWith(ListItem.Path,plugin://plugin.video.otaku.rpdev/) + [String.IsEqual(ListItem.DBTYPE,episode) | String.IsEqual(ListItem.DBTYPE,movie)] + !Player.HasMedia</visible>
+        <visible>String.IsEqual(Window(home).Property(context.otaku.rpdev.markedasunwatched),true) + String.StartsWith(ListItem.Path,plugin://plugin.video.otaku.rpdev/) + [String.IsEqual(ListItem.DBTYPE,episode) | String.IsEqual(ListItem.DBTYPE,movie)] + !Player.HasMedia</visible>
       </item>
       <item library="default.py" args="markpreviouswatched">
         <label>Mark Episodes Up To Here as Watched</label>

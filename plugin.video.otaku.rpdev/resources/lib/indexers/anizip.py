@@ -25,7 +25,8 @@ class ANIZIPAPI:
         kodi_meta = database.loads(database.get_show(mal_id)['kodi_meta'])
         episode = int(res['episode'])
         url = f"{mal_id}/{episode}"
-        title = res['title']['en']
+        title_dict = res.get('title') or {}
+        title = title_dict.get('en') or title_dict.get('x-jat') or title_dict.get('ja')
         if not title:
             title = f'Episode {episode}'
         image = res['image'] if res.get('image') else poster
@@ -65,7 +66,7 @@ class ANIZIPAPI:
     def process_episode_view(self, mal_id, poster, fanart, clearart, clearlogo, eps_watched, tvshowtitle, dub_data, filler_data):
         update_time = datetime.date.today().isoformat()
         result = self.get_anime_info(mal_id)
-        if not result:
+        if not result or 'episodes' not in result:
             return []
 
         result_ep = [result['episodes'][res] for res in result['episodes'] if res.isdigit()]
@@ -83,6 +84,7 @@ class ANIZIPAPI:
         # Parallelize episode parsing for faster processing
         all_results = utils.parallel_process(result_ep, mapfunc)
         all_results = [r for r in all_results if r is not None]
+        all_results = sorted(all_results, key=lambda x: x['info']['episode'])
 
         if control.getBool('override.meta.api') and control.getBool('override.meta.notify'):
             control.notify("Anizip", f'{tvshowtitle} Added to Database', icon=poster)
@@ -92,6 +94,8 @@ class ANIZIPAPI:
         update_time, diff = indexers.get_diff(episodes[-1])
         if diff > control.getInt('interface.check.updates'):
             result = self.get_anime_info(mal_id)
+            if not result or 'episodes' not in result:
+                return []
             result_ep = [result['episodes'][res] for res in result['episodes'] if res.isdigit()]
             season = episodes[0]['season']
             mapfunc2 = partial(self.parse_episode_view, mal_id=mal_id, season=season, poster=poster, fanart=fanart, clearart=clearart, clearlogo=clearlogo, eps_watched=eps_watched, update_time=update_time, tvshowtitle=tvshowtitle, dub_data=dub_data, filler_data=None, episodes=episodes)

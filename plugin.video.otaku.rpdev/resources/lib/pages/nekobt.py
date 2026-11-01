@@ -340,11 +340,12 @@ class Sources(BrowserBase):
                 if not magnet and not infohash:
                     continue
 
+                hash_ = infohash.lower() if infohash else re.findall(r'btih:(.*?)(?:&|$)', magnet)[0].lower()
                 filesize = int(item.get('filesize', 0))
                 list_.append({
                     'name': item.get('title', ''),
                     'magnet': magnet,
-                    'hash': infohash.lower() if infohash else re.findall(r'btih:(.*?)(?:&|$)', magnet)[0].lower(),
+                    'hash': hash_.lower(),
                     'size': self._format_size(filesize),
                     'byte_size': filesize,
                     'seeders': int(item.get('seeders', 0)),
@@ -363,7 +364,19 @@ class Sources(BrowserBase):
         list_ = self._results_to_list(results)
         filtered_list = source_utils.filter_sources('nekobt', list_, mal_id)
 
-        cache_list, uncached_list_ = Debrid().torrentCacheCheck(filtered_list, mal_id=mal_id, episode='1', media_type='movie', rescrape=self.rescrape)
+        seen_hashes = set()
+        unique_list = []
+        for t in filtered_list:
+            h = t.get('hash', '').lower()
+            if h and h not in seen_hashes:
+                t['hash'] = h
+                seen_hashes.add(h)
+                unique_list.append(t)
+
+        if not unique_list:
+            return []
+
+        cache_list, uncached_list_ = Debrid().torrentCacheCheck(unique_list, mal_id=mal_id, episode='1', media_type='movie', rescrape=self.rescrape)
         cache_list = sorted(cache_list, key=lambda k: k['downloads'], reverse=True)
 
         uncached_list = [i for i in uncached_list_ if i['seeders'] > 0]

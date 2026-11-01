@@ -27,7 +27,6 @@
 					<left>48%</left>
 					<width>100%</width>
 					<!-- Buttons -->
-					<control type="grouplist">
                     <control type="grouplist" id="3000">
                         <left>-16</left>
                         <bottom>-16</bottom>
@@ -40,8 +39,7 @@
                             <param name="groupid" value="9011" />
                             <param name="label" value="Skip Intro" />
                             <param name="icon" value="special://skin/extras/icons/play3.png" />
-                            <param name="visible" value="!Integer.IsGreater(Player.TimeRemaining,180)" />
-                            <onclick>SendClick(3012)</onclick>
+                            <param name="visible" value="true" />
                         </include>
                         
                         <include content="Object_IconicButton">

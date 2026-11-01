@@ -409,8 +409,7 @@ class AnimeScheduleCalendar:
                 'data': anime_data
             }
 
-            with open(self.cache_file, 'w', encoding='utf-8') as f:
-                json.dump(cache_data, f, ensure_ascii=False, indent=2)
+            control.atomic_write_json(self.cache_file, cache_data)
 
             control.log(f"AnimESchedule: Saved {len(anime_data)} anime to cache", "info")
 
@@ -454,10 +453,10 @@ class AnimeScheduleCalendar:
             # Note: client.get() might not support headers, so we use client directly
             response = client.get(url, params=params, headers=headers)
 
-            if response.status_code == 200:
+            if response and response.status_code == 200:
                 return response.json()
             else:
-                control.log(f"Failed to fetch {release_type} timetable: {response.status_code}", "error")
+                control.log(f"Failed to fetch {release_type} timetable: {response.status_code if response else 'no response'}", "error")
                 return None
 
         except Exception as e:
@@ -487,7 +486,7 @@ class AnimeScheduleCalendar:
             headers = {'Authorization': f'Bearer {self.token}'} if self.token else {}
             response = client.get(url, params=params, headers=headers)
 
-            if response.status_code == 200:
+            if response and response.status_code == 200:
                 data = response.json()
                 anime_list = data.get('anime', []) if isinstance(data, dict) else (data if isinstance(data, list) else [])
                 return anime_list
@@ -521,7 +520,7 @@ class AnimeScheduleCalendar:
 
                 response = client.get(url, headers=headers, timeout=6)  # Reduced from 8 to 6 seconds
 
-                if response.status_code == 200:
+                if response and response.status_code == 200:
                     data = response.json()
                     # Direct endpoint returns single anime object, not a list
                     if data and isinstance(data, dict):

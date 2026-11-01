@@ -444,7 +444,7 @@ class SortSelect(BaseWindow):
     def onAction(self, action):
         actionID = action.getId()
 
-        if actionID in [9, 10, 92, 216]:
+        if actionID in [9, 10, 92, 110, 216]:
             # BACK / BACKSPACE / ESCAPE (including Android TV remote back action 9)
             self.close()
 
@@ -541,7 +541,7 @@ class SortSelect(BaseWindow):
 
     def reset_properties(self):
         for x in range(1, 9):
-            for j in range(8):
+            for j in range(9):
                 self.clearProperty(f'sortmethod.{x}.label.{j}')
                 self.clearProperty(f'sortmethod.{x}.label.{j}.last')
 

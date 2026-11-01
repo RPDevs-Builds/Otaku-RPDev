@@ -1,6 +1,6 @@
 <window type="dialog">
 <onload>Skin.SetString(otakufile,$INFO[Window().Property(release_title)])</onload>
-    <defaultcontrol>2</defaultcontrol>
+    <defaultcontrol>1100</defaultcontrol>
     <controls>
         <!-- Background Texture -->
         <control type="image">
@@ -73,7 +73,7 @@
                 <aligny>center</aligny>
                 <width>auto</width>
                 <textcolor>FFDDDDDD</textcolor>
-                <label>Provider: [UPPERCASE][COLORdeepskyblue]$INFO[Window().Property(debrid_provider)][/COLOR][/UPPERCASE] | Source:  [UPPERCASE][COLORdeepskyblue]$INFO[Window().Property(source_provider)][/COLOR][/UPPERCASE]</label>
+                <label>Provider: [UPPERCASE][COLOR deepskyblue]$INFO[Window().Property(debrid_provider)][/COLOR][/UPPERCASE] | Source:  [UPPERCASE][COLOR deepskyblue]$INFO[Window().Property(source_provider)][/COLOR][/UPPERCASE]</label>
             </control>
             <control type="label">
                 <top>150</top>
@@ -84,7 +84,7 @@
                 <aligny>center</aligny>
                 <width>auto</width>
                 <textcolor>FFDDDDDD</textcolor>
-                <label>Resolution: [UPPERCASE][COLORdeepskyblue]$INFO[Window().Property(source_resolution)][/COLOR][UPPERCASE] | Info: [UPPERCASE][COLORdeepskyblue]$INFO[Window().Property(source_info)][/COLOR][/UPPERCASE]</label>
+                <label>Resolution: [UPPERCASE][COLOR deepskyblue]$INFO[Window().Property(source_resolution)][/COLOR][/UPPERCASE] | Info: [UPPERCASE][COLOR deepskyblue]$INFO[Window().Property(source_info)][/COLOR][/UPPERCASE]</label>
             </control>
         </control>
     </controls>

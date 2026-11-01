@@ -92,7 +92,7 @@
 						<font>font25_title</font>
 						<textcolor>eeffffff</textcolor>
 						<shadowcolor>00000000</shadowcolor>
-						<label>$ADDON[service.upnext 30008]</label>
+						<label>Watch Credits</label>
 					</control>
 					<!-- Details -->
 					<control type="grouplist">

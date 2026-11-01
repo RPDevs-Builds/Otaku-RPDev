@@ -18,11 +18,15 @@ class KitsuAPI:
 
     def get_anime_info(self, mal_id):
         kitsu_id = self.get_kitsu_id(mal_id)
+        if not kitsu_id:
+            return []
         response = client.get(f'{self.baseUrl}/anime/{kitsu_id}')
         if response:
             return response.json()['data']
 
     def get_episode_meta(self, kitsu_id):
+        if not kitsu_id:
+            return []
         url = f'{self.baseUrl}/anime/{kitsu_id}/episodes'
         res_data = []
         page = 1
@@ -40,6 +44,8 @@ class KitsuAPI:
                 page += 1
                 if page % 3 == 0:
                     time.sleep(2)
+            else:
+                break
         return res_data
 
     @staticmethod

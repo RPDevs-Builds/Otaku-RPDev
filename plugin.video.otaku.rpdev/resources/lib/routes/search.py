@@ -81,6 +81,7 @@ def REMOVE_SEARCH_ITEM(payload, params):
                 found = True
     if not found:
         control.notify(control.ADDON_NAME, "Failed to remove search item", time=3000)
+    control.refresh()
     control.exit_code()
 
 
@@ -97,7 +98,6 @@ def EDIT_SEARCH_ITEM(payload, params):
                 query = control.keyboard(control.lang(30018), decoded_item)
                 if query and query != decoded_item:
                     database.remove_search(table=format, value=decoded_item)
-                    control.sleep(500)
                     database.addSearchHistory(query, format)
                 found = True
     if not found:

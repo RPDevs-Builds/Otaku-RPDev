@@ -1,7 +1,7 @@
 import re
 import urllib.parse
 
-from resources.lib.ui import control, database, source_utils, domains
+from resources.lib.ui import control, database, source_utils, domains, embed_extractor
 from resources.lib.ui.BrowserBase import BrowserBase
 from resources.lib.ui.megaplay_extractor import extract_megaplay_sources
 
@@ -73,7 +73,7 @@ class Sources(BrowserBase):
                     label = track.get('label') or ''
                     subs.append({
                         'url': track.get('file'),
-                        'lang': label,
+                        'lang': embed_extractor.detect_sub_lang(track.get('file', ''), label),
                         'name': label,
                         'index': idx,
                         'headers': sub_headers,

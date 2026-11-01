@@ -339,7 +339,6 @@ def getInfo(release_title):
 # ═══════════════════════════════════════════════════════════════════════════
 
 @functools.lru_cache(maxsize=128)
-@functools.lru_cache(maxsize=128)
 def _compile_cache_check_reg(episode_str):
     season = ''
     reg_string = r'''(?ix)                              # Ignore case (i), and use verbose regex (x)
@@ -380,8 +379,8 @@ def convert_to_bytes(size, units):
 def get_size(size=0):
     power = 1024.0
     n = 0
-    power_labels = {0: 'B', 1: 'KB', 2: 'MB', 3: 'GB'}
-    while size > power:
+    power_labels = {0: 'B', 1: 'KB', 2: 'MB', 3: 'GB', 4: 'TB'}
+    while size > power and n < 4:
         size /= power
         n += 1
     return '{0:.2f} {1}'.format(size, power_labels[n])
@@ -599,9 +598,9 @@ def filter_sources(provider, torrent_list, mal_id, season=None, episode=None, pa
 
         # Select the title based on provider
         if provider in ['realdebrid', 'alldebrid']:
-            title = torrent['filename'].lower()
+            title = torrent.get('filename', '').lower()
         else:
-            title = torrent['name'].lower()
+            title = torrent.get('name', '').lower()
 
         # Clean the title for extraction
         clean_title = clean_text(title)
@@ -695,25 +694,18 @@ def filter_sources(provider, torrent_list, mal_id, season=None, episode=None, pa
 
         # Check episode match if applicable
         if episode and extracted_episode:
-            episode_nums = []
-            # Handle episode ranges
+            # Handle episode ranges without allocating large lists
             if "-" in extracted_episode:
-                start, end = extracted_episode.split("-")
                 try:
-                    episode_nums = list(range(int(start), int(end) + 1))
+                    start, end = extracted_episode.split("-", 1)
+                    if not (int(start) <= int(episode) <= int(end)):
+                        valid = False
                 except (ValueError, TypeError):
                     valid = False
             # Handle single episode
             else:
                 try:
-                    episode_nums = [int(extracted_episode)]
-                except (ValueError, TypeError):
-                    valid = False
-
-            if episode_nums:
-                try:
-                    req_ep = int(episode)
-                    if req_ep not in episode_nums:
+                    if int(episode) != int(extracted_episode):
                         valid = False
                 except (ValueError, TypeError):
                     valid = False

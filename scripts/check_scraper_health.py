@@ -27,6 +27,7 @@ if TESTS_DIR not in sys.path:
 if ADDON_ROOT not in sys.path:
     sys.path.insert(0, ADDON_ROOT)
 
+os.environ['OTAKU_LIVE_AUDIT'] = '1'
 import conftest  # Sets up xbmc, xbmcaddon, xbmcgui mocks and test sqlite db
 
 from resources.lib.ui import database, database_sync

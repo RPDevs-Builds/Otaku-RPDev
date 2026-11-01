@@ -19,6 +19,21 @@ class Sources(BrowserBase):
         self.sources = []
         self.rescrape = False
 
+    @staticmethod
+    def _parse_titles(query):
+        """Extract individual titles from the '(Title1)|(Title2)' format."""
+        titles = re.findall(r'\(([^)]+)\)', query)
+        if not titles:
+            titles = [p.strip() for p in query.split('|') if p.strip()]
+        seen = set()
+        unique = []
+        for t in titles:
+            t_stripped = t.strip()
+            if t_stripped and t_stripped.lower() not in seen:
+                seen.add(t_stripped.lower())
+                unique.append(t_stripped)
+        return unique
+
     def get_sources(self, query, mal_id, episode, status, media_type, season=None, part=None, rescrape=False):
         query = self._clean_title(query).replace('-', ' ')
         self.media_type = media_type
@@ -38,37 +53,62 @@ class Sources(BrowserBase):
     def get_episode_sources(self, show, mal_id, episode, season, part, status):
         season_zfill = str(season).zfill(2) if season else '01'
         episode_zfill = str(episode).zfill(2) if episode is not None else '01'
+        titles = self._parse_titles(show)
 
         search_tasks = []
+        for title in titles:
+            # 1. Primary episode search: Title "01" or "S01E01"
+            query1 = f'{title} {episode_zfill}'
+            search_tasks.append({'query': query1, 'name': f'primary_ep:{title}'})
 
-        # 1. Primary episode search: Show "- 01" or "S01E01"
-        query1 = f'{show} "- {episode_zfill}"'
-        search_tasks.append({'query': query1, 'name': 'primary_hyphen'})
+            query2 = f'{title} S{season_zfill}E{episode_zfill}'
+            search_tasks.append({'query': query2, 'name': f'primary_season_ep:{title}'})
 
-        query2 = f'{show} "S{season_zfill}E{episode_zfill}"'
-        search_tasks.append({'query': query2, 'name': 'primary_season_ep'})
-
-        # 2. Batch/Complete series search (only for finished shows)
-        if status in ["FINISHED", "Finished Airing"]:
-            query3 = f'{show} "Batch"'
-            search_tasks.append({'query': query3, 'name': 'batch'})
+            # 2. Batch/Complete series search (only for finished shows)
+            if status in ["FINISHED", "Finished Airing"]:
+                query3 = f'{title} Batch'
+                search_tasks.append({'query': query3, 'name': f'batch:{title}'})
 
         control.log(f"Bitsearch: Running {len(search_tasks)} searches for episode {episode_zfill}")
 
         def run_search(task):
             try:
-                sources = self.process_bitsearch_episodes(task['query'], mal_id, episode_zfill, season_zfill, part)
-                control.log(f"Bitsearch: {task['name']} search returned {len(sources)} sources")
-                return sources
+                raw_results = self._fetch_search_results(task['query'])
+                if not raw_results:
+                    return []
+                filtered = source_utils.filter_sources('bitsearch', raw_results, mal_id, int(season_zfill), int(episode_zfill), part)
+                control.log(f"Bitsearch: {task['name']} search returned {len(filtered)} sources")
+                return filtered
             except Exception as e:
                 control.log(f"Bitsearch: {task['name']} search failed: {e}", 'error')
                 return []
 
-        all_search_results = utils.parallel_process(search_tasks, run_search)
+        all_search_results = utils.parallel_process(search_tasks, run_search) if search_tasks else []
 
-        bitsearch_sources = []
-        for sources in all_search_results:
-            bitsearch_sources.extend(sources)
+        seen_hashes = set()
+        combined = []
+        for torrents in all_search_results:
+            for t in torrents:
+                h = t.get('hash', '').lower()
+                if h and h not in seen_hashes:
+                    t['hash'] = h
+                    seen_hashes.add(h)
+                    combined.append(t)
+
+        if not combined:
+            return []
+
+        cache_list, uncached_list_ = Debrid().torrentCacheCheck(combined, mal_id=mal_id, episode=episode_zfill, media_type=self.media_type, rescrape=self.rescrape)
+        cache_list = sorted(cache_list, key=lambda k: k.get('seeders', 0), reverse=True)
+        uncached_list = [i for i in uncached_list_ if i.get('seeders', 0) > 0]
+        uncached_list = sorted(uncached_list, key=lambda k: k.get('seeders', 0), reverse=True)
+
+        mapfunc = partial(self.parse_bitsearch_view, episode=episode_zfill)
+        bitsearch_sources = utils.parallel_process(cache_list, mapfunc) if cache_list else []
+
+        if uncached_list and control.getBool('show.uncached'):
+            mapfunc2 = partial(self.parse_bitsearch_view, episode=episode_zfill, cached=False)
+            bitsearch_sources += utils.parallel_process(uncached_list, mapfunc2)
 
         control.log(f"Bitsearch: Episode search complete - returning {len(bitsearch_sources)} total sources")
         return bitsearch_sources
@@ -76,19 +116,88 @@ class Sources(BrowserBase):
     def get_show_sources(self, show, mal_id, episode, season, part):
         season_zfill = str(season).zfill(2) if season else '01'
         episode_zfill = str(episode).zfill(2) if episode is not None else '01'
+        titles = self._parse_titles(show)
+        search_tasks = [{'query': title, 'name': f'show:{title}'} for title in titles]
 
-        try:
-            return self.process_bitsearch_episodes(show, mal_id, episode_zfill, season_zfill, part)
-        except Exception as e:
-            control.log(f"Bitsearch: Show search failed: {e}", 'error')
+        def run_search(task):
+            try:
+                raw_results = self._fetch_search_results(task['query'])
+                if not raw_results:
+                    return []
+                return source_utils.filter_sources('bitsearch', raw_results, mal_id, int(season_zfill), int(episode_zfill), part)
+            except Exception as e:
+                control.log(f"Bitsearch: {task['name']} search failed: {e}", 'error')
+                return []
+
+        all_search_results = utils.parallel_process(search_tasks, run_search) if search_tasks else []
+
+        seen_hashes = set()
+        combined = []
+        for torrents in all_search_results:
+            for t in torrents:
+                h = t.get('hash', '').lower()
+                if h and h not in seen_hashes:
+                    t['hash'] = h
+                    seen_hashes.add(h)
+                    combined.append(t)
+
+        if not combined:
             return []
+
+        cache_list, uncached_list_ = Debrid().torrentCacheCheck(combined, mal_id=mal_id, episode=episode_zfill, media_type=self.media_type, rescrape=self.rescrape)
+        cache_list = sorted(cache_list, key=lambda k: k.get('seeders', 0), reverse=True)
+        uncached_list = [i for i in uncached_list_ if i.get('seeders', 0) > 0]
+        uncached_list = sorted(uncached_list, key=lambda k: k.get('seeders', 0), reverse=True)
+
+        mapfunc = partial(self.parse_bitsearch_view, episode=episode_zfill)
+        bitsearch_sources = utils.parallel_process(cache_list, mapfunc) if cache_list else []
+
+        if uncached_list and control.getBool('show.uncached'):
+            mapfunc2 = partial(self.parse_bitsearch_view, episode=episode_zfill, cached=False)
+            bitsearch_sources += utils.parallel_process(uncached_list, mapfunc2)
+
+        return bitsearch_sources
 
     def get_movie_sources(self, query, mal_id):
         control.log(f"Bitsearch: Searching movie sources for '{query}'")
-        try:
-            self.sources = self.process_bitsearch_movie(query, mal_id)
-        except Exception as e:
-            control.log(f"Bitsearch: Movie search failed: {e}", 'error')
+        titles = self._parse_titles(query)
+        search_tasks = [{'query': title, 'name': f'movie:{title}'} for title in titles]
+
+        def run_search(task):
+            try:
+                raw_results = self._fetch_search_results(task['query'])
+                if not raw_results:
+                    return []
+                return source_utils.filter_sources('bitsearch', raw_results, mal_id)
+            except Exception as e:
+                control.log(f"Bitsearch: {task['name']} search failed: {e}", 'error')
+                return []
+
+        all_search_results = utils.parallel_process(search_tasks, run_search) if search_tasks else []
+
+        seen_hashes = set()
+        combined = []
+        for torrents in all_search_results:
+            for t in torrents:
+                h = t.get('hash', '').lower()
+                if h and h not in seen_hashes:
+                    t['hash'] = h
+                    seen_hashes.add(h)
+                    combined.append(t)
+
+        if combined:
+            cache_list, uncached_list_ = Debrid().torrentCacheCheck(combined, mal_id=mal_id, episode='1', media_type='movie', rescrape=self.rescrape)
+            cache_list = sorted(cache_list, key=lambda k: k.get('seeders', 0), reverse=True)
+            uncached_list = [i for i in uncached_list_ if i.get('seeders', 0) > 0]
+            uncached_list = sorted(uncached_list, key=lambda k: k.get('seeders', 0), reverse=True)
+
+            mapfunc = partial(self.parse_bitsearch_view, episode='1')
+            self.sources = utils.parallel_process(cache_list, mapfunc) if cache_list else []
+
+            if uncached_list and control.getBool('show.uncached'):
+                mapfunc2 = partial(self.parse_bitsearch_view, episode='1', cached=False)
+                self.sources += utils.parallel_process(uncached_list, mapfunc2)
+        else:
             self.sources = []
 
         self.append_cache_uncached_noduplicates()

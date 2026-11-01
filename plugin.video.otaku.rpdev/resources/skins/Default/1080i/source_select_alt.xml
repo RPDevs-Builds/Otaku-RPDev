@@ -1,5 +1,5 @@
 <window type="dialog">
-    <defaultcontrol>2</defaultcontrol>
+    <defaultcontrol>1000</defaultcontrol>
     <controls>
         <control type="image">
             <top>0</top>
@@ -198,7 +198,7 @@
                         <textcolor>FFFFFFFF</textcolor>
                         <shadowcolor>dimgrey</shadowcolor>
                         <font>font10</font>
-                        <label>Info: [UPPERCASE][COLOR deepskyblue]$INFO[ListItem.Property(info)][/COLOR][/UPPERCASE]</label>
+                        <label>Info: [UPPERCASE][COLOR deepskyblue]$INFO[ListItem.Property(info)][/COLOR] $INFO[ListItem.Property(colored_codec)] $INFO[ListItem.Property(colored_audio)] $INFO[ListItem.Property(colored_hdr)][/UPPERCASE]</label>
                     </control>
                     <control type="label">
                         <top>60</top>
@@ -209,7 +209,7 @@
                         <textcolor>66FFFFFF</textcolor>
                         <align>left</align>
                         <aligny>center</aligny>
-                        <label>Seeders: [UPPERCASE][COLOR deepskyblue]$INFO[ListItem.Property(seeders)][/COLOR][/UPPERCASE]</label>
+                        <label>Seeders: [UPPERCASE]$INFO[ListItem.Property(colored_seeders)][/UPPERCASE]</label>
                     </control>
                     <control type="label">
                         <left>750</left>
@@ -333,7 +333,7 @@
                     <textcolor>FFFFFFFF</textcolor>
 		            <shadowcolor>dimgrey</shadowcolor>
                     <font>font10</font>
-                    <label>Info: [UPPERCASE][COLOR deepskyblue]$INFO[ListItem.Property(info)][/COLOR][/UPPERCASE]</label>
+                    <label>Info: [UPPERCASE][COLOR deepskyblue]$INFO[ListItem.Property(info)][/COLOR] $INFO[ListItem.Property(colored_codec)] $INFO[ListItem.Property(colored_audio)] $INFO[ListItem.Property(colored_hdr)][/UPPERCASE]</label>
                 </control>
                 <control type="label">
                     <top>60</top>
@@ -344,7 +344,7 @@
                     <textcolor>66FFFFFF</textcolor>
                     <align>left</align>
                     <aligny>center</aligny>
-                    <label>Seeders: [UPPERCASE][COLOR deepskyblue]$INFO[ListItem.Property(seeders)][/COLOR][/UPPERCASE]</label>
+                    <label>Seeders: [UPPERCASE]$INFO[ListItem.Property(colored_seeders)][/UPPERCASE]</label>
                 </control>
                 <control type="label">
                     <left>750</left>

@@ -144,6 +144,8 @@ class AniListBrowser(BrowserBase):
 
     def _browse_season_airing(self, page, format, prefix, route_slug, period, sort):
         season, year = self.get_season_year(period)
+        if not season or not year:
+            return []
         variables = {
             'page': page,
             'perpage': self.perpage,
@@ -163,16 +165,24 @@ class AniListBrowser(BrowserBase):
         }
         if period_mode == 'last_year':
             _, year = self.get_season_year('')
+            if not year:
+                return []
             variables['year'] = f'{year - 1}%'
         elif period_mode == 'this_year':
             _, year = self.get_season_year('')
+            if not year:
+                return []
             variables['year'] = f'{year}%'
         elif period_mode == 'last_season':
             season, year = self.get_season_year('last')
+            if not season or not year:
+                return []
             variables['season'] = season
             variables['year'] = f'{year}%'
         elif period_mode == 'this_season':
             season, year = self.get_season_year('this')
+            if not season or not year:
+                return []
             variables['season'] = season
             variables['year'] = f'{year}%'
         elif period_mode != 'all_time':
@@ -297,8 +307,14 @@ class AniListBrowser(BrowserBase):
             variables['isAdult'] = True
             search_adult = self.get_search_res(variables)
             if search_adult and search_adult.get('ANIME'):
+                adult_badge = f' - {control.colorstr("Adult", "red")}'
                 for i in search_adult['ANIME']:
-                    i['title']['english'] = f'{i["title"]["english"]} - {control.colorstr("Adult", "red")}'
+                    title_dict = i.get('title')
+                    if isinstance(title_dict, dict):
+                        if title_dict.get('english'):
+                            title_dict['english'] = f'{title_dict["english"]}{adult_badge}'
+                        if title_dict.get('romaji'):
+                            title_dict['romaji'] = f'{title_dict["romaji"]}{adult_badge}'
                 search['ANIME'] = (search.get('ANIME') or []) + search_adult['ANIME']
         base_plugin_url = f"{prefix}/{query}?page=%d" if prefix else f"search_anime/{query}?page=%d"
         return self.process_anilist_view(search, base_plugin_url, page)
@@ -343,18 +359,31 @@ class AniListBrowser(BrowserBase):
                     if m and m.group() not in mal_ids:
                         mal_ids.append(m.group())
 
+            int_mal_ids = []
             for idmal in mal_ids:
                 try:
+                    int_mal_ids.append(int(idmal))
+                except (TypeError, ValueError):
+                    pass
+
+            if int_mal_ids:
+                try:
                     variables = {
-                        'idMal': int(idmal),
+                        'idMal_in': int_mal_ids,
                         'type': "ANIME"
                     }
-
-                    anilist_item = database.get(self.get_anilist_res_with_mal_id, 24, variables)
-                    if anilist_item is not None:
-                        watch_order_list.append(anilist_item)
+                    batch_items = database.get(self.get_anilist_res_with_mal_id, 24, variables)
+                    if isinstance(batch_items, list):
+                        by_mal = {
+                            item.get('idMal'): item
+                            for item in batch_items
+                            if isinstance(item, dict) and item.get('idMal') is not None
+                        }
+                        watch_order_list = [by_mal[mid] for mid in int_mal_ids if mid in by_mal]
+                    elif isinstance(batch_items, dict):
+                        watch_order_list.append(batch_items)
                 except Exception as e:
-                    control.log(f"AniListBrowser: skipping watch order item MAL {idmal}: {e}", level='warning')
+                    control.log(f"AniListBrowser: watch order batch fetch failed: {e}", level='warning')
 
         return self.process_watch_order_view(watch_order_list)
 
@@ -1122,6 +1151,102 @@ class AniListBrowser(BrowserBase):
             return json_res
 
     def get_anilist_res_with_mal_id(self, variables):
+        if isinstance(variables, dict) and 'idMal_in' in variables:
+            query = '''
+            query($page: Int=1, $idMal_in: [Int], $type: MediaType) {
+                Page(page: $page, perPage: 50) {
+                    pageInfo {
+                        hasNextPage
+                    }
+                    media(idMal_in: $idMal_in, type: $type) {
+                        id
+                        idMal
+                        title {
+                            userPreferred,
+                            romaji,
+                            english
+                        }
+                        coverImage {
+                            extraLarge
+                        }
+                        bannerImage
+                        startDate {
+                            year,
+                            month,
+                            day
+                        }
+                        description
+                        synonyms
+                        format
+                        episodes
+                        status
+                        genres
+                        duration
+                        countryOfOrigin
+                        averageScore
+                        stats {
+                            scoreDistribution {
+                                score
+                                amount
+                            }
+                        }
+                        characters (
+                            page: 1,
+                            sort: ROLE,
+                            perPage: 10,
+                        ) {
+                            edges {
+                                node {
+                                    name {
+                                        userPreferred
+                                    }
+                                }
+                                voiceActors (language: JAPANESE) {
+                                    name {
+                                        userPreferred
+                                    }
+                                    image {
+                                        large
+                                    }
+                                }
+                            }
+                        }
+                        studios {
+                            edges {
+                                isMain
+                                node {
+                                    name
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            '''
+            all_media = []
+            page_num = 1
+            while True:
+                page_vars = dict(variables)
+                page_vars['page'] = page_num
+                response = client.post(self._BASE_URL, json_data={'query': query, 'variables': page_vars})
+                if not response or not response.text:
+                    break
+                try:
+                    results = response.json()
+                except Exception:
+                    break
+                if not results or "errors" in results:
+                    break
+                page_data = ((results.get('data') or {}).get('Page')) or {}
+                media = page_data.get('media') or []
+                for anime in media:
+                    _apply_mal_picture_to_anime(anime)
+                all_media.extend(media)
+                if not (page_data.get('pageInfo') or {}).get('hasNextPage'):
+                    break
+                page_num += 1
+            return all_media
+
         query = '''
         query($idMal: Int, $type: MediaType){Media(idMal: $idMal, type: $type) {
             id
@@ -1297,9 +1422,10 @@ class AniListBrowser(BrowserBase):
 
         try:
             start_date = res.get('startDate')
+            if start_date and start_date.get('year'):
+                info['year'] = start_date.get('year')
             info['premiered'] = '{}-{:02}-{:02}'.format(start_date['year'], start_date['month'], start_date['day'])
-            info['year'] = start_date['year']
-        except TypeError:
+        except (TypeError, KeyError):
             pass
 
         try:
@@ -1412,9 +1538,10 @@ class AniListBrowser(BrowserBase):
 
         try:
             start_date = res.get('startDate')
+            if start_date and start_date.get('year'):
+                kodi_meta['year'] = start_date.get('year')
             kodi_meta['premiered'] = '{}-{:02}-{:02}'.format(start_date['year'], start_date['month'], start_date['day'])
-            kodi_meta['year'] = start_date['year']
-        except TypeError:
+        except (TypeError, KeyError):
             pass
 
         try:
@@ -1462,15 +1589,18 @@ class AniListBrowser(BrowserBase):
         '''
 
         response = client.post(self._BASE_URL, json_data={'query': query})
+        if not response:
+            return []
         results = response.json()
-        if not results:
+        res_data = (results or {}).get('data') or {}
+        if not res_data or not res_data.get('genres'):
             # genres_list = ['Action', 'Adventure', 'Comedy', 'Drama', 'Ecchi', 'Fantasy', 'Hentai', "Horror", 'Mahou Shoujo', 'Mecha', 'Music', 'Mystery', 'Psychological', 'Romance', 'Sci-Fi', 'Slice of Life', 'Sports', 'Supernatural', 'Thriller']
             genres_list = ['error']
         else:
-            genres_list = results['data']['genres']
+            genres_list = res_data['genres']
         # if 'Hentai' in genres_list:
         #     genres_list.remove('Hentai')
-        tags_list = control.safe_call(lambda: [x['name'] for x in results['data']['tags'] if not x['isAdult']], default=[])
+        tags_list = control.safe_call(lambda: [x['name'] for x in (res_data.get('tags') or []) if not x['isAdult']], default=[])
         multiselect = control.multiselect_dialog(control.lang(30040), genres_list + tags_list, preselect=[])
         if not multiselect:
             return []
@@ -1619,9 +1749,13 @@ class AniListBrowser(BrowserBase):
 
     def process_genre_view(self, query, variables, base_plugin_url, page):
         response = client.post(self._BASE_URL, json_data={'query': query, 'variables': variables})
+        if not response:
+            return []
         results = response.json()
-        anime_res = results['data']['Page']['ANIME']
-        hasNextPage = results['data']['Page']['pageInfo']['hasNextPage']
+        res_data = (results or {}).get('data') or {}
+        page_data = res_data.get('Page') or {}
+        anime_res = page_data.get('ANIME') or []
+        hasNextPage = (page_data.get('pageInfo') or {}).get('hasNextPage', False)
 
         genre_filter = variables.get('genre_in')
         if genre_filter and isinstance(genre_filter, (list, tuple)) and len(genre_filter) > 1:

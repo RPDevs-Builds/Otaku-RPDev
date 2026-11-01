@@ -1,5 +1,5 @@
 <window type="dialog">
-    <defaultcontrol>2</defaultcontrol>
+    <defaultcontrol>1000</defaultcontrol>
     <controls>
         <control type="image">
             <top>0</top>
@@ -23,7 +23,7 @@
             <top>120</top>
             <left>1400</left>
             <control type="label">
-                <top>-900</top>
+                <top>-10</top>
                 <width>400</width>
                 <font>font12</font>
                 <textcolor>AAFFFFFF</textcolor>
@@ -42,7 +42,7 @@
             <control type="group">
                 <top>420</top>
                 <control type="label">
-                    <top>20</top>
+                    <top>250</top>
                     <width>400</width>
                     <font>font14</font>
                     <textcolor>AAFFFFFF</textcolor>
@@ -53,7 +53,7 @@
                     <label>[COLOR deepskyblue]$INFO[Window().Property(item.info.title)] [/COLOR]</label>
                 </control>
                 <control type="label">
-                    <top>120</top>
+                    <top>320</top>
                     <width>400</width>
                     <font>font12</font>
                     <textcolor>AAFFFFFF</textcolor>
@@ -63,7 +63,7 @@
                     <label>Year: [COLOR deepskyblue]$INFO[Window().Property(item.info.year)] [/COLOR] | Rating: [COLOR deepskyblue]$INFO[Window().Property(item.info.rating)][/COLOR]</label>
                 </control>
                 <control type="label">
-                    <top>120</top>
+                    <top>300</top>
                     <width>400</width>
                     <font>font12</font>
                     <textcolor>AAFFFFFF</textcolor>
@@ -198,7 +198,7 @@
                         <textcolor>FFFFFFFF</textcolor>
                         <shadowcolor>dimgrey</shadowcolor>
                         <font>font10</font>
-                        <label>Info: [UPPERCASE][COLOR deepskyblue]$INFO[ListItem.Property(info)][/COLOR][/UPPERCASE]</label>
+                        <label>Info: [UPPERCASE][COLOR deepskyblue]$INFO[ListItem.Property(info)][/COLOR] $INFO[ListItem.Property(colored_codec)] $INFO[ListItem.Property(colored_audio)] $INFO[ListItem.Property(colored_hdr)][/UPPERCASE]</label>
                     </control>
                     <control type="label">
                         <top>60</top>
@@ -209,7 +209,7 @@
                         <textcolor>66FFFFFF</textcolor>
                         <align>left</align>
                         <aligny>center</aligny>
-                        <label>Seeders: [UPPERCASE][COLOR deepskyblue]$INFO[ListItem.Property(seeders)][/COLOR][/UPPERCASE]</label>
+                        <label>Seeders: [UPPERCASE]$INFO[ListItem.Property(colored_seeders)][/UPPERCASE]</label>
                     </control>
                     <control type="label">
                         <left>750</left>
@@ -333,7 +333,7 @@
                     <textcolor>FFFFFFFF</textcolor>
 		            <shadowcolor>dimgrey</shadowcolor>
                     <font>font10</font>
-                    <label>Info: [UPPERCASE][COLOR deepskyblue]$INFO[ListItem.Property(info)][/COLOR][/UPPERCASE]</label>
+                    <label>Info: [UPPERCASE][COLOR deepskyblue]$INFO[ListItem.Property(info)][/COLOR] $INFO[ListItem.Property(colored_codec)] $INFO[ListItem.Property(colored_audio)] $INFO[ListItem.Property(colored_hdr)][/UPPERCASE]</label>
                 </control>
                 <control type="label">
                     <top>60</top>
@@ -344,7 +344,7 @@
                     <textcolor>66FFFFFF</textcolor>
                     <align>left</align>
                     <aligny>center</aligny>
-                    <label>Seeders: [UPPERCASE][COLOR deepskyblue]$INFO[ListItem.Property(seeders)][/COLOR][/UPPERCASE]</label>
+                    <label>Seeders: [UPPERCASE]$INFO[ListItem.Property(colored_seeders)][/UPPERCASE]</label>
                 </control>
                 <control type="label">
                     <left>750</left>

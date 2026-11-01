@@ -100,7 +100,7 @@ class FilterSelect(BaseWindow):
         """Kodi callback when an action occurs"""
         action_id = action.getId()
         # ESC, Backspace, Context Menu, or Android TV Back closes the dialog
-        if action_id in [9, 10, 92, 117, 216]:
+        if action_id in [9, 10, 92, 110, 117, 216]:
             self.close()
 
     def close(self):

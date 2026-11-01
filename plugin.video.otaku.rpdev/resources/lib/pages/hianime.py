@@ -233,16 +233,21 @@ class Sources(BrowserBase):
     def _resolve_anime_id(self, mirror, title, kodi_meta, mal_id, headers):
         keywords = self._search_keywords(title, mal_id, kodi_meta)
         candidates = {}
+        had_response = False
         for keyword in keywords:
             search_url = f"{mirror}search?keyword={urllib.parse.quote_plus(keyword)}"
             html = database.get(self._get_request, 8, search_url, headers=headers)
             if not html:
                 continue
+            had_response = True
             for item in self._parse_search_results(html):
                 if item['id'] not in candidates:
                     candidates[item['id']] = item['name']
             if candidates:
                 break
+
+        if keywords and not had_response:
+            raise ConnectionError(f"Mirror {mirror} returned no response for search requests")
 
         if not candidates:
             control.log(f"HiAnime: No search matches on {mirror} for '{title}'", level='info')

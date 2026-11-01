@@ -84,14 +84,22 @@ class OpenSubtitlesService:
 
         # Prefer search by IMDb ID if available
         if meta.imdb_id_int:
-            params['imdb_id'] = meta.imdb_id_int
+            if meta.is_tvshow and meta.season and meta.episode:
+                params['parent_imdb_id'] = meta.imdb_id_int
+            else:
+                params['imdb_id'] = meta.imdb_id_int
 
         if meta.is_tvshow and meta.season and meta.episode:
             params['season_number'] = str(meta.season)
             params['episode_number'] = str(meta.episode)
             query_title = meta.tvshow or meta.title
             if query_title and not meta.imdb_id_int:
-                params['query'] = f"{query_title} S{int(meta.season):02d}E{int(meta.episode):02d}"
+                try:
+                    s_int = int(meta.season)
+                    e_int = int(meta.episode)
+                    params['query'] = f"{query_title} S{s_int:02d}E{e_int:02d}"
+                except (ValueError, TypeError):
+                    params['query'] = f"{query_title} {meta.episode}"
         else:
             if meta.year:
                 params['year'] = str(meta.year)

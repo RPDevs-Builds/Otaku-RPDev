@@ -39,11 +39,12 @@ def get_active_setting_ids(settings_xml_path=None):
     return active_ids
 
 
-def clean_settings(profile_settings_path=None, canonical_settings_path=None):
+def clean_settings(profile_settings_path=None, canonical_settings_path=None, silent=False):
     """
     Scan userdata settings.xml and strip settings that are no longer defined in resources/settings.xml.
     :param profile_settings_path: Path to user's profile settings.xml (defaults to addon profile)
     :param canonical_settings_path: Path to addon resources/settings.xml
+    :param silent: Optional flag to suppress interactive notifications
     :return: (pruned_count: int, removed_ids: list[str])
     """
     if not profile_settings_path:

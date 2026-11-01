@@ -49,15 +49,6 @@ class Sources(BrowserBase):
                 if ids:
                     self.anidb_id = meta_ids['anidb_id'] = ids['anidb']
                     database.update_show_meta(mal_id, meta_ids, database.loads(show_meta['art']))
-        if self.anidb_id:
-            episode_meta = database.get_episode(mal_id, episode)
-            if episode_meta:
-                self.anidb_ep_id = episode_meta.get('anidb_ep_id')
-            if not self.anidb_ep_id:
-                anidb_meta = anidb.get_episode_meta(self.anidb_id)
-                anidb_meta = {x: v for x, v in anidb_meta.items() if x.isdigit()}
-                for anidb_ep in anidb_meta:
-                    database.update_episode_column(mal_id, anidb_ep, 'anidb_ep_id', anidb_meta[anidb_ep]['anidb_id'])
 
         season_zfill = str(season).zfill(2) if season else '01'
         episode_zfill = str(episode).zfill(2) if episode is not None else '01'
@@ -196,12 +187,32 @@ class Sources(BrowserBase):
         self.append_cache_uncached_noduplicates()
         return {'cached': self.cached, 'uncached': self.uncached}
 
+    @staticmethod
+    def _extract_hash(magnet):
+        if not magnet:
+            return ''
+        m = re.search(r'btih:([A-Za-z0-9]+)', magnet)
+        if not m:
+            return ''
+        raw_hash = m.group(1)
+        if len(raw_hash) == 40:
+            return raw_hash.lower()
+        if len(raw_hash) == 32:
+            try:
+                return base64.b16encode(base64.b32decode(raw_hash.upper())).decode('ascii').lower()
+            except (ValueError, AttributeError) as e:
+                control.log(f"animetosho base32 hash conversion error: {e}", 'debug')
+        return ''
+
     def process_animetosho_episodes(self, url, params, mal_id, episode, season, part):
         response = client.get(url, params=params)
         if response:
             html = response.text
             soup = BeautifulSoup(html, "html.parser")
-            soup_all = soup.find('div', id='content').find_all('div', class_='home_list_entry')
+            content_div = soup.find('div', id='content')
+            if not content_div:
+                return []
+            soup_all = content_div.find_all('div', class_='home_list_entry')
             rex = r'(magnet:)+[^"]*'
             list_ = []
             for entry in soup_all:
@@ -235,19 +246,7 @@ class Sources(BrowserBase):
                 except (AttributeError, TypeError, ValueError):
                     list_item['seeders'] = -1
 
-                list_item['hash'] = ''
-                if list_item['torrent']:
-                    tor_match = re.match(r'https://animetosho.org/storage/torrent/([^/]+)', list_item['torrent'])
-                    if tor_match:
-                        list_item['hash'] = tor_match.group(1)
-                if not list_item['hash'] and list_item['magnet']:
-                    try:
-                        m = re.search(r'btih:(\w+)&tr=http', list_item['magnet'])
-                        if m:
-                            hash_32 = m.group(1)
-                            list_item['hash'] = base64.b16encode(base64.b32decode(hash_32)).decode().lower()
-                    except (ValueError, AttributeError) as e:
-                        control.log(f"animetosho base32 hash conversion error: {e}", 'debug')
+                list_item['hash'] = self._extract_hash(list_item['magnet'])
                 if not list_item['hash']:
                     continue
 
@@ -275,8 +274,11 @@ class Sources(BrowserBase):
         if response:
             html = response.text
             soup = BeautifulSoup(html, "html.parser")
+            content_div = soup.find('div', id='content')
+            if not content_div:
+                return []
             # Assuming the movie results use the same container as episodes:
-            soup_all = soup.find('div', id='content').find_all('div', class_='home_list_entry')
+            soup_all = content_div.find_all('div', class_='home_list_entry')
             rex = r'(magnet:)+[^"]*'
             list_ = []
             for entry in soup_all:
@@ -310,19 +312,7 @@ class Sources(BrowserBase):
                 except (AttributeError, TypeError, ValueError):
                     list_item['seeders'] = -1
 
-                list_item['hash'] = ''
-                if list_item['torrent']:
-                    tor_match = re.match(r'https://animetosho.org/storage/torrent/([^/]+)', list_item['torrent'])
-                    if tor_match:
-                        list_item['hash'] = tor_match.group(1)
-                if not list_item['hash'] and list_item['magnet']:
-                    try:
-                        m = re.search(r'btih:(\w+)&tr=http', list_item['magnet'])
-                        if m:
-                            hash_32 = m.group(1)
-                            list_item['hash'] = base64.b16encode(base64.b32decode(hash_32)).decode().lower()
-                    except (ValueError, AttributeError) as e:
-                        control.log(f"animetosho base32 hash conversion error: {e}", 'debug')
+                list_item['hash'] = self._extract_hash(list_item['magnet'])
                 if not list_item['hash']:
                     continue
 

@@ -18,7 +18,7 @@ def getArt(meta_ids, mtype, limit=None):
                 "api_key": apiKey
             }
             response = client.get(f'{baseUrl}find/{tvdb}', params=params)
-            res = control.safe_json(response)
+            res = control.safe_json(response, default={})
             res = res.get('tv_results')
             if res:
                 mid = res[0].get('id')
@@ -29,7 +29,7 @@ def getArt(meta_ids, mtype, limit=None):
             "api_key": apiKey
         }
         response = client.get(f'{baseUrl}{mtype[0:5]}/{mid}/images', params=params)
-        res = control.safe_json(response)
+        res = control.safe_json(response, default={})
 
         if res:
             # Backdrops are for fanart (wide 16:9 background images)
@@ -66,7 +66,7 @@ def searchByTitle(title, mtype):
         'api_key': apiKey
     }
     response = client.get(f'{baseUrl}search/{search_type}', params=params)
-    res = control.safe_json(response)
+    res = control.safe_json(response, default={})
     results = res.get('results', [])
     if results:
         return results[0].get('id')
@@ -79,7 +79,7 @@ def get_episode_titles(tmdb_id, season_number, episode_number):
         "api_key": apiKey
     }
     response = client.get(f'{baseUrl}tv/{tmdb_id}/season/{season_number}/episode/{episode_number}/translations', params=params)
-    res = control.safe_json(response)
+    res = control.safe_json(response, default={})
 
     # Extract English name, fallback to Japanese if not found
     translations = res.get('translations', [])

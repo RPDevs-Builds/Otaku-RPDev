@@ -5,12 +5,21 @@
 # -*- coding: utf-8 -*-
 
 import concurrent.futures
+import functools
 import re
 from typing import List, Dict, Any, Optional
 from resources.lib.ui import control
 from resources.lib.subtitles.models import VideoMeta, SubtitleResult
 from resources.lib.subtitles.services import ALL_SERVICES
 from resources.lib.subtitles import languages
+
+
+@functools.lru_cache(maxsize=128)
+def _get_episode_patterns(target_s: int, target_e: int):
+    s_e_pattern = re.compile(rf'[._\s\-\[]s0*{target_s}e0*{target_e}[._\s\-\]]', re.IGNORECASE)
+    alt_pattern = re.compile(rf'[._\s\-\[]0*{target_s}x0*{target_e}[._\s\-\]]', re.IGNORECASE)
+    single_ep_pattern = re.compile(rf'[._\s\-\[]e0*{target_e}[._\s\-\]]', re.IGNORECASE)
+    return s_e_pattern, alt_pattern, single_ep_pattern
 
 
 def score_result(sub: SubtitleResult, meta: VideoMeta, settings: Dict[str, Any]) -> float:
@@ -54,9 +63,7 @@ def score_result(sub: SubtitleResult, meta: VideoMeta, settings: Dict[str, Any])
                     score -= 1.0
 
             # Regex search in filename
-            s_e_pattern = re.compile(rf'[._\s\-\[]s0*{target_s}e0*{target_e}[._\s\-\]]', re.IGNORECASE)
-            alt_pattern = re.compile(rf'[._\s\-\[]0*{target_s}x0*{target_e}[._\s\-\]]', re.IGNORECASE)
-            single_ep_pattern = re.compile(rf'[._\s\-\[]e0*{target_e}[._\s\-\]]', re.IGNORECASE)
+            s_e_pattern, alt_pattern, single_ep_pattern = _get_episode_patterns(target_s, target_e)
 
             if s_e_pattern.search(name_lower) or alt_pattern.search(name_lower):
                 score += 0.8
@@ -163,13 +170,16 @@ def search_all_services(meta: VideoMeta, settings: Dict[str, Any]) -> List[Subti
     max_workers = min(len(enabled_services), 8)
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         future_map = {executor.submit(_query, svc): svc[0] for svc in enabled_services}
-        for future in concurrent.futures.as_completed(future_map, timeout=timeout + 5):
-            try:
-                sub_list = future.result()
-                if sub_list:
-                    all_results.extend(sub_list)
-            except Exception as e:
-                control.log(f"Search future exception: {e}", 'warning')
+        try:
+            for future in concurrent.futures.as_completed(future_map, timeout=timeout + 5):
+                try:
+                    sub_list = future.result()
+                    if sub_list:
+                        all_results.extend(sub_list)
+                except Exception as e:
+                    control.log(f"Search future exception: {e}", 'warning')
+        except concurrent.futures.TimeoutError:
+            control.log("Native Subtitles: search_all_services timeout exceeded", 'warning')
 
     if not all_results:
         return []

@@ -35,15 +35,6 @@ class SyncDatabase:
         # --- create every table the addon needs ---
         self._create_all_tables()
 
-        # ─── April Fools' Day: Set browser.api to anilist on April 1st ───
-        today = datetime.now()
-        if today.month == 4 and today.day == 1:
-            april_fools_flag = control.getSetting('april_fools_day')
-            if april_fools_flag != str(today.year):
-                control.setSetting('browser.api', 'anilist')
-                control.setSetting('april_fools_day', str(today.year))
-                self.re_build_database(True)
-
         # --- version check ---
         self.last_meta_update = self.SCHEMA_VERSION
         self.refresh_activites()

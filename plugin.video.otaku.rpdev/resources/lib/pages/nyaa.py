@@ -79,14 +79,6 @@ class Sources(BrowserBase):
                 'name': 'batch'
             })
 
-        # Fallback search without sorting
-        query3 = query1  # Reuse primary query
-        search_tasks.append({
-            'query': query3,
-            'params': {'f': '0', 'c': '1_0', 'q': query3.replace(' ', '+')},
-            'name': 'fallback'
-        })
-
         # Season search
         query4 = show
         show_lower = show.lower()
@@ -112,19 +104,40 @@ class Sources(BrowserBase):
 
         def run_search(task):
             try:
-                sources = self.process_nyaa_episodes(self._BASE_URL, task['params'], mal_id, episode_zfill, season_zfill, part)
-                control.log(f"Nyaa: {task['name']} search returned {len(sources)} sources")
-                return sources
+                filtered = self._fetch_and_filter_episodes(self._BASE_URL, task['params'], mal_id, episode_zfill, season_zfill, part)
+                control.log(f"Nyaa: {task['name']} search returned {len(filtered)} filtered torrents")
+                return filtered
             except Exception as e:
                 control.log(f"Nyaa: {task['name']} search failed: {str(e)}")
                 return []
 
         all_search_results = utils.parallel_process(search_tasks, run_search)
 
-        # Combine all results
-        nyaa_sources = []
-        for sources in all_search_results:
-            nyaa_sources.extend(sources)
+        # Deduplicate candidate torrents across parallel tasks before calling Debrid().torrentCacheCheck once
+        seen_hashes = set()
+        combined = []
+        for torrents in all_search_results:
+            for t in torrents:
+                h = t.get('hash', '').lower()
+                if h and h not in seen_hashes:
+                    t['hash'] = h
+                    seen_hashes.add(h)
+                    combined.append(t)
+
+        if not combined:
+            return []
+
+        cache_list, uncashed_list_ = Debrid().torrentCacheCheck(combined, mal_id=mal_id, episode=episode_zfill, media_type=self.media_type, rescrape=self.rescrape)
+        cache_list = sorted(cache_list, key=lambda k: k['downloads'], reverse=True)
+
+        uncashed_list = [i for i in uncashed_list_ if i['seeders'] > 0]
+        uncashed_list = sorted(uncashed_list, key=lambda k: k['seeders'], reverse=True)
+
+        mapfunc = partial(self.parse_nyaa_view, episode=episode_zfill)
+        nyaa_sources = utils.parallel_process(cache_list, mapfunc) if cache_list else []
+        if control.getBool('show.uncached') and uncashed_list:
+            mapfunc2 = partial(self.parse_nyaa_view, episode=episode_zfill, cached=False)
+            nyaa_sources += utils.parallel_process(uncashed_list, mapfunc2)
 
         control.log(f"Nyaa: Episode search complete - returning {len(nyaa_sources)} total sources")
         return nyaa_sources
@@ -163,27 +176,43 @@ class Sources(BrowserBase):
         self.append_cache_uncached_noduplicates()
         return {'cached': self.cached, 'uncached': self.uncached}
 
-    def process_nyaa_episodes(self, url, params, mal_id, episode_zfill, season_zfill, part):
+    def _fetch_and_filter_episodes(self, url, params, mal_id, episode_zfill, season_zfill, part):
         response = client.get(url, params=params)
         if response:
             html = response.text
             mlink = SoupStrainer('div', {'class': 'table-responsive'})
             soup = BeautifulSoup(html, "html.parser", parse_only=mlink)
             rex = r'(magnet:)+[^"]*'
-            list_ = [
-                {'magnet': i.find('a', {'href': re.compile(rex)}).get('href'),
-                 'name': i.find_all('a', {'class': None})[1].get('title'),
-                 'size': i.find_all('td', {'class': 'text-center'})[1].text.replace('i', ''),
-                 'downloads': int(i.find_all('td', {'class': 'text-center'})[-1].text),
-                 'seeders': int(i.find_all('td', {'class': 'text-center'})[-3].text)
-                 } for i in soup.select("tr.danger,tr.default,tr.success")
-            ]
+            list_ = []
+            for i in soup.select("tr.danger,tr.default,tr.success"):
+                magnet_tag = i.find('a', {'href': re.compile(rex)})
+                if not magnet_tag:
+                    continue
+                title_links = i.find_all('a', {'class': None})
+                if len(title_links) < 2:
+                    continue
+                tds = i.find_all('td', {'class': 'text-center'})
+                if len(tds) < 3:
+                    continue
+                magnet_href = magnet_tag.get('href', '')
+                hashes = re.findall(r'btih:(.*?)(?:&|$)', magnet_href)
+                if not hashes:
+                    continue
+                list_.append({
+                    'magnet': magnet_href,
+                    'name': title_links[1].get('title'),
+                    'size': tds[1].text.replace('i', ''),
+                    'downloads': int(tds[-1].text),
+                    'seeders': int(tds[-3].text),
+                    'hash': hashes[0].lower()
+                })
 
-            for idx, torrent in enumerate(list_):
-                torrent['hash'] = re.findall(r'btih:(.*?)(?:&|$)', torrent['magnet'])[0]
+            return source_utils.filter_sources('nyaa', list_, mal_id, int(season_zfill), int(episode_zfill), part)
+        return []
 
-            filtered_list = source_utils.filter_sources('nyaa', list_, mal_id, int(season_zfill), int(episode_zfill), part)
-
+    def process_nyaa_episodes(self, url, params, mal_id, episode_zfill, season_zfill, part):
+        filtered_list = self._fetch_and_filter_episodes(url, params, mal_id, episode_zfill, season_zfill, part)
+        if filtered_list:
             cache_list, uncashed_list_ = Debrid().torrentCacheCheck(filtered_list, mal_id=mal_id, episode=episode_zfill, media_type=self.media_type, rescrape=self.rescrape)
             cache_list = sorted(cache_list, key=lambda k: k['downloads'], reverse=True)
 
@@ -211,7 +240,9 @@ class Sources(BrowserBase):
                  i.find_all('td', {'class': 'text-center'})[1].text,
                  i.find_all('td', {'class': 'text-center'})[-1].text,
                  i.find_all('td', {'class': 'text-center'})[-3].text
-                 ) for i in results.select("tr.danger,tr.default,tr.success")]
+                 ) for i in results.select("tr.danger,tr.default,tr.success")
+                if i.find_all('a', {'href': re.compile(rex)})
+            ]
 
             list_ = [
                 {
@@ -224,7 +255,7 @@ class Sources(BrowserBase):
             ]
 
             for idx, torrent in enumerate(list_):
-                torrent['hash'] = re.findall(r'btih:(.*?)(?:&|$)', torrent['magnet'])[0]
+                torrent['hash'] = re.findall(r'btih:(.*?)(?:&|$)', torrent['magnet'])[0].lower()
 
             filtered_list = source_utils.filter_sources('nyaa', list_, mal_id)
 

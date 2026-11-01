@@ -133,7 +133,7 @@
 						<include content="Object_IconicButton">
                             <param name="id" value="3003" />
                             <param name="groupid" value="9012" />
-                            <param name="label" value="Skip Intro" />
+                            <param name="label" value="Skip Outro" />
                             <param name="icon" value="special://skin/extras/icons/play3.png" />
                             <param name="visible" value="true" />
                         </include>

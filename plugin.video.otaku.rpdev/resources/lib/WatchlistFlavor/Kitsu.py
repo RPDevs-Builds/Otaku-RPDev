@@ -316,7 +316,10 @@ class KitsuWLF(WatchlistFlavorBase):
             return []
 
         # Read only the current page items from SQLite using database-level sorting
-        sort_col, sort_dir = self.get_sort_col_and_order()
+        if cache_key == 'next_up':
+            sort_col, sort_dir = 'updated', 'DESC'
+        else:
+            sort_col, sort_dir = self.get_sort_col_and_order()
         total_count = get_watchlist_cache_count(self._NAME, cache_key)
 
         if paging_enabled and per_page > 0:
@@ -698,8 +701,6 @@ class KitsuWLF(WatchlistFlavorBase):
             info['year'] = year
         if cast:
             info['cast'] = cast
-        if anilist_res and anilist_res.get('countryOfOrigin'):
-            info['mpaa'] = anilist_res.get('countryOfOrigin')
 
         # User's own score (ratingTwenty is 2-20 scale, convert to 1-10)
         user_score = res['attributes'].get('ratingTwenty')
@@ -746,7 +747,7 @@ class KitsuWLF(WatchlistFlavorBase):
             ids = SIMKLAPI().get_mapping_ids_from_simkl(kitsu_id, 'kitsu_id')
             mal_id = ids.get('mal', '')
             if mal_id:
-                database.add_mapping_id(mal_id, 'mal_id', mal_id)
+                database.add_mapping_id(mal_id, 'kitsu_id', kitsu_id)
         return mal_id
 
     def get_library_entries(self, kitsu_id):
@@ -806,15 +807,29 @@ class KitsuWLF(WatchlistFlavorBase):
             "page[limit]": "500",
             "include": "anime,anime.mappings,anime.mappings.item",
         }
+
+        def _extract_mappings(included):
+            anime_by_id = {x['id']: x for x in included if x.get('type') == 'anime' and 'id' in x}
+            mappings_by_id = {x['id']: x for x in included if x.get('type') == 'mappings' and 'id' in x}
+            for anime_id, anime in anime_by_id.items():
+                mapping_refs = anime.get('relationships', {}).get('mappings', {}).get('data', [])
+                for ref in mapping_refs:
+                    m = mappings_by_id.get(ref.get('id'))
+                    if m and not m.get('relationships', {}).get('item', {}).get('data', {}).get('id'):
+                        m.setdefault('relationships', {})['item'] = {'data': {'id': anime_id, 'type': 'anime'}}
+            return list(mappings_by_id.values())
+
         r = client.get(url, headers=self.__headers(), params=params)
         res = r.json() if r else {}
         paging = res.get('links', {})
         data = res.get('data', [])
+        self.mapping = _extract_mappings(res.get('included', []))
         while paging.get('next'):
             r = client.get(paging['next'], headers=self.__headers())
             res = r.json() if r else {}
             paging = res.get('links', {})
             data += res.get('data', [])
+            self.mapping.extend(_extract_mappings(res.get('included', [])))
         return data
 
     def update_list_status(self, mal_id, status):
@@ -824,7 +839,8 @@ class KitsuWLF(WatchlistFlavorBase):
             return False
 
         r = self.get_library_entries(kitsu_id)
-        if len(r['data']) == 0:
+        entries = r.get('data', [])
+        if len(entries) == 0:
             data = {
                 "data": {
                     "type": "libraryEntries",
@@ -851,7 +867,7 @@ class KitsuWLF(WatchlistFlavorBase):
             if r and r.ok:
                 clear_watchlist_cache(self._NAME)  # Clear all statuses since item moved
             return r and r.ok
-        animeid = int(r['data'][0]['id'])
+        animeid = int(entries[0]['id'])
         data = {
             'data': {
                 'id': animeid,
@@ -873,7 +889,8 @@ class KitsuWLF(WatchlistFlavorBase):
             return False
 
         r = self.get_library_entries(kitsu_id)
-        if len(r['data']) == 0:
+        entries = r.get('data', [])
+        if len(entries) == 0:
             data = {
                 "data": {
                     "type": "libraryEntries",
@@ -902,7 +919,7 @@ class KitsuWLF(WatchlistFlavorBase):
                 clear_watchlist_cache(self._NAME)  # Clear cache to reflect progress
             return r and r.ok
 
-        animeid = int(r['data'][0]['id'])
+        animeid = int(entries[0]['id'])
 
         data = {
             'data': {
@@ -929,7 +946,8 @@ class KitsuWLF(WatchlistFlavorBase):
         if score == 0:
             score = None
         r = self.get_library_entries(kitsu_id)
-        if len(r['data']) == 0:
+        entries = r.get('data', [])
+        if len(entries) == 0:
             data = {
                 "data": {
                     "type": "libraryEntries",
@@ -957,7 +975,7 @@ class KitsuWLF(WatchlistFlavorBase):
                 clear_watchlist_cache(self._NAME)  # Clear cache to reflect score
             return r and r.ok
 
-        animeid = int(r['data'][0]['id'])
+        animeid = int(entries[0]['id'])
         data = {
             'data': {
                 'id': animeid,
@@ -979,7 +997,7 @@ class KitsuWLF(WatchlistFlavorBase):
             return False
 
         r = self.get_library_entries(kitsu_id)
-        data = r['data']
+        data = r.get('data', [])
         if data:
             animeid = data[0]['id']
         else:

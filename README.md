@@ -3,7 +3,7 @@
 [![Kodi version](https://img.shields.io/badge/Kodi-20%20(Nexus)%20%7C%2021%20(Omega)%20%7C%2022%20(Piers%20RC)-blue?style=for-the-badge&logo=kodi)](https://kodi.tv/)
 [![Python versions](https://img.shields.io/badge/Python-3.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue?style=for-the-badge&logo=python)](https://python.org/)
 [![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/GPL-3.0)
-[![Test Suite](https://img.shields.io/badge/Tests-263%20Passing-brightgreen?style=for-the-badge&logo=checkmarx)](https://github.com/RPDevs-Builds/Otaku-RPDev/actions)
+[![Test Suite](https://img.shields.io/badge/Tests-412%2B%20Passing-brightgreen?style=for-the-badge&logo=checkmarx)](https://github.com/RPDevs-Builds/Otaku-RPDev/actions)
 [![CDN Repository](https://img.shields.io/badge/CDN-kodi.repo.iamrp.dev-blueviolet?style=for-the-badge)](https://kodi.repo.iamrp.dev/)
 [![Original Project](https://img.shields.io/badge/Forked%20From-Goldenfreddy0703%2FOtaku-orange?style=for-the-badge&logo=github)](https://github.com/Goldenfreddy0703/Otaku)
 
@@ -29,7 +29,7 @@ I originally set out with a very modest, well-mannered plan: clone upstream [Gol
 
 Then things took a turn.
 
-One small patch led to fixing an unhandled exception. That led to noticing that video hoster streams required external dependencies, so I wrote a native in-process Python decryptor. That led to noticing memory leaks on Android TV boxes, so I hooked C-level `malloc_trim` into the player lifecycle. That led to database lockups, so I gutted legacy Python pickle serialization in favor of SQLite WAL and atomic persistence. Then scraper thread storms were locking up the UI, so I introduced cooperative cancellation tokens and circuit breakers. Next came Kodi 22 (Piers RC) strict setting enforcement, requiring full schema declarations for all internal settings to prevent C++ exceptions. Before I knew it, I had overhauled the routing engine, decoupled 1,500+ functions, built an automated 252-test mock harness, and engineered an interactive cache maintenance GUI.
+One small patch led to fixing an unhandled exception. That led to noticing that video hoster streams required external dependencies, so I wrote a native in-process Python decryptor. That led to noticing memory leaks on Android TV boxes, so I hooked C-level `malloc_trim` into the player lifecycle. That led to database lockups, so I gutted legacy Python pickle serialization in favor of SQLite WAL and atomic persistence. Then scraper thread storms were locking up the UI, so I introduced cooperative cancellation tokens and circuit breakers. Next came Kodi 22 (Piers RC) strict setting enforcement, requiring full schema declarations for all internal settings to prevent C++ exceptions. Before I knew it, I had overhauled the routing engine, decoupled 1,500+ functions, built an automated 412+ test mock harness, and engineered an interactive cache maintenance GUI.
 
 At this point, submitting an upstream pull request would probably melt GitHub's diff engine. 
 
@@ -120,8 +120,8 @@ Every single subsystem has been audited, benchmarked, hardened, and expanded:
 - **Selective Provider Cache Clearing**: Context Menu **"Clear Addon Cache"** launches an interactive modal dialog (`clear_cache.xml`). Users can selectively purge provider scrapers, embeds, season packs, and debrid hashes without touching their watchlist or metadata database.
 - **Nuclear Purge Option**: Full database reset available for troubleshooting with interactive navigation descriptions and dedicated Cancel fallback.
 
-### 7. 🧪 Automated Testing & 100% Error-Catching Architecture (v5.5.0)
-- **252 Automated Tests in CI**: Expanded test suite covering unit tests, integration lifecycles, and failure simulations.
+### 7. 🧪 Automated Testing & 100% Error-Catching Architecture (v5.5.0 – v5.9.2)
+- **412+ Automated Tests in CI**: Expanded hermetic test suite covering unit tests, integration lifecycles, live audit checks, and failure simulations.
 - **Comprehensive Kodi Mock Harness**: Emulates `xbmc.Player`, `xbmcgui.WindowXMLDialog`, `xbmcgui.ListItem`, `xbmcplugin`, and dialogs completely in-memory, enabling full GUI and playback testing without running Kodi.
 - **Typed Exception Guards**: Replaced blind `except: pass` blocks across all external API endpoints, ensuring network errors produce friendly user notifications rather than silent failures.
 
@@ -146,6 +146,9 @@ Every single subsystem has been audited, benchmarked, hardened, and expanded:
 
 | Version | Highlights |
 | :--- | :--- |
+| **v5.9.0 – v5.9.2** | Full codebase audit remediation across all 123 Python modules and 38 skin XMLs; hardened window controllers (`skip_intro`, `still_watching`, `resolver`, `playing_next`, `source_select`, `sort_select`, `filter_select`, `download_manager`, `anichart`), skin XML layout/color/navigation fixes, hermetic 412+ test suite, and live scraper health monitor enhancements. |
+| **v5.8.0 – v5.8.x** | Multi-debrid provider resilience, season pack rescrape failover, enhanced subtitle selection & forced track prioritization, and watchlist synchronization hardening. |
+| **v5.7.0 – v5.7.x** | Scraper concurrency & early-termination optimizations, expanded torrent & web embed extraction rules, and rich metadata/artwork fallbacks. |
 | **v5.6.3** | Scraper yield counting and health monitor dashboard (`check_scraper_health.py`), AnimeTosho & WatchNixtoons2 NoneType fallback guards, 263/263 unit tests passing. |
 | **v5.6.2** | Nyaa batch query NoneType metadata fallback guard, 38/38 Kodi 22 subsystem audits certified. |
 | **v5.6.1** | Premiumize OAuth 2.0 device flow with direct QR code enrollment (`/device?user_code=`), pyqrcode import error fallback. |
@@ -172,7 +175,7 @@ Otaku RPDev includes an extensive automated test suite that executes in pure Pyt
 git clone https://github.com/RPDevs-Builds/Otaku-RPDev.git
 cd Otaku-RPDev
 
-# Run the complete test suite (252 tests)
+# Run the complete test suite (412+ tests)
 python3 -m unittest discover -s tests
 ```
 

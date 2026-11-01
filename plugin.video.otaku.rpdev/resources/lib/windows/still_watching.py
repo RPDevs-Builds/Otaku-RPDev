@@ -14,8 +14,13 @@ from resources.lib.windows.base_window import BaseWindow
 
 
 class StillWatchingXML(BaseWindow):
+    closing_actions = (92, 10, 110, 9)
+    selection_actions = (7, 100, 401)
+
     def __init__(self, xml_file, location, actionArgs=None):
         super().__init__(xml_file, location, actionArgs=actionArgs)
+        self.closing_actions = (92, 10, 110, 9)
+        self.selection_actions = (7, 100, 401)
         self.actionArgs = actionArgs or {}
         self.timeout = max(5, int(self.actionArgs.get('timeout') or control.getInt('smartplay.stillwatching_timeout') or 30))
         self.title = self.actionArgs.get('title') or control.playerWindow.getProperty('item.info.tvshowtitle') or 'Anime Series'
@@ -55,7 +60,7 @@ class StillWatchingXML(BaseWindow):
         """Non-blocking timer updating progress and prompt."""
         progress_bar = None
         try:
-            progress_bar = self.getControlProgress(3014)
+            progress_bar = self.getControl(3014)
         except Exception:
             pass
 

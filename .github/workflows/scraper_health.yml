@@ -19,6 +19,10 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Install Dependencies
+        run: |
+          pip install beautifulsoup4 pyqrcode
+
       - name: Execute Scraper Health Checks
         run: |
           python3 scripts/check_scraper_health.py

@@ -61,7 +61,11 @@ def unpack(source):
     def lookup(match):
         """Look up symbols in the synthetic symtab."""
         word = match.group(0)
-        return symtab[int(word)] if radix == 1 else symtab[unbase(word)] or word
+        try:
+            idx = int(word) if radix == 1 else unbase(word)
+            return symtab[idx] or word
+        except (IndexError, ValueError, KeyError):
+            return word
 
     def getstring(c, a=radix):
         foo = chr(c % a + 161)
@@ -69,7 +73,12 @@ def unpack(source):
 
     payload = payload.replace("\\\\", "\\").replace("\\'", "'")
     p = re.search(r'eval\(function\(p,a,c,k,e.+?String\.fromCharCode\(([^)]+)', source)
-    pnew = re.findall(r'String\.fromCharCode\(([^)]+)', source)[0].split('+')[1] == '161' if p else False
+    if p:
+        fc_matches = re.findall(r'String\.fromCharCode\(([^)]+)', source)
+        parts = fc_matches[0].split('+') if fc_matches else []
+        pnew = (len(parts) > 1 and parts[1].strip() == '161')
+    else:
+        pnew = False
 
     if pnew:
         for i in range(count - 1, -1, -1):
@@ -83,7 +92,10 @@ def unpack(source):
 def _filterargs(source):
     """Juice from a source file the four args needed by decoder."""
     argsregex = r"}\s*\('(.*)',\s*(.*?),\s*(\d+),\s*'(.*?)'\.split\('\|'\)"
-    args = re.search(argsregex, source, re.DOTALL).groups()
+    match = re.search(argsregex, source, re.DOTALL)
+    if not match:
+        raise UnpackingError('Corrupted p.a.c.k.e.r. data.')
+    args = match.groups()
 
     try:
         payload, radix, count, symtab = args

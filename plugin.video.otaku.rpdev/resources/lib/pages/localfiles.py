@@ -19,7 +19,10 @@ class Sources(BrowserBase):
             return None
 
         full_path = file_info['path']
-        file_size = os.path.getsize(full_path)
+        try:
+            file_size = os.path.getsize(full_path)
+        except OSError:
+            return None
         return {
             'release_title': file_info['name'],
             'hash': full_path,
@@ -38,8 +41,11 @@ class Sources(BrowserBase):
         }
 
     def get_sources(self, query, mal_id, episode, season=None):
+        path = control.getSetting('folder.location') or PATH
+        if not path:
+            return self.local_files
         filenames = []
-        for root, dirs, files in os.walk(PATH):
+        for root, dirs, files in os.walk(path):
             for file in files:
                 if source_utils.is_file_ext_valid(file):
                     full_path = os.path.join(root, file)

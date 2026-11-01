@@ -21,6 +21,7 @@ from resources.lib.ui import control, client, database
 _CACHE_EXPIRY_HOURS = 24
 _IN_FLIGHT_LOCK = threading.Lock()
 _IN_FLIGHT_CHECKS = {}  # key: (hash_lower, debrid_lower), value: threading.Event()
+_EPISODE_CACHE_RESULTS = {}  # key: (syn_key_lower, debrid_lower), value: list of hashes
 
 
 def acquire_in_flight(hash_list, debrid):
@@ -97,12 +98,15 @@ def get_cached_hashes(hash_list):
     """Get previously cached hash results from local DB."""
     if not hash_list:
         return []
+    clean_hashes = [str(h).strip().lower() for h in hash_list if h]
+    if not clean_hashes:
+        return []
     _ensure_debrid_cache_table()
     now = int(time.time())
     results = []
     with database.SQL(control.cacheFile) as cur:
-        for i in range(0, len(hash_list), 500):
-            chunk = hash_list[i:i + 500]
+        for i in range(0, len(clean_hashes), 500):
+            chunk = clean_hashes[i:i + 500]
             placeholders = ', '.join('?' for _ in chunk)
             cur.execute(
                 f'SELECT hash, debrid, cached FROM debrid_cache '
@@ -128,7 +132,7 @@ def set_cached_hashes(hash_status_list, debrid):
     with database.SQL(control.cacheFile) as cur:
         cur.executemany(
             'REPLACE INTO debrid_cache (hash, debrid, cached, expires) VALUES (?, ?, ?, ?)',
-            [(h, debrid, status, expires) for h, status in hash_status_list]
+            [(str(h).strip().lower(), debrid, status, expires) for h, status in hash_status_list if h]
         )
         cur.connection.commit()
     if random.random() < 0.2:
@@ -137,6 +141,8 @@ def set_cached_hashes(hash_status_list, debrid):
 
 def clear_debrid_cache():
     """Clear the entire debrid cache table."""
+    with _IN_FLIGHT_LOCK:
+        _EPISODE_CACHE_RESULTS.clear()
     _ensure_debrid_cache_table()
     with database.SQL(control.cacheFile) as cur:
         cur.execute('DELETE FROM debrid_cache')
@@ -178,6 +184,16 @@ def _tio_check_cache(imdb_id, season, episode, collector):
     """Check Torrentio for Real-Debrid cached torrents."""
     if not imdb_id:
         return
+    syn_key = f"tio:{imdb_id}:{season}:{episode}"
+    ready, waiting_events = acquire_in_flight([syn_key], 'rd')
+    if waiting_events:
+        for ev in waiting_events:
+            ev.wait(timeout=7.5)
+        with _IN_FLIGHT_LOCK:
+            cached_ep = _EPISODE_CACHE_RESULTS.get((syn_key.lower(), 'rd'))
+        if cached_ep is not None:
+            collector.extend(cached_ep)
+            return
     try:
         if str(season).isdigit() and int(season) > 0:
             url_path = f'series/{imdb_id}:{season}:{episode}.json'
@@ -187,21 +203,39 @@ def _tio_check_cache(imdb_id, season, episode, collector):
         url = f'https://torrentio.strem.fun/debridoptions=nodownloadlinks,nocatalog|{params}/stream/{url_path}'
         pattern = re.compile(r'\b\w{40}\b')
         response = client.get(url, timeout=7)
+        found = []
         if response and response.ok:
             files = response.json().get('streams', [])
             for f in files:
                 if '+' in f.get('name', '') and 'url' in f:
                     matches = pattern.findall(f['url'])
                     if matches:
-                        collector.append(matches[-1])
+                        h = matches[-1].lower()
+                        found.append(h)
+                        collector.append(h)
+        with _IN_FLIGHT_LOCK:
+            _EPISODE_CACHE_RESULTS[(syn_key.lower(), 'rd')] = found
     except Exception as e:
         control.log(f'Torrentio cache check error: {e}', 'warning')
+    finally:
+        if ready:
+            release_in_flight(ready, 'rd')
 
 
 def _aio_check_cache(imdb_id, season, episode, collector):
     """Check AIOStreams for AllDebrid cached torrents."""
     if not imdb_id:
         return
+    syn_key = f"aio:ad:{imdb_id}:{season}:{episode}"
+    ready, waiting_events = acquire_in_flight([syn_key], 'ad')
+    if waiting_events:
+        for ev in waiting_events:
+            ev.wait(timeout=7.5)
+        with _IN_FLIGHT_LOCK:
+            cached_ep = _EPISODE_CACHE_RESULTS.get((syn_key.lower(), 'ad'))
+        if cached_ep is not None:
+            collector.extend(cached_ep)
+            return
     try:
         if str(season).isdigit() and int(season) > 0:
             params = {'type': 'series', 'id': f'{imdb_id}:{season}:{episode}'}
@@ -237,14 +271,22 @@ def _aio_check_cache(imdb_id, season, episode, collector):
         }
         url = 'https://aiostreams.fortheweak.cloud/api/v1/search'
         response = client.get(url, params=params, headers=headers, timeout=7)
+        found = []
         if response and response.ok:
             files = response.json().get('data', {}).get('results', [])
             for f in files:
                 info_hash = f.get('infoHash')
                 if info_hash:
-                    collector.append(info_hash)
+                    h = info_hash.lower()
+                    found.append(h)
+                    collector.append(h)
+        with _IN_FLIGHT_LOCK:
+            _EPISODE_CACHE_RESULTS[(syn_key.lower(), 'ad')] = found
     except Exception as e:
         control.log(f'AIOStreams cache check error: {e}', 'warning')
+    finally:
+        if ready:
+            release_in_flight(ready, 'ad')
 
 
 def _dmm_check_cache(hash_list, imdb_id, collector):
@@ -253,7 +295,7 @@ def _dmm_check_cache(hash_list, imdb_id, collector):
         return
     try:
         # DMM only handles 40-char hashes and max 100 per request
-        clean_hashes = [h for h in hash_list if len(h) == 40]
+        clean_hashes = [h.lower() for h in hash_list if h and len(h) == 40]
         if not clean_hashes:
             return
 
@@ -274,8 +316,8 @@ def _dmm_check_cache(hash_list, imdb_id, collector):
             if response and response.ok:
                 available = response.json().get('available', [])
                 for f in available:
-                    if 'hash' in f:
-                        collector.append(f['hash'])
+                    if 'hash' in f and f['hash']:
+                        collector.append(f['hash'].lower())
     except Exception as e:
         control.log(f'DMM cache check error: {e}', 'warning')
 

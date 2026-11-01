@@ -109,12 +109,14 @@ def main():
     elif arg == 'rescrape':
         params = get_video_info(item)
         params['rescrape'] = 'true'
-        path = f"{path}?{parse.urlencode(params)}"
+        base_path = path.split('?', 1)[0]
+        path = f"{base_path}?{parse.urlencode(params)}"
         xbmc.executebuiltin(f"PlayMedia({path})")
     elif arg == 'sourceselect':
         params = get_video_info(item)
         params['source_select'] = 'true'
-        path = f"{path}?{parse.urlencode(params)}"
+        base_path = path.split('?', 1)[0]
+        path = f"{base_path}?{parse.urlencode(params)}"
         xbmc.executebuiltin(f"PlayMedia({path})")
     elif arg == 'logout':
         path = path.split(f'{plugin}/watchlist', 1)[1]

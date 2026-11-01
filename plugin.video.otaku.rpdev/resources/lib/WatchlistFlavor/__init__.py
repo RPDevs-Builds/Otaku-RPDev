@@ -117,6 +117,7 @@ class WatchlistFlavor:
         control.setSetting('%s.refresh' % flavor, '')
         control.setSetting('%s.username' % flavor, '')
         control.setSetting('%s.password' % flavor, '')
+        control.setInt('%s.expiry' % flavor, 0)
         control.setInt('%s.sort' % flavor, 0)
         control.setInt('%s.order' % flavor, 0)
         control.setSetting('%s.titles' % flavor, '')
@@ -290,8 +291,7 @@ class WatchlistFlavor:
 
         # Write merged completed data from all flavors once (only when non-empty to prevent wiping on transient errors)
         if merged_completed:
-            with open(control.completed_json, 'w') as file:
-                json.dump(merged_completed, file)
+            control.atomic_write_json(control.completed_json, merged_completed)
             control.log(f'Wrote {len(merged_completed)} total completed entries to completed.json')
         return synced
 

@@ -36,7 +36,12 @@ def get_second_label(info, dub_data, filler=None):
             return code
         for dub_dat in dub_data:
             season = int(info.get('season', 1))
-            if (int(dub_dat['season']) == season or dub_dat['season'] == 0) and int(dub_dat['episode']) == episode:
+            try:
+                dub_ep = int(dub_dat['episode'])
+                dub_season = int(dub_dat['season'])
+            except (ValueError, TypeError, KeyError):
+                continue
+            if (dub_season == season or dub_dat['season'] == 0) and dub_ep == episode:
                 if _dub_is_upcoming(dub_dat["release_time"]):
                     code_dub = dub_dat["release_time"]
 

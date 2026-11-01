@@ -20,11 +20,13 @@ def TOOLS_MENU(payload, params):
 def SOURCE_FILTER(payload, params):
     """Open the filter selection dialog"""
     from resources.lib.windows.filter_select import FilterSelect
+    window = None
     try:
         window = FilterSelect("filter_select.xml", control.ADDON_PATH)
         window.doModal()
     finally:
-        del window
+        if window:
+            del window
 
 
 @Route('delete_anime_database/*')
@@ -610,10 +612,12 @@ def SETUP_WIZARD(payload, params):
             "Premiumize",
             "AllDebrid",
             "Debrid-Link",
+            "EasyDebrid",
+            "Easynews",
             "Skip / Already Authorized"
         ]
     )
-    debrid_map = {0: 'realdebrid', 1: 'torbox', 2: 'premiumize', 3: 'alldebrid', 4: 'debridlink'}
+    debrid_map = {0: 'realdebrid', 1: 'torbox', 2: 'premiumize', 3: 'alldebrid', 4: 'debridlink', 5: 'easydebrid', 6: 'easynews'}
     if debrid_choice in debrid_map:
         try:
             AUTH(debrid_map[debrid_choice], {})

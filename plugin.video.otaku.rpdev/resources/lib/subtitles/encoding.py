@@ -22,9 +22,6 @@ FALLBACK_ENCODINGS = [
     'utf-8',
     'utf-8-sig',
     'cp1252',
-    'latin-1',
-    'iso-8859-1',
-    'iso-8859-15',
     'shift_jis',
     'euc-jp',
     'gbk',
@@ -33,6 +30,9 @@ FALLBACK_ENCODINGS = [
     'euc-kr',
     'windows-1256',
     'windows-1251',
+    'iso-8859-15',
+    'iso-8859-1',
+    'latin-1',
 ]
 
 

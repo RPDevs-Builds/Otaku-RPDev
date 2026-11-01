@@ -141,39 +141,53 @@ def parse_view(base, isfolder, isplayable, dub=False):
 def get_season(titles_list, mal_id):
     import re
     meta_ids = database.get_mappings(mal_id, 'mal_id')
-    if meta_ids and meta_ids.get('thetvdb_season'):
-        if meta_ids['thetvdb_season'] == '0' or meta_ids['thetvdb_season'] == 'a':
+    if meta_ids and meta_ids.get('thetvdb_season') is not None:
+        tvdb_season = meta_ids.get('thetvdb_season')
+        if tvdb_season in (0, '0', 'a'):
             return 1
-        return int(meta_ids['thetvdb_season'])
-    else:
-        regexes = [r'season\s(\d+)', r'\s(\d+)st\sseason\s', r'\s(\d+)nd\sseason\s', r'\s(\d+)rd\sseason\s', r'\s(\d+)th\sseason\s']
-        s_ids = []
-        for regex in regexes:
-            s_ids += [re.findall(regex, name, re.IGNORECASE) for name in titles_list]
-        s_ids = [s[0] for s in s_ids if s]
-        if not s_ids:
-            regex = r'\s(\d+)$'
-            cour = False
-            for name in titles_list:
-                if name is not None and (' part ' in name.lower() or ' cour ' in name.lower()):
-                    cour = True
-                    break
-            if not cour:
-                s_ids += [re.findall(regex, name, re.IGNORECASE) for name in titles_list]
-        s_ids = [s[0] for s in s_ids if s]
-        if not s_ids:
-            seasonnum = 1
-            for title in titles_list:
-                t_str = title[1] if isinstance(title, (list, tuple)) and len(title) > 1 else str(title)
-                m = re.search(r' (\d)[ rnt][ sdh(]', f' {t_str}  ')
-                if m:
-                    seasonnum = m.group(1)
-                    break
-            s_ids = [seasonnum]
-        season = int(s_ids[0])
-        if season > 10:
-            season = 1
-        return season
+        try:
+            return int(tvdb_season)
+        except (ValueError, TypeError):
+            pass
+
+    normalized_titles = []
+    for item in (titles_list or []):
+        if isinstance(item, (list, tuple)):
+            t_str = item[1] if len(item) > 1 else (item[0] if item else '')
+        else:
+            t_str = item
+        if t_str is not None:
+            s = str(t_str).strip()
+            if s:
+                normalized_titles.append(s)
+
+    regexes = [r'season\s(\d+)', r'\s(\d+)st\sseason\s', r'\s(\d+)nd\sseason\s', r'\s(\d+)rd\sseason\s', r'\s(\d+)th\sseason\s']
+    s_ids = []
+    for regex in regexes:
+        s_ids += [re.findall(regex, name, re.IGNORECASE) for name in normalized_titles]
+    s_ids = [s[0] for s in s_ids if s]
+    if not s_ids:
+        regex = r'\s(\d+)$'
+        cour = False
+        for name in normalized_titles:
+            if ' part ' in name.lower() or ' cour ' in name.lower():
+                cour = True
+                break
+        if not cour:
+            s_ids += [re.findall(regex, name, re.IGNORECASE) for name in normalized_titles]
+    s_ids = [s[0] for s in s_ids if s]
+    if not s_ids:
+        seasonnum = 1
+        for t_str in normalized_titles:
+            m = re.search(r' (\d)[ rnt][ sdh(]', f' {t_str}  ')
+            if m:
+                seasonnum = m.group(1)
+                break
+        s_ids = [seasonnum]
+    season = int(s_ids[0])
+    if season > 10:
+        season = 1
+    return season
 
 
 # ═══════════════════════════════════════════════════════════════════════════

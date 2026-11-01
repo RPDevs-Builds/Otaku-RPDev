@@ -30,7 +30,6 @@ def WL_LOGIN(payload, params):
 def WL_LOGOUT(payload, params):
     flavor = payload.strip('/')
     WatchlistFlavor.logout_request(flavor)
-    control.refresh()
     control.exit_code()
 
 

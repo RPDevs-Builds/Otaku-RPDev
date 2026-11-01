@@ -127,8 +127,21 @@ def update_database(mal_id, update_time, res, url, image, info, season, episode,
         database.update_episode(mal_id, season, episode, update_time, kodi_meta, filler, anidb_ep_id)
 
     if control.getBool('interface.cleantitles') and info.get('playcount') != 1:
-        parsed['info']['title'] = f'Episode {res["episode"]}'
+        parsed['info']['title'] = f'Episode {episode}'
         parsed['info']['plot'] = None
+
+    if control.getBool('interface.spoilers.hide_thumbs') and info.get('playcount') != 1:
+        shield_mode = control.getInt('interface.spoilers.shield_mode')
+        img_dict = parsed.get('image') if isinstance(parsed.get('image'), dict) else {}
+        shield_art = img_dict.get('fanart') if shield_mode == 0 else img_dict.get('poster')
+        if not shield_art:
+            shield_art = img_dict.get('poster') or img_dict.get('fanart')
+        if shield_art:
+            if isinstance(parsed.get('image'), dict):
+                parsed['image']['thumb'] = shield_art
+                parsed['image']['icon'] = shield_art
+            else:
+                parsed['image'] = shield_art
 
     if control.getBool('interface.aired.show_countdown', default=True):
         aired_str = info.get('aired')

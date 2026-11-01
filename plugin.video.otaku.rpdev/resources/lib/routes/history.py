@@ -268,7 +268,7 @@ def WATCH_HISTORY(payload, params):
                         try:
                             s_meta = database.loads(show_data['kodi_meta'])
                             last_ep = s_meta.get('eps_watched')
-                        except (pickle.UnpicklingError, EOFError, AttributeError, ValueError) as e:
+                        except (EOFError, AttributeError, ValueError, TypeError, Exception) as e:
                             control.log(f"history kodi_meta parse error: {e}", 'debug')
 
                 display_title = title

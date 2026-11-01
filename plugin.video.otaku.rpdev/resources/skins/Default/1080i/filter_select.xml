@@ -432,7 +432,7 @@
 				<top>60</top>
 				<width>370</width>
 				<height>610</height>
-				<onleft>3333</onleft>
+				<onleft>2000</onleft>
 				<onright>5000</onright>
 				<ondown>4000</ondown>
 				<pagecontrol>3333</pagecontrol>
@@ -602,7 +602,7 @@
 				<top>60</top>
 				<width>370</width>
 				<height>190</height>
-				<onleft>4444</onleft>
+				<onleft>3000</onleft>
 				<onright>5000</onright>
 				<onup>3000</onup>
 				<pagecontrol>4444</pagecontrol>
@@ -772,7 +772,7 @@
 				<top>60</top>
 				<width>370</width>
 				<height>880</height>
-				<onleft>5555</onleft>
+				<onleft>4000</onleft>
 				<onright>6000</onright>
 				<pagecontrol>5555</pagecontrol>
 				<orientation>vertical</orientation>

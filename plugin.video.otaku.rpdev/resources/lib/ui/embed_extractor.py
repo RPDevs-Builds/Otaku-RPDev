@@ -62,8 +62,8 @@ def load_video_from_url(in_url):
 
         headers = None
         if '|' in in_url:
-            in_url, headers = in_url.split('|')
-            headers = dict([item.split('=') for item in headers.split('&')])
+            in_url, headers_str = in_url.split('|', 1)
+            headers = dict([item.split('=', 1) for item in headers_str.split('&') if '=' in item])
             for header in headers:
                 headers[header] = urllib.parse.unquote_plus(headers[header])
 
@@ -244,7 +244,7 @@ def __extract_fusevideo(url, page_content, referer=None):
     r = re.findall(r'<script\s*src="([^"]+)', page_content)
     if r:
         jurl = r[-1]
-        res = client.get(jurl, referer=url)
+        res = client.get(jurl, headers={'Referer': url})
         js = res.text if hasattr(res, 'text') else str(res or '')
         match = re.search(r'n\s*=\s*atob\("([^"]+)', js)
         if match:
@@ -267,7 +267,7 @@ def __extract_dood(url, page_content, referer=None):
         host, media_id = re.findall(pattern, url)[0]
         token = match.group(2)
         nurl = 'https://{0}{1}'.format(host, match.group(1))
-        res = client.get(nurl, referer=url)
+        res = client.get(nurl, headers={'Referer': url})
         if res:
             html = res.text if hasattr(res, 'text') else str(res)
             headers = {'User-Agent': _EDGE_UA,
@@ -562,10 +562,9 @@ def get_sub(sub_url, sub_lang, headers=None, sub_index=0, display_name=None, sou
 
     ext = _detect_sub_ext(source_url or sub_url, content)
     fname = 'TemporarySubs.{0}.{1}{2}'.format(sub_index, lang, ext)
+    fname = fname.encode(encoding='ascii', errors='ignore').decode(encoding='ascii')
     subtitle = xbmcvfs.translatePath('special://temp/')
     fpath = os.path.join(subtitle, fname)
-    fpath = fpath.encode(encoding='ascii', errors='ignore').decode(encoding='ascii')
-    fname = fname.encode(encoding='ascii', errors='ignore').decode(encoding='ascii')
     control.atomic_write_text(fpath, content)
     return {
         'path': 'special://temp/{0}'.format(fname),

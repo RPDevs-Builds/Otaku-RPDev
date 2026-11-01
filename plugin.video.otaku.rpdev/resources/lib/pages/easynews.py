@@ -177,8 +177,9 @@ class Sources(BrowserBase):
             filtered_dicts = [{'name': r['name'], 'hash': r['url_dl']} for r in relevant]
         else:
             prepared = [{'name': r['name'], 'hash': r['url_dl']} for r in relevant]
+            ep_int = int(episode) if episode is not None else 1
             filtered_dicts = source_utils.filter_sources(
-                'easynews', prepared, mal_id, season_int, episode, part)
+                'easynews', prepared, mal_id, season_int, ep_int, part)
 
         control.log(f'Easynews: {len(filtered_dicts)} hits after episode/season filter', 'info')
 

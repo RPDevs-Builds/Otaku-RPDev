@@ -59,6 +59,7 @@ class AniListWLF(WatchlistFlavorBase):
             "name": self.username
         }
 
+        r = None
         try:
             r = client.post(self._URL, headers=self.__headers(), json_data={'query': query, 'variables': variables})
             results = r.json() if (r and r.ok) else None
@@ -68,8 +69,9 @@ class AniListWLF(WatchlistFlavorBase):
 
         user = (results or {}).get('data', {}).get('User') if results else None
         if not user or not user.get('id'):
-            control.setSetting('anilist.token', '')
-            control.setSetting('anilist.username', '')
+            if r is not None and getattr(r, 'status_code', None) in (200, 400, 401):
+                control.setSetting('anilist.token', '')
+                control.setSetting('anilist.username', '')
             return None
         userId = user['id']
         login_data = {
@@ -335,7 +337,7 @@ class AniListWLF(WatchlistFlavorBase):
                 save_watchlist_cache(self._NAME, cache_status, filtered_entries)
 
         # Get items from cache
-        sort_col, sort_dir = self.get_sort_col_and_order()
+        sort_col, sort_dir = ('updated', 'DESC') if cache_status == 'next_up' else self.get_sort_col_and_order()
         total_count = get_watchlist_cache_count(self._NAME, cache_status)
 
         if paging_enabled and per_page > 0:
@@ -459,7 +461,7 @@ class AniListWLF(WatchlistFlavorBase):
             'year': year,
             'characters': characters,
             'trailer': trailer,
-            'mpaa': res.get('countryOfOrigin'),
+            'mpaa': 'R-18' if res.get('isAdult') else None,
         }
 
         return self.build_next_up_item(data)

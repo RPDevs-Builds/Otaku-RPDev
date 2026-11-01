@@ -119,7 +119,7 @@ class AllDebrid:
             'magnets': magnet_hash
         }
         r = client.get(f'{self.base_url}/magnet/upload', params=params)
-        return r.json()['data'] if r else None
+        return (r.json() or {}).get('data') if r else None
 
     def resolve_hoster(self, url):
         params = {
@@ -128,7 +128,7 @@ class AllDebrid:
             'link': url
         }
         r = client.get(f'{self.base_url}/link/unlock', params=params)
-        resolve = r.json()['data'] if r else {}
+        resolve = ((r.json() or {}).get('data') or {}) if r else {}
         return resolve.get('link')
 
     def magnet_status(self, magnet_id):
@@ -138,7 +138,7 @@ class AllDebrid:
             'id': magnet_id
         }
         r = client.get(f'{self.base_url}/magnet/status', params=params)
-        return r.json()['data'] if r else None
+        return (r.json() or {}).get('data') if r else None
 
     def list_saved_links(self):
         params = {
@@ -146,7 +146,7 @@ class AllDebrid:
             'apikey': self.token
         }
         r = client.get(f'{self.base_url}/user/links', params=params)
-        return r.json()['data'] if r else None
+        return (r.json() or {}).get('data') if r else None
 
     def list_torrents(self):
         params = {
@@ -155,10 +155,10 @@ class AllDebrid:
             'status': 'ready'
         }
         r = client.get(f'{self.base_url}/magnet/status', params=params)
-        data = r.json()['data'] if r else None
+        data = (r.json() or {}).get('data') if r else None
         if not data:
             return []
-        magnets = data['magnets']
+        magnets = data.get('magnets', [])
         if isinstance(magnets, dict):
             magnets = list(magnets.values())
         return magnets
@@ -169,7 +169,7 @@ class AllDebrid:
             'apikey': self.token
         }
         r = client.get(f'{self.base_url}/user/history', params=params)
-        return r.json()['data'] if r else None
+        return (r.json() or {}).get('data') if r else None
 
     def link_info(self, link):
         params = {
@@ -180,7 +180,7 @@ class AllDebrid:
         encoded_params = urllib.parse.urlencode(params, doseq=True)
         url = f'{self.base_url}/link/infos?{encoded_params}'
         r = client.get(url)
-        return r.json()['data'] if r else None
+        return (r.json() or {}).get('data') if r else None
 
     def resolve_single_magnet(self, hash_, magnet, episode, pack_select, filename=None):
         magnet_data = self.addMagnet(magnet)
@@ -190,9 +190,14 @@ class AllDebrid:
         resolved_link = None
         try:
             status_data = self.magnet_status(magnet_id)
-            if not status_data or 'magnets' not in status_data or 'files' not in status_data['magnets']:
+            if not status_data or 'magnets' not in status_data:
                 return None
-            details = status_data['magnets']['files']
+            magnets = status_data.get('magnets')
+            if isinstance(magnets, list):
+                magnets = magnets[0] if magnets else {}
+            if not magnets or 'files' not in magnets:
+                return None
+            details = magnets['files']
             folder_details = []
             for x in details:
                 self.collect_files(x, folder_details)
@@ -245,7 +250,10 @@ class AllDebrid:
             control.ok_dialog(control.ADDON_NAME, "BAD LINK")
             return None, None, None
 
-        status = status_data['magnets']['status']
+        magnets = status_data.get('magnets')
+        if isinstance(magnets, list):
+            magnets = magnets[0] if magnets else {}
+        status = magnets.get('status')
         return magnet_id, status, status_data
 
     def collect_files(self, y, files):
@@ -253,7 +261,7 @@ class AllDebrid:
             for z in y.get('e'):
                 self.collect_files(z, files)
         else:
-            files.append({'link': y['l'], 'path': y['n']})
+            files.append({'link': y['l'], 'path': y['n'], 'size': y.get('s', 0)})
         return files
 
     def resolve_uncached_source(self, source, runinbackground, runinforground, pack_select):
@@ -274,7 +282,10 @@ class AllDebrid:
             if runinforground:
                 control.progressDialog.close()
             return None
-        status = magnet_status['magnets']['status']
+        magnets = magnet_status.get('magnets')
+        if isinstance(magnets, list):
+            magnets = magnets[0] if magnets else {}
+        status = magnets.get('status')
 
         if runinbackground:
             control.notify(heading, "The source is downloading to your cloud")
@@ -289,12 +300,15 @@ class AllDebrid:
             if not magnet_status or 'magnets' not in magnet_status:
                 status = 'Error'
                 break
-            status = magnet_status['magnets']['status']
-            total_size = magnet_status['magnets'].get('size', 0)  # Update total_size in the loop
+            magnets = magnet_status.get('magnets')
+            if isinstance(magnets, list):
+                magnets = magnets[0] if magnets else {}
+            status = magnets.get('status', 'Error')
+            total_size = magnets.get('size', 0)  # Update total_size in the loop
             try:
-                downloaded = magnet_status['magnets']['downloaded']
-                seeders = magnet_status['magnets'].get('seeders', 0)
-                speed = magnet_status['magnets'].get('downloadSpeed', 0)
+                downloaded = magnets.get('downloaded', 0)
+                seeders = magnets.get('seeders', 0)
+                speed = magnets.get('downloadSpeed', 0)
                 if total_size > 0:
                     progress = (downloaded / total_size) * 100
                 else:
@@ -312,7 +326,7 @@ class AllDebrid:
             if total_size > 0:
                 control.ok_dialog(heading, "This file has been added to your Cloud")
             # Check if there's only one file in the torrent
-            details = magnet_status['magnets']['files']
+            details = magnets.get('files', [])
             folder_details = []
             for x in details:
                 self.collect_files(x, folder_details)

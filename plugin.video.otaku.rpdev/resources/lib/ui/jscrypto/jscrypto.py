@@ -1,8 +1,8 @@
 import hashlib
 import base64
-from . import pyaes
-from .pkcs7 import PKCS7Encoder
 import os
+from resources.lib.ui.pyaes import AESModeOfOperationCBC
+from resources.lib.ui.pyaes.util import append_PKCS7_padding, strip_PKCS7_padding
 
 
 def evpKDF(
@@ -12,8 +12,12 @@ def evpKDF(
         iv_size=4,
         iterations=1,
         hash_algorithm="md5"):
+    if isinstance(passwd, str):
+        passwd = passwd.encode('utf-8')
+    if isinstance(salt, str):
+        salt = salt.encode('utf-8')
     target_key_size = key_size + iv_size
-    derived_bytes = "".encode()
+    derived_bytes = b""
     number_of_derived_words = 0
     block = None
     hasher = hashlib.new(hash_algorithm)
@@ -33,7 +37,7 @@ def evpKDF(
 
         derived_bytes += block[0: min(len(block), (target_key_size - number_of_derived_words) * 4)]
 
-        number_of_derived_words += len(block) / 4
+        number_of_derived_words += len(block) // 4
 
     return {
         "key": derived_bytes[0: key_size * 4],
@@ -43,11 +47,13 @@ def evpKDF(
 
 def encode(plaintext, passphrase, saltsize=8):
     salt = os.urandom(saltsize)
-    data = evpKDF(passphrase.encode(), salt)
-    decryptor = pyaes.new(data['key'], pyaes.MODE_CBC, IV=data['iv'])
-    plaintext = PKCS7Encoder().encode(plaintext)
-    enctext = decryptor.encrypt(plaintext)
-    return base64.b64encode("Salted__" + salt + enctext)
+    pass_bytes = passphrase.encode('utf-8') if isinstance(passphrase, str) else passphrase
+    data = evpKDF(pass_bytes, salt)
+    cipher = AESModeOfOperationCBC(data['key'], iv=data['iv'])
+    raw = plaintext.encode('utf-8') if isinstance(plaintext, str) else plaintext
+    padded = append_PKCS7_padding(raw)
+    enctext = b"".join(cipher.encrypt(padded[i:i + 16]) for i in range(0, len(padded), 16))
+    return base64.b64encode(b"Salted__" + salt + enctext)
 
 # ''if salt is provided, it should be string
 # ciphertext is base64 and passphrase is string
@@ -58,7 +64,11 @@ def decode(ciphertext, passphrase, salt=None):
     if not salt:
         salt = ciphertext[8:16]
         ciphertext = ciphertext[16:]
-    data = evpKDF(passphrase.encode(), salt)
-    decryptor = pyaes.new(data['key'], pyaes.MODE_CBC, IV=data['iv'])
-    d = decryptor.decrypt(ciphertext)
-    return PKCS7Encoder().decode(d.decode())
+    elif isinstance(salt, str):
+        salt = salt.encode('utf-8')
+    pass_bytes = passphrase.encode('utf-8') if isinstance(passphrase, str) else passphrase
+    data = evpKDF(pass_bytes, salt)
+    cipher = AESModeOfOperationCBC(data['key'], iv=data['iv'])
+    d = b"".join(cipher.decrypt(ciphertext[i:i + 16]) for i in range(0, len(ciphertext), 16))
+    unpadded = strip_PKCS7_padding(d)
+    return unpadded.decode('utf-8', errors='replace') if isinstance(unpadded, bytes) else unpadded

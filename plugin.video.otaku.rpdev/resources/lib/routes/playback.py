@@ -206,7 +206,31 @@ def PLAY(payload, params):
         if params.get('image'):
             item.setArt(params.get('image'))
 
+        from resources.lib.ui import player
+        source_dict = preresolved_data.get('source') or {}
+        if source_dict:
+            database.save_last_played_source(mal_id, source_dict)
+            if source_dict.get('type') in ['embed', 'direct']:
+                lp_key = f"{source_dict.get('provider', '')} {' '.join(map(str, source_dict.get('info') or []))}".strip()
+            else:
+                lp_key = str(source_dict.get('release_title') or source_dict.get('name') or '')
+            control.setSetting('last_played_source', lp_key)
+            control.setSetting('last_watched_series', str(mal_id))
+
+        stype = source_dict.get('type', '')
+        sprovider = source_dict.get('provider', '')
         xbmcplugin.setResolvedUrl(control.HANDLE, True, item)
+        player.WatchlistPlayer().handle_player(
+            mal_id,
+            int(episode),
+            int(episode),
+            resume,
+            params.get('path', ''),
+            stype,
+            sprovider,
+            False,
+            None,
+        )
         control.exit_code()
         return
 
@@ -253,14 +277,18 @@ def PLAY_MOVIE(payload, params):
         OtakuBrowser().get_anime_data(mal_id)
         anime_meta = database.get_show_meta(mal_id)
         anime_data = database.get_show(mal_id)
-        kodi_meta = database.loads(anime_data['kodi_meta'])
+        if not anime_data or not anime_meta:
+            control.exit_code()
+            return
+        kodi_meta = database.loads(anime_data['kodi_meta']) if anime_data.get('kodi_meta') else {}
+        art_data = database.loads(anime_meta['art']) if anime_meta.get('art') else {}
 
         params = {
             **kodi_meta,
             'info': kodi_meta,  # video info tags
             'image': {  # art fields for UI
                 k: (v[0] if isinstance(v, list) else v)
-                for k, v in database.loads(anime_meta['art']).items()
+                for k, v in art_data.items()
             }
         }
 
@@ -268,7 +296,7 @@ def PLAY_MOVIE(payload, params):
         resume = float(resume)
         context = control.context_menu([f'Resume from {utils.format_time(resume)}', 'Play from beginning'])
         if context == -1:
-            return
+            return control.exit_code()
         elif context == 1:
             resume = None
 
@@ -318,105 +346,102 @@ def TMDB_HELPER(payload, params):
     playstyle_movie = control.getInt('general.playstyle.movie')
     playstyle_episode = control.getInt('general.playstyle.episode')
 
-    # Disable SmartPlay temporarily
-    if smartplay:
-        control.setBool('general.smartplay', False)
+    try:
+        # Disable SmartPlay temporarily
+        if smartplay:
+            control.setBool('general.smartplay', False)
 
-    # Parms cleanup
-    parms = {}
+        # Parms cleanup
+        parms = {}
 
-    # Now all parameters are available: item_type, tmdb_id, title_url, season_number, episode_number, source_select
-    control.log("Item Type: " + str(item_type))
-    control.log("TMDB ID: " + str(tmdb_id))
-    control.log("TVDB ID: " + str(tvdb_id))
-    control.log("IMDB ID: " + str(imdb_id))
-    control.log("Trakt ID: " + str(trakt_id))
-    control.log("Season Number: " + str(season_number))
-    control.log("Episode Number: " + str(episode_number))
-    control.log("Source Select: " + str(source_select))
+        # Now all parameters are available: item_type, tmdb_id, title_url, season_number, episode_number, source_select
+        control.log("Item Type: " + str(item_type))
+        control.log("TMDB ID: " + str(tmdb_id))
+        control.log("TVDB ID: " + str(tvdb_id))
+        control.log("IMDB ID: " + str(imdb_id))
+        control.log("Trakt ID: " + str(trakt_id))
+        control.log("Season Number: " + str(season_number))
+        control.log("Episode Number: " + str(episode_number))
+        control.log("Source Select: " + str(source_select))
 
-    if item_type == 'movie':
-        mal_id = None
-        id_sources = [
-            ('themoviedb_id', tmdb_id),
-            ('thetvdb_id', tvdb_id),
-            ('imdb_id', imdb_id),
-            ('trakt_id', trakt_id)
-        ]
+        if item_type == 'movie':
+            mal_id = None
+            id_sources = [
+                ('themoviedb_id', tmdb_id),
+                ('thetvdb_id', tvdb_id),
+                ('imdb_id', imdb_id),
+                ('trakt_id', trakt_id)
+            ]
 
-        for key, value in id_sources:
-            if value:
-                anime_ids = database.get_mappings(value, key)
-                if anime_ids and anime_ids.get('mal_id'):
-                    mal_id = anime_ids['mal_id']
-                    break
+            for key, value in id_sources:
+                if value:
+                    anime_ids = database.get_mappings(value, key)
+                    if anime_ids and anime_ids.get('mal_id'):
+                        mal_id = anime_ids['mal_id']
+                        break
 
-        if mal_id:
-            OtakuBrowser().get_anime_data(mal_id)
-
-            if source_select:
-                control.setInt('general.playstyle.movie', 1)
-            else:
-                control.setInt('general.playstyle.movie', 0)
-
-            PLAY_MOVIE(f"{mal_id}/", parms)
-            control.sleep(3000)
-            control.setInt('general.playstyle.movie', playstyle_movie)
-            control.setBool('general.smartplay', smartplay)
-            return
-        else:
-            control.sleep(3000)
-            control.setInt('general.playstyle.movie', playstyle_movie)
-            control.setBool('general.smartplay', smartplay)
-            control.notify(control.ADDON_NAME, 'No MAL ID found from this movie')
-            return
-
-    else:
-        mal_ids = set()
-        id_sources = [
-            ('themoviedb_id', tmdb_id),
-            ('thetvdb_id', tvdb_id),
-            ('imdb_id', imdb_id),
-            ('trakt_id', trakt_id)
-        ]
-
-        for key, value in id_sources:
-            if value:
-                mappings = database.get_mal_ids(value, key)  # Now returns a list
-                for anime_ids in mappings:
-                    if anime_ids and 'mal_id' in anime_ids and anime_ids['mal_id']:
-                        if isinstance(anime_ids['mal_id'], list):
-                            mal_ids.update(anime_ids['mal_id'])
-                        else:
-                            mal_ids.add(anime_ids['mal_id'])
-
-        if mal_ids:
-            episode_titles = tmdb.get_episode_titles(tmdb_id, season_number, episode_number)
-            match = find_episode_by_title(mal_ids, episode_titles)
-            if match:
-                mal_id = match['mal_id']
-                episode_num = match['episode_number']
-                matched_title = match['matched_title']
-                control.log(f"Matched MAL ID: {mal_id} for Episode {episode_num} titled '{matched_title}'")
+            if mal_id:
                 OtakuBrowser().get_anime_data(mal_id)
-                MetaBrowser.get_anime_init(mal_id)
 
                 if source_select:
-                    control.setInt('general.playstyle.episode', 1)
+                    control.setInt('general.playstyle.movie', 1)
                 else:
-                    control.setInt('general.playstyle.episode', 0)
+                    control.setInt('general.playstyle.movie', 0)
 
-                PLAY(f"{mal_id}/{episode_num}", parms)
+                PLAY_MOVIE(f"{mal_id}/", parms)
                 control.sleep(3000)
-                control.setInt('general.playstyle.episode', playstyle_episode)
-                control.setBool('general.smartplay', smartplay)
                 return
             else:
                 control.sleep(3000)
-                control.setInt('general.playstyle.episode', playstyle_episode)
-                control.setBool('general.smartplay', smartplay)
-                control.notify(control.ADDON_NAME, 'No MAL ID found from this episode')
+                control.notify(control.ADDON_NAME, 'No MAL ID found from this movie')
                 return
+
+        else:
+            mal_ids = set()
+            id_sources = [
+                ('themoviedb_id', tmdb_id),
+                ('thetvdb_id', tvdb_id),
+                ('imdb_id', imdb_id),
+                ('trakt_id', trakt_id)
+            ]
+
+            for key, value in id_sources:
+                if value:
+                    mappings = database.get_mal_ids(value, key)  # Now returns a list
+                    for anime_ids in mappings:
+                        if anime_ids and 'mal_id' in anime_ids and anime_ids['mal_id']:
+                            if isinstance(anime_ids['mal_id'], list):
+                                mal_ids.update(anime_ids['mal_id'])
+                            else:
+                                mal_ids.add(anime_ids['mal_id'])
+
+            if mal_ids:
+                episode_titles = tmdb.get_episode_titles(tmdb_id, season_number, episode_number)
+                match = find_episode_by_title(mal_ids, episode_titles)
+                if match:
+                    mal_id = match['mal_id']
+                    episode_num = match['episode_number']
+                    matched_title = match['matched_title']
+                    control.log(f"Matched MAL ID: {mal_id} for Episode {episode_num} titled '{matched_title}'")
+                    OtakuBrowser().get_anime_data(mal_id)
+                    MetaBrowser.get_anime_init(mal_id)
+
+                    if source_select:
+                        control.setInt('general.playstyle.episode', 1)
+                    else:
+                        control.setInt('general.playstyle.episode', 0)
+
+                    PLAY(f"{mal_id}/{episode_num}", parms)
+                    control.sleep(3000)
+                    return
+                else:
+                    control.sleep(3000)
+                    control.notify(control.ADDON_NAME, 'No MAL ID found from this episode')
+                    return
+    finally:
+        control.setInt('general.playstyle.movie', playstyle_movie)
+        control.setInt('general.playstyle.episode', playstyle_episode)
+        control.setBool('general.smartplay', smartplay)
 
 
 def remove_punctuation(s):
