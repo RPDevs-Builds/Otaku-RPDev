@@ -204,6 +204,11 @@ class Sources(BrowserBase):
         sources = []
         sub_ep = found_episodes.get(2)
         dub_ep = found_episodes.get(3)
+        pref_source = control.getInt('general.source')
+        if pref_source == 1:
+            dub_ep = None
+        elif pref_source == 2:
+            sub_ep = None
         piped_dub = {'thread': None, 'result': None}
 
         def start_dub_pipeline():

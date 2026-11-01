@@ -407,10 +407,10 @@ class Monitor(xbmc.Monitor):
 
     def onSettingsChanged(self):
         control.log('Setting Changed - Updating Settings Cache')
+        control.clearSettingsCache()
         if control.getBool('general.kodi.cache'):
             load_settings()
         control.process_context()
-        control.clearSettingsCache()
 
         # Check if any menu configuration settings were changed
         new_snapshot = _get_menu_settings_snapshot()

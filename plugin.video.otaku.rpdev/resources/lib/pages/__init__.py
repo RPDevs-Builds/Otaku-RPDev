@@ -612,9 +612,19 @@ class Sources(GetSources):
         source = control.getInt("general.source")
         if source != 0:
             if source == 1:
-                sortedList = [i for i in sortedList if i['lang'] in [0, 1, 2]]
+                # Subtitles only: exclude pure Dub sources (lang == 3 or info containing DUB)
+                sortedList = [
+                    i for i in sortedList
+                    if i.get('lang') in [0, 1, 2]
+                    and not any('DUB' in str(t).upper() and 'SUB' not in str(t).upper() for t in (i.get('info') or []))
+                ]
             elif source == 2:
-                sortedList = [i for i in sortedList if i['lang'] in [0, 1, 3]]
+                # Dubbed only: exclude pure Sub sources (lang == 2 or info containing SUB)
+                sortedList = [
+                    i for i in sortedList
+                    if i.get('lang') in [0, 1, 3]
+                    and not any('SUB' in str(t).upper() and 'DUB' not in str(t).upper() for t in (i.get('info') or []))
+                ]
 
         # Sort sources (Seren-style composite keys; fresh sort_options.json)
         sortedList = sort_select.sort_sources_list(sortedList)

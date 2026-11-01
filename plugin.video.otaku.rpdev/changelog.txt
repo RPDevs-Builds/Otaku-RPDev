@@ -1,3 +1,6 @@
+Changelog v5.9.1 (2026-11-01):
+- Fix Source Type Dub filtering for embed scrapers (Anikoto, HiAnime, Animix, WatchNixtoons2), resolve stale window property caching, and prevent debrid_cache startup crash
+
 Changelog v5.9.0 (2026-11-01):
 - v6.0.0 Pre-Release Testing Build: 4-Tier Settings Hierarchy, Modernized Setup Wizard with Torrent/Embed Selector Screens, Multi-Part Anime Release Filter (PR #501), ISO 639-2 Stream Normalization (PR #497), Airing Calendar Badges, and Dual Kodi 21 & 22 Headless Smoke Testing
 

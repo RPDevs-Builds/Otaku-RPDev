@@ -37,6 +37,7 @@ def _ensure_debrid_cache_table():
 def prune_expired_hashes():
     """Purge expired cache entries to prevent unbounded table growth."""
     try:
+        _ensure_debrid_cache_table()
         now = int(time.time())
         with database.SQL(control.cacheFile) as cur:
             cur.execute('DELETE FROM debrid_cache WHERE expires < ?', (now,))

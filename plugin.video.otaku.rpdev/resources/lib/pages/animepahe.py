@@ -23,6 +23,12 @@ class Sources(BrowserBase):
         raw_src = item.get('data-src') or ''
         if not raw_src:
             return None
+        audio = (item.get('data-audio') or '').lower()
+        pref_source = control.getInt('general.source')
+        if pref_source == 1 and audio == 'eng':
+            return None
+        if pref_source == 2 and audio != 'eng':
+            return None
         data_src = raw_src + f'|Referer={self._BASE_URL}'
         if not any(host in data_src.lower() for host in embed_hosts):
             return None

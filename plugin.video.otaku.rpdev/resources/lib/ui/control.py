@@ -526,45 +526,55 @@ def refresh():
 # ═══════════════════════════════════════════════════════════════════════════
 
 def getSetting(key):
-    """Get setting as string - checks in-memory cache, then window property, then Kodi API"""
+    """Get setting as string - checks in-memory cache, then Kodi API, then window property fallback"""
     ck = f's_{key}'
     if ck in _settings_cache:
         return _settings_cache[ck]
+    try:
+        val = settings.getString(key)
+        _settings_cache[ck] = val
+        return val
+    except Exception:
+        pass
     cache = homeWindow.getProperty(f'{ADDON_ID}_{key}')
     if cache:
         _settings_cache[ck] = cache
         return cache
-    try:
-        val = settings.getString(key)
-    except Exception:
-        val = ''
-    _settings_cache[ck] = val
-    return val
+    _settings_cache[ck] = ''
+    return ''
 
 
 def getBool(key, default=False):
-    """Get setting as boolean - checks in-memory cache, then window property, then Kodi API"""
+    """Get setting as boolean - checks in-memory cache, then Kodi API, then window property fallback"""
     ck = f'b_{key}'
     if ck in _settings_cache:
         return _settings_cache[ck]
+    try:
+        val = settings.getBool(key)
+        _settings_cache[ck] = val
+        return val
+    except Exception:
+        pass
     cache = homeWindow.getProperty(f'{ADDON_ID}_{key}')
     if cache:
         val = (cache == 'true')
         _settings_cache[ck] = val
         return val
-    try:
-        val = settings.getBool(key)
-    except Exception:
-        val = default
-    _settings_cache[ck] = val
-    return val
+    _settings_cache[ck] = default
+    return default
 
 
 def getInt(key, default=0):
-    """Get setting as integer - checks in-memory cache, then window property, then Kodi API"""
+    """Get setting as integer - checks in-memory cache, then Kodi API, then window property fallback"""
     ck = f'i_{key}'
     if ck in _settings_cache:
         return _settings_cache[ck]
+    try:
+        val = settings.getInt(key)
+        _settings_cache[ck] = val
+        return val
+    except Exception:
+        pass
     cache = homeWindow.getProperty(f'{ADDON_ID}_{key}')
     if cache:
         try:
@@ -573,12 +583,8 @@ def getInt(key, default=0):
             return val
         except ValueError:
             pass
-    try:
-        val = settings.getInt(key)
-    except Exception:
-        val = default
-    _settings_cache[ck] = val
-    return val
+    _settings_cache[ck] = default
+    return default
 
 
 def getStr(key):
@@ -587,10 +593,16 @@ def getStr(key):
 
 
 def getNumber(key, default=0.0):
-    """Get setting as float/number - checks in-memory cache, then window property, then Kodi API"""
+    """Get setting as float/number - checks in-memory cache, then Kodi API, then window property fallback"""
     ck = f'n_{key}'
     if ck in _settings_cache:
         return _settings_cache[ck]
+    try:
+        val = settings.getNumber(key)
+        _settings_cache[ck] = val
+        return val
+    except Exception:
+        pass
     cache = homeWindow.getProperty(f'{ADDON_ID}_{key}')
     if cache:
         try:
@@ -599,19 +611,21 @@ def getNumber(key, default=0.0):
             return val
         except ValueError:
             pass
-    try:
-        val = settings.getNumber(key)
-    except Exception:
-        val = default
-    _settings_cache[ck] = val
-    return val
+    _settings_cache[ck] = default
+    return default
 
 
 def getStringList(settingid):
-    """Get setting as list of strings - checks in-memory cache, then window property, then Kodi API"""
+    """Get setting as list of strings - checks in-memory cache, then Kodi API, then window property fallback"""
     ck = f'sl_{settingid}'
     if ck in _settings_cache:
         return _settings_cache[ck]
+    try:
+        val = settings.getStringList(settingid)
+        _settings_cache[ck] = val
+        return val
+    except Exception:
+        pass
     cache = homeWindow.getProperty(f'{ADDON_ID}_{settingid}')
     if cache:
         try:
@@ -620,19 +634,21 @@ def getStringList(settingid):
             return val
         except (ValueError, TypeError):
             pass
-    try:
-        val = settings.getStringList(settingid)
-    except Exception:
-        val = []
-    _settings_cache[ck] = val
-    return val
+    _settings_cache[ck] = []
+    return []
 
 
 def getBoolList(settingid):
-    """Get setting as list of booleans - checks in-memory cache, then window property, then Kodi API"""
+    """Get setting as list of booleans - checks in-memory cache, then Kodi API, then window property fallback"""
     ck = f'bl_{settingid}'
     if ck in _settings_cache:
         return _settings_cache[ck]
+    try:
+        val = settings.getBoolList(settingid)
+        _settings_cache[ck] = val
+        return val
+    except Exception:
+        pass
     cache = homeWindow.getProperty(f'{ADDON_ID}_{settingid}')
     if cache:
         try:
@@ -641,19 +657,21 @@ def getBoolList(settingid):
             return val
         except (ValueError, TypeError):
             pass
-    try:
-        val = settings.getBoolList(settingid)
-    except Exception:
-        val = []
-    _settings_cache[ck] = val
-    return val
+    _settings_cache[ck] = []
+    return []
 
 
 def getIntList(settingid):
-    """Get setting as list of integers - checks in-memory cache, then window property, then Kodi API"""
+    """Get setting as list of integers - checks in-memory cache, then Kodi API, then window property fallback"""
     ck = f'il_{settingid}'
     if ck in _settings_cache:
         return _settings_cache[ck]
+    try:
+        val = settings.getIntList(settingid)
+        _settings_cache[ck] = val
+        return val
+    except Exception:
+        pass
     cache = homeWindow.getProperty(f'{ADDON_ID}_{settingid}')
     if cache:
         try:
@@ -662,19 +680,21 @@ def getIntList(settingid):
             return val
         except (ValueError, TypeError):
             pass
-    try:
-        val = settings.getIntList(settingid)
-    except Exception:
-        val = []
-    _settings_cache[ck] = val
-    return val
+    _settings_cache[ck] = []
+    return []
 
 
 def getNumberList(settingid):
-    """Get setting as list of numbers - checks in-memory cache, then window property, then Kodi API"""
+    """Get setting as list of numbers - checks in-memory cache, then Kodi API, then window property fallback"""
     ck = f'nl_{settingid}'
     if ck in _settings_cache:
         return _settings_cache[ck]
+    try:
+        val = settings.getNumberList(settingid)
+        _settings_cache[ck] = val
+        return val
+    except Exception:
+        pass
     cache = homeWindow.getProperty(f'{ADDON_ID}_{settingid}')
     if cache:
         try:
@@ -683,12 +703,8 @@ def getNumberList(settingid):
             return val
         except (ValueError, TypeError):
             pass
-    try:
-        val = settings.getNumberList(settingid)
-    except Exception:
-        val = []
-    _settings_cache[ck] = val
-    return val
+    _settings_cache[ck] = []
+    return []
 
 
 def _evict_setting(settingid):
@@ -766,6 +782,7 @@ def clearSettingsCache():
     """Clear the in-memory settings cache (call after settings change)."""
     _settings_cache.clear()
     _artwork_cache.clear()
+    settings.cleanup()
 
 
 # ═══════════════════════════════════════════════════════════════════════════
