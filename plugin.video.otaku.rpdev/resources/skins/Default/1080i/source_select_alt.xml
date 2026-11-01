@@ -166,7 +166,7 @@
                         <textcolor>FFFFFFFF</textcolor>
                         <align>left</align>
                         <aligny>center</aligny>
-                        <label>Debrid: [UPPERCASE][COLOR deepskyblue]$INFO[ListItem.Property(debrid_provider)][/COLOR][/UPPERCASE]</label>
+                        <label>Debrid: [UPPERCASE]$INFO[ListItem.Property(colored_debrid)][/UPPERCASE]</label>
                     </control>
                     <control type="label">
                         <top>90</top>
@@ -176,7 +176,7 @@
                         <aligny>center</aligny>
                         <textcolor>FFFFFFFF</textcolor>
                         <font>font10</font>
-                        <label>Provider: [UPPERCASE][COLOR deepskyblue]$INFO[ListItem.Property(provider)][/COLOR][/UPPERCASE]</label>
+                        <label>Provider: [UPPERCASE]$INFO[ListItem.Property(colored_provider)][/UPPERCASE]</label>
                     </control>
                     <control type="label">
                         <top>60</top>
@@ -301,7 +301,7 @@
                     <textcolor>FFFFFFFF</textcolor>
                     <align>left</align>
                     <aligny>center</aligny>
-                    <label>Debrid: [UPPERCASE][COLOR deepskyblue]$INFO[ListItem.Property(debrid_provider)][/COLOR][/UPPERCASE]</label>
+                    <label>Debrid: [UPPERCASE]$INFO[ListItem.Property(colored_debrid)][/UPPERCASE]</label>
                 </control>
                 <control type="label">
                     <top>90</top>
@@ -311,7 +311,7 @@
                     <aligny>center</aligny>
                     <textcolor>FFFFFFFF</textcolor>
                     <font>font10</font>
-                    <label>Provider: [UPPERCASE][COLOR deepskyblue]$INFO[ListItem.Property(provider)][/COLOR][/UPPERCASE]</label>
+                    <label>Provider: [UPPERCASE]$INFO[ListItem.Property(colored_provider)][/UPPERCASE]</label>
                 </control>
                 <control type="label">
                     <top>60</top>

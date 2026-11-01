@@ -648,3 +648,31 @@ def TOGGLE_HTTP2(payload, params):
 def UPDATE_NETWORK_STATUS(payload, params):
     """Update network status settings when settings are opened"""
     _update_network_status()
+
+
+@Route('clean_settings')
+def CLEAN_SETTINGS(payload, params):
+    """Scan and prune obsolete/orphaned settings from userdata settings.xml."""
+    try:
+        from resources.lib.ui import clean_settings
+        count, removed = clean_settings.clean_settings()
+        if count > 0:
+            control.notify(
+                title=control.ADDON_NAME,
+                text=f"Pruned {count} orphaned setting(s)",
+                time=4000
+            )
+        else:
+            control.notify(
+                title=control.ADDON_NAME,
+                text="Settings file is clean. No orphaned settings found.",
+                time=4000
+            )
+    except Exception as e:
+        control.notify(
+            title=control.ADDON_NAME,
+            text=f"Settings cleanup failed: {str(e)}",
+            time=5000
+        )
+        control.log(f"Error in CLEAN_SETTINGS: {e}", level='error')
+

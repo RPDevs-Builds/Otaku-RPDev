@@ -429,6 +429,17 @@ class WatchlistPlayer(player):
         except Exception as e:
             control.log(f'Failed to save watch history: {e}', 'warning')
 
+        # Track consecutive autoplay count for "Still Watching?" binge safeguard
+        consecutive_str = control.playerWindow.getProperty('otaku.consecutive_autoplay')
+        if not consecutive_str or playList.size() <= 1:
+            control.playerWindow.setProperty('otaku.consecutive_autoplay', '1')
+        else:
+            try:
+                cur_count = int(consecutive_str)
+            except ValueError:
+                cur_count = 0
+            control.playerWindow.setProperty('otaku.consecutive_autoplay', str(cur_count + 1))
+
         if previous_last_watched != current_mal_id:
             control.setSetting('addon.last_watched', current_mal_id)
             control.log(f'Last watched changed from {previous_last_watched} to {current_mal_id}')
@@ -479,6 +490,12 @@ class WatchlistPlayer(player):
         # Cleanup
         if self._monitor:
             del self._monitor
+
+        # Clear pre-resolved stream properties on playback termination if not consumed
+        control.playerWindow.clearProperty('otaku.preResolved_url')
+        control.playerWindow.clearProperty('otaku.preResolved_malId')
+        control.playerWindow.clearProperty('otaku.preResolved_episode')
+        control.playerWindow.clearProperty('otaku.preResolved_data')
 
     # ── Skip Intro / Outro / Playing Next ──────────────────────────────
 
@@ -540,6 +557,8 @@ class WatchlistPlayer(player):
                         control.log(f'Auto-skipped outro: {self.skipoutro_start}-{self.skipoutro_end}', 'info')
                     outro_handled = True
                 elif self._should_show_dialog(time_remaining, playnext_time):
+                    if not self._check_still_watching():
+                        break
                     if control.getBool('smartplay.binge_mode', default=False):
                         try:
                             cur_ep = int(self.episode)
@@ -595,6 +614,16 @@ class WatchlistPlayer(player):
                     sources = MetaBrowser.get_sources(self.mal_id, next_ep, 'show', rescrape=False, source_select=False, silent=True)
                     if sources:
                         control.log(f"Player: Background pre-scrape complete for ep {next_ep} ({len(sources)} source(s) pre-cached)", level='info')
+                        # Zero-Wait Pre-Resolved Stream Handoff
+                        if control.getBool('smartplay.preresolve', default=True) and control.getBool('general.smartplay') and not control.getBool('smartplay.source_select'):
+                            from resources.lib.windows.resolver import resolve_silent
+                            res_data = resolve_silent(sources, next_ep, self.mal_id)
+                            if res_data and res_data.get('url'):
+                                control.playerWindow.setProperty('otaku.preResolved_url', str(res_data['url']))
+                                control.playerWindow.setProperty('otaku.preResolved_malId', str(self.mal_id))
+                                control.playerWindow.setProperty('otaku.preResolved_episode', str(next_ep))
+                                control.playerWindow.setProperty('otaku.preResolved_data', json.dumps(res_data))
+                                control.log(f"Player: Zero-Wait direct stream pre-resolved for {self.mal_id} Ep {next_ep}", level='info')
                 except Exception as e:
                     control.log(f"Player: Pre-scrape background task error: {e}", level='warning')
 
@@ -602,6 +631,38 @@ class WatchlistPlayer(player):
             t.start()
         except Exception as e:
             control.log(f"Player: Failed to launch pre-scrape: {e}", level='warning')
+
+    def _check_still_watching(self):
+        """Evaluate if the 'Still Watching?' binge safeguard should be triggered."""
+        try:
+            stillwatching_count = control.getInt('smartplay.stillwatching_count', default=3)
+            if stillwatching_count <= 0:
+                return True
+
+            consecutive_str = control.playerWindow.getProperty('otaku.consecutive_autoplay')
+            consecutive = int(consecutive_str) if consecutive_str and consecutive_str.isdigit() else 1
+
+            if consecutive >= stillwatching_count:
+                control.log(f"Player: Triggering 'Still Watching?' safeguard (consecutive={consecutive}, limit={stillwatching_count})", 'info')
+                from resources.lib.windows.still_watching import StillWatchingXML
+                title = control.playerWindow.getProperty('item.info.tvshowtitle') or getattr(self, 'title', '')
+                dlg = StillWatchingXML('still_watching.xml', control.ADDON_PATH, actionArgs={'title': title})
+                keep_watching = dlg.doModal()
+                if keep_watching:
+                    control.log("Player: User confirmed 'Keep Watching' — resetting consecutive counter", 'info')
+                    control.playerWindow.setProperty('otaku.consecutive_autoplay', '0')
+                    return True
+                else:
+                    control.log("Player: Still Watching unanswered or stopped — halting playback", 'info')
+                    self._playback_stopped = True
+                    control.playList.clear()
+                    self.stop()
+                    control.playerWindow.clearProperty('otaku.consecutive_autoplay')
+                    return False
+            return True
+        except Exception as e:
+            control.log(f"Player: Error during still watching check: {e}", 'warning')
+            return True
 
     def _should_show_dialog(self, time_remaining, playnext_time):
         """Determine if we should show a dialog - simplified"""

@@ -133,6 +133,67 @@ def PLAY(payload, params):
         except Exception as e:
             control.log(f"playback aired_date check error: {e}", 'debug')
 
+    # Zero-Wait Pre-Resolved Stream Handoff
+    preresolved_url = control.playerWindow.getProperty('otaku.preResolved_url')
+    preresolved_mal_id = control.playerWindow.getProperty('otaku.preResolved_malId')
+    preresolved_ep = control.playerWindow.getProperty('otaku.preResolved_episode')
+    preresolved_data_str = control.playerWindow.getProperty('otaku.preResolved_data')
+
+    if (
+        preresolved_url
+        and preresolved_mal_id == str(mal_id)
+        and preresolved_ep == str(episode)
+        and not source_select
+        and not rescrape
+        and control.getSetting('smartplay.preresolve') != 'false'
+    ):
+        control.log(f"Playback: Zero-Wait Pre-Resolved Stream Hit for {mal_id} Ep {episode}!", 'info')
+        control.playerWindow.clearProperty('otaku.preResolved_url')
+        control.playerWindow.clearProperty('otaku.preResolved_malId')
+        control.playerWindow.clearProperty('otaku.preResolved_episode')
+        control.playerWindow.clearProperty('otaku.preResolved_data')
+
+        try:
+            preresolved_data = json.loads(preresolved_data_str) if preresolved_data_str else {}
+        except Exception:
+            preresolved_data = {}
+
+        import xbmcgui, xbmcplugin
+        item = xbmcgui.ListItem(path=preresolved_url, offscreen=True)
+
+        if preresolved_data.get('sub'):
+            from resources.lib.ui import embed_extractor
+            embed_extractor.del_subs()
+            sub_entries = []
+            for idx, sub in enumerate(preresolved_data['sub']):
+                entry = embed_extractor.get_sub(
+                    sub.get('url'),
+                    sub.get('lang'),
+                    headers=sub.get('headers'),
+                    sub_index=sub.get('index', idx),
+                    display_name=sub.get('name'),
+                    source_url=sub.get('file'),
+                )
+                if entry:
+                    sub_entries.append(entry)
+            if sub_entries:
+                item.setSubtitles([e['path'] for e in sub_entries])
+
+        headers = preresolved_data.get('headers') or {}
+        if headers.get('Content-Type'):
+            item.setProperty('MimeType', headers['Content-Type'])
+            from resources.lib.windows.resolver import hook_mimetype
+            item = hook_mimetype.trigger(headers['Content-Type'], item)
+
+        video_info = dict(params.get('info', {})) if params.get('info') else dict(params)
+        control.set_videotags(item, video_info)
+        if params.get('image'):
+            item.setArt(params.get('image'))
+
+        xbmcplugin.setResolvedUrl(control.HANDLE, True, item)
+        control.exit_code()
+        return
+
     sources = MetaBrowser.get_sources(mal_id, episode, 'show', rescrape, source_select)
     if sources:
         _mock_args = {"mal_id": mal_id, "episode": episode, 'play': True, 'resume': resume, 'context': rescrape or source_select, 'params': params}

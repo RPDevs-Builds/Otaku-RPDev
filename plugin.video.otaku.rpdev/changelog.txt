@@ -1,3 +1,10 @@
+Changelog v5.7.0 (2026-10-31):
+- Zero-Wait Pre-Resolved Stream Handoff: Background pre-scraping at 70% playback now proactively resolves the direct Debrid CDN or web embed stream (resolve_silent) and caches otaku.preResolved_url, bypassing scraping and resolver dialogs on episode transition for instant 0 ms playback.
+- "Still Watching?" Binge Safeguard: Interactive StillWatchingXML dialog with a configurable countdown timer (default 30s) prompts user every N consecutive autoplayed episodes (default 3), pausing playback and clearing playlist if unattended to protect Debrid bandwidth and watch history.
+- Concurrency-Safe Request Coalescing (get_coalesced): Micro-coordination SQLite locking with BEGIN IMMEDIATE shares in-flight remote API calls and prevents database locking across concurrent Kodi Python invokers.
+- Provider-Specific Color Palette Branding: Distinctive ARGB hex color branding across source selection lists and skin XMLs for Premiumize, Real-Debrid, TorBox, AllDebrid, Debrid-Link, EasyDebrid, Easynews, HiAnime, AniKoto, and direct embeds.
+- Orphaned Settings Pruner (clean_settings): Automatic pruning of deprecated or dangling XML settings during version upgrades and manual action button in Settings under Cache & Database to guarantee zero Kodi 22 C++ settings serialization warnings.
+
 Changelog v5.6.4 (2026-10-31):
 - Add HiAnime cache update button and multi-mirror failover architecture
 

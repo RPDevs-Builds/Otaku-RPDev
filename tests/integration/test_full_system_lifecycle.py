@@ -9,7 +9,10 @@ import os
 import unittest
 from unittest.mock import patch, MagicMock
 
-import conftest
+try:
+    import conftest
+except ImportError:
+    import tests.conftest as conftest
 import xbmcplugin
 import service
 from resources.lib import Main

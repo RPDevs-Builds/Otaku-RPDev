@@ -1187,6 +1187,13 @@
 						<close>true</close>
 					</control>
 				</setting>
+				<setting id="clean_settings" type="action" label="30573" help="30574">
+					<level>0</level>
+					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/clean_settings?setting=true)</data>
+					<control type="button" format="action">
+						<close>true</close>
+					</control>
+				</setting>
 			</group>
 
 			<!-- Cache Duration (TTL) -->
@@ -1379,6 +1386,14 @@
 					</dependencies>
 				</setting>
 				<setting id="smartplay.prescrape" type="boolean" label="30565" help="30566">
+					<level>0</level>
+					<default>true</default>
+					<control type="toggle"/>
+					<dependencies>
+						<dependency type="enable" setting="general.smartplay">true</dependency>
+					</dependencies>
+				</setting>
+				<setting id="smartplay.preresolve" type="boolean" label="30575" help="30576">
 					<level>0</level>
 					<default>true</default>
 					<control type="toggle"/>
@@ -1676,6 +1691,35 @@
 					<control type="toggle"/>
 					<dependencies>
 						<dependency type="enable" setting="smartplay.playingnextdialog">true</dependency>
+					</dependencies>
+				</setting>
+				<setting id="smartplay.stillwatching_count" type="integer" label="30571" help="30570">
+					<level>0</level>
+					<default>3</default>
+					<constraints>
+						<options>
+							<option label="30577">0</option>
+							<option label="30578">2</option>
+							<option label="30579">3</option>
+							<option label="30580">4</option>
+							<option label="30581">5</option>
+						</options>
+					</constraints>
+					<control type="spinner" format="string"/>
+				</setting>
+				<setting id="smartplay.stillwatching_timeout" type="integer" label="30572" help="30570">
+					<level>0</level>
+					<default>30</default>
+					<constraints>
+						<minimum>10</minimum>
+						<step>5</step>
+						<maximum>60</maximum>
+					</constraints>
+					<control type="slider" format="integer">
+						<popup>false</popup>
+					</control>
+					<dependencies>
+						<dependency type="enable" setting="smartplay.stillwatching_count" operator="gt">0</dependency>
 					</dependencies>
 				</setting>
 				<setting id="skipoutro.aniskip.enable" type="boolean" label="30189" help="">

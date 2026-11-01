@@ -388,6 +388,72 @@ def get(function, duration, *args, **kwargs):
     return result
 
 
+def get_coalesced(function, duration, *args, **kwargs):
+    """Share overlapping progress / metadata calls across concurrent Kodi Python invocations.
+
+    The coordination lock uses an isolated micro SQLite database separate from the metadata cache:
+    no write lock is held on cacheFile while fetching remote data. Overlapping callers
+    wait on BEGIN IMMEDIATE and then retrieve the newly cached result.
+    """
+    started = time.time()
+    key = _hash_function(function, args, kwargs)
+    if 'key' in kwargs:
+        key += kwargs.get('key')
+
+    # Tier 1: RAM cache check (instant)
+    mem = _mem_get(key)
+    if mem is not None and not _is_empty_result(mem):
+        return mem
+
+    # Ensure data directory exists
+    if not os.path.exists(control.dataPath):
+        try:
+            os.makedirs(control.dataPath, exist_ok=True)
+        except Exception:
+            pass
+
+    lock_path = control.cacheFile + '.build-' + generate_md5(key)
+    con = dbapi2.connect(lock_path, timeout=0.25)
+    try:
+        while True:
+            try:
+                con.execute('BEGIN IMMEDIATE')
+                break
+            except dbapi2.OperationalError as exc:
+                if 'locked' not in str(exc).lower() and 'busy' not in str(exc).lower():
+                    raise
+                if control.monitor.waitForAbort(0.1):
+                    return None
+
+        con.execute('CREATE TABLE IF NOT EXISTS result (id INTEGER PRIMARY KEY, completed REAL, value TEXT)')
+        row = con.execute('SELECT completed, value FROM result WHERE id=1').fetchone()
+        if row and row[0] >= started:
+            try:
+                data = ast.literal_eval(row[1])
+                if data is not None and not _is_empty_result(data):
+                    _mem_set(key, row[1], duration)
+                    return data
+            except Exception:
+                pass
+
+        result = get(function, duration, *args, **kwargs)
+        if result is not None and not _is_empty_result(result):
+            con.execute('INSERT OR REPLACE INTO result VALUES (1, ?, ?)', (time.time(), repr(result)))
+        con.commit()
+        return result
+    finally:
+        try:
+            con.close()
+        except Exception:
+            pass
+        # Clean up stale coordination file if older than 60 seconds
+        try:
+            if os.path.exists(lock_path) and (time.time() - os.path.getmtime(lock_path)) > 60:
+                os.remove(lock_path)
+        except Exception:
+            pass
+
+
 def remove(function, *args, **kwargs):
     """Remove the cached value for a function call."""
     try:

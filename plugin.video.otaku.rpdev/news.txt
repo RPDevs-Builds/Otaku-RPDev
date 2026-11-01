@@ -1,5 +1,37 @@
 ================================================================================
-                    OTAKU RPDEV v5.6.3 - WHAT'S NEW & MILESTONES
+                    OTAKU RPDEV v5.7.0 - WHAT'S NEW & MILESTONES
+================================================================================
+
+[ Kodi 22 (Piers RC) Ready • Universal Backwards Compatibility • Milestone v5.7.0 ]
+
+Welcome to Otaku RPDev v5.7.0! This milestone release introduces advanced playback
+and architecture modernizations inspired by Umbrella: zero-wait direct stream pre-
+resolution, an interactive "Still Watching?" binge safeguard, concurrency-safe request
+coalescing, provider-specific color palette branding, and an orphaned settings pruner.
+
+--------------------------------------------------------------------------------
+New in v5.7.0: Umbrella Architectural Adoptions & Playback Modernization
+--------------------------------------------------------------------------------
+• Zero-Wait Pre-Resolved Stream Handoff: During episode playback at 70% progress,
+  Otaku pre-scrapes the next episode and silently resolves the direct stream URL in the
+  background (resolve_silent). When the current episode finishes, playback of the next
+  episode starts instantly with 0 ms resolver lag and no dialog popups.
+• "Still Watching?" Binge Safeguard: Interactive StillWatchingXML countdown prompt
+  triggers after consecutive autoplayed episodes (default: 3 episodes, 30s timeout).
+  If unattended, it clears the playlist and pauses playback, protecting Debrid quotas
+  and preventing false watch history updates on AniList/MAL.
+• Concurrency-Safe Request Coalescing (get_coalesced): Eliminates SQLite database lock
+  collisions and redundant remote API requests when multiple Python invokers execute
+  simultaneously using micro-coordination SQLite locking with BEGIN IMMEDIATE.
+• Provider-Specific Color Palette Branding: Source selection lists now display vibrant
+  brand colors for each Debrid provider (Premiumize Purple, Real-Debrid Blue, TorBox
+  Orange, AllDebrid Green) and web embed sources for effortless scanning.
+• Orphaned Settings Pruner (clean_settings): Automatically sanitizes userdata
+  settings.xml upon version upgrades and provides a manual action button under
+  Settings -> Cache & Database to remove deprecated tags and eliminate Kodi 22 C++ warnings.
+
+================================================================================
+                    OTAKU RPDEV v5.6.4 - WHAT'S NEW & MILESTONES
 ================================================================================
 
 [ Kodi 22 (Piers RC) Ready • Universal Backwards Compatibility • Milestone v5.6.3 ]

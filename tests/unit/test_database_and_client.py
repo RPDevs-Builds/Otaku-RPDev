@@ -133,6 +133,39 @@ class TestDatabaseAndClient(unittest.TestCase):
         self.assertIsInstance(results, dict)
         self.assertTrue(all_ok)
 
+    def test_get_coalesced_execution_and_sharing(self):
+        """database.get_coalesced coordinates and shares results across concurrent callers."""
+        import threading
+        call_count = 0
+
+        def sample_expensive_fn(arg1):
+            nonlocal call_count
+            call_count += 1
+            return {'result': f'computed_{arg1}', 'call': call_count}
+
+        # Clear any preexisting cache
+        database.remove(sample_expensive_fn, 'foo')
+
+        # Run multiple concurrent threads calling get_coalesced simultaneously
+        results = [None] * 5
+
+        def worker(idx):
+            results[idx] = database.get_coalesced(sample_expensive_fn, 1, 'foo')
+
+        threads = [threading.Thread(target=worker, args=(i,)) for i in range(5)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        # All threads should get identical result
+        for res in results:
+            self.assertIsNotNone(res)
+            self.assertEqual(res['result'], 'computed_foo')
+            self.assertEqual(res['call'], 1)
+
+        # Call count must be 1 because get_coalesced shared the result!
+        self.assertEqual(call_count, 1)
 
 
 if __name__ == '__main__':

@@ -392,6 +392,7 @@ OTAKU_GENRE_PATH = os.path.join(CONTEXT_ADDON_PATH, 'resources', 'images', 'genr
 # — Kodi GUI objects —
 dialogWindow = xbmcgui.WindowDialog
 homeWindow = _WindowProxy(10000)
+playerWindow = _WindowProxy(10000)
 menuItem = xbmcgui.ListItem
 execute = xbmc.executebuiltin
 get_region = xbmc.getRegion
@@ -936,7 +937,7 @@ def clean_memory():
 def cleanup():
     """Explicitly release Kodi GUI dialogs and C++ resources on script shutdown."""
     clearSettingsCache()
-    for proxy in (progressDialog, homeWindow, playList, ADDON, CONTEXT_ADDON, settings):
+    for proxy in (progressDialog, homeWindow, playerWindow, playList, ADDON, CONTEXT_ADDON, settings):
         try:
             proxy.cleanup()
         except Exception:

@@ -304,6 +304,15 @@ def version_check():
         control.setSetting('otaku.version', control.ADDON_VERSION)
         control.log(f"### {reuselang} Re-uselanguageinvoker")
 
+        # Automatically prune orphaned settings on version upgrade
+        try:
+            from resources.lib.ui import clean_settings
+            pruned_count, _ = clean_settings.clean_settings()
+            if pruned_count > 0:
+                control.log(f"### Version upgrade: Pruned {pruned_count} orphaned setting(s)")
+        except Exception as e:
+            control.log(f"Failed to prune orphaned settings on startup: {e}", 'warning')
+
 
 def load_settings():
     """Load settings into Kodi window properties by parsing settings.xml."""

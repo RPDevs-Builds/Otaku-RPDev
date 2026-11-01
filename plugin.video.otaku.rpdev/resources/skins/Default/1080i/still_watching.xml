@@ -1,0 +1,128 @@
+<window>
+	<defaultcontrol always="true">3001</defaultcontrol>
+	<onload>Dialog.Close(fullscreeninfo,true)</onload>
+	<onload>Dialog.Close(videoosd,true)</onload>
+	<controls>
+		<control type="group">
+			<animation type="WindowOpen" reversible="false">
+				<effect type="fade" start="0" end="100" time="300" />
+				<effect type="slide" start="0,100" end="0,0" time="300" />
+			</animation>
+			<animation type="WindowClose" reversible="false">
+				<effect type="fade" start="100" end="0" time="300" />
+				<effect type="slide" start="0,0" end="0,100" time="300" />
+			</animation>
+
+			<control type="group">
+				<centerleft>50%</centerleft>
+				<centertop>50%</centertop>
+				<width>700</width>
+				<height>340</height>
+
+				<!-- Background Panel -->
+				<control type="image">
+					<left>0</left>
+					<top>0</top>
+					<width>100%</width>
+					<height>100%</height>
+					<texture colordiffuse="F0141419">white.png</texture>
+				</control>
+
+				<!-- Header Accent Line -->
+				<control type="image">
+					<left>0</left>
+					<top>0</top>
+					<width>100%</width>
+					<height>4</height>
+					<texture colordiffuse="FF0080FF">white.png</texture>
+				</control>
+
+				<!-- Title -->
+				<control type="label">
+					<left>40</left>
+					<top>25</top>
+					<width>620</width>
+					<height>40</height>
+					<font>font30_title</font>
+					<textcolor>FFFFFFFF</textcolor>
+					<align>center</align>
+					<aligny>center</aligny>
+					<label>Are you still watching?</label>
+				</control>
+
+				<!-- Show Title & Subtitle -->
+				<control type="label">
+					<left>40</left>
+					<top>75</top>
+					<width>620</width>
+					<height>35</height>
+					<font>font14</font>
+					<textcolor>FF00B0FF</textcolor>
+					<align>center</align>
+					<aligny>center</aligny>
+					<label>$INFO[Window.Property(stillwatching.title)]</label>
+				</control>
+
+				<!-- Prompt / Countdown Text -->
+				<control type="label">
+					<left>40</left>
+					<top>120</top>
+					<width>620</width>
+					<height>30</height>
+					<font>font12</font>
+					<textcolor>B0FFFFFF</textcolor>
+					<align>center</align>
+					<aligny>center</aligny>
+					<label>$INFO[Window.Property(stillwatching.prompt)]</label>
+				</control>
+
+				<!-- Countdown Progress Bar -->
+				<control type="progress" id="3014">
+					<left>50</left>
+					<top>170</top>
+					<width>600</width>
+					<height>8</height>
+					<reveal>true</reveal>
+					<texturebg colordiffuse="33FFFFFF">white.png</texturebg>
+					<midtexture colordiffuse="FF0080FF">white.png</midtexture>
+				</control>
+
+				<!-- Action Buttons -->
+				<control type="grouplist">
+					<orientation>horizontal</orientation>
+					<centerleft>50%</centerleft>
+					<top>215</top>
+					<itemgap>20</itemgap>
+					<height>65</height>
+					<align>center</align>
+
+					<control type="button" id="3001">
+						<width>260</width>
+						<height>60</height>
+						<font>font14</font>
+						<label>Keep Watching</label>
+						<align>center</align>
+						<aligny>center</aligny>
+						<textcolor>FFFFFFFF</textcolor>
+						<focusedcolor>FFFFFFFF</focusedcolor>
+						<texturefocus border="6" colordiffuse="FF0080FF">white.png</texturefocus>
+						<texturenofocus border="6" colordiffuse="33FFFFFF">white.png</texturenofocus>
+					</control>
+
+					<control type="button" id="3002">
+						<width>260</width>
+						<height>60</height>
+						<font>font14</font>
+						<label>Stop Playback</label>
+						<align>center</align>
+						<aligny>center</aligny>
+						<textcolor>B0FFFFFF</textcolor>
+						<focusedcolor>FFFFFFFF</focusedcolor>
+						<texturefocus border="6" colordiffuse="FFD32F2F">white.png</texturefocus>
+						<texturenofocus border="6" colordiffuse="33FFFFFF">white.png</texturenofocus>
+					</control>
+				</control>
+			</control>
+		</control>
+	</controls>
+</window>

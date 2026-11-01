@@ -2293,4 +2293,57 @@ msgctxt "#30568"
 msgid "Query https://hianime.pw/ and update cached HiAnime mirror domains."
 msgstr ""
 
+msgctxt "#30569"
+msgid "Still Watching? Safeguard"
+msgstr ""
+
+msgctxt "#30570"
+msgid "Display an interactive confirmation prompt after consecutive autoplayed episodes to prevent unattended streaming."
+msgstr ""
+
+msgctxt "#30571"
+msgid "Episodes Before 'Still Watching' Prompt"
+msgstr ""
+
+msgctxt "#30572"
+msgid "'Still Watching' Timeout (Seconds)"
+msgstr ""
+
+msgctxt "#30573"
+msgid "Clean Orphaned Settings"
+msgstr ""
+
+msgctxt "#30574"
+msgid "Scan settings.xml and strip obsolete settings left behind by older versions."
+msgstr ""
+
+msgctxt "#30575"
+msgid "Pre-Resolve Next Episode Stream"
+msgstr ""
+
+msgctxt "#30576"
+msgid "Proactively unrestrict and pre-resolve the direct streaming URL in the background for zero-latency next-episode playback."
+msgstr ""
+
+msgctxt "#30577"
+msgid "Disabled"
+msgstr ""
+
+msgctxt "#30578"
+msgid "2 Episodes"
+msgstr ""
+
+msgctxt "#30579"
+msgid "3 Episodes"
+msgstr ""
+
+msgctxt "#30580"
+msgid "4 Episodes"
+msgstr ""
+
+msgctxt "#30581"
+msgid "5 Episodes"
+msgstr ""
+
+
 

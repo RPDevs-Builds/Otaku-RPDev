@@ -737,3 +737,101 @@ def _HLS_HOOK(item):
                     item.setProperty('inputstream.adaptive.manifest_headers', headers)
 
     return item
+
+
+def resolve_silent(sources, episode, mal_id=None):
+    """
+    Resolve the top candidate source silently in background without launching WindowXML dialog.
+    Used for Zero-Wait Pre-Resolved stream handoffs.
+    :param sources: Pre-scraped candidate source list
+    :param episode: Target episode number
+    :param mal_id: Anime MAL ID
+    :return: dict with 'url', 'headers', 'source', 'sub' or None
+    """
+    if not sources:
+        return None
+
+    from resources.lib.debrid import all_debrid, debrid_link, easynews, premiumize, real_debrid, torbox, easydebrid
+    resolvers = {
+        'Alldebrid': all_debrid.AllDebrid,
+        'Debrid-Link': debrid_link.DebridLink,
+        'Premiumize': premiumize.Premiumize,
+        'Real-Debrid': real_debrid.RealDebrid,
+        'TorBox': torbox.TorBox,
+        'EasyDebrid': easydebrid.EasyDebrid,
+        'Easynews': easynews.Easynews,
+    }
+
+    class _HeadlessResolver:
+        def __init__(self, ep, mid):
+            self.episode = int(ep)
+            self.mal_id = mid
+            self.pack_select = False
+
+        def resolve_source(self, api_cls, source):
+            try:
+                api = api_cls()
+                hash_ = source.get('hash')
+                if not hash_:
+                    return None
+                magnet = f"magnet:?xt=urn:btih:{hash_}"
+                stream_link = None
+
+                if source.get('type') == 'torrent':
+                    filename = source.get('filename')
+                    if filename:
+                        ep_reg = source_utils.get_cache_check_reg(self.episode)
+                        clean_fname = re.sub(r'\[.*?\]', '', filename.split('/')[-1])
+                        if not ep_reg.search(clean_fname):
+                            filename = None
+                    ep_re = source.get('episode_re') or str(self.episode)
+                    stream_link = api.resolve_single_magnet(hash_, magnet, ep_re, self.pack_select, filename)
+                elif source.get('type') == 'cloud':
+                    hash_ = api.resolve_cloud(source, self.pack_select)
+                    if hash_:
+                        stream_link = api.resolve_hoster(hash_)
+                elif source.get('type') == 'hoster':
+                    if source.get('debrid_provider') == 'Easynews':
+                        stream_link = api.unrestrict_link(source['hash'])
+                    else:
+                        stream_link = api.resolve_hoster(magnet, source['episode_re'], self.pack_select)
+                return stream_link
+            except Exception as e:
+                control.log(f"resolve_silent helper error: {e}", 'debug')
+                return None
+
+    helper = _HeadlessResolver(episode, mal_id)
+
+    # Evaluate top candidates (try up to 3)
+    for s in sources[:3]:
+        if not s or not isinstance(s, dict):
+            continue
+        try:
+            stream_link = None
+            stype = s.get('type')
+            if stype in ['torrent', 'cloud', 'hoster']:
+                dprov = s.get('debrid_provider')
+                if dprov in resolvers:
+                    stream_link = helper.resolve_source(resolvers[dprov], s)
+            elif stype == 'direct':
+                stream_link = s.get('hash') or s.get('url')
+            elif stype == 'embed':
+                from resources.lib.ui import embed_extractor
+                embed_url = s.get('hash') or s.get('url')
+                if embed_url:
+                    stream_link = embed_extractor.load_video_from_url(embed_url)
+
+            if stream_link:
+                linkinfo = Resolver.prefetch_play_link(stream_link)
+                if linkinfo:
+                    return {
+                        'url': linkinfo.get('url'),
+                        'headers': linkinfo.get('headers', {}),
+                        'source': s,
+                        'sub': s.get('subs', [])
+                    }
+        except Exception as e:
+            control.log(f"resolve_silent error for candidate: {e}", 'debug')
+
+    return None
+

@@ -1,6 +1,6 @@
 import xbmcgui
 
-from resources.lib.ui import control, database
+from resources.lib.ui import control, database, colors
 from resources.lib.windows.base_window import BaseWindow
 from resources.lib.windows.download_manager import Manager
 from resources.lib.windows.resolver import Resolver
@@ -89,11 +89,25 @@ class SourceSelect(BaseWindow):
         for source in sources:
             if source is None:
                 continue
+            debrid_name = source.get('debrid_provider') or ''
+            provider_name = source.get('provider') or ''
+            source_type = source.get('type') or ''
+
+            p_color = colors.get_provider_color(provider_name or source_type)
+            d_color = colors.get_provider_color(debrid_name or source_type)
+
+            colored_debrid = f"[COLOR {d_color}]{debrid_name}[/COLOR]" if debrid_name else f"[COLOR {p_color}]{source_type.upper()}[/COLOR]"
+            colored_provider = f"[COLOR {p_color}]{provider_name}[/COLOR]" if provider_name else ""
+
             menu_item = xbmcgui.ListItem(source.get('release_title', ''), offscreen=True)
             properties = {
-                'type': source.get('type', ''),
-                'debrid_provider': source.get('debrid_provider', ''),
-                'provider': source.get('provider', ''),
+                'type': source_type,
+                'debrid_provider': debrid_name,
+                'provider': provider_name,
+                'provider_color': p_color,
+                'debrid_color': d_color,
+                'colored_debrid': colored_debrid,
+                'colored_provider': colored_provider,
                 'quality': str(source.get('quality', '')),
                 'info': ' '.join(source.get('info', [])),
                 'seeders': str(source.get('seeders', '')) if source.get('seeders', -1) != -1 else 'na',
