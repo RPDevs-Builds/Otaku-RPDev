@@ -104,7 +104,10 @@ class WatchlistFlavor:
         if not WatchlistFlavor.__is_flavor_valid(flavor):
             raise Exception("Invalid flavor %s" % flavor)
         flavor_class = WatchlistFlavor.__instance_flavor(flavor)
-        return WatchlistFlavor.__set_login(flavor, flavor_class.login())
+        res = flavor_class.login()
+        if res is None:
+            return None
+        return WatchlistFlavor.__set_login(flavor, res)
 
     @staticmethod
     def logout_request(flavor):
@@ -117,6 +120,7 @@ class WatchlistFlavor:
         control.setInt('%s.sort' % flavor, 0)
         control.setInt('%s.order' % flavor, 0)
         control.setSetting('%s.titles' % flavor, '')
+        control.setBool('%s.enabled' % flavor, False)
         return control.refresh()
 
     @staticmethod
@@ -149,6 +153,7 @@ class WatchlistFlavor:
             return control.ok_dialog('Login', 'Incorrect username or password')
         else:
             control.setBool('watchlist.update.enabled', True)
+            control.setBool('%s.enabled' % flavor, True)
         for _id, value in list(res.items()):
             setting_name = '%s.%s' % (flavor, _id)
             if _id == 'expiry':

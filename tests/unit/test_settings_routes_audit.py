@@ -59,6 +59,7 @@ class TestSettingsRoutesAudit(unittest.TestCase):
         with ExitStack() as stack:
             stack.enter_context(patch("service.toggle_reuselanguageinvoker", return_value=None))
             stack.enter_context(patch("resources.lib.windows.wlf_auth.WatchlistFlavorAuth", return_value=MagicMock()))
+            stack.enter_context(patch("resources.lib.WatchlistFlavor.WatchlistFlavor.login_request", return_value=None))
             stack.enter_context(patch("resources.lib.ui.control.ok_dialog", return_value=True))
             stack.enter_context(patch("resources.lib.ui.control.yesno_dialog", return_value=False))
             stack.enter_context(patch("resources.lib.ui.control.yesnocustom_dialog", return_value=0))

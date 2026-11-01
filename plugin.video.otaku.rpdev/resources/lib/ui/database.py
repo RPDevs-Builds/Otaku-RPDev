@@ -871,14 +871,38 @@ def get_mal_ids(anime_id, send_id):
     return []
 
 
+_BUILTIN_API_INFO = {
+    'Simkl': {'api_name': 'Simkl', 'api_key': '', 'client_id': '59dfdc579d244e1edf6f89874d521d37a69a95a1abd349910cb056a1872ba2c8', 'client_secret': '', 'description': 'Simkl API'},
+    'MyAnimeList': {'api_name': 'MyAnimeList', 'api_key': '', 'client_id': 'a8d85a4106b259b8c9470011ce2f76bc', 'client_secret': '', 'description': 'MyAnimeList API'},
+    'Real-Debrid': {'api_name': 'Real-Debrid', 'api_key': '', 'client_id': 'X245A4XAIBGVM', 'client_secret': '', 'description': 'Real-Debrid API'},
+    'Premiumize': {'api_name': 'Premiumize', 'api_key': '', 'client_id': '807831898', 'client_secret': '', 'description': 'Premiumize API'},
+    'Debrid-Link': {'api_name': 'Debrid-Link', 'api_key': '', 'client_id': 'sdpBuYFQo6L53s3B4apluw', 'client_secret': '', 'description': 'Debrid-Link API'},
+    'Fanart-TV': {'api_name': 'Fanart-TV', 'api_key': 'dfe6380e34f49f9b2b9518184922b49c', 'client_id': '', 'client_secret': '', 'description': 'Fanart-TV API'},
+    'Anime-Skip': {'api_name': 'Anime-Skip', 'api_key': '', 'client_id': 'buT57NJMu4G65vxGJWdj4UXgnq65Agfi', 'client_secret': '', 'description': 'Anime-Skip API'},
+    'AniDB': {'api_name': 'AniDB', 'api_key': '', 'client_id': 'otakukodi', 'client_secret': '', 'description': 'AniDB API'},
+    'TMDB': {'api_name': 'TMDB', 'api_key': '6974ec27debf5cce1218136e2a36f64b', 'client_id': '', 'client_secret': '', 'description': 'The Movie Database API'},
+    'Teamup': {'api_name': 'Teamup', 'api_key': '7d05c918d14d9a89347492f8916e3a76457de61dd3303e9a31aecb971d6c8149', 'client_id': '', 'client_secret': '', 'description': 'Teamup API'},
+    'AnimeSchedule': {'api_name': 'AnimeSchedule', 'api_key': '', 'client_id': '2zuyXQUF6qxMqaEXZ6nP', 'client_secret': 'mSFcWD3lXURQXPAoKHKI5qpV42x6oq', 'description': 'AnimeSchedule API'},
+    'MDBList': {'api_name': 'MDBList', 'api_key': '7zya5tee3ruf73cubnb85dsyr', 'client_id': '', 'client_secret': '', 'description': 'MDBList API'},
+    'TVDB': {'api_name': 'TVDB', 'api_key': 'edae60dc-1b44-4bac-8db7-65c0aaf5258b', 'client_id': '', 'client_secret': '', 'description': 'TheTVDB API'},
+    'Trakt': {'api_name': 'Trakt', 'api_key': '', 'client_id': 'e6a379effbda0b40f5ae06d39336b3c716c7fb86562327a0125f29959b5d5c79', 'client_secret': '0bf24cdc6a51673f23ce065738f9cd35d87196f129ea8836f6372a53fa5d5b76', 'description': 'Trakt API'}
+}
+
+
 def get_info(api_name):
     row = None
     try:
-        with SQL(control.infoDB) as cur:
-            cur.execute('SELECT * FROM info WHERE api_name=?', (api_name,))
-            row = cur.fetchone()
+        if getattr(control, 'infoDB', None) and os.path.exists(control.infoDB):
+            with SQL(control.infoDB) as cur:
+                cur.execute('SELECT * FROM info WHERE api_name=?', (api_name,))
+                row = cur.fetchone()
     except (dbapi2.DatabaseError, dbapi2.OperationalError) as e:
         control.log(f"get_info error for {api_name}: {e}", 'debug')
+    if row and (row.get('client_id') or row.get('api_key')):
+        return row
+    fallback = _BUILTIN_API_INFO.get(api_name)
+    if fallback:
+        return dict(fallback)
     return row or {'api_name': api_name, 'client_id': '', 'client_secret': '', 'api_key': ''}
 
 

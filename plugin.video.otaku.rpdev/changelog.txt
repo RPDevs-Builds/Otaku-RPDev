@@ -1,3 +1,10 @@
+Changelog v5.7.1 (2026-10-31):
+- Fix Simkl Watchlist Authentication: Restore missing verification_url definition in Simkl OAuth PIN flow, preventing NameError crash when rendering the authorization dialog.
+- Built-in API Credentials Fallback: Implement _BUILTIN_API_INFO fallback dictionary in database.get_info() and dynamic client_id resolution in SimklWLF and SIMKLAPI, eliminating empty client ID 412 errors across standalone and test environments.
+- QR Code Generation Resilience: Safely guard pyqrcode rendering in Simkl auth with try/except so missing graphics libraries or file permission issues never block device PIN authorization.
+- Responsive Dialog Polling: Modernize polling loops with 1-second ticks and control.abort_requested() checks for immediate cancellation responsiveness.
+- Watchlist Settings Synchronization: Automatically toggle simkl.enabled on successful login and cleanly reset on logout.
+
 Changelog v5.7.0 (2026-10-31):
 - Zero-Wait Pre-Resolved Stream Handoff: Background pre-scraping at 70% playback now proactively resolves the direct Debrid CDN or web embed stream (resolve_silent) and caches otaku.preResolved_url, bypassing scraping and resolver dialogs on episode transition for instant 0 ms playback.
 - "Still Watching?" Binge Safeguard: Interactive StillWatchingXML dialog with a configurable countdown timer (default 30s) prompts user every N consecutive autoplayed episodes (default 3), pausing playback and clearing playlist if unattended to protect Debrid bandwidth and watch history.

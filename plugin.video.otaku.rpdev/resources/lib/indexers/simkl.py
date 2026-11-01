@@ -7,9 +7,11 @@ from resources.lib import indexers
 
 
 class SIMKLAPI:
+    DEFAULT_CLIENT_ID = '59dfdc579d244e1edf6f89874d521d37a69a95a1abd349910cb056a1872ba2c8'
+
     def __init__(self):
         api_info = database.get_info('Simkl')
-        self.ClientID = api_info['client_id']
+        self.ClientID = (api_info.get('client_id') if api_info else '') or self.DEFAULT_CLIENT_ID
         self.baseUrl = "https://api.simkl.com"
         self.imagePath = "https://wsrv.nl/?url=https://simkl.in/episodes/%s_w.webp"
 

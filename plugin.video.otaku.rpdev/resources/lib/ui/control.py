@@ -338,6 +338,8 @@ CONTEXT_ADDON_ID = 'context.otaku.rpdev'
 _temp_context = xbmcaddon.Addon(CONTEXT_ADDON_ID)
 CONTEXT_ADDON_PATH = _temp_context.getAddonInfo('path')
 infoDB = os.path.join(CONTEXT_ADDON_PATH, 'info.db')
+if not pathExists(infoDB):
+    infoDB = os.path.join(ADDON_PATH, 'info.db')
 del _temp_context
 
 ADDON = _AddonProxy(ADDON_ID)

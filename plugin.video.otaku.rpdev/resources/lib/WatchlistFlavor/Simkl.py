@@ -9,11 +9,19 @@ class SimklWLF(WatchlistFlavorBase):
     _NAME = 'simkl'
     _URL = 'https://api.simkl.com'
     _TITLE = 'Simkl'
-    _NAME = 'simkl'
     _IMAGE = "simkl.png"
 
-    api_info = database.get_info('Simkl')
-    client_id = api_info['client_id']
+    DEFAULT_CLIENT_ID = '59dfdc579d244e1edf6f89874d521d37a69a95a1abd349910cb056a1872ba2c8'
+
+    @property
+    def client_id(self):
+        info = database.get_info('Simkl')
+        cid = (info.get('client_id') if info else '') or getattr(self, '_custom_client_id', '')
+        return cid or self.DEFAULT_CLIENT_ID
+
+    @client_id.setter
+    def client_id(self, value):
+        self._custom_client_id = value
 
     def __headers(self):
         headers = {
@@ -25,7 +33,6 @@ class SimklWLF(WatchlistFlavorBase):
 
     def login(self):
         import os
-        import pyqrcode
         from resources.lib.windows.progress_dialog import Progress_dialog
 
         params = {
@@ -40,9 +47,18 @@ class SimklWLF(WatchlistFlavorBase):
             return None
         control.copy2clip(user_code)
 
-        qr_path = os.path.join(control.dataPath, 'qr_code.png')
-        qr_code = pyqrcode.create(verification_url)
-        qr_code.png(qr_path, scale=20)
+        verification_url = device_code.get('verification_url') or device_code.get('verification_uri') or 'https://simkl.com/pin'
+
+        qr_path = ''
+        try:
+            import pyqrcode
+            os.makedirs(control.dataPath, exist_ok=True)
+            qr_file = os.path.join(control.dataPath, 'qr_code.png')
+            qr_code = pyqrcode.create(verification_url)
+            qr_code.png(qr_file, scale=20)
+            qr_path = qr_file
+        except Exception as e:
+            control.log(f"Simkl pyqrcode generation error: {e}", 'warning')
 
         config = {
             'heading': 'SIMKL Auth',
@@ -54,25 +70,43 @@ class SimklWLF(WatchlistFlavorBase):
         dialog.show()
         dialog.update(100)
 
-        inter = int(device_code['expires_in'] / device_code['interval'])
-        for i in range(inter):
-            if dialog.iscanceled():
-                dialog.close()
-                return
-            control.sleep(device_code['interval'] * 1000)
+        interval = max(1, int(device_code.get('interval', 5)))
+        total_timeout = int(device_code.get('expires_in', 900))
+        remaining_timeout = total_timeout
 
-            r = client.get(f'{self._URL}/oauth/pin/{device_code["user_code"]}', params=params)
+        while remaining_timeout > 0:
+            if dialog.iscanceled() or control.abort_requested():
+                dialog.close()
+                return None
+
+            for _ in range(interval):
+                if dialog.iscanceled() or control.abort_requested():
+                    dialog.close()
+                    return None
+                control.sleep(1000)
+
+            remaining_timeout -= interval
+
+            r = client.get(f'{self._URL}/oauth/pin/{user_code}', params=params)
             r = r.json() if r else {}
             if r.get('result') == 'OK':
                 dialog.close()
-                self.token = r['access_token']
+                self.token = r.get('access_token')
                 login_data = {'token': self.token}
-                r = client.post(f'{self._URL}/users/settings', headers=self.__headers(), json_data={})
-                if r:
-                    user = r.json()['user']
-                    login_data['username'] = user['name']
+                try:
+                    r = client.post(f'{self._URL}/users/settings', headers=self.__headers(), json_data={}, params=params)
+                    if r:
+                        user = r.json().get('user', {})
+                        if user.get('name'):
+                            login_data['username'] = user['name']
+                except Exception as e:
+                    control.log(f"Simkl users/settings error: {e}", 'warning')
                 return login_data
-            dialog.update(int((inter - i) / inter * 100))
+
+            dialog.update(int(remaining_timeout / total_timeout * 100))
+
+        dialog.close()
+        return None
 
     def watchlist(self):
         statuses = [

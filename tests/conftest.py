@@ -391,6 +391,8 @@ class MockControlList:
         self._items = []
         self._selected = 0
         self._visible = True
+        self._percent = 0.0
+        self._label = ''
     def addItem(self, item): self._items.append(item)
     def addItems(self, items): self._items.extend(items)
     def reset(self): self._items.clear(); self._selected = 0
@@ -400,6 +402,10 @@ class MockControlList:
     def getSelectedItem(self): return self._items[self._selected] if 0 <= self._selected < len(self._items) else None
     def selectItem(self, idx): self._selected = idx
     def setVisible(self, v): self._visible = bool(v)
+    def setPercent(self, pct): self._percent = float(pct)
+    def getPercent(self): return self._percent
+    def setLabel(self, lbl): self._label = str(lbl)
+    def getLabel(self): return self._label
 
 
 class MockControlProgress:
@@ -648,12 +654,12 @@ def addon_side_effect(addon_id=None):
         addon_mock.getAddonInfo.side_effect = lambda k: '21.0.0' if k == 'version' else ''
     else:
         addon_mock.getAddonInfo.side_effect = lambda k: {
-            'id': 'plugin.video.otaku.rpdev',
+            'id': addon_id or 'plugin.video.otaku.rpdev',
             'name': 'Otaku RPDev',
-            'version': '5.5.1',
+            'version': '5.7.0',
             'icon': '',
             'fanart': '',
-            'path': ADDON_ROOT,
+            'path': os.path.join(REPO_ROOT, 'context.otaku.rpdev') if addon_id == 'context.otaku.rpdev' else ADDON_ROOT,
             'profile': TEST_PROFILE_DIR
         }.get(k, '')
         mock_settings = MagicMock()
