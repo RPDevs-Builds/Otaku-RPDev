@@ -16,11 +16,49 @@ import sqlite3
 import random
 from unittest.mock import MagicMock
 
-# 1. Ensure plugin.video.otaku.rpdev is on sys.path
+# 1. Ensure plugin.video.otaku.rpdev, context.otaku.rpdev, and repo root are on sys.path
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ADDON_ROOT = os.path.join(REPO_ROOT, 'plugin.video.otaku.rpdev')
-if ADDON_ROOT not in sys.path:
-    sys.path.insert(0, ADDON_ROOT)
+CONTEXT_ROOT = os.path.join(REPO_ROOT, 'context.otaku.rpdev')
+TESTS_ROOT = os.path.join(REPO_ROOT, 'tests')
+
+for p in (REPO_ROOT, ADDON_ROOT, CONTEXT_ROOT, TESTS_ROOT):
+    if p not in sys.path:
+        sys.path.insert(0, p)
+
+# Hermetic Network Guard for Unit & Subsystem Tests
+# Prevents unmocked live outbound sockets during test execution to ensure fast, deterministic, offline tests
+# and prevent ResourceWarning: unclosed socket leaks. Can be bypassed by setting OTAKU_LIVE_AUDIT=1.
+import socket
+
+_real_socket_connect = socket.socket.connect
+_real_socket_connect_ex = socket.socket.connect_ex
+
+def _hermetic_socket_connect(self, address):
+    if os.environ.get('OTAKU_LIVE_AUDIT') == '1':
+        return _real_socket_connect(self, address)
+    host = address[0] if isinstance(address, (list, tuple)) and len(address) > 0 else str(address)
+    port = address[1] if isinstance(address, (list, tuple)) and len(address) > 1 else '?'
+    try:
+        self.close()
+    except Exception:
+        pass
+    raise ConnectionRefusedError(
+        f"Hermetic test violation: Unmocked network connection attempted to {host}:{port}. "
+        f"All network requests in tests must be mocked with unittest.mock.patch."
+    )
+
+def _hermetic_socket_connect_ex(self, address):
+    if os.environ.get('OTAKU_LIVE_AUDIT') == '1':
+        return _real_socket_connect_ex(self, address)
+    try:
+        self.close()
+    except Exception:
+        pass
+    return _hermetic_socket_connect(self, address)
+
+socket.socket.connect = _hermetic_socket_connect
+socket.socket.connect_ex = _hermetic_socket_connect_ex
 
 # 2. Setup temporary profile directory with test info.db
 TEST_PROFILE_DIR = tempfile.mkdtemp(prefix='otaku_test_')

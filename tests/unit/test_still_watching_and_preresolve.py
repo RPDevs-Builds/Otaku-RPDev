@@ -2,10 +2,23 @@
 Unit tests for 'Still Watching?' Binge Safeguard and Zero-Wait Pre-Resolved Stream Handoff.
 """
 
+# Standardized Otaku Test Bootstrap
+import os
+import sys
+
+_TEST_DIR = os.path.dirname(os.path.abspath(__file__))
+_REPO_ROOT = os.path.abspath(os.path.join(_TEST_DIR, '..' if os.path.basename(_TEST_DIR) in ('unit', 'integration', 'lint') else '.'))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+_TESTS_DIR = os.path.join(_REPO_ROOT, 'tests')
+if _TESTS_DIR not in sys.path:
+    sys.path.insert(0, _TESTS_DIR)
+
+import conftest  # Centralized Kodi mock harness  # noqa: F401
+
 import json
 import unittest
 from unittest.mock import MagicMock, patch
-import tests.conftest  # noqa: F401
 from resources.lib.ui import control
 
 
@@ -67,7 +80,8 @@ class TestStillWatchingAndPreResolve(unittest.TestCase):
         control.playerWindow.setProperty('otaku.preResolved_data', json.dumps(mock_data))
 
         with patch('xbmcplugin.setResolvedUrl') as mock_set_resolved, \
-             patch('resources.lib.MetaBrowser.get_sources') as mock_get_sources:
+             patch('resources.lib.MetaBrowser.get_sources') as mock_get_sources, \
+             patch('resources.lib.MetaBrowser.get_anime_init'):
 
             playback.PLAY('481/2', {})
 

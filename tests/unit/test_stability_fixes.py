@@ -1,3 +1,17 @@
+# Standardized Otaku Test Bootstrap
+import os
+import sys
+
+_TEST_DIR = os.path.dirname(os.path.abspath(__file__))
+_REPO_ROOT = os.path.abspath(os.path.join(_TEST_DIR, '..' if os.path.basename(_TEST_DIR) in ('unit', 'integration', 'lint') else '.'))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+_TESTS_DIR = os.path.join(_REPO_ROOT, 'tests')
+if _TESTS_DIR not in sys.path:
+    sys.path.insert(0, _TESTS_DIR)
+
+import conftest  # Centralized Kodi mock harness  # noqa: F401
+
 import unittest
 from unittest.mock import patch, MagicMock
 
@@ -9,7 +23,7 @@ from resources.lib.AniListBrowser import AniListBrowser
 from resources.lib import Main
 
 
-class TestStabilityFixesV5521(unittest.TestCase):
+class TestStabilityFixes(unittest.TestCase):
     def setUp(self):
         control.clearSettingsCache()
 
@@ -104,7 +118,8 @@ class TestStabilityFixesV5521(unittest.TestCase):
                 self.assertEqual(len(res), 3)
                 self.assertEqual(res, ([], [], []))
 
-        with patch.object(control, 'multiselect_dialog', return_value=None):
+        with patch.object(control, 'multiselect_dialog', return_value=None), \
+             patch.object(database, 'get', return_value=None):
             res = AniListBrowser().update_genre_settings()
             self.assertEqual(len(res), 3)
             self.assertEqual(res, ([], [], []))
@@ -137,3 +152,6 @@ class TestStabilityFixesV5521(unittest.TestCase):
                     mock_db_prune.assert_called_once_with(30)
                     mock_checkpoint.assert_called_once_with(truncate=True)
 
+
+if __name__ == '__main__':
+    unittest.main()

@@ -6,6 +6,20 @@ resources/settings.xml has a corresponding, valid, and callable handler in
 router.ROUTES, preventing runtime AttributeErrors or dead buttons.
 """
 
+# Standardized Otaku Test Bootstrap
+import os
+import sys
+
+_TEST_DIR = os.path.dirname(os.path.abspath(__file__))
+_REPO_ROOT = os.path.abspath(os.path.join(_TEST_DIR, '..' if os.path.basename(_TEST_DIR) in ('unit', 'integration', 'lint') else '.'))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+_TESTS_DIR = os.path.join(_REPO_ROOT, 'tests')
+if _TESTS_DIR not in sys.path:
+    sys.path.insert(0, _TESTS_DIR)
+
+import conftest  # Centralized Kodi mock harness  # noqa: F401
+
 import os
 import re
 import unittest
@@ -14,7 +28,6 @@ from xml.etree import ElementTree as ET
 from urllib.parse import urlparse, parse_qsl
 from unittest.mock import patch, MagicMock
 
-import tests.conftest  # noqa: F401
 from resources.lib import Main  # registers all routes into router.ROUTES
 from resources.lib.ui import router, control, database
 
@@ -79,6 +92,9 @@ class TestSettingsRoutesAudit(unittest.TestCase):
             stack.enter_context(patch("resources.lib.debrid.torbox.TorBox", return_value=mock_auth))
             stack.enter_context(patch("resources.lib.debrid.easydebrid.EasyDebrid", return_value=mock_auth))
             stack.enter_context(patch("resources.lib.debrid.easynews.Easynews", return_value=mock_auth))
+            stack.enter_context(patch("resources.lib.ui.client.request", return_value=('{}', '200', {}, {}, '', '')))
+            stack.enter_context(patch("resources.lib.ui.client.get", return_value=MagicMock(ok=True, status_code=200, json=lambda: {}, text='{}', content=b'{}')))
+            stack.enter_context(patch("resources.lib.ui.client.post", return_value=MagicMock(ok=True, status_code=200, json=lambda: {}, text='{}', content=b'{}')))
 
             failed_routes = []
             unmatched_routes = []

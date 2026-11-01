@@ -10,6 +10,20 @@ Validates that:
 6. database.get_unique_ids and get_mappings are guaranteed to return dicts even on missing tables or errors.
 """
 
+# Standardized Otaku Test Bootstrap
+import os
+import sys
+
+_TEST_DIR = os.path.dirname(os.path.abspath(__file__))
+_REPO_ROOT = os.path.abspath(os.path.join(_TEST_DIR, '..' if os.path.basename(_TEST_DIR) in ('unit', 'integration', 'lint') else '.'))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+_TESTS_DIR = os.path.join(_REPO_ROOT, 'tests')
+if _TESTS_DIR not in sys.path:
+    sys.path.insert(0, _TESTS_DIR)
+
+import conftest  # Centralized Kodi mock harness  # noqa: F401
+
 import os
 import re
 import unittest
@@ -17,7 +31,6 @@ from contextlib import ExitStack
 from xml.etree import ElementTree as ET
 from unittest.mock import patch, MagicMock
 
-import tests.conftest  # noqa: F401
 from resources.lib import Main  # registers all routes
 from resources.lib.ui import router, control, database
 
@@ -155,6 +168,9 @@ class TestContextMenuAndActions(unittest.TestCase):
             stack.enter_context(patch('resources.lib.WatchlistFlavor.WatchlistFlavor.watchlist_update_all_episodes', return_value=True))
             stack.enter_context(patch('service.refresh_apis', return_value=None))
             stack.enter_context(patch('service.update_mappings_db', return_value=None))
+            stack.enter_context(patch('resources.lib.ui.client.request', return_value=('{}', '200', {}, {}, '', '')))
+            stack.enter_context(patch('resources.lib.ui.client.get', return_value=MagicMock(ok=True, status_code=200, json=lambda: {}, text='{}', content=b'{}')))
+            stack.enter_context(patch('resources.lib.ui.client.post', return_value=MagicMock(ok=True, status_code=200, json=lambda: {}, text='{}', content=b'{}')))
 
             for url, params in actions_to_test:
                 with self.subTest(route=url):
@@ -213,6 +229,9 @@ class TestContextMenuAndActions(unittest.TestCase):
             stack.enter_context(patch('resources.lib.WatchlistFlavor.WatchlistFlavor.watchlist_update_all_episodes', return_value=True))
             stack.enter_context(patch('service.refresh_apis', return_value=None))
             stack.enter_context(patch('service.update_mappings_db', return_value=None))
+            stack.enter_context(patch('resources.lib.ui.client.request', return_value=('{}', '200', {}, {}, '', '')))
+            stack.enter_context(patch('resources.lib.ui.client.get', return_value=MagicMock(ok=True, status_code=200, json=lambda: {}, text='{}', content=b'{}')))
+            stack.enter_context(patch('resources.lib.ui.client.post', return_value=MagicMock(ok=True, status_code=200, json=lambda: {}, text='{}', content=b'{}')))
 
             for url, params in tools_routes:
                 with self.subTest(route=url):

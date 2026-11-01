@@ -1,12 +1,25 @@
+# Standardized Otaku Test Bootstrap
+import os
+import sys
+
+_TEST_DIR = os.path.dirname(os.path.abspath(__file__))
+_REPO_ROOT = os.path.abspath(os.path.join(_TEST_DIR, '..' if os.path.basename(_TEST_DIR) in ('unit', 'integration', 'lint') else '.'))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+_TESTS_DIR = os.path.join(_REPO_ROOT, 'tests')
+if _TESTS_DIR not in sys.path:
+    sys.path.insert(0, _TESTS_DIR)
+
+import conftest  # Centralized Kodi mock harness  # noqa: F401
+
 import unittest
 from unittest.mock import MagicMock, patch
 
-import tests.conftest  # noqa: F401
 from resources.lib.ui import control
 from resources.lib.AnimeSchedule import AnimeScheduleCalendar
 
 
-class TestResilienceAndUIV5416(unittest.TestCase):
+class TestResilienceAndUI(unittest.TestCase):
 
     def test_sensitive_settings_does_not_contain_trakt_token(self):
         """Verify trakt.token is removed from _SENSITIVE_SETTING_KEYS to prevent Kodi C++ exceptions."""

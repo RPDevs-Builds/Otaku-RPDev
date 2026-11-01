@@ -5,6 +5,20 @@ Tests search routes, watch history routes, episode metadata indexing,
 unaired episode countdown badges, and spoiler shielding.
 """
 
+# Standardized Otaku Test Bootstrap
+import os
+import sys
+
+_TEST_DIR = os.path.dirname(os.path.abspath(__file__))
+_REPO_ROOT = os.path.abspath(os.path.join(_TEST_DIR, '..' if os.path.basename(_TEST_DIR) in ('unit', 'integration', 'lint') else '.'))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+_TESTS_DIR = os.path.join(_REPO_ROOT, 'tests')
+if _TESTS_DIR not in sys.path:
+    sys.path.insert(0, _TESTS_DIR)
+
+import conftest  # Centralized Kodi mock harness  # noqa: F401
+
 import os
 import unittest
 import json
@@ -12,7 +26,6 @@ import pickle
 from datetime import date, timedelta
 from unittest.mock import patch, MagicMock
 
-import conftest
 from resources.lib.routes import search, history
 from resources.lib import indexers
 from resources.lib.ui import control, database

@@ -1,3 +1,17 @@
+# Standardized Otaku Test Bootstrap
+import os
+import sys
+
+_TEST_DIR = os.path.dirname(os.path.abspath(__file__))
+_REPO_ROOT = os.path.abspath(os.path.join(_TEST_DIR, '..' if os.path.basename(_TEST_DIR) in ('unit', 'integration', 'lint') else '.'))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+_TESTS_DIR = os.path.join(_REPO_ROOT, 'tests')
+if _TESTS_DIR not in sys.path:
+    sys.path.insert(0, _TESTS_DIR)
+
+import conftest  # Centralized Kodi mock harness  # noqa: F401
+
 import sys
 import unittest
 from unittest.mock import MagicMock, patch
@@ -8,7 +22,7 @@ from resources.lib.debrid import debrid_cache
 from resources.lib.ui.player import WatchlistPlayer
 
 
-class TestResourceAndStabilityV5518(unittest.TestCase):
+class TestResourceAndStability(unittest.TestCase):
     def setUp(self):
         control.clearSettingsCache()
 
@@ -134,7 +148,8 @@ class TestResourceAndStabilityV5518(unittest.TestCase):
              patch('concurrent.futures.ThreadPoolExecutor') as mock_tpe, \
              patch('resources.lib.endpoints.fanart.getArt', return_value={'fanart': ['f.jpg']}), \
              patch('resources.lib.endpoints.tmdb.getArt', return_value={'fanart': ['t.jpg']}), \
-             patch('resources.lib.endpoints.tvdb.getArt', return_value={'fanart': ['tv.jpg']}):
+             patch('resources.lib.endpoints.tvdb.getArt', return_value={'fanart': ['tv.jpg']}), \
+             patch('resources.lib.endpoints.anilist.Anilist.get_banner', return_value='b.jpg'):
             get_meta.update_meta('500', in_batch=True)
             # In batch mode, it MUST NOT construct a ThreadPoolExecutor
             mock_tpe.assert_not_called()

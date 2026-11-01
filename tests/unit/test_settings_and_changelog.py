@@ -13,13 +13,26 @@ Validates that:
 9. widgets.delay rate limiting is applied in widget contexts.
 """
 
+# Standardized Otaku Test Bootstrap
+import os
+import sys
+
+_TEST_DIR = os.path.dirname(os.path.abspath(__file__))
+_REPO_ROOT = os.path.abspath(os.path.join(_TEST_DIR, '..' if os.path.basename(_TEST_DIR) in ('unit', 'integration', 'lint') else '.'))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+_TESTS_DIR = os.path.join(_REPO_ROOT, 'tests')
+if _TESTS_DIR not in sys.path:
+    sys.path.insert(0, _TESTS_DIR)
+
+import conftest  # Centralized Kodi mock harness  # noqa: F401
+
 import os
 import sys
 import xml.etree.ElementTree as ET
 import unittest
 from unittest.mock import MagicMock, patch
 
-import conftest  # Sets up Kodi mocks
 from resources.lib.ui import control, database
 from resources.lib.ui.router import ROUTES
 import resources.lib.Main  # Ensures all routes are registered
@@ -231,7 +244,12 @@ class TestPlaybackAndUIWiring(unittest.TestCase):
         from resources.lib.ui import client
         control.setBool('general.verify_ssl', False)
 
-        with patch('urllib.request.urlopen') as mock_urlopen, \
+        mock_resp = MagicMock()
+        mock_resp.code = 200
+        mock_resp.read.return_value = b'{}'
+        mock_resp.headers = {'content-type': 'application/json'}
+
+        with patch('urllib.request.OpenerDirector.open', return_value=mock_resp), \
              patch.object(client, '_get_ssl_context') as mock_ssl:
             # When verify_ssl is False, client request must pass verify=False
             client.get('https://example.com/api', timeout=1)

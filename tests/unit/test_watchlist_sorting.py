@@ -7,10 +7,23 @@ Unit tests for multi-dimensional sorting architecture across Otaku-RPDev:
 - Self-healing view reconstruction on missing view error
 """
 
+# Standardized Otaku Test Bootstrap
+import os
+import sys
+
+_TEST_DIR = os.path.dirname(os.path.abspath(__file__))
+_REPO_ROOT = os.path.abspath(os.path.join(_TEST_DIR, '..' if os.path.basename(_TEST_DIR) in ('unit', 'integration', 'lint') else '.'))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+_TESTS_DIR = os.path.join(_REPO_ROOT, 'tests')
+if _TESTS_DIR not in sys.path:
+    sys.path.insert(0, _TESTS_DIR)
+
+import conftest  # Centralized Kodi mock harness  # noqa: F401
+
 import json
 import unittest
 
-import tests.conftest
 from resources.lib.WatchlistFlavor.WatchlistFlavorBase import WatchlistFlavorBase
 from resources.lib.ui import control, database, utils
 from resources.lib.ui.database_sync import SyncDatabase
@@ -19,39 +32,39 @@ from resources.lib.ui.database_sync import SyncDatabase
 class TestWatchlistSorting(unittest.TestCase):
 
     def setUp(self):
-        tests.conftest.mock_xbmcplugin.reset()
+        conftest.mock_xbmcplugin.reset()
 
     def test_kodi_native_sort_methods_registration(self):
         """control.draw_items registers comprehensive native sort methods for tvshows, videos, and episodes."""
         dummy_items = [utils.allocate_item('Anime A', 'plugin://test/1', True, False, [], '', {'title': 'Anime A'})]
 
         # 1. TV Shows (and movies, videos, seasons)
-        tests.conftest.mock_xbmcplugin.reset()
+        conftest.mock_xbmcplugin.reset()
         control.draw_items(dummy_items, 'tvshows')
-        methods = [sm[1] for sm in tests.conftest.mock_xbmcplugin.sort_methods]
-        self.assertIn(tests.conftest.mock_xbmcplugin.SORT_METHOD_NONE, methods)
-        self.assertIn(tests.conftest.mock_xbmcplugin.SORT_METHOD_LABEL_IGNORE_THE, methods)
-        self.assertIn(tests.conftest.mock_xbmcplugin.SORT_METHOD_DATE, methods)
-        self.assertIn(tests.conftest.mock_xbmcplugin.SORT_METHOD_VIDEO_RATING, methods)
-        self.assertIn(tests.conftest.mock_xbmcplugin.SORT_METHOD_EPISODE, methods)
-        self.assertIn(tests.conftest.mock_xbmcplugin.SORT_METHOD_PLAYCOUNT, methods)
+        methods = [sm[1] for sm in conftest.mock_xbmcplugin.sort_methods]
+        self.assertIn(conftest.mock_xbmcplugin.SORT_METHOD_NONE, methods)
+        self.assertIn(conftest.mock_xbmcplugin.SORT_METHOD_LABEL_IGNORE_THE, methods)
+        self.assertIn(conftest.mock_xbmcplugin.SORT_METHOD_DATE, methods)
+        self.assertIn(conftest.mock_xbmcplugin.SORT_METHOD_VIDEO_RATING, methods)
+        self.assertIn(conftest.mock_xbmcplugin.SORT_METHOD_EPISODE, methods)
+        self.assertIn(conftest.mock_xbmcplugin.SORT_METHOD_PLAYCOUNT, methods)
 
         # 2. Episodes
-        tests.conftest.mock_xbmcplugin.reset()
+        conftest.mock_xbmcplugin.reset()
         control.draw_items(dummy_items, 'episodes')
-        methods_ep = [sm[1] for sm in tests.conftest.mock_xbmcplugin.sort_methods]
-        self.assertIn(tests.conftest.mock_xbmcplugin.SORT_METHOD_NONE, methods_ep)
-        self.assertIn(tests.conftest.mock_xbmcplugin.SORT_METHOD_EPISODE, methods_ep)
-        self.assertIn(tests.conftest.mock_xbmcplugin.SORT_METHOD_VIDEO_RATING, methods_ep)
-        self.assertIn(tests.conftest.mock_xbmcplugin.SORT_METHOD_DATE, methods_ep)
-        self.assertIn(tests.conftest.mock_xbmcplugin.SORT_METHOD_PLAYCOUNT, methods_ep)
+        methods_ep = [sm[1] for sm in conftest.mock_xbmcplugin.sort_methods]
+        self.assertIn(conftest.mock_xbmcplugin.SORT_METHOD_NONE, methods_ep)
+        self.assertIn(conftest.mock_xbmcplugin.SORT_METHOD_EPISODE, methods_ep)
+        self.assertIn(conftest.mock_xbmcplugin.SORT_METHOD_VIDEO_RATING, methods_ep)
+        self.assertIn(conftest.mock_xbmcplugin.SORT_METHOD_DATE, methods_ep)
+        self.assertIn(conftest.mock_xbmcplugin.SORT_METHOD_PLAYCOUNT, methods_ep)
 
         # 3. Addons / Tools menus keep single default sort method
-        tests.conftest.mock_xbmcplugin.reset()
+        conftest.mock_xbmcplugin.reset()
         control.draw_items(dummy_items, 'addons')
-        methods_addons = [sm[1] for sm in tests.conftest.mock_xbmcplugin.sort_methods]
+        methods_addons = [sm[1] for sm in conftest.mock_xbmcplugin.sort_methods]
         self.assertEqual(len(methods_addons), 1)
-        self.assertEqual(methods_addons[0], tests.conftest.mock_xbmcplugin.SORT_METHOD_NONE)
+        self.assertEqual(methods_addons[0], conftest.mock_xbmcplugin.SORT_METHOD_NONE)
 
     def test_v_watchlist_items_view_and_cross_service_extraction(self):
         """v_watchlist_items view normalizes title, score, episodes, and dates across all 4 services."""

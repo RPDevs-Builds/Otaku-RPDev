@@ -5,11 +5,24 @@ Tests dynamic domain resolution, local caching, bundled fallback loading,
 user proxy/alt settings overrides, domain refresh, and HiAnime mirror management.
 """
 
+# Standardized Otaku Test Bootstrap
+import os
+import sys
+
+_TEST_DIR = os.path.dirname(os.path.abspath(__file__))
+_REPO_ROOT = os.path.abspath(os.path.join(_TEST_DIR, '..' if os.path.basename(_TEST_DIR) in ('unit', 'integration', 'lint') else '.'))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+_TESTS_DIR = os.path.join(_REPO_ROOT, 'tests')
+if _TESTS_DIR not in sys.path:
+    sys.path.insert(0, _TESTS_DIR)
+
+import conftest  # Centralized Kodi mock harness  # noqa: F401
+
 import socket
 import unittest
 from unittest.mock import patch, MagicMock
 
-import conftest  # Sets up xbmc, xbmcaddon mocks
 from resources.lib.ui import control, domains
 
 

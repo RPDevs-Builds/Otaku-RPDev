@@ -2,11 +2,24 @@
 Unit tests for Database SQLite connection pooling, safe serialization, and Client session management.
 """
 
+# Standardized Otaku Test Bootstrap
+import os
+import sys
+
+_TEST_DIR = os.path.dirname(os.path.abspath(__file__))
+_REPO_ROOT = os.path.abspath(os.path.join(_TEST_DIR, '..' if os.path.basename(_TEST_DIR) in ('unit', 'integration', 'lint') else '.'))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+_TESTS_DIR = os.path.join(_REPO_ROOT, 'tests')
+if _TESTS_DIR not in sys.path:
+    sys.path.insert(0, _TESTS_DIR)
+
+import conftest  # Centralized Kodi mock harness  # noqa: F401
+
 import pickle
 import unittest
 from unittest.mock import MagicMock, patch
 
-import tests.conftest  # noqa: F401
 from resources.lib.ui import database, client
 
 
@@ -14,7 +27,7 @@ class TestDatabaseAndClient(unittest.TestCase):
 
     def test_database_thread_local_connection_pooling(self):
         """Consecutive SQL() blocks on the same thread reuse the same Connection."""
-        test_db = f"{tests.conftest.TEST_PROFILE_DIR}/pool_test.db"
+        test_db = f"{conftest.TEST_PROFILE_DIR}/pool_test.db"
         with database.SQL(test_db) as cur1:
             conn1 = cur1.connection
             cur1.execute("CREATE TABLE IF NOT EXISTS test_t (id INT PRIMARY KEY)")

@@ -1,3 +1,17 @@
+# Standardized Otaku Test Bootstrap
+import os
+import sys
+
+_TEST_DIR = os.path.dirname(os.path.abspath(__file__))
+_REPO_ROOT = os.path.abspath(os.path.join(_TEST_DIR, '..' if os.path.basename(_TEST_DIR) in ('unit', 'integration', 'lint') else '.'))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+_TESTS_DIR = os.path.join(_REPO_ROOT, 'tests')
+if _TESTS_DIR not in sys.path:
+    sys.path.insert(0, _TESTS_DIR)
+
+import conftest  # Centralized Kodi mock harness  # noqa: F401
+
 import http.client
 import io
 import json
@@ -6,7 +20,6 @@ import unittest
 import urllib.request
 from unittest.mock import patch, MagicMock
 
-import tests.conftest  # noqa: F401
 from resources.lib.ui import client, control, database
 from resources.lib.debrid import debrid_cache
 from resources.lib.windows.resolver import Resolver
@@ -15,7 +28,7 @@ from resources.lib.pages import Sources
 from resources.lib.routes import playback, search
 
 
-class TestStabilityResilienceV5414(unittest.TestCase):
+class TestStabilityResilience(unittest.TestCase):
 
     def setUp(self):
         self.test_dir = os.path.join(control.dataPath, 'test_v5414')

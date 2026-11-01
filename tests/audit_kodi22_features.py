@@ -14,18 +14,22 @@ import time
 import json
 import xml.etree.ElementTree as ET
 
-OTAKU_DIR = "/mnt/sharedroot/projects/RPDevs-Builds/Otaku-RPDev"
-ADDON_ROOT = os.path.join(OTAKU_DIR, "plugin.video.otaku.rpdev")
-if OTAKU_DIR not in sys.path:
-    sys.path.insert(0, OTAKU_DIR)
-if ADDON_ROOT not in sys.path:
-    sys.path.insert(0, ADDON_ROOT)
+# Enable live network auditing for live debrid and scraper integration checks
+os.environ['OTAKU_LIVE_AUDIT'] = '1'
+
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ADDON_ROOT = os.path.join(REPO_ROOT, "plugin.video.otaku.rpdev")
+TESTS_ROOT = os.path.join(REPO_ROOT, "tests")
+
+for p in (REPO_ROOT, ADDON_ROOT, TESTS_ROOT):
+    if p not in sys.path:
+        sys.path.insert(0, p)
 
 # Set test profile dataPath to Kodi 22 profile
 KODI22_PROFILE = "/mnt/sharedroot/projects/kodi-test-env/profiles/kodi22"
 KODI22_ADDON_DATA = os.path.join(KODI22_PROFILE, "userdata", "addon_data", "plugin.video.otaku.rpdev")
 
-import tests.conftest as conftest
+import conftest  # Centralized Kodi mock harness  # noqa: F401
 import xbmcplugin
 from resources.lib.ui import control, database, client
 from resources.lib import Main, MetaBrowser

@@ -5,11 +5,24 @@ Tests ScraperCircuitBreaker, Nyaa, AnimeTosho, Torrentio, and Source sorting
 for resolution categorization, hash extraction, error trapping, and circuit tripping.
 """
 
+# Standardized Otaku Test Bootstrap
+import os
+import sys
+
+_TEST_DIR = os.path.dirname(os.path.abspath(__file__))
+_REPO_ROOT = os.path.abspath(os.path.join(_TEST_DIR, '..' if os.path.basename(_TEST_DIR) in ('unit', 'integration', 'lint') else '.'))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+_TESTS_DIR = os.path.join(_REPO_ROOT, 'tests')
+if _TESTS_DIR not in sys.path:
+    sys.path.insert(0, _TESTS_DIR)
+
+import conftest  # Centralized Kodi mock harness  # noqa: F401
+
 import os
 import unittest
 from unittest.mock import patch, MagicMock
 
-import conftest
 from resources.lib.pages import ScraperCircuitBreaker, Sources as MainSources
 from resources.lib.pages.nyaa import Sources as NyaaSources
 from resources.lib.pages.animetosho import Sources as ToshoSources
