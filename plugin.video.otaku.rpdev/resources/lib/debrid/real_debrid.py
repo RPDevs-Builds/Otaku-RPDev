@@ -25,7 +25,7 @@ class RealDebrid:
         return {'Authorization': f"Bearer {self.token}"}
 
     def auth_loop(self):
-        if self.dialog.iscanceled():
+        if self.dialog and self.dialog.iscanceled():
             self.OauthTimeout = 0
             return False
         params = {
@@ -47,12 +47,11 @@ class RealDebrid:
         return False
 
     def auth(self):
-        import pyqrcode
         import os
         from resources.lib.windows.progress_dialog import Progress_dialog
 
-        api_info = database.get_info('Real-Debrid')
-        self.ClientID = api_info['client_id']
+        api_info = database.get_info('Real-Debrid') or {}
+        self.ClientID = api_info.get('client_id') or database._BUILTIN_API_INFO.get('Real-Debrid', {}).get('client_id', 'X245A4XAIBGVM')
         self.ClientSecret = ''
         params = {
             'client_id': self.ClientID,
@@ -76,8 +75,15 @@ class RealDebrid:
             display_dialog = f"{display_dialog}[CR]{control.lang(30083)}"
 
         qr_path = os.path.join(control.dataPath, 'qr_code.png')
-        qr = pyqrcode.create('https://real-debrid.com/device')
-        qr.png(qr_path, scale=20)
+        try:
+            import pyqrcode
+            os.makedirs(control.dataPath, exist_ok=True)
+            qr = pyqrcode.create('https://real-debrid.com/device')
+            qr.png(qr_path, scale=20)
+        except Exception as e:
+            control.log(f'Real-Debrid QR generation failed: {e}', level='warning')
+            qr_path = ''
+
         config = {
             'heading': f'{control.ADDON_NAME}: Real-Debrid Auth',
             'text': display_dialog,
@@ -87,19 +93,28 @@ class RealDebrid:
         self.dialog = Progress_dialog('progress_dialog.xml', control.ADDON_PATH, config=config)
         self.dialog.show()
 
-        self.OauthTotalTimeout = self.OauthTimeout = int(resp['expires_in'])
-        self.OauthTimeStep = int(resp['interval'])
+        self.OauthTotalTimeout = self.OauthTimeout = int(resp.get('expires_in', 900))
+        self.OauthTimeStep = max(1, int(resp.get('interval', 5)))
         self.DeviceCode = resp['device_code']
         auth_done = False
         while not auth_done and self.OauthTimeout > 0:
+            for _ in range(self.OauthTimeStep):
+                if control.abort_requested() or (self.dialog and self.dialog.iscanceled()):
+                    break
+                control.sleep(1000)
+            if control.abort_requested() or (self.dialog and self.dialog.iscanceled()):
+                break
             self.OauthTimeout -= self.OauthTimeStep
-            control.sleep(self.OauthTimeStep * 1000)
             auth_done = self.auth_loop()
-            self.dialog.update(int(self.OauthTimeout / self.OauthTotalTimeout * 100))
-        self.dialog.close()
+            if self.dialog:
+                self.dialog.update(int(self.OauthTimeout / self.OauthTotalTimeout * 100))
+        if self.dialog:
+            self.dialog.close()
+
         if auth_done:
             self.token_request()
             self.status()
+            control.setBool('realdebrid.enabled', True)
 
     def token_request(self):
         if self.ClientSecret == '':

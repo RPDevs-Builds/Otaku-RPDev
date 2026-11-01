@@ -1,3 +1,12 @@
+Changelog v5.7.2 (2026-10-31):
+- Comprehensive Watchlist & Debrid Auth Hardening: Systematically hardened all 4 watchlist integrations (AniList, MyAnimeList, Kitsu, Simkl) and all 7 Debrid/Cloud providers (Real-Debrid, Premiumize, AllDebrid, Debrid-Link, TorBox, EasyDebrid, Easynews).
+- QR Code Resilience Across All Windows: Wrapped pyqrcode in try/except blocks across wlf_auth.py, real_debrid.py, all_debrid.py, debrid_link.py, and torbox.py, ensuring auth dialogs never fail to render when graphics libraries encounter filesystem or platform constraints.
+- Responsive 1-Second Polling & Cancellation: Converted blocking 5–10s sleeps in OAuth polling loops across Real-Debrid, Premiumize, AllDebrid, Debrid-Link, and TorBox to 1-second ticks with active control.abort_requested() and dialog.iscanceled() checks for instant cancellation response.
+- Debrid-Link Dialog Cleanup: Fixed Debrid-Link bug where self.dialog.close() was missing on flow completion/timeout, eliminating frozen progress windows.
+- AllDebrid & Kitsu Fallback Protection: Guarded AllDebrid pin/get against missing JSON keys and Kitsu edge/users against IndexError when profiles are empty or uninitialized.
+- MyAnimeList Query Parsing Flexibility: Supported raw query strings without '?' and direct authorization code inputs in MAL login.
+- Automatic Provider & Watchlist Enablement: Automatically activate {provider}.enabled upon successful authorization for all Debrid and Watchlist services.
+
 Changelog v5.7.1 (2026-10-31):
 - Fix Simkl Watchlist Authentication: Restore missing verification_url definition in Simkl OAuth PIN flow, preventing NameError crash when rendering the authorization dialog.
 - Built-in API Credentials Fallback: Implement _BUILTIN_API_INFO fallback dictionary in database.get_info() and dynamic client_id resolution in SimklWLF and SIMKLAPI, eliminating empty client ID 412 errors across standalone and test environments.

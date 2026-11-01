@@ -57,8 +57,15 @@ class TorBox:
             display_dialog = f"{display_dialog}[CR]{control.lang(30083)}"
 
         qr_path = os.path.join(control.dataPath, 'qr_code.png')
-        qr = pyqrcode.create(verification_url)
-        qr.png(qr_path, scale=20)
+        try:
+            import pyqrcode
+            os.makedirs(control.dataPath, exist_ok=True)
+            qr = pyqrcode.create(verification_url)
+            qr.png(qr_path, scale=20)
+        except Exception as e:
+            control.log(f"TorBox pyqrcode generation error: {e}", 'warning')
+            qr_path = ''
+
         config = {
             'heading': f'{control.ADDON_NAME}: TorBox Auth',
             'text': display_dialog,
@@ -69,21 +76,29 @@ class TorBox:
         self.dialog.show()
 
         self.OauthTotalTimeout = self.OauthTimeout = expires_in
-        self.OauthTimeStep = interval
+        self.OauthTimeStep = max(1, interval)
 
         auth_done = False
         while not auth_done and self.OauthTimeout > 0:
+            for _ in range(self.OauthTimeStep):
+                if control.abort_requested() or (self.dialog and self.dialog.iscanceled()):
+                    break
+                control.sleep(1000)
+            if control.abort_requested() or (self.dialog and self.dialog.iscanceled()):
+                break
             self.OauthTimeout -= self.OauthTimeStep
-            control.sleep(self.OauthTimeStep * 1000)
             auth_done = self.auth_loop(device_code)
-            self.dialog.update(int(self.OauthTimeout / self.OauthTotalTimeout * 100))
-        self.dialog.close()
+            if self.dialog:
+                self.dialog.update(int(self.OauthTimeout / self.OauthTotalTimeout * 100))
+        if self.dialog:
+            self.dialog.close()
 
         if auth_done:
             self.status()
+            control.setBool('torbox.enabled', True)
 
     def auth_loop(self, device_code):
-        if self.dialog.iscanceled():
+        if self.dialog and self.dialog.iscanceled():
             self.OauthTimeout = 0
             return False
         data = {'device_code': device_code}

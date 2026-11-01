@@ -1,4 +1,3 @@
-import pyqrcode
 import os
 
 from resources.lib.ui import control
@@ -19,9 +18,17 @@ class WatchlistFlavorAuth(BaseWindow):
             self.setProperty('copy2clip', control.lang(30083))
         else:
             self.clearProperty('copy2clip')
-        qr = pyqrcode.create(url)
-        qr.png(qr_path, scale=20)
-        self.setProperty('qr_code', qr_path)
+
+        try:
+            import pyqrcode
+            os.makedirs(control.dataPath, exist_ok=True)
+            qr = pyqrcode.create(url)
+            qr.png(qr_path, scale=20)
+            self.setProperty('qr_code', qr_path)
+        except Exception as e:
+            control.log(f"WatchlistFlavorAuth QR generation failed: {e}", 'warning')
+            self.clearProperty('qr_code')
+
         control.closeBusyDialog()
         self.setFocusId(1000)
 
@@ -68,10 +75,19 @@ class WatchlistFlavorAuth(BaseWindow):
     def set_settings(self):
         res = {}
         if self.flavor == 'anilist':
-            res['username'] = self.getControl(1000).getText()
-            res['token'] = self.getControl(1001).getText()
+            username = (self.getControl(1000).getText() or '').strip()
+            token = (self.getControl(1001).getText() or '').strip()
+            if not username or not token:
+                control.ok_dialog(control.ADDON_NAME, 'Username and Token cannot be empty')
+                return
+            res['username'] = username
+            res['token'] = token
         else:
-            res['authvar'] = self.getControl(1000).getText()
+            authvar = (self.getControl(1000).getText() or '').strip()
+            if not authvar:
+                control.ok_dialog(control.ADDON_NAME, 'Authorization code or URL cannot be empty')
+                return
+            res['authvar'] = authvar
 
         for _id, value in list(res.items()):
             control.setSetting('%s.%s' % (self.flavor, _id), value)

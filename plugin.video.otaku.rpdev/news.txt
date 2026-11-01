@@ -1,27 +1,29 @@
 ================================================================================
-                    OTAKU RPDEV v5.7.1 - WHAT'S NEW & MILESTONES
+                    OTAKU RPDEV v5.7.2 - WHAT'S NEW & MILESTONES
 ================================================================================
 
-[ Simkl Watchlist Auth Fix • Built-in API Fallbacks • v5.7.1 Maintenance ]
+[ Universal Watchlist & Debrid Auth Hardening • Zero-Failure Stability ]
 
-Otaku RPDev v5.7.1 resolves an issue affecting Simkl watchlist authentication and
-hardens API credential resolution across the add-on:
+Otaku RPDev v5.7.2 delivers comprehensive hardening across all 4 watchlist flavors
+and 7 Debrid & Cloud providers, guaranteeing flawless setup and authentication:
 
 --------------------------------------------------------------------------------
-New in v5.7.1: Simkl Watchlist Authorization & Credential Resilience
+New in v5.7.2: Universal Watchlist & Debrid Auth Resilience
 --------------------------------------------------------------------------------
-• Fix Simkl OAuth PIN Dialog: Restored the missing verification_url definition in
-  Simkl's device code authorization routine, resolving the NameError crash when
-  opening the PIN modal.
-• Built-in API Fallback Engine: Implemented _BUILTIN_API_INFO inside database.py and
-  dynamic client ID resolution in SimklWLF and SIMKLAPI, eliminating empty client ID
-  412 errors even if info.db is missing or uninitialized.
-• QR Code Generation Guards: pyqrcode generation is now safely wrapped with error
-  handling, ensuring authentication prompts always render even if image libraries fail.
-• Responsive Cancellation: Modernized device polling loops with 1-second ticks and
-  abort detection for immediate response to back/cancel commands.
-• Automatic Watchlist Toggle: Successfully logging into Simkl now automatically
-  activates simkl.enabled in settings, and logging out cleanly resets the toggle.
+• Full Watchlist Flavor Hardening: Validated and hardened AniList, MyAnimeList,
+  Kitsu, and Simkl with defensive parameter handling, empty-credential guards,
+  and graceful fallback for all API response types.
+• Universal QR Code Protection: Wrapped pyqrcode across all authentication modals
+  with automatic fallbacks so that missing graphics libraries or sandbox
+  restrictions never prevent users from seeing authorization URLs and codes.
+• Responsive Polling & Fast Cancellation: Modernized polling loops across
+  Real-Debrid, Premiumize, AllDebrid, Debrid-Link, and TorBox with 1-second ticks
+  and abort checks for instantaneous cancellation response.
+• Dialog Lifecycle Fix: Resolved Debrid-Link frozen dialog bug where the progress
+  modal was never closed on completion or timeout.
+• Automatic Provider Enablement: Authorizing any Debrid provider or Watchlist now
+  immediately activates that service in Kodi settings without requiring manual toggling.
+
 
 ================================================================================
                     OTAKU RPDEV v5.7.0 - WHAT'S NEW & MILESTONES

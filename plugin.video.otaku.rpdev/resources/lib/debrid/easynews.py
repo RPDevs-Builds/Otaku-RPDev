@@ -158,6 +158,7 @@ class Easynews:
             return
         if self.verify_login():
             control.setSetting('easynews.auth.status', control.lang(30479))
+            control.setBool('easynews.enabled', True)
             control.ok_dialog(control.ADDON_NAME, f'Easynews: {control.lang(30084)}')
         else:
             control.setSetting('easynews.auth.status', control.lang(30483))

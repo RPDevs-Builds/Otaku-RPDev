@@ -40,44 +40,71 @@ class KitsuWLF(WatchlistFlavorBase):
         return updated_at if updated_at else None
 
     def login(self):
+        if not self.auth_var or not self.password:
+            control.log("Kitsu login failed: empty username or password", level='warning')
+            return None
+
         params = {
             "grant_type": "password",
             "username": self.auth_var,
             "password": self.password
         }
-        resp = client.post(f'{self._URL}/oauth/token', json_data=params)
+        try:
+            resp = client.post(f'{self._URL}/oauth/token', json_data=params)
+            if not resp or not resp.ok:
+                return None
+            data = resp.json()
+        except Exception as e:
+            control.log(f"Kitsu token request error: {e}", 'warning')
+            return None
 
-        if not resp:
-            return
+        if not data or 'access_token' not in data:
+            return None
 
-        data = resp.json()
-        self.token = data['access_token']
-        resp2 = client.get(f'{self._URL}/edge/users', headers=self.__headers(), params={'filter[self]': True})
-        data2 = resp2.json()["data"][0]
+        self.token = data.get('access_token')
+        try:
+            resp2 = client.get(f'{self._URL}/edge/users', headers=self.__headers(), params={'filter[self]': True})
+            data2_list = resp2.json().get("data", []) if (resp2 and resp2.ok) else []
+        except Exception:
+            data2_list = []
+
+        if not data2_list:
+            username = self.auth_var
+            userid = ''
+        else:
+            data2 = data2_list[0]
+            username = data2.get("attributes", {}).get("name", self.auth_var)
+            userid = data2.get('id', '')
 
         login_data = {
-            'username': data2["attributes"]["name"],
-            'userid': data2['id'],
-            'token': data['access_token'],
-            'refresh': data['refresh_token'],
-            'expiry': int(time.time()) + int(data['expires_in'])
+            'username': str(username),
+            'userid': str(userid),
+            'token': data.get('access_token'),
+            'refresh': data.get('refresh_token', ''),
+            'expiry': int(time.time()) + int(data.get('expires_in', 2592000))
         }
         return login_data
 
     def refresh_token(self):
+        refresh = control.getSetting('kitsu.refresh')
+        if not refresh:
+            return
         params = {
             "grant_type": "refresh_token",
-            "refresh_token": control.getSetting('kitsu.refresh')
+            "refresh_token": refresh
         }
-        resp = client.post(f'{self._URL}/oauth/token', json_data=params)
-
-        if not resp:
-            return
-
-        data = resp.json()
-        control.setSetting('kitsu.token', data['access_token'])
-        control.setSetting('kitsu.refresh', data['refresh_token'])
-        control.setInt('kitsu.expiry', int(time.time() + int(data['expires_in'])))
+        try:
+            resp = client.post(f'{self._URL}/oauth/token', json_data=params)
+            if not resp or not resp.ok:
+                return
+            data = resp.json()
+            if not data or 'access_token' not in data:
+                return
+            control.setSetting('kitsu.token', data.get('access_token'))
+            control.setSetting('kitsu.refresh', data.get('refresh_token', refresh))
+            control.setInt('kitsu.expiry', int(time.time() + int(data.get('expires_in', 2592000))))
+        except Exception as e:
+            control.log(f"Kitsu refresh_token exception: {e}", level='warning')
 
     @staticmethod
     def handle_paging(next_offset, base_url, page):

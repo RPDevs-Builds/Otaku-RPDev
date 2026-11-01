@@ -22,11 +22,9 @@ class DebridLink:
         return {'User-Agent': self.USER_AGENT, 'Authorization': f"Bearer {self.token}"}
 
     def auth_loop(self):
-        if self.dialog.iscanceled():
-            self.dialog.close()
+        if self.dialog and self.dialog.iscanceled():
             self.OauthTimeout = 0
             return False
-        self.dialog.update(int(self.OauthTimeout / self.OauthTotalTimeout * 100))
         url = f"{self.api_url[:-3]}/oauth/token"
         data = {
             'client_id': self.ClientID,
@@ -34,54 +32,88 @@ class DebridLink:
             'grant_type': 'urn:ietf:params:oauth:grant-type:device_code'
         }
         r = client.post(url, data=data, headers={'User-Agent': self.USER_AGENT})
-        if r:
-            response = r.json()
-            self.dialog.close()
-            self.token = response.get('access_token')
-            self.refresh = response.get('refresh_token')
-            control.setSetting('debridlink.token', self.token)
-            control.setSetting('debridlink.refresh', self.refresh)
-            control.setInt('debridlink.expiry', int(time.time()) + int(response['expires_in']))
-            return True
+        if r and r.ok:
+            try:
+                response = r.json()
+                if 'access_token' in response:
+                    self.token = response.get('access_token')
+                    self.refresh = response.get('refresh_token')
+                    control.setSetting('debridlink.token', self.token)
+                    control.setSetting('debridlink.refresh', self.refresh)
+                    control.setInt('debridlink.expiry', int(time.time()) + int(response.get('expires_in', 2592000)))
+                    return True
+            except Exception as e:
+                control.log(f"Debrid-Link auth_loop error: {e}", 'error')
+        return False
 
     def auth(self):
         import os
-        import pyqrcode
         from resources.lib.windows.progress_dialog import Progress_dialog
 
         url = '{0}/oauth/device/code'.format(self.api_url[:-3])
         data = {'client_id': self.ClientID, 'scope': 'get.post.delete.seedbox get.account'}
         r = client.post(url, data=data, headers={'User-Agent': self.USER_AGENT})
-        if r:
+        if not r or not r.ok:
+            control.ok_dialog(control.ADDON_NAME, 'Failed to connect to Debrid-Link')
+            return
+
+        try:
             resp = r.json()
-            self.OauthTotalTimeout = self.OauthTimeout = resp['expires_in']
-            self.OauthTimeStep = resp['interval']
-            self.DeviceCode = resp['device_code']
+        except Exception:
+            resp = {}
 
-            verification_url = resp['verification_url']
-            user_code = resp.get('user_code')
-            control.copy2clip(user_code)
+        if not resp or 'device_code' not in resp:
+            control.ok_dialog(control.ADDON_NAME, 'Failed to get Debrid-Link device code')
+            return
 
-            qr_path = os.path.join(control.dataPath, 'qr_code.png')
-            qr_code = pyqrcode.create(verification_url + '/' + user_code)
+        self.OauthTotalTimeout = self.OauthTimeout = int(resp.get('expires_in', 600))
+        self.OauthTimeStep = max(1, int(resp.get('interval', 5)))
+        self.DeviceCode = resp.get('device_code')
+
+        verification_url = resp.get('verification_url', 'https://debrid-link.com/device')
+        user_code = resp.get('user_code', '')
+        control.copy2clip(user_code)
+
+        qr_path = os.path.join(control.dataPath, 'qr_code.png')
+        try:
+            import pyqrcode
+            os.makedirs(control.dataPath, exist_ok=True)
+            qr_target = f"{verification_url}/{user_code}" if user_code else verification_url
+            qr_code = pyqrcode.create(qr_target)
             qr_code.png(qr_path, scale=20)
+        except Exception as e:
+            control.log(f"Debrid-Link QR generation error: {e}", 'warning')
+            qr_path = ''
 
-            config = {
-                'heading': f'{control.ADDON_NAME}: Debrid-Link Auth',
-                'text': f"{control.lang(30081).format(control.colorstr(verification_url))}[CR]{control.lang(30082).format(control.colorstr(user_code))}[CR]{control.lang(30083)}",
-                'qr_code': qr_path
-            }
+        config = {
+            'heading': f'{control.ADDON_NAME}: Debrid-Link Auth',
+            'text': f"{control.lang(30081).format(control.colorstr(verification_url))}[CR]{control.lang(30082).format(control.colorstr(user_code))}[CR]{control.lang(30083)}",
+            'qr_code': qr_path,
+            'percent': 100
+        }
 
-            self.dialog = Progress_dialog('progress_dialog.xml', control.ADDON_PATH, config=config)
-            self.dialog.show()
-            self.dialog.update(100)
-            auth_done = False
-            while not auth_done and self.OauthTimeout > 0:
-                self.OauthTimeout -= self.OauthTimeStep
-                control.sleep(self.OauthTimeStep * 1000)
-                auth_done = self.auth_loop()
-            if auth_done:
-                self.status()
+        self.dialog = Progress_dialog('progress_dialog.xml', control.ADDON_PATH, config=config)
+        self.dialog.show()
+
+        auth_done = False
+        while not auth_done and self.OauthTimeout > 0:
+            for _ in range(self.OauthTimeStep):
+                if control.abort_requested() or (self.dialog and self.dialog.iscanceled()):
+                    break
+                control.sleep(1000)
+            if control.abort_requested() or (self.dialog and self.dialog.iscanceled()):
+                break
+            self.OauthTimeout -= self.OauthTimeStep
+            auth_done = self.auth_loop()
+            if self.dialog:
+                self.dialog.update(int(self.OauthTimeout / self.OauthTotalTimeout * 100))
+
+        if self.dialog:
+            self.dialog.close()
+
+        if auth_done:
+            self.status()
+            control.setBool('debridlink.enabled', True)
 
     def status(self):
         url = f"{self.api_url[:-3]}/account/infos"

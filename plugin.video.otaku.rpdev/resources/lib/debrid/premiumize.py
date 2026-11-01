@@ -76,8 +76,13 @@ class Premiumize:
 
         auth_done = False
         while not auth_done and self.OauthTimeout > 0:
+            for _ in range(max(1, self.OauthTimeStep)):
+                if control.abort_requested() or (self.dialog and self.dialog.iscanceled()):
+                    break
+                control.sleep(1000)
+            if control.abort_requested() or (self.dialog and self.dialog.iscanceled()):
+                break
             self.OauthTimeout -= self.OauthTimeStep
-            control.sleep(self.OauthTimeStep * 1000)
             auth_done = self.auth_loop(resp['device_code'])
             if self.dialog:
                 self.dialog.update(int(self.OauthTimeout / self.OauthTotalTimeout * 100))
@@ -86,6 +91,7 @@ class Premiumize:
 
         if auth_done:
             self.status()
+            control.setBool('premiumize.enabled', True)
 
     def status(self):
         r = client.get(f'{self.base_url}/account/info', headers=self.headers())

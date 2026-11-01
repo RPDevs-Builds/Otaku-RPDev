@@ -44,57 +44,92 @@ class MyAnimeListWLF(WatchlistFlavorBase):
         return '_'.join(parts)
 
     def login(self):
+        if not self.auth_var:
+            control.log("MAL login failed: auth_var is empty", level='warning')
+            return None
+
         from urllib import parse
         parsed = parse.urlparse(self.auth_var)
-        params = dict(parse.parse_qsl(parsed.query))
+        query_str = parsed.query if parsed.query else self.auth_var
+        params = dict(parse.parse_qsl(query_str))
         code = params.get('code')
         code_verifier = params.get('state')
 
+        if not code and '=' not in self.auth_var:
+            code = self.auth_var.strip()
+
+        if not code:
+            control.log("MAL login failed: authorization code not found in auth_var", level='warning')
+            return None
+
         oauth_url = 'https://myanimelist.net/v1/oauth2/token'
-        api_info = database.get_info('MyAnimeList')
-        client_id = api_info['client_id']
+        api_info = database.get_info('MyAnimeList') or {}
+        client_id = api_info.get('client_id') or database._BUILTIN_API_INFO.get('MyAnimeList', {}).get('client_id')
 
         data = {
             'client_id': client_id,
             'code': code,
-            'code_verifier': code_verifier,
             'grant_type': 'authorization_code'
         }
-        r = client.post(oauth_url, data=data)
-        if not r:
-            return
-        res = r.json()
+        if code_verifier:
+            data['code_verifier'] = code_verifier
 
-        self.token = res['access_token']
-        user = client.get(f'{self._URL}/users/@me', headers=self.__headers(), params={'fields': 'name'})
-        user = user.json()
+        try:
+            r = client.post(oauth_url, data=data)
+            if not r or not r.ok:
+                control.log(f"MAL oauth token request failed: {r.status_code if r else 'No response'}", level='warning')
+                return None
+            res = r.json()
+        except Exception as e:
+            control.log(f"MAL oauth error: {e}", level='warning')
+            return None
+
+        if not res or 'access_token' not in res:
+            return None
+
+        self.token = res.get('access_token')
+        try:
+            user_resp = client.get(f'{self._URL}/users/@me', headers=self.__headers(), params={'fields': 'name'})
+            user = user_resp.json() if (user_resp and user_resp.ok) else {}
+        except Exception:
+            user = {}
+
+        username = user.get('name') or user.get('id') or 'MAL User'
 
         login_data = {
-            'token': res['access_token'],
-            'refresh': res['refresh_token'],
-            'expiry': int(time.time()) + int(res['expires_in']),
-            'username': user['name']
+            'token': res.get('access_token'),
+            'refresh': res.get('refresh_token', ''),
+            'expiry': int(time.time()) + int(res.get('expires_in', 2678400)),
+            'username': str(username)
         }
         return login_data
 
     @staticmethod
     def refresh_token():
+        refresh = control.getSetting('mal.refresh')
+        if not refresh:
+            return
         oauth_url = 'https://myanimelist.net/v1/oauth2/token'
-        api_info = database.get_info('MyAnimeList')
-        client_id = api_info['client_id']
+        api_info = database.get_info('MyAnimeList') or {}
+        client_id = api_info.get('client_id') or database._BUILTIN_API_INFO.get('MyAnimeList', {}).get('client_id')
 
         data = {
             'client_id': client_id,
             'grant_type': 'refresh_token',
-            'refresh_token': control.getSetting('mal.refresh')
+            'refresh_token': refresh
         }
-        r = client.post(oauth_url, data=data)
-        if not r:
-            return
-        res = r.json()
-        control.setSetting('mal.token', res['access_token'])
-        control.setSetting('mal.refresh', res['refresh_token'])
-        control.setInt('mal.expiry', int(time.time()) + int(res['expires_in']))
+        try:
+            r = client.post(oauth_url, data=data)
+            if not r or not r.ok:
+                return
+            res = r.json()
+            if not res or 'access_token' not in res:
+                return
+            control.setSetting('mal.token', res.get('access_token'))
+            control.setSetting('mal.refresh', res.get('refresh_token', refresh))
+            control.setInt('mal.expiry', int(time.time()) + int(res.get('expires_in', 2678400)))
+        except Exception as e:
+            control.log(f"MAL refresh_token exception: {e}", level='warning')
 
     @staticmethod
     def handle_paging(next_offset, base_url, page):

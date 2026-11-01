@@ -105,7 +105,7 @@ class WatchlistFlavor:
             raise Exception("Invalid flavor %s" % flavor)
         flavor_class = WatchlistFlavor.__instance_flavor(flavor)
         res = flavor_class.login()
-        if res is None:
+        if res is None or res is False:
             return None
         return WatchlistFlavor.__set_login(flavor, res)
 
@@ -150,7 +150,7 @@ class WatchlistFlavor:
     @staticmethod
     def __set_login(flavor, res):
         if not res:
-            return control.ok_dialog('Login', 'Incorrect username or password')
+            return control.ok_dialog('Login', 'Authorization failed or invalid credentials')
         else:
             control.setBool('watchlist.update.enabled', True)
             control.setBool('%s.enabled' % flavor, True)

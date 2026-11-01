@@ -44,6 +44,9 @@ class AniListWLF(WatchlistFlavorBase):
         return f"{updated_at}_{anime_count}"
 
     def login(self):
+        if not self.username or not self.token:
+            return None
+
         query = '''
         query ($name: String) {
             User(name: $name) {
@@ -56,13 +59,18 @@ class AniListWLF(WatchlistFlavorBase):
             "name": self.username
         }
 
-        r = client.post(self._URL, headers=self.__headers(), json_data={'query': query, 'variables': variables})
-        results = r.json() if r else None
+        try:
+            r = client.post(self._URL, headers=self.__headers(), json_data={'query': query, 'variables': variables})
+            results = r.json() if (r and r.ok) else None
+        except Exception as e:
+            control.log(f"AniList login exception: {e}", 'warning')
+            results = None
+
         user = (results or {}).get('data', {}).get('User') if results else None
         if not user or not user.get('id'):
             control.setSetting('anilist.token', '')
             control.setSetting('anilist.username', '')
-            return
+            return None
         userId = user['id']
         login_data = {
             'userid': str(userId)

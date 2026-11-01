@@ -16,11 +16,16 @@ class EasyDebrid:
         }
 
     def auth(self):
-        self.token = control.input_dialog("Enter API KEY for EasyDebrid:", self.token, xbmcgui.INPUT_ALPHANUM)
+        token = control.input_dialog("Enter API KEY for EasyDebrid:", self.token, xbmcgui.INPUT_ALPHANUM)
+        if not token:
+            return
+        self.token = token.strip()
         control.setSetting('easydebrid.token', self.token)
         auth_done = self.status()
         if not auth_done:
             control.ok_dialog(f'{control.ADDON_NAME}: EasyDebrid Auth', "Invalid API KEY!")
+        else:
+            control.setBool('easydebrid.enabled', True)
 
     def status(self):
         url = f"{self.base_url}/user/details"
