@@ -557,10 +557,7 @@ def filter_sources(provider, torrent_list, mal_id, season=None, episode=None, pa
     # Loop over each torrent in the list
     for torrent in torrent_list:
         # Set up the torrent hash as in the original function
-        if provider == 'animetosho':
-            if 'hash' not in torrent:
-                continue
-        elif provider == 'nekobt':
+        if provider in ('animetosho', 'nekobt', 'bitsearch', 'piratebay'):
             if 'hash' not in torrent:
                 continue
         elif provider == 'nyaa':

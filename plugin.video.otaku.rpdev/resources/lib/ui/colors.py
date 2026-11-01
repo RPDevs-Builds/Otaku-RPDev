@@ -24,6 +24,8 @@ PROVIDER_COLORS = {
     'nyaa': 'FFFF7043',             # Nyaa Deep Coral
     'torrentio': 'FFAB47BC',        # Torrentio Violet
     'nekobt': 'FF7E57C2',           # NekoBT Deep Purple
+    'bitsearch': 'FF00B0FF',        # Bitsearch Sky Blue
+    'piratebay': 'FF8D6E63',        # PirateBay Wood / Galleon
     'watchnixtoons2': 'FFFFCA28',   # WatchNixtoons Amber
     'direct': 'FF00E676',           # Direct HLS Emerald
     'embed': 'FF00B0FF',            # Embed Light Blue

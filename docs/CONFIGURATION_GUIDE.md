@@ -99,7 +99,7 @@ For dedicated boxes, HTPCs, and mini-PCs with ample RAM and high-speed broadband
 
 ### Category 2: Providers
 Configure your scrape sources:
-- **Torrents / Debrid Providers**: Nyaa, Nyaa Alt, AnimeTosho, AnimeTosho Alt, NekoBT, and Torrentio. (Torrentio includes an advanced configuration string for custom filters).
+- **Torrents / Debrid Providers**: Nyaa, Nyaa Alt, AnimeTosho, AnimeTosho Alt, NekoBT, Bitsearch, ThePirateBay, and Torrentio. (Torrentio includes an advanced configuration string for custom filters).
 - **Usenet**: Easynews integration (requires Easynews account authorized in Accounts).
 - **Direct Embed Providers**: Anikoto, AnimePahe, AnimePahe Alt, Animix, HiAnime, and WatchNixtoons2. HiAnime supports dynamic domain switching.
 

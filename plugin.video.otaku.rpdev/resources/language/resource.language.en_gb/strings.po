@@ -2605,6 +2605,22 @@ msgctxt "#30664"
 msgid "Prioritize Forced subtitle tracks (translations for foreign dialogue / songs only)."
 msgstr ""
 
+msgctxt "#30665"
+msgid "Bitsearch"
+msgstr ""
+
+msgctxt "#30666"
+msgid "Search Bitsearch DHT index for anime torrents."
+msgstr ""
+
+msgctxt "#30667"
+msgid "ThePirateBay"
+msgstr ""
+
+msgctxt "#30668"
+msgid "Search ThePirateBay via Apibay JSON API for anime torrents and complete series batches."
+msgstr ""
+
 
 
 

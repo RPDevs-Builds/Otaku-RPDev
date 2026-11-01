@@ -36,6 +36,8 @@ DEFAULT_DOMAINS = {
     "animetosho": "https://animetosho.org/",
     "nekobt": "https://nekobt.to/api/v1",
     "torrentio": "https://torrentio.strem.fun",
+    "bitsearch": "https://bitsearch.to",
+    "piratebay": "https://apibay.org",
     "watchnixtoons2": "https://www.wcostream.tv/",
 }
 

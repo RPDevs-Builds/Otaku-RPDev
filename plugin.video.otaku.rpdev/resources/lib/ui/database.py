@@ -611,7 +611,7 @@ def cache_clear_providers():
 
         # 2. Purge cached scraper results for all providers (torrents, embeds, hosters)
         provider_tokens = [
-            'nyaa', 'animetosho', 'nekobt', 'torrentio', 'easynews',
+            'nyaa', 'animetosho', 'nekobt', 'torrentio', 'bitsearch', 'piratebay', 'easynews',
             'animepahe', 'animix', 'aniwave', 'hianime', 'animekai',
             'anikoto', 'watchnixtoons2', 'gogoanime', 'kaido', 'kissanime',
             'tokyotosho'

@@ -148,6 +148,18 @@ def run_health_checks(target_provider=None, timeout=20):
     except Exception as e:
         providers['WatchNixtoons2'] = ('Direct/WCO', lambda: (_ for _ in ()).throw(e))
 
+    try:
+        from resources.lib.pages import bitsearch
+        providers['Bitsearch'] = ('Torrent/DHT', lambda: bitsearch.Sources().get_sources("Frieren", "52991", "1", "Ongoing", "tv"))
+    except Exception as e:
+        providers['Bitsearch'] = ('Torrent/DHT', lambda: (_ for _ in ()).throw(e))
+
+    try:
+        from resources.lib.pages import piratebay
+        providers['ThePirateBay'] = ('Torrent/REST', lambda: piratebay.Sources().get_sources("Frieren", "52991", "1", "Ongoing", "tv"))
+    except Exception as e:
+        providers['ThePirateBay'] = ('Torrent/REST', lambda: (_ for _ in ()).throw(e))
+
     results = []
     for prov_name, (ptype, pfunc) in providers.items():
         if target_provider and target_provider.lower() != prov_name.lower():

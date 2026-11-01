@@ -594,6 +594,16 @@
 						<hidevalue>true</hidevalue>
 					</control>
 				</setting>
+				<setting id="provider.bitsearch" type="boolean" label="30665" help="30666">
+					<level>0</level>
+					<default>true</default>
+					<control type="toggle" />
+				</setting>
+				<setting id="provider.piratebay" type="boolean" label="30667" help="30668">
+					<level>0</level>
+					<default>true</default>
+					<control type="toggle" />
+				</setting>
 			</group>
 			<!-- Hosters -->
 			<group id="2" label="30484" help="">

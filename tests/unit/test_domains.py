@@ -30,7 +30,7 @@ class TestDomains(unittest.TestCase):
 
     def test_default_domain_lookups(self):
         """Standard providers return non-empty URL strings ending with slash or path."""
-        providers = ['hianime', 'gogoanime', 'animepahe', 'animekai', 'anikoto', 'nyaa', 'animetosho', 'nekobt', 'torrentio', 'watchnixtoons2']
+        providers = ['hianime', 'gogoanime', 'animepahe', 'animekai', 'anikoto', 'nyaa', 'animetosho', 'nekobt', 'torrentio', 'watchnixtoons2', 'bitsearch', 'piratebay']
         for p in providers:
             d = domains.get_domain(p)
             self.assertTrue(d.startswith('http'), f"Provider {p} returned invalid URL: {d}")

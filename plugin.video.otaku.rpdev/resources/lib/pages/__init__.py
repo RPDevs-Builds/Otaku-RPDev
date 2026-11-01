@@ -6,7 +6,8 @@ from functools import partial
 
 from resources.lib.pages import (
     nyaa, animetosho, nekobt, torrentio, debrid_cloudfiles, easynews,
-    animepahe, anikoto, animixplay, hianime, watchnixtoons2, localfiles
+    animepahe, anikoto, animixplay, hianime, watchnixtoons2, localfiles,
+    bitsearch, piratebay
 )
 from resources.lib.ui import control, database, source_utils
 from resources.lib.windows.get_sources_window import GetSources
@@ -19,6 +20,8 @@ _TORRENT_MODULES = {
     'animetosho': (animetosho, 'animetosho'),
     'nekobt': (nekobt, 'nekobt'),
     'torrentio': (torrentio, 'torrentio'),
+    'bitsearch': (bitsearch, 'bitsearch'),
+    'piratebay': (piratebay, 'piratebay'),
 }
 
 # (module, cache_key, enabled_fn, merge_mode) — provider ids = dict keys below
