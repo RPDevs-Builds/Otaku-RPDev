@@ -1,3 +1,14 @@
+Changelog v5.8.1 (2026-10-31):
+- Fix Changelog Display on Update: Correct root route comparison in default.py, decouple UI changelog version tracking from background service migrations, and prevent first-time setup wizard from muting showchangelog to No.
+- Comprehensive Settings Audit & Functional Wiring:
+  * Scraping Concurrency: Dynamically honor scraper.concurrency.workers in Sources semaphore.
+  * Torrent Termination: Respect general.terminate.ontorrent to terminate early when torrent sources are found.
+  * Cache & PRAGMAs: Wire cache.scrapers.ttl, cache.metadata.ttl, and cache.calendar.ttl into database and calendar caches; wire db.sqlite.cache_size_mb, db.sqlite.mmap_size_mb, db.sqlite.synchronous, and db.sqlite.temp_store_ram into SQLite connection initialization.
+  * SmartPlay Quality Matching: Honor smartplay.match_quality by prioritizing sources matching previously selected resolution and release group on next episode autoplay.
+  * UI Badges: Honor interface.source_select.badges in source select dialog by omitting BBCode color tags when toggled off.
+  * Network SSL & Widgets: Honor general.verify_ssl in client.request() and widgets.delay rate limiting when loading in widget context.
+  * Player Ghost Setting: Fix player.py reference from ghost smartplay.source_select to general.playstyle.episode != 1.
+
 Changelog v5.8.0 (2026-10-31):
 - feat: native subtitle engine with multi-provider scraping (OpenSubtitles, SubDL, SubSource, Podnadpisi, BSPlayer, Addic7ed), auto-download, and dedicated settings
 

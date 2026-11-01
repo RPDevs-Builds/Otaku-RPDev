@@ -303,7 +303,8 @@ class SyncDatabase:
             # was_returning_user = not first_time
 
             if first_time:
-                control.setInt('showchangelog', 1)
+                control.setSetting('changelog.version', control.ADDON_VERSION)
+                control.setSetting('version', control.ADDON_VERSION)
                 choice = control.yesno_dialog(
                     f'{control.ADDON_NAME} - {control.lang(30415)}',
                     "Welcome to Otaku!!!\n"

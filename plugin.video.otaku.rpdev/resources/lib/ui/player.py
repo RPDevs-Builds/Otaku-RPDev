@@ -630,7 +630,7 @@ class WatchlistPlayer(player):
                     if sources:
                         control.log(f"Player: Background pre-scrape complete for ep {next_ep} ({len(sources)} source(s) pre-cached)", level='info')
                         # Zero-Wait Pre-Resolved Stream Handoff
-                        if control.getBool('smartplay.preresolve', default=True) and control.getBool('general.smartplay') and not control.getBool('smartplay.source_select'):
+                        if control.getBool('smartplay.preresolve', default=True) and control.getBool('general.smartplay') and control.getInt('general.playstyle.episode') != 1:
                             from resources.lib.windows.resolver import resolve_silent
                             res_data = resolve_silent(sources, next_ep, self.mal_id)
                             if res_data and res_data.get('url'):

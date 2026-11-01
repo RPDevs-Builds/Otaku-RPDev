@@ -86,6 +86,7 @@ class SourceSelect(BaseWindow):
     def populate_sources(self, sources):
         self.display_list.reset()
         self.displayed_sources = sources  # Update the displayed sources list
+        show_badges = control.getBool('interface.source_select.badges', default=True)
         for source in sources:
             if source is None:
                 continue
@@ -96,8 +97,12 @@ class SourceSelect(BaseWindow):
             p_color = colors.get_provider_color(provider_name or source_type)
             d_color = colors.get_provider_color(debrid_name or source_type)
 
-            colored_debrid = f"[COLOR {d_color}]{debrid_name}[/COLOR]" if debrid_name else f"[COLOR {p_color}]{source_type.upper()}[/COLOR]"
-            colored_provider = f"[COLOR {p_color}]{provider_name}[/COLOR]" if provider_name else ""
+            if show_badges:
+                colored_debrid = f"[COLOR {d_color}]{debrid_name}[/COLOR]" if debrid_name else f"[COLOR {p_color}]{source_type.upper()}[/COLOR]"
+                colored_provider = f"[COLOR {p_color}]{provider_name}[/COLOR]" if provider_name else ""
+            else:
+                colored_debrid = debrid_name if debrid_name else source_type.upper()
+                colored_provider = provider_name
 
             menu_item = xbmcgui.ListItem(source.get('release_title', ''), offscreen=True)
             properties = {

@@ -103,8 +103,21 @@ def getSourcesHelper(actionArgs):
             del sources_window
 
 
+def _scraper_cache_ttl():
+    return control.getInt('cache.scrapers.ttl') or 8
+
+
 class Sources(GetSources):
     _scrape_semaphore = threading.Semaphore(control.max_threads)
+
+    @classmethod
+    def _get_semaphore(cls):
+        workers = control.getInt('scraper.concurrency.workers') or control.max_threads
+        if not hasattr(cls, '_current_semaphore') or getattr(cls, '_current_workers', None) != workers:
+            cls._current_workers = workers
+            cls._current_semaphore = threading.Semaphore(max(2, min(workers, 16)))
+            cls._scrape_semaphore = cls._current_semaphore
+        return cls._current_semaphore
 
     def __init__(self, xml_file, location, actionArgs=None):
         super(Sources, self).__init__(xml_file, location, actionArgs=actionArgs)
@@ -135,8 +148,9 @@ class Sources(GetSources):
 
     @classmethod
     def _start_worker(cls, fn):
+        sem = cls._get_semaphore()
         def _throttled_fn():
-            with cls._scrape_semaphore:
+            with sem:
                 fn()
         t = threading.Thread(target=_throttled_fn, daemon=True)
         t.start()
@@ -255,6 +269,7 @@ class Sources(GetSources):
                     or not self.remainingProviders
                     or (control.getBool('general.terminate.oncloud') and len(self.cloud_files) > 0)
                     or (control.getBool('general.terminate.onlocal') and len(self.local_files) > 0)
+                    or (control.getBool('general.terminate.ontorrent') and len(self.torrentSources) > 0)
                 ):
                     break
 
@@ -282,7 +297,7 @@ class Sources(GetSources):
             if rescrape:
                 all_sources = get_sources(*call_args, rescrape=True)
             else:
-                all_sources = database.get(get_sources, 8, *call_args, key=cache_key)
+                all_sources = database.get(get_sources, _scraper_cache_ttl(), *call_args, key=cache_key)
             if self.canceled:
                 return
             if not all_sources:
@@ -311,7 +326,7 @@ class Sources(GetSources):
             if rescrape:
                 all_sources = get_sources(*call_args)
             else:
-                all_sources = database.get(get_sources, 8, *call_args, key=cache_key)
+                all_sources = database.get(get_sources, _scraper_cache_ttl(), *call_args, key=cache_key)
             if self.canceled:
                 return
             if not all_sources:
@@ -342,12 +357,12 @@ class Sources(GetSources):
                 if rescrape:
                     src = get_sources(mal_id, episode, media_type)
                 else:
-                    src = database.get(get_sources, 8, mal_id, episode, media_type, key=cache_key)
+                    src = database.get(get_sources, _scraper_cache_ttl(), mal_id, episode, media_type, key=cache_key)
             else:
                 if rescrape:
                     src = get_sources(mal_id, episode)
                 else:
-                    src = database.get(get_sources, 8, mal_id, episode, key=cache_key)
+                    src = database.get(get_sources, _scraper_cache_ttl(), mal_id, episode, key=cache_key)
             if self.canceled:
                 return
             if not src:
@@ -576,23 +591,50 @@ class Sources(GetSources):
         # Sort sources (Seren-style composite keys; fresh sort_options.json)
         sortedList = sort_select.sort_sources_list(sortedList)
 
-        # SmartPlay: prioritize preferred embed provider if enabled
-        if mal_id and control.getBool('general.smartplay', default=True) and control.getBool('smartplay.prefer_same_embed', default=True):
+        # SmartPlay: prioritize preferred embed provider and matching quality/release if enabled
+        if mal_id and control.getBool('general.smartplay', default=True):
             last_played_profile = database.get_last_played_source(mal_id)
-            if last_played_profile and last_played_profile.get('type') in ('embed', 'direct'):
-                last_prov = last_played_profile.get('provider')
-                last_lang = last_played_profile.get('lang')
-                match_idx = -1
-                for idx, src in enumerate(sortedList):
-                    if src.get('provider') == last_prov:
-                        if not last_lang or src.get('lang') == last_lang:
+            if last_played_profile:
+                if control.getBool('smartplay.prefer_same_embed', default=True) and last_played_profile.get('type') in ('embed', 'direct'):
+                    last_prov = last_played_profile.get('provider')
+                    last_lang = last_played_profile.get('lang')
+                    match_idx = -1
+                    for idx, src in enumerate(sortedList):
+                        if src.get('provider') == last_prov:
+                            if not last_lang or src.get('lang') == last_lang:
+                                match_idx = idx
+                                break
+                            elif match_idx == -1:
+                                match_idx = idx
+                    if match_idx > 0:
+                        matching_source = sortedList.pop(match_idx)
+                        sortedList.insert(0, matching_source)
+                elif control.getBool('smartplay.match_quality', default=True) and last_played_profile.get('type') not in ('embed', 'direct'):
+                    last_quality = last_played_profile.get('quality')
+                    last_provider = last_played_profile.get('provider')
+                    last_release_title = last_played_profile.get('release_title', '')
+                    import re
+                    match = re.match(r'^\[([^\]]+)\]', last_release_title)
+                    last_group = match.group(1).lower() if match else ''
+
+                    match_idx = -1
+                    for idx, src in enumerate(sortedList):
+                        src_title = src.get('release_title', '')
+                        group_match = bool(last_group and f'[{last_group}]' in src_title.lower())
+                        quality_match = (src.get('quality') == last_quality)
+                        provider_match = (src.get('provider') == last_provider)
+
+                        if group_match and quality_match:
                             match_idx = idx
                             break
-                        elif match_idx == -1:
+                        elif quality_match and provider_match and match_idx == -1:
                             match_idx = idx
-                if match_idx > 0:
-                    matching_source = sortedList.pop(match_idx)
-                    sortedList.insert(0, matching_source)
+                        elif quality_match and match_idx == -1:
+                            match_idx = idx
+
+                    if match_idx > 0:
+                        matching_source = sortedList.pop(match_idx)
+                        sortedList.insert(0, matching_source)
 
         return sortedList
 

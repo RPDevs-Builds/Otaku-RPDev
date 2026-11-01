@@ -170,6 +170,7 @@ def SETTINGS(payload, params):
 
 @Route('change_log')
 def CHANGE_LOG(payload, params):
+    control.setSetting('changelog.version', control.ADDON_VERSION)
     control.setSetting('version', control.ADDON_VERSION)
     control.setSetting('otaku.version', control.ADDON_VERSION)
     import service

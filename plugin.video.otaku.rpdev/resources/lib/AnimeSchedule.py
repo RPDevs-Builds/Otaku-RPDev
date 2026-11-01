@@ -34,8 +34,9 @@ class AnimeScheduleCalendar:
         # Cache file path
         self.cache_file = control.animeschedule_calendar_json
 
-        # Cache duration in seconds (default: 24 hours)
-        self.cache_duration = 86400  # 24 hours
+        # Cache duration in seconds (configured via cache.calendar.ttl, default 24 hours)
+        calendar_ttl = control.getInt('cache.calendar.ttl') or 24
+        self.cache_duration = calendar_ttl * 3600
 
     def get_calendar_data(self, days=7, types=['sub', 'dub', 'raw'], force_refresh=False):
         """

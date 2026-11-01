@@ -28,6 +28,10 @@ if __name__ == "__main__":
         from resources.lib import Main  # noQA
         plugin_url = control.get_plugin_url(sys.argv[0])
         plugin_params = control.get_plugin_params(sys.argv[2])
+        if not control.is_addon_visible():
+            widget_delay = control.getInt('widgets.delay') or 0
+            if widget_delay > 0:
+                control.sleep(widget_delay)
         try:
             router_process(plugin_url, plugin_params)
         except Exception as e:
@@ -40,15 +44,18 @@ if __name__ == "__main__":
             except Exception:
                 pass
         else:
-            # Queue changelog display via RunPlugin ONLY after the root directory invoker cleanly finishes
-            is_root = (plugin_url in ('plugin://plugin.video.otaku.rpdev/', 'plugin://plugin.video.otaku.rpdev') and not plugin_params)
-            saved_ver = control.getSetting('version') or control.getSetting('otaku.version')
+            # Show changelog modal after the root directory invoker finishes if version changed
+            is_root = (plugin_url in ('', '/', 'plugin://plugin.video.otaku.rpdev/', 'plugin://plugin.video.otaku.rpdev') and not plugin_params)
+            saved_ver = control.getSetting('changelog.version') or control.getSetting('version')
             if is_root and control.ADDON_VERSION != saved_ver:
+                control.setSetting('changelog.version', control.ADDON_VERSION)
                 control.setSetting('version', control.ADDON_VERSION)
                 control.setSetting('otaku.version', control.ADDON_VERSION)
                 if control.getInt('showchangelog') == 0:
-                    control.execute('RunPlugin(plugin://plugin.video.otaku.rpdev/change_log)')
+                    import service
+                    service.getChangeLog()
             elif is_root:
+                control.setSetting('changelog.version', control.ADDON_VERSION)
                 control.setSetting('version', control.ADDON_VERSION)
                 control.setSetting('otaku.version', control.ADDON_VERSION)
 

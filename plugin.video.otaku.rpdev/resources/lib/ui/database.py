@@ -190,13 +190,29 @@ class SQL:
                 conn.row_factory = _dict_factory
                 if not is_readonly:
                     conn.execute("PRAGMA foreign_keys = ON")
-                    conn.execute("PRAGMA synchronous = NORMAL")
+                    # Synchronous setting (0=OFF, 1=NORMAL, 2=FULL)
+                    sync_val = control.getSetting('db.sqlite.synchronous')
+                    sync_modes = {'0': 'OFF', '1': 'NORMAL', '2': 'FULL'}
+                    sync_mode = sync_modes.get(str(sync_val), 'NORMAL')
+                    conn.execute(f"PRAGMA synchronous = {sync_mode}")
                     try:
                         conn.execute("PRAGMA journal_mode = WAL")
                     except dbapi2.DatabaseError:
                         pass
-                    mmap_size = 4194304 if control.is_low_memory() else 16777216
+                    # Cache size setting (negative value in KiB)
+                    cache_mb = control.getInt('db.sqlite.cache_size_mb') or 16
+                    if cache_mb > 0:
+                        conn.execute(f"PRAGMA cache_size = -{cache_mb * 1024}")
+                    # Memory map size setting
+                    mmap_setting_mb = control.getInt('db.sqlite.mmap_size_mb') or 32
+                    if control.is_low_memory():
+                        mmap_size = min(4194304, mmap_setting_mb * 1048576)
+                    else:
+                        mmap_size = mmap_setting_mb * 1048576
                     conn.execute(f"PRAGMA mmap_size = {mmap_size}")
+                    # Temp store in RAM
+                    if control.getBool('db.sqlite.temp_store_ram', default=True):
+                        conn.execute("PRAGMA temp_store = MEMORY")
                 if os.path.exists(abs_path):
                     try:
                         st_ino = os.stat(abs_path).st_ino
@@ -351,6 +367,15 @@ def get(function, duration, *args, **kwargs):
     :param args/kwargs:  Forwarded to *function* on miss.
         Special kwarg ``key`` is popped and appended to the cache key.
     """
+    if duration == 24:
+        configured_ttl = control.getInt('cache.metadata.ttl')
+        if configured_ttl:
+            duration = configured_ttl
+    elif duration == 8:
+        configured_ttl = control.getInt('cache.scrapers.ttl')
+        if configured_ttl:
+            duration = configured_ttl
+
     key = _hash_function(function, args, kwargs)
     if 'key' in kwargs:
         key += kwargs.pop('key')
@@ -395,6 +420,15 @@ def get_coalesced(function, duration, *args, **kwargs):
     no write lock is held on cacheFile while fetching remote data. Overlapping callers
     wait on BEGIN IMMEDIATE and then retrieve the newly cached result.
     """
+    if duration == 24:
+        configured_ttl = control.getInt('cache.metadata.ttl')
+        if configured_ttl:
+            duration = configured_ttl
+    elif duration == 8:
+        configured_ttl = control.getInt('cache.scrapers.ttl')
+        if configured_ttl:
+            duration = configured_ttl
+
     started = time.time()
     key = _hash_function(function, args, kwargs)
     if 'key' in kwargs:

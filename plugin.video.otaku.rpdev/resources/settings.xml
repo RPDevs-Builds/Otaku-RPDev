@@ -4843,6 +4843,13 @@
 						<allowempty>true</allowempty>
 					</constraints>
 				</setting>
+				<setting id="changelog.version" type="string" label="" help="">
+					<level>4</level>
+					<default/>
+					<constraints>
+						<allowempty>true</allowempty>
+					</constraints>
+				</setting>
 				<setting id="version" type="string" label="" help="">
 					<level>4</level>
 					<default/>

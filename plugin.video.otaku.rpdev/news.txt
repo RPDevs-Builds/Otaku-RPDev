@@ -1,4 +1,34 @@
 ================================================================================
+                    OTAKU RPDEV v5.8.1 - WHAT'S NEW & MILESTONES
+================================================================================
+
+[ Changelog Reliability & Comprehensive Settings Engine Optimization ]
+
+Otaku RPDev v5.8.1 resolves the changelog update trigger and comprehensively
+wires and enforces all settings across Scraping, Cache, Playback, and Network:
+
+--------------------------------------------------------------------------------
+New in v5.8.1: Changelog Reliability & Comprehensive Settings Wiring
+--------------------------------------------------------------------------------
+• Reliable Changelog Display: Fixed root route detection and decoupled UI
+  version tracking from background service migrations, ensuring the changelog
+  reliably displays whenever the addon updates.
+• First-Time Setup Safeguard: Ensured fresh installs preserve the 'Show changelog
+  every update' setting enabled (Yes) for future releases.
+• Scraping Concurrency Workers: Scraper worker pool now dynamically obeys the
+  configured concurrency slider (scraper.concurrency.workers).
+• Early Torrent Termination: Added support for terminating scraping early when
+  torrent sources are detected (general.terminate.ontorrent).
+• Database & Cache TTL Controls: Cache durations across scrapers, metadata, and
+  airing calendar dynamically honor user-configured TTL values.
+• SQLite Engine PRAGMAs: Full user configuration for synchronous modes, RAM
+  cache size, MMAP limits, and in-memory temp tables.
+• SmartPlay Quality Continuity: Auto-play next episode prioritizes torrent and
+  hoster sources matching the previously selected resolution and release group.
+• Source Badges & Widget Delays: Respects colored badge suppression in source
+  selection and configurable widget load delays to prevent API rate limiting.
+
+================================================================================
                     OTAKU RPDEV v5.7.2 - WHAT'S NEW & MILESTONES
 ================================================================================
 

@@ -257,6 +257,10 @@ def request(
             verify = False
             _headers.pop('verifypeer')
 
+        # Global SSL verification toggle override
+        if verify is True and not control.getBool('general.verify_ssl', default=True):
+            verify = False
+
         # Parse domain for session management
         uri = urllib.parse.urlparse(url)
         domain = uri.scheme + '://' + uri.netloc
