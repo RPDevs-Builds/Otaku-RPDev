@@ -53,6 +53,19 @@ class TestSettingsSchemaAndActions(unittest.TestCase):
         settings = self.root.findall('.//setting')
         self.assertGreaterEqual(len(settings), 400)
 
+    def test_settings_xml_kodi_schema_attributes(self):
+        """Kodi C++ CAddonSettings requires id attribute on every section, category, group, and setting."""
+        sections = self.root.findall('section')
+        self.assertGreater(len(sections), 0, "settings.xml must declare at least one <section>")
+        for sec in sections:
+            self.assertTrue(sec.get('id'), f"<section> is missing required 'id' attribute in {self.settings_xml_path}")
+        for cat in self.root.findall('.//category'):
+            self.assertTrue(cat.get('id'), f"<category> is missing required 'id' attribute in {self.settings_xml_path}")
+        for grp in self.root.findall('.//group'):
+            self.assertTrue(grp.get('id'), f"<group> is missing required 'id' attribute in {self.settings_xml_path}")
+        for s in self.root.findall('.//setting'):
+            self.assertTrue(s.get('id'), f"<setting> is missing required 'id' attribute in {self.settings_xml_path}")
+
     def test_changelog_version_setting_declared(self):
         setting = self.root.find('.//setting[@id="changelog.version"]')
         self.assertIsNotNone(setting, "changelog.version must be declared in settings.xml")

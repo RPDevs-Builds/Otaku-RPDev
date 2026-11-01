@@ -1,6 +1,6 @@
 <?xml version="1.0" ?>
 <settings version="1">
-	<section>
+	<section id="otaku">
 		<category id="general" label="30098" help="">
 			<group id="1" label="30415">
 				<setting id="setup.wizard" type="action" label="30416" help="">

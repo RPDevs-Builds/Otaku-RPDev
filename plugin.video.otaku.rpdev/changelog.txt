@@ -1,3 +1,8 @@
+Changelog v5.8.3 (2026-11-01):
+- Restore mandatory id attribute to settings.xml section tag
+- Add schema attribute unit test asserting all sections categories and groups define ids
+- Fix CAddonSettings deserialization failure on Kodi 22
+
 Changelog v5.8.2 (2026-11-01):
 - Add Bitsearch and ThePirateBay (Apibay) torrent providers
 - Reorganize Settings into 12 logical categories and add end-user configuration guide
