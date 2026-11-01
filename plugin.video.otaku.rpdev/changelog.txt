@@ -1,3 +1,6 @@
+Changelog v5.9.3 (2026-11-01):
+- Complete repository audit remediation across 261 files (Specifications 08-12): core engine, database locks & prank removal, player & subtitles encoding, scrapers & debrid deduplication, browser & watchlist stability, 38 skin XML templates, and 430 automated tests
+
 Changelog v5.9.2 (2026-11-01):
 - Performance & Regex Polish: Precompile all source_utils and part_filter regexes, pool SQLite connections in part_filter, and resolve preferred Chinese subtitle language via languages.py
 - Presentation Flair & Studio Logos: Surface vector studio logos across episode and show list items, add codec/audio channel/HDR badges to Source Select, and implement 3-tier health colorized seeders
