@@ -120,6 +120,18 @@ class TestSubtitleLanguages(unittest.TestCase):
         self.assertFalse(languages.is_language_match("none", "en"))
         self.assertFalse(languages.is_language_match("", "en"))
 
+    @patch('resources.lib.ui.control.getInt')
+    def test_get_preferred_subtitle_language(self, mock_get_int):
+        mock_get_int.return_value = 0
+        self.assertEqual(languages.get_preferred_subtitle_language(), "none")
+
+        mock_get_int.return_value = 1
+        self.assertEqual(languages.get_preferred_subtitle_language(), "en")
+
+        mock_get_int.return_value = 3
+        self.assertEqual(languages.get_preferred_subtitle_language(), "es")
+
+
 
 class TestSubtitleEncoding(unittest.TestCase):
     def test_utf8_detection_and_transcoding(self):

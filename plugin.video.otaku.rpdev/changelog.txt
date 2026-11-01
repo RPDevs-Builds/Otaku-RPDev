@@ -1,3 +1,6 @@
+Changelog v5.8.6 (2026-11-01):
+- Filter scraper embed subtitles by preferred language in resolver and playback; prevent multi-language temp subtitle downloading
+
 Changelog v5.8.5 (2026-11-01):
 - Unify preferred subtitle language across embedded track selection and external search/download; relocate setting to top of Subtitles menu
 

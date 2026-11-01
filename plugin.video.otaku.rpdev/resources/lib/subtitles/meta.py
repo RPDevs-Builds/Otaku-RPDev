@@ -82,20 +82,12 @@ def get_meta_from_player() -> VideoMeta:
                 filename = f"{clean_show} - E{episode}.mkv"
 
     # Preferred language from Otaku settings (general.subtitles)
-    sub_setting_idx = control.getInt('general.subtitles')
-    subtitle_langs = [
-        "none", "English", "Japanese", "Spanish", "French", "German",
-        "Italian", "Dutch", "Russian", "Portuguese", "Korean", "Chinese",
-        "Arabic", "Hindi", "Turkish", "Polish", "Swedish", "Norwegian",
-        "Danish", "Finnish"
-    ]
-    if sub_setting_idx == 0:
+    pref_code = languages.get_preferred_subtitle_language()
+    if pref_code == "none":
         pref_name = "none"
-        pref_code = "none"
         languages_list = []
     else:
-        pref_name = subtitle_langs[sub_setting_idx] if sub_setting_idx < len(subtitle_langs) else "English"
-        pref_code = languages.to_iso639_1(pref_name)
+        pref_name = languages.to_english_name(pref_code)
         languages_list = [pref_name]
 
     return VideoMeta(
@@ -136,20 +128,12 @@ def get_meta_from_dict(video_info: Dict[str, Any], mal_id: Optional[str] = None)
 
     clean_filename = source_utils.format_video_filename(video_info)
 
-    sub_setting_idx = control.getInt('general.subtitles')
-    subtitle_langs = [
-        "none", "English", "Japanese", "Spanish", "French", "German",
-        "Italian", "Dutch", "Russian", "Portuguese", "Korean", "Chinese",
-        "Arabic", "Hindi", "Turkish", "Polish", "Swedish", "Norwegian",
-        "Danish", "Finnish"
-    ]
-    if sub_setting_idx == 0:
+    pref_code = languages.get_preferred_subtitle_language()
+    if pref_code == "none":
         pref_name = "none"
-        pref_code = "none"
         languages_list = []
     else:
-        pref_name = subtitle_langs[sub_setting_idx] if sub_setting_idx < len(subtitle_langs) else "English"
-        pref_code = languages.to_iso639_1(pref_name)
+        pref_name = languages.to_english_name(pref_code)
         languages_list = [pref_name]
 
     return VideoMeta(

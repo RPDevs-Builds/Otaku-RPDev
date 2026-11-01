@@ -524,6 +524,47 @@ class TestSubtitleDownloadIntegrationAndIsolation(unittest.TestCase):
             self.assertIn('special://profile/addon_data/service.subtitles.a4ksubtitles/temp/stale_a4k_sub.ass', deleted_paths)
             self.assertIn('special://profile/addon_data/service.subtitles.a4ksubtitles/temp/sub.zip', deleted_paths)
 
+    @patch('resources.lib.ui.embed_extractor.get_sub')
+    @patch('resources.lib.subtitles.languages.get_preferred_subtitle_language')
+    @patch('resources.lib.ui.player.WatchlistPlayer')
+    def test_resolver_filters_embed_subtitles_by_preferred_language(self, mock_player_cls, mock_pref_lang, mock_get_sub):
+        from resources.lib.windows.resolver import Resolver
+        mock_get_sub.return_value = {'path': 'special://temp/TemporarySubs.1.eng.vtt', 'lang': 'eng', 'name': 'English'}
+
+        resolver = Resolver('resolver.xml', '', actionArgs={})
+        resolver.return_data = {
+            'linkinfo': {'url': 'https://stream.mp4'},
+            'source': {'type': 'direct', 'provider': 'hianime'},
+            'sub': [
+                {'url': 'https://sub/ara.vtt', 'lang': 'ara', 'name': 'Arabic'},
+                {'url': 'https://sub/eng.vtt', 'lang': 'eng', 'name': 'English'},
+                {'url': 'https://sub/fre.vtt', 'lang': 'fre', 'name': 'French'},
+                {'url': 'https://sub/spa.vtt', 'lang': 'spa', 'name': 'Spanish'},
+            ]
+        }
+        resolver.source_select_close = None
+        resolver.params = {}
+
+        # 1. Preferred = 'en': only the English subtitle is fetched
+        mock_pref_lang.return_value = 'en'
+        with patch('xbmcgui.ListItem') as mock_item_cls, patch('resources.lib.ui.embed_extractor.del_subs'), patch.object(resolver, 'close'):
+            mock_item = MagicMock()
+            mock_item_cls.return_value = mock_item
+            resolver._handle_playback()
+            mock_get_sub.assert_called_once_with('https://sub/eng.vtt', 'eng', headers=None, sub_index=1, display_name='English', source_url=None)
+            mock_item.setSubtitles.assert_called_once_with(['special://temp/TemporarySubs.1.eng.vtt'])
+
+        # 2. Preferred = 'none': zero subtitles are fetched
+        mock_get_sub.reset_mock()
+        mock_pref_lang.return_value = 'none'
+        with patch('xbmcgui.ListItem') as mock_item_cls, patch('resources.lib.ui.embed_extractor.del_subs'), patch.object(resolver, 'close'):
+            mock_item = MagicMock()
+            mock_item_cls.return_value = mock_item
+            resolver._handle_playback()
+            mock_get_sub.assert_not_called()
+            mock_item.setSubtitles.assert_not_called()
+
+
 
 if __name__ == "__main__":
     unittest.main()

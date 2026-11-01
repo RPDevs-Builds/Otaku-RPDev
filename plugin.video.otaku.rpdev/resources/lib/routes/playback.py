@@ -166,18 +166,25 @@ def PLAY(payload, params):
         embed_extractor.del_subs()
 
         if preresolved_data.get('sub'):
+            from resources.lib.subtitles import languages
+            pref_lang = languages.get_preferred_subtitle_language()
             sub_entries = []
-            for idx, sub in enumerate(preresolved_data['sub']):
-                entry = embed_extractor.get_sub(
-                    sub.get('url'),
-                    sub.get('lang'),
-                    headers=sub.get('headers'),
-                    sub_index=sub.get('index', idx),
-                    display_name=sub.get('name'),
-                    source_url=sub.get('file'),
-                )
-                if entry:
-                    sub_entries.append(entry)
+            if pref_lang != 'none':
+                for idx, sub in enumerate(preresolved_data['sub']):
+                    sub_lang = sub.get('lang') or embed_extractor.detect_sub_lang(sub.get('url'), sub.get('name'))
+                    if pref_lang and not languages.is_language_match(sub_lang, pref_lang):
+                        control.log(f"Playback: Skipping embed subtitle '{sub.get('name', '')}' ({sub_lang}) - does not match preferred '{pref_lang}'", 'debug')
+                        continue
+                    entry = embed_extractor.get_sub(
+                        sub.get('url'),
+                        sub.get('lang'),
+                        headers=sub.get('headers'),
+                        sub_index=sub.get('index', idx),
+                        display_name=sub.get('name'),
+                        source_url=sub.get('file'),
+                    )
+                    if entry:
+                        sub_entries.append(entry)
             if sub_entries:
                 item.setSubtitles([e['path'] for e in sub_entries])
 

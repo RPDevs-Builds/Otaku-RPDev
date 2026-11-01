@@ -126,3 +126,27 @@ def is_language_match(lang_a: str, lang_b: str) -> bool:
         return a_clean == b_clean
     return to_iso639_1(a_clean) == to_iso639_1(b_clean)
 
+
+def get_preferred_subtitle_language() -> str:
+    """
+    Returns the preferred subtitle language as a 2-letter ISO 639-1 code (e.g. 'en'),
+    or 'none' if subtitles are disabled in settings (general.subtitles == 0).
+    """
+    from resources.lib.ui import control
+    try:
+        sub_setting_idx = control.getInt('general.subtitles')
+    except Exception:
+        sub_setting_idx = 1
+
+    subtitle_langs = [
+        "none", "English", "Japanese", "Spanish", "French", "German",
+        "Italian", "Dutch", "Russian", "Portuguese", "Korean", "Chinese",
+        "Arabic", "Hindi", "Turkish", "Polish", "Swedish", "Norwegian",
+        "Danish", "Finnish"
+    ]
+    if sub_setting_idx == 0:
+        return "none"
+    pref_name = subtitle_langs[sub_setting_idx] if sub_setting_idx < len(subtitle_langs) else "English"
+    return to_iso639_1(pref_name)
+
+
