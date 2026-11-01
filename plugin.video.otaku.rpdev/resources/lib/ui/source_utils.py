@@ -946,3 +946,42 @@ def extract_release_group(release_title):
             return group.lower()
     return ''
 
+
+def format_video_filename(video_info):
+    """
+    Generate a standardized media filename for Kodi Player and external subtitle search addons.
+    Examples:
+      - TV Episode: 'Black Butler - S05E03.mkv'
+      - Movie: 'Your Name (2016).mkv'
+    """
+    if not isinstance(video_info, dict):
+        return ''
+    show = video_info.get('tvshowtitle') or video_info.get('showtitle') or ''
+    title = video_info.get('title') or ''
+    season = video_info.get('season')
+    episode = video_info.get('episode')
+    year = video_info.get('year')
+
+    clean_show = re.sub(r'[\\/*?:"<>|]', '', str(show)).strip() if show else ''
+    clean_title = re.sub(r'[\\/*?:"<>|]', '', str(title)).strip() if title else ''
+
+    if clean_show and season is not None and episode is not None:
+        try:
+            s_num = int(season)
+            e_num = int(episode)
+            return f"{clean_show} - S{s_num:02d}E{e_num:02d}.mkv"
+        except (ValueError, TypeError):
+            return f"{clean_show} - {episode}.mkv"
+    elif clean_show and episode is not None:
+        try:
+            e_num = int(episode)
+            return f"{clean_show} - {e_num:02d}.mkv"
+        except (ValueError, TypeError):
+            return f"{clean_show} - {episode}.mkv"
+    elif clean_title and year:
+        return f"{clean_title} ({year}).mkv"
+    elif clean_title:
+        return f"{clean_title}.mkv"
+    return ''
+
+

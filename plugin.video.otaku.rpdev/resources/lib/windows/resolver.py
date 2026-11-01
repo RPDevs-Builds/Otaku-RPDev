@@ -282,10 +282,12 @@ class Resolver(BaseWindow):
 
         item = xbmcgui.ListItem(path=linkInfo['url'], offscreen=True)
 
+        # Always purge stale temporary subtitle files before preparing new playback
+        from resources.lib.ui import embed_extractor
+        embed_extractor.del_subs()
+
         # Handle subtitles
         if self.return_data.get('sub'):
-            from resources.lib.ui import embed_extractor
-            embed_extractor.del_subs()
             subtitle_entries = []
             for idx, sub in enumerate(self.return_data['sub']):
                 entry = embed_extractor.get_sub(
@@ -325,6 +327,13 @@ class Resolver(BaseWindow):
 
         # Set video tags from the best available source
         control.set_videotags(item, video_info)
+
+        # Signal standardized filename to Kodi Player and subtitle search addons (e.g. a4kSubtitles / OpenSubtitles)
+        clean_filename = source_utils.format_video_filename(video_info)
+        if clean_filename:
+            item.setProperty('original_filename', clean_filename)
+            item.setProperty('VideoPlayer.OriginalFilename', clean_filename)
+            item.setLabel(clean_filename)
 
         art = self._build_art_dict(use_params=False)
         if isinstance(art, dict):

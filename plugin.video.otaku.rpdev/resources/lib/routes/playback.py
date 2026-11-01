@@ -161,9 +161,11 @@ def PLAY(payload, params):
         import xbmcgui, xbmcplugin
         item = xbmcgui.ListItem(path=preresolved_url, offscreen=True)
 
+        # Always purge stale temporary subtitle files before preparing new playback
+        from resources.lib.ui import embed_extractor, source_utils
+        embed_extractor.del_subs()
+
         if preresolved_data.get('sub'):
-            from resources.lib.ui import embed_extractor
-            embed_extractor.del_subs()
             sub_entries = []
             for idx, sub in enumerate(preresolved_data['sub']):
                 entry = embed_extractor.get_sub(
@@ -187,6 +189,13 @@ def PLAY(payload, params):
 
         video_info = dict(params.get('info', {})) if params.get('info') else dict(params)
         control.set_videotags(item, video_info)
+
+        # Signal standardized filename to Kodi Player and subtitle search addons
+        clean_filename = source_utils.format_video_filename(video_info)
+        if clean_filename:
+            item.setProperty('original_filename', clean_filename)
+            item.setProperty('VideoPlayer.OriginalFilename', clean_filename)
+            item.setLabel(clean_filename)
         if params.get('image'):
             item.setArt(params.get('image'))
 

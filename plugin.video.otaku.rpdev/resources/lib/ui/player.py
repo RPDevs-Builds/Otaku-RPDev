@@ -281,6 +281,11 @@ class WatchlistPlayer(player):
         self._playback_stopped = True
         control.closeAllDialogs()
         playList.clear()
+        try:
+            from resources.lib.ui import embed_extractor
+            embed_extractor.del_subs()
+        except Exception:
+            pass
         if self.context and self.path:
             if getattr(self, 'total_time', 0) > 60 and 0 < getattr(self, 'current_time', 0) < self.total_time:
                 if 10 < self.getWatchedPercent() < 90:
@@ -303,12 +308,22 @@ class WatchlistPlayer(player):
     def onPlayBackEnded(self):
         self._playback_stopped = True
         control.closeAllDialogs()
+        try:
+            from resources.lib.ui import embed_extractor
+            embed_extractor.del_subs()
+        except Exception:
+            pass
         control.clean_memory()
 
     def onPlayBackError(self):
         self._playback_stopped = True
         control.closeAllDialogs()
         playList.clear()
+        try:
+            from resources.lib.ui import embed_extractor
+            embed_extractor.del_subs()
+        except Exception:
+            pass
         control.clean_memory()
 
     # ── Playlist Building ─────────────────────────────────────────────────
@@ -780,19 +795,22 @@ class WatchlistPlayer(player):
 
             if subtitle_int is not None:
                 self.setSubtitleStream(subtitle_int)
-
-            # Enable and Disable Subtitles based on active audio stream
-            if preferred_subtitle_lang == "none":
-                self.showSubtitles(False)
-            elif is_eng_audio:
-                # English Dub playing: respect general.dubsubtitles
-                if control.getBool('general.dubsubtitles'):
-                    self.showSubtitles(True)
-                else:
+                # Enable and Disable Subtitles based on active audio stream
+                if preferred_subtitle_lang == "none":
                     self.showSubtitles(False)
-            else:
-                # Japanese or foreign audio playing: show subtitles
-                self.showSubtitles(True)
+                elif is_eng_audio:
+                    # English Dub playing: respect general.dubsubtitles
+                    if control.getBool('general.dubsubtitles'):
+                        self.showSubtitles(True)
+                    else:
+                        self.showSubtitles(False)
+                else:
+                    # Japanese or foreign audio playing: show subtitles
+                    self.showSubtitles(True)
+            elif not subtitle_streams or preferred_subtitle_lang == "none":
+                # No valid subtitle stream found for current stream: ensure subtitles are disabled
+                # so lingering external or temp subtitles from earlier episodes are not displayed
+                self.showSubtitles(False)
 
     # ── Skip Time Processing (AniSkip / AnimeSkip / Embed / FFprobe chapters) ─
 

@@ -1126,8 +1126,10 @@ def set_videotags(li, info):
         ])
     if country := info.get('country'):
         vinfo.setCountries([str(c) for c in country] if isinstance(country, list) else [str(country)])
-    if originaltitle := info.get('OriginalTitle'):
+    if originaltitle := info.get('OriginalTitle') or info.get('originaltitle') or info.get('original_title'):
         vinfo.setOriginalTitle(str(originaltitle))
+        li.setProperty('originaltitle', str(originaltitle))
+        li.setProperty('OriginalTitle', str(originaltitle))
     if trailer := info.get('trailer'):
         vinfo.setTrailer(str(trailer))
 

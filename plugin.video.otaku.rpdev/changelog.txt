@@ -1,3 +1,6 @@
+Changelog v5.7.3 (2026-10-31):
+- Fix subtitle download integration, prevent cross-episode stale subtitle leakage, and format standard media filenames for subtitle addons
+
 Changelog v5.7.2 (2026-10-31):
 - Comprehensive Watchlist & Debrid Auth Hardening: Systematically hardened all 4 watchlist integrations (AniList, MyAnimeList, Kitsu, Simkl) and all 7 Debrid/Cloud providers (Real-Debrid, Premiumize, AllDebrid, Debrid-Link, TorBox, EasyDebrid, Easynews).
 - QR Code Resilience Across All Windows: Wrapped pyqrcode in try/except blocks across wlf_auth.py, real_debrid.py, all_debrid.py, debrid_link.py, and torbox.py, ensuring auth dialogs never fail to render when graphics libraries encounter filesystem or platform constraints.

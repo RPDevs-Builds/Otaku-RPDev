@@ -453,5 +453,63 @@ class TestLanguageMatchingKodi22(unittest.TestCase):
         self.assertFalse(is_language_match('en', 'English', ''))
 
 
+class TestSubtitleDownloadIntegrationAndIsolation(unittest.TestCase):
+    """Test suite for subtitle download isolation, filename formatting, and temp purging."""
+
+    def test_format_video_filename_tvshow(self):
+        from resources.lib.ui.source_utils import format_video_filename
+        info = {
+            'tvshowtitle': 'Black Butler: Emerald Witch Arc',
+            'season': 5,
+            'episode': 3
+        }
+        res = format_video_filename(info)
+        self.assertEqual(res, "Black Butler Emerald Witch Arc - S05E03.mkv")
+
+    def test_format_video_filename_movie(self):
+        from resources.lib.ui.source_utils import format_video_filename
+        info = {
+            'title': 'Your Name.',
+            'year': 2016
+        }
+        res = format_video_filename(info)
+        self.assertEqual(res, "Your Name. (2016).mkv")
+
+    def test_format_video_filename_sanitization(self):
+        from resources.lib.ui.source_utils import format_video_filename
+        info = {
+            'tvshowtitle': 'Fate/stay night: Heaven\'s Feel',
+            'season': 1,
+            'episode': 1
+        }
+        res = format_video_filename(info)
+        self.assertNotIn('/', res)
+        self.assertNotIn(':', res)
+        self.assertEqual(res, "Fatestay night Heaven's Feel - S01E01.mkv")
+
+    def test_del_subs_purges_temp_subtitles_and_a4k_temp(self):
+        from resources.lib.ui import embed_extractor
+        with patch('resources.lib.ui.embed_extractor.xbmcvfs.listdir') as mock_listdir, \
+             patch('resources.lib.ui.embed_extractor.xbmcvfs.delete') as mock_delete, \
+             patch('resources.lib.ui.embed_extractor.xbmcvfs.exists', return_value=True):
+            
+            def listdir_side_effect(path):
+                if 'special://temp/' in path:
+                    return ([], ['TemporarySubs.0.eng.ass', 'TempSubtitle.en.ass', 'other.log'])
+                elif 'service.subtitles.a4ksubtitles' in path:
+                    return ([], ['stale_a4k_sub.ass', 'sub.zip'])
+                return ([], [])
+
+            mock_listdir.side_effect = listdir_side_effect
+            embed_extractor.del_subs()
+
+            deleted_paths = [call[0][0] for call in mock_delete.call_args_list]
+            self.assertIn('special://temp/TemporarySubs.0.eng.ass', deleted_paths)
+            self.assertIn('special://temp/TempSubtitle.en.ass', deleted_paths)
+            self.assertNotIn('special://temp/other.log', deleted_paths)
+            self.assertIn('special://profile/addon_data/service.subtitles.a4ksubtitles/temp/stale_a4k_sub.ass', deleted_paths)
+            self.assertIn('special://profile/addon_data/service.subtitles.a4ksubtitles/temp/sub.zip', deleted_paths)
+
+
 if __name__ == "__main__":
     unittest.main()

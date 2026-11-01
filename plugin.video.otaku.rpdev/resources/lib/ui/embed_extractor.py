@@ -538,6 +538,11 @@ def get_sub(sub_url, sub_lang, headers=None, sub_index=0, display_name=None, sou
     if sub_lang and re.match(r'^[a-z]{3}$', str(sub_lang).lower()):
         lang = str(sub_lang).lower()
     response = client.get(sub_url, headers=headers)
+    if not response:
+        try:
+            response = client.get(sub_url, headers=headers, verify=False)
+        except Exception:
+            response = None
 
     if not response:
         control.log(f"get_sub: request failed for {sub_url}", level='info')
@@ -570,10 +575,22 @@ def get_sub(sub_url, sub_lang, headers=None, sub_index=0, display_name=None, sou
 
 
 def del_subs():
-    dirs, files = xbmcvfs.listdir('special://temp/')
-    for fname in files:
-        if fname.startswith('TemporarySubs'):
-            xbmcvfs.delete(f'special://temp/{fname}')
+    try:
+        dirs, files = xbmcvfs.listdir('special://temp/')
+        for fname in files:
+            if fname.startswith(('TemporarySubs', 'TempSubtitle')):
+                xbmcvfs.delete(f'special://temp/{fname}')
+    except Exception:
+        pass
+
+    try:
+        a4k_temp = 'special://profile/addon_data/service.subtitles.a4ksubtitles/temp/'
+        if xbmcvfs.exists(a4k_temp):
+            dirs, files = xbmcvfs.listdir(a4k_temp)
+            for fname in files:
+                xbmcvfs.delete(f'{a4k_temp}{fname}')
+    except Exception:
+        pass
 
 
 __register_extractor(["https://www.mp4upload.com/",
