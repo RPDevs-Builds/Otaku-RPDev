@@ -23,7 +23,6 @@ def get_subtitles_settings() -> Dict[str, Any]:
         'subtitles.enabled': control.getBool('subtitles.enabled', True),
         'subtitles.auto_search': control.getBool('subtitles.auto_search', True),
         'subtitles.auto_download': control.getBool('subtitles.auto_download', True),
-        'subtitles.auto_select': control.getBool('subtitles.auto_select', True),
         'subtitles.prefer_sdh': control.getBool('subtitles.prefer_sdh', False),
         'subtitles.prefer_forced': control.getBool('subtitles.prefer_forced', False),
         'subtitles.use_chardet': control.getBool('subtitles.use_chardet', True),

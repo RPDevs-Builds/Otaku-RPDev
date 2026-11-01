@@ -474,7 +474,22 @@ mock_home_win.clearProperty.side_effect = lambda k: _window_props.pop(k, None)
 mock_home_win.clearProperties.side_effect = lambda: _window_props.clear()
 
 
-class MockWindowXMLDialog:
+class SwigClassProtectionMeta(type):
+    """
+    Emulates SWIG C++ wrapper metaclass behavior in Python 3.14.
+    Disallows dynamic class-level attribute injection on WindowXMLDialog / WindowDialog subclasses
+    unless the attribute is already declared in the class hierarchy, faithfully mirroring Kodi's
+    C++ extension type reflection restrictions.
+    """
+    def __setattr__(cls, name, value):
+        if name.startswith('__') and name.endswith('__'):
+            return super().__setattr__(name, value)
+        if name not in cls.__dict__ and not any(name in b.__dict__ for b in cls.__mro__):
+            raise AttributeError(f"type '{cls.__name__}' has no attribute '{name}'")
+        super().__setattr__(name, value)
+
+
+class MockWindowXMLDialog(metaclass=SwigClassProtectionMeta):
     def __init__(self, xml_file='', xml_path='', default_skin='', default_res=''):
         self._xml_file = xml_file
         self._xml_path = xml_path
@@ -501,7 +516,7 @@ class MockWindowXMLDialog:
     def show(self): pass
 
 
-class MockWindowDialog:
+class MockWindowDialog(metaclass=SwigClassProtectionMeta):
     def __init__(self, *args, **kwargs):
         self._props = {}
         self._controls = {}

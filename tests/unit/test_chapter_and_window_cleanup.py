@@ -154,6 +154,31 @@ class TestChapterAndWindowCleanup(unittest.TestCase):
             self.assertNotIn('close', win.actionArgs)
             mock_inst.close.assert_called()
 
+    def test_swig_metaclass_blocks_dynamic_class_attributes(self):
+        """SWIG C++ extension metaclass must block dynamic class-attribute assignment on dialog classes."""
+        import xbmcgui
+        class TestDialog(xbmcgui.WindowXMLDialog):
+            pass
+
+        with self.assertRaises(AttributeError) as ctx:
+            TestDialog._current_workers = 10
+
+        self.assertIn("has no attribute '_current_workers'", str(ctx.exception))
+
+    def test_swig_metaclass_allows_instance_attributes_and_declared_methods(self):
+        """Instances of WindowXMLDialog must freely support instance attributes, and class methods must resolve."""
+        import xbmcgui
+        class TestDialog(xbmcgui.WindowXMLDialog):
+            declared_cls_var = 'declared'
+            @classmethod
+            def get_val(cls):
+                return cls.declared_cls_var
+
+        inst = TestDialog()
+        inst.dynamic_instance_attr = 'allowed'
+        self.assertEqual(inst.dynamic_instance_attr, 'allowed')
+        self.assertEqual(TestDialog.get_val(), 'declared')
+
 
 if __name__ == '__main__':
     unittest.main()

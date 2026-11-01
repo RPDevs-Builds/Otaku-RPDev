@@ -104,6 +104,74 @@ def update_changelog(changelog_path, new_ver, message):
         f.write(entry + old_content)
 
 
+def run_headless_kodi_smoke_test(repo_root):
+    """Pre-flight Step 1b: Boots real Kodi 22 via Xvfb and inspects kodi.log for C++ deserialization/SWIG errors."""
+    kodi_env = shutil.which("kodi-env")
+    xvfb = shutil.which("xvfb-run")
+    flatpak = shutil.which("flatpak")
+
+    if not (kodi_env and xvfb and flatpak):
+        print("\n⚠️  Step 1b: Skipping headless Kodi 22 smoke test (kodi-env, xvfb-run, or flatpak missing on host).")
+        return True
+
+    print("\n🖥️  Step 1b: Running Headless Real-Kodi 22 Smoke Test (Piers RC 1 & Python 3.14)...")
+
+    # 1. Ensure latest development add-on tree is linked into Kodi 22 profile
+    run_cmd("kodi-env link-addons", cwd=repo_root, check=False)
+
+    log_path = "/mnt/sharedroot/projects/kodi-test-env/profiles/kodi22/temp/kodi.log"
+    if os.path.exists(log_path):
+        try:
+            os.remove(log_path)
+        except Exception:
+            pass
+
+    # 2. Boot headless Kodi 22 via Xvfb for 5 seconds
+    proc = subprocess.Popen("kodi-env headless 22", shell=True, cwd=repo_root, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    try:
+        proc.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        subprocess.run("pkill -15 -f 'kodi\\.bin' || true", shell=True)
+        subprocess.run("pkill -9 -f 'kodi\\.bin' || true", shell=True)
+        subprocess.run("pkill -9 -f 'xvfb-run.*tv\\.kodi\\.Kodi' || true", shell=True)
+        try:
+            proc.kill()
+        except Exception:
+            pass
+
+    if not os.path.exists(log_path):
+        print("  ⚠️ Warning: kodi.log was not created during headless boot. Skipping log analysis.")
+        return True
+
+    with open(log_path, "r", encoding="utf-8", errors="ignore") as f:
+        log_content = f.read()
+
+    fatal_patterns = [
+        "invalid setting type",
+        "csettingsection::deserialize",
+        "attributeerror: type '",
+        "swig director",
+        "failed to load addon",
+        "segmentation fault",
+    ]
+
+    fatal_matches = []
+    for line in log_content.splitlines():
+        line_lower = line.lower()
+        if any(p in line_lower for p in fatal_patterns):
+            fatal_matches.append(line.strip())
+
+    if fatal_matches:
+        print(f"\n[FAIL] Headless Kodi 22 booted with {len(fatal_matches)} fatal C++ or runtime errors in kodi.log!")
+        for m in fatal_matches[:10]:
+            print(f"  • {m}")
+        print("\nAborting release due to fatal Kodi 22 runtime errors.")
+        sys.exit(1)
+
+    print("  ✓ Real Kodi 22 booted cleanly via Xvfb: zero settings deserialization or SWIG errors logged.")
+    return True
+
+
 def main():
     parser = argparse.ArgumentParser(description="Automate Kodi Addon Release & CDN Distribution")
     parser.add_argument("addon_id", nargs="?", default="plugin.video.otaku.rpdev", help="Target addon directory name")
@@ -112,6 +180,7 @@ def main():
     parser.add_argument("-m", "--message", default="", help="Release changelog summary / commit message")
     parser.add_argument("--cdn-dir", default=DEFAULT_CDN_DIR, help="Path to kodi.repo.iamrp.dev repository")
     parser.add_argument("--skip-tests", action="store_true", help="Skip pre-flight test suites")
+    parser.add_argument("--skip-kodi-smoke", action="store_true", help="Skip headless real-Kodi 22 smoke test")
     parser.add_argument("--dry-run", action="store_true", help="Simulate release without modifying disk or pushing")
 
     args = parser.parse_args()
@@ -159,6 +228,12 @@ def main():
         print("  ✓ All unit, integration, and lint tests passed cleanly.")
     else:
         print("\n⚠️  Step 1: Skipping pre-flight tests (--skip-tests active)")
+
+    # 1b. Real Headless Kodi 22 Smoke Test
+    if not args.skip_kodi_smoke and not args.skip_tests:
+        run_headless_kodi_smoke_test(repo_root)
+    else:
+        print("\n⚠️  Step 1b: Skipping headless Kodi smoke test")
 
     if args.dry_run:
         print("\n[DRY RUN] Pre-flight checks complete.")
