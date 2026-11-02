@@ -1,5 +1,5 @@
-Changelog v6.0.0 (2026-11-02):
-- Milestone v6.0.0 Major Release: Universal Playback Resume & Bookmark Sync, AniList GraphQL 50-Item Batch Chunking, Context Menu Safety, 64KB RAM Cache Bounds & Generational GC, Proactive OAuth Refresh in 15-Minute Service Loop, and Universal Debrid 429 Rate-Limit Backoff
+Changelog v5.9.6 (2026-11-02):
+- Milestone v6.0.0 Pre-Release Hardening: Universal Playback Resume & Bookmark Sync, AniList GraphQL 50-Item Batch Chunking, Context Menu Safety, 64KB RAM Cache Bounds & Generational GC, Proactive OAuth Refresh in 15-Minute Service Loop, and Universal Debrid 429 Rate-Limit Backoff
 
 Changelog v5.9.5 (2026-11-02):
 - Milestone v6.0.0 Production Hardening: Scraper Zombie Abort, SQLite Self-Healing & Lock Jitter, System Health Diagnostics, Hardware Profiles, HTTP Keep-Alive & Offline Scraper Tests
