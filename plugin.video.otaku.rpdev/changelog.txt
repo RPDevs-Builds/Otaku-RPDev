@@ -1,3 +1,6 @@
+Changelog v5.9.10 (2026-11-02):
+- Menu Customization Window & Action Buttons: Migrate Menu Order dialog to full native WindowXML interface (menu_order.xml) featuring dedicated Move Up, Move Down, Move to Top, Move to Bottom, and Toggle Visibility buttons with clean unnumbered item list, removing extraneous position numbering.
+
 Changelog v5.9.9 (2026-11-02):
 - Menu Customization & Home Screen Item Ordering: Add dedicated interactive Main Menu Order & Visibility manager combining reordering (Move Up, Move Down, Move to Position, Move to Top, Move to Bottom), visibility toggle, batch multiselect, and default reset. Refactor _collect_category_menu_items to strictly adhere to custom item order while preserving 100% legacy compatibility.
 

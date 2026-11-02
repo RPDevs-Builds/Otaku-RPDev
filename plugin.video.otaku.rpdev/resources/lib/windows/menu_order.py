@@ -4,7 +4,8 @@
     Allows reordering and toggling visibility of Home screen main menu items.
 """
 
-from resources.lib.ui import control
+import xbmcgui
+from resources.lib.ui import control, utils
 
 # All 24 Home screen items with default order, string label ID, default enabled state, and icon
 DEFAULT_MENU_ITEMS = [
@@ -40,7 +41,7 @@ MENU_ITEM_METADATA = {x[0]: (x[1], x[3]) for x in DEFAULT_MENU_ITEMS}
 
 
 def get_item_label(item_id):
-    """Resolve user-visible label for a menu item ID."""
+    """Resolve user-visible label for a menu item ID (clean, unnumbered)."""
     meta = MENU_ITEM_METADATA.get(item_id)
     if meta:
         lbl = control.lang(meta[0])
@@ -104,112 +105,181 @@ def move_item(items, from_idx, to_idx):
     return to_idx
 
 
+class MenuOrderDialog(xbmcgui.WindowXMLDialog):
+    """
+    Interactive full GUI Window for arranging Home screen item order and toggling visibility.
+    Displays items cleanly without numbers and provides prominent action buttons:
+    Move Up, Move Down, Move to Top, Move to Bottom, Toggle Visibility, Reset, Save, Cancel.
+    """
+
+    def __init__(self, xml_file, location):
+        super().__init__(xml_file, location)
+        self.ordered_ids, self.enabled_set = load_menu_order()
+        self.list_control = None
+        self.modified = False
+        self._win_closed = False
+
+    def onInit(self):
+        control.closeBusyDialog()
+        try:
+            self.list_control = self.getControl(1000)
+        except Exception as e:
+            control.log(f"MenuOrderDialog: Failed to get list control 1000: {e}", 'error')
+            self.list_control = None
+
+        self._populate_list(selected_idx=0)
+        self.setFocusId(1000)
+
+    def _get_current_index(self):
+        if self.list_control is not None:
+            try:
+                pos = self.list_control.getSelectedPosition()
+                if 0 <= pos < len(self.ordered_ids):
+                    return pos
+            except Exception:
+                pass
+        return 0
+
+    def _populate_list(self, selected_idx=0):
+        if self.list_control is None:
+            return
+
+        self.list_control.reset()
+        for item_id in self.ordered_ids:
+            title = get_item_label(item_id)
+            is_enabled = item_id in self.enabled_set
+
+            item = xbmcgui.ListItem(label=title)
+            meta = MENU_ITEM_METADATA.get(item_id)
+            icon_file = meta[1] if meta else 'tools.png'
+            icon_path = utils._get_artwork_path(icon_file)
+            item.setArt({'icon': icon_path, 'thumb': icon_path})
+
+            status_badge = '[COLOR deepskyblue][✓][/COLOR]' if is_enabled else '[COLOR grey][  ][/COLOR]'
+            status_text = control.lang(30690) if is_enabled else control.lang(30691)
+
+            item.setProperty('status_badge', status_badge)
+            item.setProperty('status_text', status_text)
+            item.setProperty('item_id', item_id)
+            self.list_control.addItem(item)
+
+        if len(self.ordered_ids) > 0:
+            target_idx = max(0, min(len(self.ordered_ids) - 1, selected_idx))
+            self.list_control.selectItem(target_idx)
+
+    def move_up(self):
+        idx = self._get_current_index()
+        if idx > 0:
+            new_idx = move_item(self.ordered_ids, idx, idx - 1)
+            self.modified = True
+            self._populate_list(selected_idx=new_idx)
+            return new_idx
+        return idx
+
+    def move_down(self):
+        idx = self._get_current_index()
+        if idx < len(self.ordered_ids) - 1:
+            new_idx = move_item(self.ordered_ids, idx, idx + 1)
+            self.modified = True
+            self._populate_list(selected_idx=new_idx)
+            return new_idx
+        return idx
+
+    def move_top(self):
+        idx = self._get_current_index()
+        if idx > 0:
+            new_idx = move_item(self.ordered_ids, idx, 0)
+            self.modified = True
+            self._populate_list(selected_idx=0)
+            return 0
+        return idx
+
+    def move_bottom(self):
+        idx = self._get_current_index()
+        last_idx = len(self.ordered_ids) - 1
+        if idx < last_idx:
+            new_idx = move_item(self.ordered_ids, idx, last_idx)
+            self.modified = True
+            self._populate_list(selected_idx=last_idx)
+            return last_idx
+        return idx
+
+    def toggle_visibility(self):
+        idx = self._get_current_index()
+        item_id = self.ordered_ids[idx]
+        if item_id in self.enabled_set:
+            self.enabled_set.discard(item_id)
+        else:
+            self.enabled_set.add(item_id)
+        self.modified = True
+        self._populate_list(selected_idx=idx)
+
+    def reset_defaults(self):
+        if control.yesno_dialog(control.lang(30682), control.lang(30686)):
+            self.ordered_ids = list(DEFAULT_ORDER)
+            self.enabled_set = set(DEFAULT_ENABLED)
+            self.modified = True
+            self._populate_list(selected_idx=0)
+
+    def save_and_close(self):
+        save_menu_order(self.ordered_ids, self.enabled_set)
+        control.notify(control.ADDON_NAME, control.lang(30684))
+        self._win_closed = True
+        self.close()
+
+    def cancel_and_close(self):
+        if self.modified:
+            if control.yesno_dialog(control.lang(30673), control.lang(30688)):
+                self.save_and_close()
+                return
+        self._win_closed = True
+        self.close()
+
+    def onClick(self, control_id):
+        if control_id == 1000:
+            # Clicking on a list item directly toggles its visibility
+            self.toggle_visibility()
+        elif control_id == 3001:  # Move Up
+            self.move_up()
+        elif control_id == 3002:  # Move Down
+            self.move_down()
+        elif control_id == 3003:  # Move to Top
+            self.move_top()
+        elif control_id == 3004:  # Move to Bottom
+            self.move_bottom()
+        elif control_id == 3005:  # Toggle Visibility
+            self.toggle_visibility()
+        elif control_id == 3006:  # Reset Defaults
+            self.reset_defaults()
+        elif control_id == 3007:  # Save & Apply
+            self.save_and_close()
+        elif control_id == 3008:  # Cancel
+            self.cancel_and_close()
+
+    def onAction(self, action):
+        action_id = action.getId() if hasattr(action, 'getId') else int(action)
+        if action_id in [9, 10, 92, 216]:
+            # Back / ESC
+            self.cancel_and_close()
+        elif action_id == 7:
+            # Enter / Select
+            focus_id = self.getFocusId()
+            if focus_id == 1000:
+                self.toggle_visibility()
+            else:
+                self.onClick(focus_id)
+
+
 def open_menu_order_dialog():
     """
-    Interactive Kodi modal dialog for arranging Main Menu item order and toggling visibility.
+    Open the interactive Main Menu Order & Customization window.
     """
-    ordered_ids, enabled_set = load_menu_order()
-    current_focus = 0
-    modified = False
-
-    while not control.monitor.abortRequested():
-        num_items = len(ordered_ids)
-        display_lines = []
-        for idx, item_id in enumerate(ordered_ids, start=1):
-            title = get_item_label(item_id)
-            status = "[X]" if item_id in enabled_set else "[  ]"
-            display_lines.append(f"{status}  {idx:02d}.  {title}")
-
-        # Action entries at bottom
-        action_divider = num_items
-        action_batch = num_items + 1
-        action_reset = num_items + 2
-        action_save = num_items + 3
-
-        display_lines.append(f"─── {control.lang(30673)} ───")
-        display_lines.append(f"[✓] {control.lang(30681)}")  # Batch Select Enabled Items
-        display_lines.append(f"[↺] {control.lang(30682)}")  # Reset to Default Order & Visibility
-        display_lines.append(f"[✔] {control.lang(30687)}")  # Save and Close
-
-        heading = f"{control.lang(30673)} ({len(enabled_set)}/{num_items} Enabled)"
-        selected = control.select_dialog(
-            heading,
-            display_lines,
-            preselect=min(current_focus, len(display_lines) - 1)
-        )
-
-        if selected == -1:
-            # User pressed Back/ESC
-            if modified:
-                if control.yesno_dialog(control.lang(30673), control.lang(30688)):
-                    save_menu_order(ordered_ids, enabled_set)
-                    control.notify(control.ADDON_NAME, control.lang(30684))
-            break
-
-        current_focus = selected
-
-        # Actions at bottom
-        if selected == action_save:
-            save_menu_order(ordered_ids, enabled_set)
-            control.notify(control.ADDON_NAME, control.lang(30684))
-            break
-        elif selected == action_batch:
-            preselect = [i for i, item_id in enumerate(ordered_ids) if item_id in enabled_set]
-            names = [f"{i+1:02d}. {get_item_label(item_id)}" for i, item_id in enumerate(ordered_ids)]
-            new_selection = control.multiselect_dialog(control.lang(30681), names, preselect=preselect)
-            if new_selection is not None:
-                enabled_set = set(ordered_ids[i] for i in new_selection)
-                modified = True
-            continue
-        elif selected == action_reset:
-            if control.yesno_dialog(control.lang(30682), control.lang(30686)):
-                ordered_ids = list(DEFAULT_ORDER)
-                enabled_set = set(DEFAULT_ENABLED)
-                modified = True
-            continue
-        elif selected >= action_divider:
-            continue
-
-        # Item selected
-        item_id = ordered_ids[selected]
-        title = get_item_label(item_id)
-        is_enabled = item_id in enabled_set
-        pos = selected + 1
-
-        action_options = [
-            f"1. {control.lang(30680)}: {'[Disable]' if is_enabled else '[Enable]'}",
-            f"2. {control.lang(30675)} (Up)",
-            f"3. {control.lang(30676)} (Down)",
-            f"4. {control.lang(30677)}...",
-            f"5. {control.lang(30678)}",
-            f"6. {control.lang(30679)}",
-        ]
-
-        action_choice = control.select_dialog(
-            f"{control.lang(30685)}: {title} ({pos}/{num_items})",
-            action_options
-        )
-
-        if action_choice == -1:
-            continue
-
-        modified = True
-        if action_choice == 0:  # Toggle Visibility
-            if is_enabled:
-                enabled_set.discard(item_id)
-            else:
-                enabled_set.add(item_id)
-        elif action_choice == 1:  # Move Up
-            current_focus = move_item(ordered_ids, selected, selected - 1)
-        elif action_choice == 2:  # Move Down
-            current_focus = move_item(ordered_ids, selected, selected + 1)
-        elif action_choice == 3:  # Move to Position
-            target_str = control.numeric_dialog(0, f"{control.lang(30683)} (1-{num_items}):", str(pos))
-            if target_str and target_str.isdigit():
-                target_pos = int(target_str)
-                if 1 <= target_pos <= num_items:
-                    current_focus = move_item(ordered_ids, selected, target_pos - 1)
-        elif action_choice == 4:  # Move to Top
-            current_focus = move_item(ordered_ids, selected, 0)
-        elif action_choice == 5:  # Move to Bottom
-            current_focus = move_item(ordered_ids, selected, num_items - 1)
+    window = None
+    try:
+        window = MenuOrderDialog("menu_order.xml", control.ADDON_PATH)
+        window.doModal()
+    except Exception as e:
+        control.log(f"Error in open_menu_order_dialog: {e}", 'error')
+    finally:
+        if window:
+            del window

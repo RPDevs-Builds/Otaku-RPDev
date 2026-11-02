@@ -2701,3 +2701,19 @@ msgctxt "#30688"
 msgid "Save changes before exiting?"
 msgstr ""
 
+msgctxt "#30689"
+msgid "Save & Apply"
+msgstr ""
+
+msgctxt "#30690"
+msgid "Visible on Home screen"
+msgstr ""
+
+msgctxt "#30691"
+msgid "Hidden from Home screen"
+msgstr ""
+
+msgctxt "#30692"
+msgid "Reset to Default Order"
+msgstr ""
+

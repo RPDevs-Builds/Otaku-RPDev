@@ -42,14 +42,19 @@ class TestMenuOrder(unittest.TestCase):
             self.assertIsInstance(default_en, bool)
             self.assertTrue(icon.endswith('.png'))
 
-    def test_get_item_label(self):
-        """Test resolving localized string for menu items."""
+    def test_get_item_label_unnumbered(self):
+        """Test resolving clean unnumbered localized string for menu items."""
         with patch('resources.lib.ui.control.lang', side_effect=lambda x: f"Label_{x}"):
             lbl = menu_order.get_item_label('watchlist')
             self.assertEqual(lbl, "Label_30162")
+            # Verify no numbers or indices prefixed
+            self.assertFalse(lbl.startswith(('0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '[')))
 
-            lbl_custom = menu_order.get_item_label('unknown_custom_item')
-            self.assertEqual(lbl_custom, "Unknown Custom Item")
+            lbl_custom = menu_order.get_item_label('airing_calendar')
+            self.assertEqual(lbl_custom, "Label_30001")
+
+            lbl_fallback = menu_order.get_item_label('custom_addon_tool')
+            self.assertEqual(lbl_fallback, "Custom Addon Tool")
 
     def test_load_menu_order_defaults(self):
         """Test default loading when no settings exist."""
@@ -192,34 +197,70 @@ class TestMenuOrder(unittest.TestCase):
         route_obj = next(r for r in router.ROUTES if r.path == 'menu_order')
         self.assertTrue(callable(route_obj.func))
 
-    @patch('resources.lib.windows.menu_order.save_menu_order')
-    @patch('resources.lib.ui.control.notify')
-    def test_open_menu_order_dialog_save_flow(self, mock_notify, mock_save):
-        """Test dialog save action triggers save_menu_order."""
-        # Simulate user selecting the "Save and Close" entry (action_save is 24 + 3 = 27)
-        with patch('resources.lib.windows.menu_order.load_menu_order', return_value=(list(menu_order.DEFAULT_ORDER), set(menu_order.DEFAULT_ENABLED))), \
-             patch('resources.lib.ui.control.select_dialog', return_value=27):
+    def test_menu_order_dialog_actions_and_buttons(self):
+        """Test MenuOrderDialog button handlers (Move Up, Down, Top, Bottom, Toggle, Reset, Save)."""
+        dlg = menu_order.MenuOrderDialog("menu_order.xml", control.ADDON_PATH)
+        dlg.onInit()
 
-            menu_order.open_menu_order_dialog()
-            mock_save.assert_called_once()
+        # Initial state
+        self.assertFalse(dlg.modified)
+        first_item = dlg.ordered_ids[0]
+        second_item = dlg.ordered_ids[1]
+
+        # 1. Select index 1 and Move Up (Button 3001)
+        dlg.list_control.selectItem(1)
+        dlg.onClick(3001)
+        self.assertTrue(dlg.modified)
+        self.assertEqual(dlg.ordered_ids[0], second_item)
+        self.assertEqual(dlg.ordered_ids[1], first_item)
+
+        # 2. Select index 0 and Move Down (Button 3002)
+        dlg.list_control.selectItem(0)
+        dlg.onClick(3002)
+        self.assertEqual(dlg.ordered_ids[0], first_item)
+        self.assertEqual(dlg.ordered_ids[1], second_item)
+
+        # 3. Select index 5 and Move to Top (Button 3003)
+        target_item = dlg.ordered_ids[5]
+        dlg.list_control.selectItem(5)
+        dlg.onClick(3003)
+        self.assertEqual(dlg.ordered_ids[0], target_item)
+
+        # 4. Select index 0 and Move to Bottom (Button 3004)
+        bottom_item = dlg.ordered_ids[0]
+        dlg.list_control.selectItem(0)
+        dlg.onClick(3004)
+        self.assertEqual(dlg.ordered_ids[-1], bottom_item)
+
+        # 5. Toggle Visibility (Button 3005)
+        dlg.list_control.selectItem(0)
+        curr_id = dlg.ordered_ids[0]
+        was_enabled = curr_id in dlg.enabled_set
+        dlg.onClick(3005)
+        self.assertEqual(curr_id in dlg.enabled_set, not was_enabled)
+        # Toggle back via list click (Control ID 1000)
+        dlg.onClick(1000)
+        self.assertEqual(curr_id in dlg.enabled_set, was_enabled)
+
+        # 6. Reset to Defaults (Button 3006)
+        with patch('resources.lib.ui.control.yesno_dialog', return_value=True):
+            dlg.onClick(3006)
+            self.assertEqual(dlg.ordered_ids, menu_order.DEFAULT_ORDER)
+            self.assertEqual(dlg.enabled_set, set(menu_order.DEFAULT_ENABLED))
+
+        # 7. Save & Apply (Button 3007)
+        with patch('resources.lib.windows.menu_order.save_menu_order') as mock_save, \
+             patch('resources.lib.ui.control.notify') as mock_notify:
+            dlg.onClick(3007)
+            mock_save.assert_called_once_with(dlg.ordered_ids, dlg.enabled_set)
             mock_notify.assert_called_once()
+            self.assertTrue(dlg._win_closed)
 
-    @patch('resources.lib.windows.menu_order.save_menu_order')
-    @patch('resources.lib.ui.control.notify')
-    def test_open_menu_order_dialog_reorder_and_save_on_exit(self, mock_notify, mock_save):
-        """Test user moves an item, then exits and confirms save."""
-        # 1st call: select item 1 ('last_watched')
-        # 2nd call: select action 1 ('Move Down')
-        # 3rd call: select -1 (ESC / Back)
-        select_dialog_responses = [1, 2, -1]
-
-        with patch('resources.lib.windows.menu_order.load_menu_order', return_value=(list(menu_order.DEFAULT_ORDER), set(menu_order.DEFAULT_ENABLED))), \
-             patch('resources.lib.ui.control.select_dialog', side_effect=select_dialog_responses), \
-             patch('resources.lib.ui.control.yesno_dialog', return_value=True):
-
+    def test_open_menu_order_dialog_lifecycle(self):
+        """Test open_menu_order_dialog instantiates MenuOrderDialog and executes doModal."""
+        with patch.object(menu_order.MenuOrderDialog, 'doModal') as mock_modal:
             menu_order.open_menu_order_dialog()
-            mock_save.assert_called_once()
-            mock_notify.assert_called_once()
+            mock_modal.assert_called_once()
 
 
 if __name__ == '__main__':

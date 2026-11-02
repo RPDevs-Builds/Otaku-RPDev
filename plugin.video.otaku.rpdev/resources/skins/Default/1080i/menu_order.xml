@@ -1,0 +1,315 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<window type="dialog">
+    <defaultcontrol always="true">1000</defaultcontrol>
+    <coordinates>
+        <left>0</left>
+        <top>0</top>
+        <width>1920</width>
+        <height>1080</height>
+    </coordinates>
+    <controls>
+        <!-- Background Dimmer -->
+        <control type="image">
+            <left>0</left>
+            <top>0</top>
+            <width>1920</width>
+            <height>1080</height>
+            <texture>white.png</texture>
+            <colordiffuse>D0000000</colordiffuse>
+        </control>
+
+        <!-- Main Dialog Frame (1600x880) -->
+        <control type="group">
+            <left>160</left>
+            <top>100</top>
+            <width>1600</width>
+            <height>880</height>
+
+            <!-- Card Background -->
+            <control type="image">
+                <left>0</left>
+                <top>0</top>
+                <width>1600</width>
+                <height>880</height>
+                <texture border="10">white.png</texture>
+                <colordiffuse>FF181C24</colordiffuse>
+            </control>
+
+            <!-- Top Accent Bar -->
+            <control type="image">
+                <left>0</left>
+                <top>0</top>
+                <width>1600</width>
+                <height>6</height>
+                <texture>white.png</texture>
+                <colordiffuse>FF00BFFF</colordiffuse>
+            </control>
+
+            <!-- Dialog Header -->
+            <control type="label">
+                <left>45</left>
+                <top>25</top>
+                <width>1510</width>
+                <height>38</height>
+                <font>font16</font>
+                <textcolor>FFFFFFFF</textcolor>
+                <label>[B]Otaku - Main Menu Order &amp; Customization[/B]</label>
+            </control>
+
+            <control type="label">
+                <left>45</left>
+                <top>68</top>
+                <width>1510</width>
+                <height>25</height>
+                <font>font12</font>
+                <textcolor>88FFFFFF</textcolor>
+                <label>Reorder Home screen icons and toggle visibility. Highlight an item on the left, then click Move Up, Move Down, Move to Top, or Move to Bottom.</label>
+            </control>
+
+            <!-- Left Panel: Menu Items List (Control ID: 1000) -->
+            <control type="list" id="1000">
+                <left>45</left>
+                <top>115</top>
+                <width>980</width>
+                <height>730</height>
+                <onup>1000</onup>
+                <ondown>1000</ondown>
+                <onright>3001</onright>
+                <onleft>3001</onleft>
+                <pagecontrol>17</pagecontrol>
+                <scrolltime>150</scrolltime>
+
+                <itemlayout height="72" width="980">
+                    <control type="image">
+                        <left>0</left>
+                        <top>0</top>
+                        <width>980</width>
+                        <height>66</height>
+                        <texture border="6">white.png</texture>
+                        <colordiffuse>15FFFFFF</colordiffuse>
+                    </control>
+                    <control type="label">
+                        <left>20</left>
+                        <top>14</top>
+                        <width>50</width>
+                        <height>38</height>
+                        <font>font14</font>
+                        <label>$INFO[ListItem.Property(status_badge)]</label>
+                    </control>
+                    <control type="image">
+                        <left>75</left>
+                        <top>13</top>
+                        <width>40</width>
+                        <height>40</height>
+                        <texture>$INFO[ListItem.ActualIcon]</texture>
+                    </control>
+                    <control type="label">
+                        <left>130</left>
+                        <top>10</top>
+                        <width>830</width>
+                        <height>26</height>
+                        <font>font14</font>
+                        <textcolor>FFFFFFFF</textcolor>
+                        <label>[B]$INFO[ListItem.Label][/B]</label>
+                    </control>
+                    <control type="label">
+                        <left>130</left>
+                        <top>36</top>
+                        <width>830</width>
+                        <height>22</height>
+                        <font>font11</font>
+                        <textcolor>88FFFFFF</textcolor>
+                        <label>$INFO[ListItem.Property(status_text)]</label>
+                    </control>
+                </itemlayout>
+
+                <focusedlayout height="72" width="980">
+                    <control type="image">
+                        <left>0</left>
+                        <top>0</top>
+                        <width>980</width>
+                        <height>66</height>
+                        <texture border="6">white.png</texture>
+                        <colordiffuse>FF00BFFF</colordiffuse>
+                    </control>
+                    <control type="image">
+                        <left>2</left>
+                        <top>2</top>
+                        <width>976</width>
+                        <height>62</height>
+                        <texture border="6">white.png</texture>
+                        <colordiffuse>FF222834</colordiffuse>
+                    </control>
+                    <control type="label">
+                        <left>20</left>
+                        <top>14</top>
+                        <width>50</width>
+                        <height>38</height>
+                        <font>font14</font>
+                        <label>$INFO[ListItem.Property(status_badge)]</label>
+                    </control>
+                    <control type="image">
+                        <left>75</left>
+                        <top>13</top>
+                        <width>40</width>
+                        <height>40</height>
+                        <texture>$INFO[ListItem.ActualIcon]</texture>
+                    </control>
+                    <control type="label">
+                        <left>130</left>
+                        <top>10</top>
+                        <width>830</width>
+                        <height>26</height>
+                        <font>font14</font>
+                        <textcolor>FF00BFFF</textcolor>
+                        <label>[B]$INFO[ListItem.Label][/B]</label>
+                    </control>
+                    <control type="label">
+                        <left>130</left>
+                        <top>36</top>
+                        <width>830</width>
+                        <height>22</height>
+                        <font>font11</font>
+                        <textcolor>FFFFFFFF</textcolor>
+                        <label>$INFO[ListItem.Property(status_text)]</label>
+                    </control>
+                </focusedlayout>
+            </control>
+
+            <!-- Scrollbar (Control ID: 17) -->
+            <control type="scrollbar" id="17">
+                <left>1035</left>
+                <top>115</top>
+                <width>14</width>
+                <height>730</height>
+                <visible>true</visible>
+                <orientation>vertical</orientation>
+                <onleft>1000</onleft>
+                <onright>3001</onright>
+            </control>
+
+            <!-- Right Panel: Action Buttons (Control ID: 2000) -->
+            <control type="grouplist" id="2000">
+                <left>1070</left>
+                <top>115</top>
+                <width>485</width>
+                <height>730</height>
+                <itemgap>14</itemgap>
+                <onleft>1000</onleft>
+                <onright>1000</onright>
+
+                <!-- Move Up -->
+                <control type="button" id="3001">
+                    <height>64</height>
+                    <width>485</width>
+                    <align>center</align>
+                    <aligny>center</aligny>
+                    <font>font14</font>
+                    <label>[B]▲  Move Up[/B]</label>
+                    <onleft>1000</onleft>
+                    <onright>1000</onright>
+                    <texturenofocus colordiffuse="30FFFFFF">white.png</texturenofocus>
+                    <texturefocus colordiffuse="FF00BFFF">white.png</texturefocus>
+                </control>
+
+                <!-- Move Down -->
+                <control type="button" id="3002">
+                    <height>64</height>
+                    <width>485</width>
+                    <align>center</align>
+                    <aligny>center</aligny>
+                    <font>font14</font>
+                    <label>[B]▼  Move Down[/B]</label>
+                    <onleft>1000</onleft>
+                    <onright>1000</onright>
+                    <texturenofocus colordiffuse="30FFFFFF">white.png</texturenofocus>
+                    <texturefocus colordiffuse="FF00BFFF">white.png</texturefocus>
+                </control>
+
+                <!-- Move to Top -->
+                <control type="button" id="3003">
+                    <height>64</height>
+                    <width>485</width>
+                    <align>center</align>
+                    <aligny>center</aligny>
+                    <font>font14</font>
+                    <label>[B]⤒  Move to Top[/B]</label>
+                    <onleft>1000</onleft>
+                    <onright>1000</onright>
+                    <texturenofocus colordiffuse="30FFFFFF">white.png</texturenofocus>
+                    <texturefocus colordiffuse="FF00BFFF">white.png</texturefocus>
+                </control>
+
+                <!-- Move to Bottom -->
+                <control type="button" id="3004">
+                    <height>64</height>
+                    <width>485</width>
+                    <align>center</align>
+                    <aligny>center</aligny>
+                    <font>font14</font>
+                    <label>[B]⤓  Move to Bottom[/B]</label>
+                    <onleft>1000</onleft>
+                    <onright>1000</onright>
+                    <texturenofocus colordiffuse="30FFFFFF">white.png</texturenofocus>
+                    <texturefocus colordiffuse="FF00BFFF">white.png</texturefocus>
+                </control>
+
+                <!-- Toggle Visibility -->
+                <control type="button" id="3005">
+                    <height>64</height>
+                    <width>485</width>
+                    <align>center</align>
+                    <aligny>center</aligny>
+                    <font>font14</font>
+                    <label>[B]✔  Toggle Visibility (Show / Hide)[/B]</label>
+                    <onleft>1000</onleft>
+                    <onright>1000</onright>
+                    <texturenofocus colordiffuse="30FFFFFF">white.png</texturenofocus>
+                    <texturefocus colordiffuse="FF00BFFF">white.png</texturefocus>
+                </control>
+
+                <!-- Reset to Defaults -->
+                <control type="button" id="3006">
+                    <height>64</height>
+                    <width>485</width>
+                    <align>center</align>
+                    <aligny>center</aligny>
+                    <font>font14</font>
+                    <label>[B]↺  Reset to Default Order[/B]</label>
+                    <onleft>1000</onleft>
+                    <onright>1000</onright>
+                    <texturenofocus colordiffuse="30FFFFFF">white.png</texturenofocus>
+                    <texturefocus colordiffuse="FF00BFFF">white.png</texturefocus>
+                </control>
+
+                <!-- Save & Apply -->
+                <control type="button" id="3007">
+                    <height>76</height>
+                    <width>485</width>
+                    <align>center</align>
+                    <aligny>center</aligny>
+                    <font>font15</font>
+                    <label>[B]💾  Save &amp; Apply[/B]</label>
+                    <onleft>1000</onleft>
+                    <onright>1000</onright>
+                    <texturenofocus colordiffuse="8000BFFF">white.png</texturenofocus>
+                    <texturefocus colordiffuse="FF00BFFF">white.png</texturefocus>
+                </control>
+
+                <!-- Cancel -->
+                <control type="button" id="3008">
+                    <height>56</height>
+                    <width>485</width>
+                    <align>center</align>
+                    <aligny>center</aligny>
+                    <font>font13</font>
+                    <label>[B]✕  Cancel[/B]</label>
+                    <onleft>1000</onleft>
+                    <onright>1000</onright>
+                    <texturenofocus colordiffuse="20FFFFFF">white.png</texturenofocus>
+                    <texturefocus colordiffuse="FFFF6B6B">white.png</texturefocus>
+                </control>
+            </control>
+        </control>
+    </controls>
+</window>
