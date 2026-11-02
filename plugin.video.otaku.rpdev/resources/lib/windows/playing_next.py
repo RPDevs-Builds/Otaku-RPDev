@@ -43,7 +43,8 @@ class PlayingNext(BaseWindow):
                     progress_bar.setPercent(percent)
             except Exception:
                 break
-            xbmc.sleep(1000)
+            if control.monitor.waitForAbort(1.0):
+                break
         self.close()
 
     def doModal(self):

@@ -1,3 +1,4 @@
+import random
 import time
 import xbmcgui
 from resources.lib.ui import client, control, source_utils
@@ -15,6 +16,20 @@ class EasyDebrid:
             "Content-Type": "application/json"
         }
 
+    def _request_with_backoff(self, method, url, **kwargs):
+        """Execute HTTP request with backoff for HTTP 429 and 503."""
+        r = getattr(client, method.lower())(url, **kwargs)
+        if r and r.status_code in (429, 503):
+            try:
+                wait_seconds = int(r.headers.get('Retry-After', 1))
+            except (ValueError, TypeError):
+                wait_seconds = 1
+            wait_seconds = min(max(wait_seconds, 1), 3) + random.uniform(0.1, 0.4)
+            control.log(f"EasyDebrid API HTTP {r.status_code} for {url}, backing off {wait_seconds:.2f}s", 'warning')
+            time.sleep(wait_seconds)
+            r = getattr(client, method.lower())(url, **kwargs)
+        return r
+
     def auth(self):
         token = control.input_dialog("Enter API KEY for EasyDebrid:", self.token, xbmcgui.INPUT_ALPHANUM)
         if not token:
@@ -30,8 +45,8 @@ class EasyDebrid:
     def status(self):
         url = f"{self.base_url}/user/details"
         # Ensure JSON posting if needed; here we use a GET so no post data
-        r = client.get(url, headers=self.headers())
-        resp = r.json() if r else {}
+        r = self._request_with_backoff('get', url, headers=self.headers())
+        resp = r.json(default={}) if r else {}
         if resp and "id" in resp:
             control.setSetting('easydebrid.username', str(resp.get('id')))
             current_time = int(time.time())
@@ -39,7 +54,7 @@ class EasyDebrid:
             auth_status = "Premium" if paid_until > current_time else "Expired"
             control.setSetting('easydebrid.auth.status', auth_status)
             control.ok_dialog(control.ADDON_NAME, f'EasyDebrid {control.lang(30084)}')
-        return resp and "id" in resp
+        return bool(resp and "id" in resp)
 
     def resolve_hoster(self, endpoint, episode, pack_select):
         """
@@ -49,8 +64,8 @@ class EasyDebrid:
         """
         url = f"{self.base_url}/link/generate"
         data = {"url": endpoint}
-        r = client.post(url, json_data=data, headers=self.headers())
-        resp = r.json() if r else {}
+        r = self._request_with_backoff('post', url, json_data=data, headers=self.headers())
+        resp = r.json(default={}) if r else {}
 
         files = resp.get('files')
         if isinstance(files, list) and episode:
@@ -74,12 +89,8 @@ class EasyDebrid:
             endpoint = [endpoint]
         url = f"{self.base_url}/link/lookup"
         data = {"urls": endpoint}
-        r = client.post(url, json_data=data, headers=self.headers())
-        try:
-            resp = r.json() if r else {}
-        except Exception:
-            resp = {}
-        return resp
+        r = self._request_with_backoff('post', url, json_data=data, headers=self.headers())
+        return r.json(default={}) if r else {}
 
     def resolve_single_magnet(self, hash_, magnet, episode, pack_select, filename=None):
         """

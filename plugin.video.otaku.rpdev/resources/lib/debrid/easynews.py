@@ -86,33 +86,45 @@ class Easynews:
         return out
 
     def unrestrict_link(self, url_dl):
-        """Follow Easynews download URL with auth; return final stream URL (same pattern as POV)."""
+        """Follow Easynews download URL with auth; return final stream URL with auth header for Kodi."""
         if not url_dl or not self.username or not self.password:
             return None
-        try:
-            # limit=1024 → read up to 1024 KiB (enough to settle redirects); extended output carries final URL.
-            result = client.request(
-                url_dl,
-                headers=self._auth_headers(),
-                timeout=int(_UNRESTRICT_TIMEOUT),
-                limit=1024,
-                output='extended',
-                use_session=True,
-            )
-            if not result or not isinstance(result, tuple) or len(result) < 6:
-                return None
-            content, status_code, _resp_headers, _req_headers, _cookie, response_url = result
+        for attempt in range(2):
             try:
-                code = int(status_code)
-            except (TypeError, ValueError):
-                code = 0
-            if code >= 400:
-                control.log(f'Easynews resolve HTTP {code}', 'warning')
-                return None
-            if content and response_url:
-                return response_url
-        except Exception as e:
-            control.log(f'Easynews resolve failed: {e}', 'error')
+                # limit=1024 → read up to 1024 KiB (enough to settle redirects); extended output carries final URL.
+                result = client.request(
+                    url_dl,
+                    headers=self._auth_headers(),
+                    timeout=int(_UNRESTRICT_TIMEOUT),
+                    limit=1024,
+                    output='extended',
+                    use_session=True,
+                )
+                if not result or not isinstance(result, tuple) or len(result) < 6:
+                    if attempt == 0:
+                        continue
+                    return None
+                content, status_code, _resp_headers, _req_headers, _cookie, response_url = result
+                try:
+                    code = int(status_code)
+                except (TypeError, ValueError):
+                    code = 0
+                if code >= 400:
+                    control.log(f'Easynews resolve HTTP {code}', 'warning')
+                    if attempt == 0 and code in (500, 502, 503, 504):
+                        continue
+                    return None
+                if content and response_url:
+                    if '|' not in response_url:
+                        auth_val = self._auth_headers().get('Authorization', '')
+                        if auth_val:
+                            return f"{response_url}|Authorization={quote(auth_val)}"
+                    return response_url
+            except Exception as e:
+                control.log(f'Easynews resolve attempt {attempt + 1} failed: {e}', 'warning')
+                if attempt == 0:
+                    continue
+                control.log(f'Easynews resolve failed: {e}', 'error')
         return None
 
     def resolve_single_magnet(self, hash_, magnet, episode, pack_select, filename=None):

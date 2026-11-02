@@ -288,6 +288,54 @@ class SyncDatabase:
                 (self.last_meta_update,))
             cur.connection.commit()
 
+    def _migrate_database(self):
+        """Perform non-destructive schema evolution without wiping user metadata."""
+        control.log(f"Database: Running non-destructive schema migration to {self.last_meta_update}")
+        # 1. Ensure all standard tables & indexes exist
+        self._create_all_tables()
+
+        # 2. Check for missing columns in existing tables and ALTER TABLE if needed
+        with SQL(control.malSyncDB) as cur:
+            # Check watchlist_cache table
+            cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='watchlist_cache'")
+            if cur.fetchone():
+                cur.execute("PRAGMA table_info(watchlist_cache)")
+                cols = {col['name'] for col in cur.fetchall()}
+                if 'item_order' not in cols:
+                    try:
+                        cur.execute("ALTER TABLE watchlist_cache ADD COLUMN item_order INTEGER NOT NULL DEFAULT 0")
+                    except Exception:
+                        pass
+
+            # Check episodes table
+            cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='episodes'")
+            if cur.fetchone():
+                cur.execute("PRAGMA table_info(episodes)")
+                cols = {col['name'] for col in cur.fetchall()}
+                if 'anidb_ep_id' not in cols:
+                    try:
+                        cur.execute("ALTER TABLE episodes ADD COLUMN anidb_ep_id INTEGER")
+                    except Exception:
+                        pass
+                if 'filler' not in cols:
+                    try:
+                        cur.execute("ALTER TABLE episodes ADD COLUMN filler TEXT")
+                    except Exception:
+                        pass
+
+            # Update otaku_version in activities
+            cur.execute(
+                'INSERT OR REPLACE INTO activities(sync_id, otaku_version) VALUES(1, ?)',
+                (self.last_meta_update,))
+            cur.connection.commit()
+
+        # 3. Refresh SQL view
+        SyncDatabase._build_watchlist_view()
+
+        # 4. Refresh in-memory activity state
+        self.refresh_activites()
+        control.log("Database: Non-destructive schema migration complete")
+
     def check_database_version(self):
         if not self.activites or self.activites.get('otaku_version') != self.last_meta_update:
             first_time = control.getBool('first_time')
@@ -309,10 +357,12 @@ class SyncDatabase:
                 elif choice == 0:
                     control.setBool('first_time', False)
 
-            self.re_build_database(True)
-
-            # Clear last_watched setting
-            control.setSetting('addon.last_watched', '')
+                self.re_build_database(True)
+                # Clear last_watched setting on first install
+                control.setSetting('addon.last_watched', '')
+            else:
+                # Existing user upgrading: perform non-destructive schema migration
+                self._migrate_database()
 
             # Update every menu configuration
             configs = [

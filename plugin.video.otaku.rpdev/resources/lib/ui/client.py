@@ -169,6 +169,9 @@ def _get_cached_useragent(mobile=False):
 #  Response - Requests-Compatible Response Object
 # ═══════════════════════════════════════════════════════════════════════════
 
+_JSON_RAISE = object()
+
+
 class Response:
     """
     Requests-like Response object to match requests module API
@@ -208,13 +211,15 @@ class Response:
             return self._raw_content.encode('utf-8', errors='ignore')
         return self._raw_content or b''
 
-    def json(self):
-        """Parse response content as JSON"""
+    def json(self, default=_JSON_RAISE):
+        """Parse response content as JSON with optional default fallback."""
         if not self.text:
-            return {}
+            return {} if default is _JSON_RAISE else default
         try:
             return json.loads(self.text)
         except (json.JSONDecodeError, ValueError) as e:
+            if default is not _JSON_RAISE:
+                return default
             raise ValueError(f"Invalid JSON response: {str(e)}")
 
     def __bool__(self):
@@ -471,7 +476,7 @@ def request(
 
         try:
             # Use local/session opener so concurrent threads never clobber global urllib state
-            req_timeout = int(timeout) if timeout else 15
+            req_timeout = float(timeout) if timeout is not None else 15.0
             response = opener.open(req, timeout=req_timeout)
         except urllib.error.HTTPError as e:
             if error is True:
@@ -553,7 +558,7 @@ def request(
                             _headers['User-Agent'] = cf_ua
                         req = urllib.request.Request(url, data=post)
                         _add_request_header(req, _headers)
-                        response = opener.open(req, timeout=int(timeout))
+                        response = opener.open(req, timeout=float(timeout) if timeout is not None else 15.0)
                     else:
                         control.log('%s has a Cloudflare challenge.' % (netloc))
                         if output == 'extended':
@@ -590,7 +595,7 @@ def request(
                         _headers['User-Agent'] = ddg_ua
                     req = urllib.request.Request(url, data=post)
                     _add_request_header(req, _headers)
-                    response = opener.open(req, timeout=int(timeout))
+                    response = opener.open(req, timeout=float(timeout) if timeout is not None else 15.0)
                 else:
                     control.log('%s has a DDoS-Guard challenge.' % (netloc))
                     if not error:

@@ -717,8 +717,17 @@ class WatchlistPlayer(player):
                 control.log(f"Player: Triggering 'Still Watching?' safeguard (consecutive={consecutive}, limit={stillwatching_count})", 'info')
                 from resources.lib.windows.still_watching import StillWatchingXML
                 title = control.playerWindow.getProperty('item.info.tvshowtitle') or getattr(self, 'title', '')
-                dlg = StillWatchingXML('still_watching.xml', control.ADDON_PATH, actionArgs={'title': title})
-                keep_watching = dlg.doModal()
+                dlg = None
+                try:
+                    dlg = StillWatchingXML('still_watching.xml', control.ADDON_PATH, actionArgs={'title': title})
+                    keep_watching = dlg.doModal()
+                finally:
+                    if dlg:
+                        try:
+                            dlg.close()
+                        except Exception:
+                            pass
+                        del dlg
                 if keep_watching:
                     control.log("Player: User confirmed 'Keep Watching' — resetting consecutive counter", 'info')
                     control.playerWindow.setProperty('otaku.consecutive_autoplay', '0')

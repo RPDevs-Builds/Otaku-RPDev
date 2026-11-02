@@ -1,15 +1,17 @@
 import re
 
 from bs4 import BeautifulSoup
-from resources.lib.ui import client, control
+from resources.lib.ui import client, control, database
 
 url = "https://www.animefillerlist.com/shows"
 
 
-def get_data(anime_eng_title):
+def _fetch_filler_data(anime_eng_title):
     filler_list = []
     if anime_eng_title:
         anime_url = re.sub(r'\W+', '-', anime_eng_title).strip('-').lower()
+        if not anime_url:
+            return filler_list
         try:
             response = client.get(f'{url}/{anime_url}', timeout=10)
             if response and getattr(response, 'text', None):
@@ -24,3 +26,10 @@ def get_data(anime_eng_title):
             control.log(f"anime_filler lookup error for {anime_eng_title}: {e}", 'debug')
 
     return filler_list
+
+
+def get_data(anime_eng_title):
+    if not anime_eng_title:
+        return []
+    # Cache filler list in SQLite / RAM for 7 days (168 hours)
+    return database.get(_fetch_filler_data, 168, anime_eng_title)

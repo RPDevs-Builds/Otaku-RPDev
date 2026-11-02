@@ -1,3 +1,6 @@
+Changelog v5.9.7 (2026-11-02):
+- Milestone v6.0.0 Pre-Release Hardening: HTTP Client Float Timeout Precision, Response.json Safe Fallbacks, EasyDebrid 429/503 Backoff, Easynews Playback Stream Auth Pipe Headers, Non-Destructive Database Schema Evolution, AnimeFiller 7-Day SQLite Caching, and Dialog Lifecycle Cleanup
+
 Changelog v5.9.6 (2026-11-02):
 - Milestone v6.0.0 Pre-Release Hardening: Universal Playback Resume & Bookmark Sync, AniList GraphQL 50-Item Batch Chunking, Context Menu Safety, 64KB RAM Cache Bounds & Generational GC, Proactive OAuth Refresh in 15-Minute Service Loop, and Universal Debrid 429 Rate-Limit Backoff
 
