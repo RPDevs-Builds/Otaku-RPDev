@@ -2717,3 +2717,20 @@ msgctxt "#30692"
 msgid "Reset to Default Order"
 msgstr ""
 
+msgctxt "#30693"
+msgid "Sub Menu Order & Customization"
+msgstr ""
+
+msgctxt "#30694"
+msgid "Genre Menu Order & Customization"
+msgstr ""
+
+msgctxt "#30695"
+msgid "Visible in menu"
+msgstr ""
+
+msgctxt "#30696"
+msgid "Hidden from menu"
+msgstr ""
+
+

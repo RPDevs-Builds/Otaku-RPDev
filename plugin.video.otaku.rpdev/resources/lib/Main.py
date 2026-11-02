@@ -819,16 +819,36 @@ def _collect_category_menu_items(menu_items_key, settings_key, extra_key_suffix)
 
     else:
         # Sub-category menus (movie, tv_show, etc.)
-        for item_id in ('last_watched%s' % extra_key_suffix,
-                        'watch_history%s' % extra_key_suffix,
-                        'next_up%s' % extra_key_suffix,
-                        'my_cloud%s' % extra_key_suffix):
-            if item_id in enabled_ids and item_id in items_by_id:
-                _append_resolved(items_by_id[item_id]())
-        for item in get_menu_items(menu_items_key):
-            if item[1] in enabled_ids:
-                _append_resolved([item])
-        return enabled_items
+        order_key = settings_key.replace('.config', '.order')
+        order_setting = control.getSetting(order_key)
+        if order_setting:
+            order_ids = [x.strip() for x in order_setting.split(',') if x.strip()]
+        else:
+            order_ids = None
+
+        if order_ids:
+            for item_id in order_ids:
+                if item_id in enabled_ids and item_id in items_by_id:
+                    gen_or_list = items_by_id[item_id]
+                    resolved = gen_or_list() if callable(gen_or_list) else gen_or_list
+                    _append_resolved(resolved)
+            for item_id in enabled_ids:
+                if item_id in items_by_id and item_id not in order_ids:
+                    gen_or_list = items_by_id[item_id]
+                    resolved = gen_or_list() if callable(gen_or_list) else gen_or_list
+                    _append_resolved(resolved)
+            return enabled_items
+        else:
+            for item_id in ('last_watched%s' % extra_key_suffix,
+                            'watch_history%s' % extra_key_suffix,
+                            'next_up%s' % extra_key_suffix,
+                            'my_cloud%s' % extra_key_suffix):
+                if item_id in enabled_ids and item_id in items_by_id:
+                    _append_resolved(items_by_id[item_id]())
+            for item in get_menu_items(menu_items_key):
+                if item[1] in enabled_ids:
+                    _append_resolved([item])
+            return enabled_items
 
 
 def _finalize_menu_list_items(menu_items):
@@ -909,7 +929,17 @@ def _draw_category_main_menu(menu_items_key, settings_key, extra_key_suffix, ref
 def _draw_filtered_submenu(menu_items_key, settings_key):
     items = get_menu_items(menu_items_key)
     enabled_ids = control.getStringList(settings_key)
-    enabled = [item for item in items if item[1] in enabled_ids]
+    order_key = settings_key.replace('.config', '.order')
+    order_setting = control.getSetting(order_key)
+    if order_setting:
+        order_ids = [x.strip() for x in order_setting.split(',') if x.strip()]
+        item_dict = {item[1]: item for item in items}
+        enabled = [item_dict[i] for i in order_ids if i in enabled_ids and i in item_dict]
+        for item in items:
+            if item[1] in enabled_ids and item[1] not in order_ids:
+                enabled.append(item)
+    else:
+        enabled = [item for item in items if item[1] in enabled_ids]
     view_type = 'addons' if control.getBool('interface.content_type') else ''
     control.draw_items(
         [utils.allocate_item(name, url, True, False, [], image, info) for name, url, image, info in enabled],

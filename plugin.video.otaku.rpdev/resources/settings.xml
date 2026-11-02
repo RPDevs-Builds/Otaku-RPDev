@@ -3018,7 +3018,21 @@
 			<group id="1" label="30407" help="">
 				<setting id="menu.mainmenu.order_action" type="action" label="30673" help="30674">
 					<level>0</level>
-					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/menu_order?setting=true)</data>
+					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/menu_order?menu=menu.mainmenu&amp;setting=true)</data>
+					<control type="button" format="action">
+						<close>true</close>
+					</control>
+				</setting>
+				<setting id="menu.submenu.action" type="action" label="30405" help="30674">
+					<level>0</level>
+					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/menu_order?menu=menu.submenu&amp;setting=true)</data>
+					<control type="button" format="action">
+						<close>true</close>
+					</control>
+				</setting>
+				<setting id="menu.genres.action" type="action" label="30406" help="30674">
+					<level>0</level>
+					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/menu_order?menu=menu.genres&amp;setting=true)</data>
 					<control type="button" format="action">
 						<close>true</close>
 					</control>
@@ -3030,8 +3044,22 @@
 						<heading>30673</heading>
 					</control>
 				</setting>
+				<setting id="menu.submenu.order" type="string" label="30405" help="">
+					<level>4</level>
+					<default>trending_last_year,trending_this_year,trending_last_season,trending_this_season,all_time_trending,popular_last_year,popular_this_year,popular_last_season,popular_this_season,all_time_popular,voted_last_year,voted_this_year,voted_last_season,voted_this_season,all_time_voted,favourites_last_year,favourites_this_year,favourites_last_season,favourites_this_season,all_time_favourites</default>
+					<control type="edit" format="string">
+						<heading>30405</heading>
+					</control>
+				</setting>
+				<setting id="menu.genres.order" type="string" label="30406" help="">
+					<level>4</level>
+					<default>genres//,genre_action,genre_adventure,genre_comedy,genre_drama,genre_ecchi,genre_fantasy,genre_hentai,genre_horror,genre_shoujo,genre_mecha,genre_music,genre_mystery,genre_psychological,genre_romance,genre_sci_fi,genre_slice_of_life,genre_sports,genre_supernatural,genre_thriller</default>
+					<control type="edit" format="string">
+						<heading>30406</heading>
+					</control>
+				</setting>
 				<setting id="menu.mainmenu.config" type="list[string]" label="30404" help="">
-					<level>1</level>
+					<level>4</level>
 					<default>watchlist,last_watched,watch_history,next_up,my_cloud,airing_calendar,airing_last_season,airing_this_season,airing_next_season,trending,popular,voted,favourites,top_100,genres,search,tools</default>
 					<constraints>
 						<options>
@@ -3070,7 +3098,7 @@
 					</control>
 				</setting>
 				<setting id="menu.submenu.config" type="list[string]" label="30405" help="">
-					<level>2</level>
+					<level>4</level>
 					<default>trending_last_year,trending_this_year,trending_last_season,trending_this_season,all_time_trending,popular_last_year,popular_this_year,popular_last_season,popular_this_season,all_time_popular,voted_last_year,voted_this_year,voted_last_season,voted_this_season,all_time_voted,favourites_last_year,favourites_this_year,favourites_last_season,favourites_this_season,all_time_favourites</default>
 					<constraints>
 						<options>
@@ -3105,7 +3133,7 @@
 					</control>
 				</setting>
 				<setting id="menu.genres.config" type="list[string]" label="30406" help="">
-					<level>2</level>
+					<level>4</level>
 					<default>genres//,genre_action,genre_adventure,genre_comedy,genre_drama,genre_ecchi,genre_fantasy,genre_horror,genre_shoujo,genre_mecha,genre_music,genre_mystery,genre_psychological,genre_romance,genre_sci_fi,genre_slice_of_life,genre_sports,genre_supernatural,genre_thriller</default>
 					<constraints>
 						<options>
@@ -3142,8 +3170,50 @@
 			</group>
 			<!-- Movies -->
 			<group id="2" label="30408" help="">
+				<setting id="movie.mainmenu.action" type="action" label="30404" help="30674">
+					<level>0</level>
+					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/menu_order?menu=movie.mainmenu&amp;setting=true)</data>
+					<control type="button" format="action">
+						<close>true</close>
+					</control>
+				</setting>
+				<setting id="movie.submenu.action" type="action" label="30405" help="30674">
+					<level>0</level>
+					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/menu_order?menu=movie.submenu&amp;setting=true)</data>
+					<control type="button" format="action">
+						<close>true</close>
+					</control>
+				</setting>
+				<setting id="movie.genres.action" type="action" label="30406" help="30674">
+					<level>0</level>
+					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/menu_order?menu=movie.genres&amp;setting=true)</data>
+					<control type="button" format="action">
+						<close>true</close>
+					</control>
+				</setting>
+				<setting id="movie.mainmenu.order" type="string" label="30404" help="">
+					<level>4</level>
+					<default>last_watched_movie,watch_history_movie,next_up_movie,airing_last_season_movie,airing_this_season_movie,airing_next_season_movie,trending_movie,popular_movie,voted_movie,favourites_movie,top_100_movie,genres_movie,search_history_movie</default>
+					<control type="edit" format="string">
+						<heading>30404</heading>
+					</control>
+				</setting>
+				<setting id="movie.submenu.order" type="string" label="30405" help="">
+					<level>4</level>
+					<default>trending_last_year_movie,trending_this_year_movie,trending_last_season_movie,trending_this_season_movie,all_time_trending_movie,popular_last_year_movie,popular_this_year_movie,popular_last_season_movie,popular_this_season_movie,all_time_popular_movie,voted_last_year_movie,voted_this_year_movie,voted_last_season_movie,voted_this_season_movie,all_time_voted_movie,favourites_last_year_movie,favourites_this_year_movie,favourites_last_season_movie,favourites_this_season_movie,all_time_favourites_movie</default>
+					<control type="edit" format="string">
+						<heading>30405</heading>
+					</control>
+				</setting>
+				<setting id="movie.genres.order" type="string" label="30406" help="">
+					<level>4</level>
+					<default>genres_movie//,genre_action_movie,genre_adventure_movie,genre_comedy_movie,genre_drama_movie,genre_ecchi_movie,genre_fantasy_movie,genre_hentai_movie,genre_horror_movie,genre_shoujo_movie,genre_mecha_movie,genre_music_movie,genre_mystery_movie,genre_psychological_movie,genre_romance_movie,genre_sci_fi_movie,genre_slice_of_life_movie,genre_sports_movie,genre_supernatural_movie,genre_thriller_movie</default>
+					<control type="edit" format="string">
+						<heading>30406</heading>
+					</control>
+				</setting>
 				<setting id="movie.mainmenu.config" type="list[string]" label="30404" help="">
-					<level>2</level>
+					<level>4</level>
 					<default>last_watched_movie,watch_history_movie,next_up_movie,airing_last_season_movie,airing_this_season_movie,airing_next_season_movie,trending_movie,popular_movie,voted_movie,favourites_movie,top_100_movie,genres_movie,search_history_movie</default>
 					<constraints>
 						<options>
@@ -3171,7 +3241,7 @@
 					</control>
 				</setting>
 				<setting id="movie.submenu.config" type="list[string]" label="30405" help="">
-					<level>2</level>
+					<level>4</level>
 					<default>trending_last_year_movie,trending_this_year_movie,trending_last_season_movie,trending_this_season_movie,all_time_trending_movie,popular_last_year_movie,popular_this_year_movie,popular_last_season_movie,popular_this_season_movie,all_time_popular_movie,voted_last_year_movie,voted_this_year_movie,voted_last_season_movie,voted_this_season_movie,all_time_voted_movie,favourites_last_year_movie,favourites_this_year_movie,favourites_last_season_movie,favourites_this_season_movie,all_time_favourites_movie</default>
 					<constraints>
 						<options>
@@ -3206,7 +3276,7 @@
 					</control>
 				</setting>
 				<setting id="movie.genres.config" type="list[string]" label="30406" help="">
-					<level>2</level>
+					<level>4</level>
 					<default>genres_movie//,genre_action_movie,genre_adventure_movie,genre_comedy_movie,genre_drama_movie,genre_ecchi_movie,genre_fantasy_movie,genre_horror_movie,genre_shoujo_movie,genre_mecha_movie,genre_music_movie,genre_mystery_movie,genre_psychological_movie,genre_romance_movie,genre_sci_fi_movie,genre_slice_of_life_movie,genre_sports_movie,genre_supernatural_movie,genre_thriller_movie</default>
 					<constraints>
 						<options>
@@ -3243,8 +3313,50 @@
 			</group>
 			<!-- TV Shows -->
 			<group id="3" label="30409" help="">
+				<setting id="tv_show.mainmenu.action" type="action" label="30404" help="30674">
+					<level>0</level>
+					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/menu_order?menu=tv_show.mainmenu&amp;setting=true)</data>
+					<control type="button" format="action">
+						<close>true</close>
+					</control>
+				</setting>
+				<setting id="tv_show.submenu.action" type="action" label="30405" help="30674">
+					<level>0</level>
+					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/menu_order?menu=tv_show.submenu&amp;setting=true)</data>
+					<control type="button" format="action">
+						<close>true</close>
+					</control>
+				</setting>
+				<setting id="tv_show.genres.action" type="action" label="30406" help="30674">
+					<level>0</level>
+					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/menu_order?menu=tv_show.genres&amp;setting=true)</data>
+					<control type="button" format="action">
+						<close>true</close>
+					</control>
+				</setting>
+				<setting id="tv_show.mainmenu.order" type="string" label="30404" help="">
+					<level>4</level>
+					<default>last_watched_tv_show,watch_history_tv_show,next_up_tv_show,airing_last_season_tv_show,airing_this_season_tv_show,airing_next_season_tv_show,trending_tv_show,popular_tv_show,voted_tv_show,favourites_tv_show,top_100_tv_show,genres_tv_show,search_history_tv_show</default>
+					<control type="edit" format="string">
+						<heading>30404</heading>
+					</control>
+				</setting>
+				<setting id="tv_show.submenu.order" type="string" label="30405" help="">
+					<level>4</level>
+					<default>trending_last_year_tv_show,trending_this_year_tv_show,trending_last_season_tv_show,trending_this_season_tv_show,all_time_trending_tv_show,popular_last_year_tv_show,popular_this_year_tv_show,popular_last_season_tv_show,popular_this_season_tv_show,all_time_popular_tv_show,voted_last_year_tv_show,voted_this_year_tv_show,voted_last_season_tv_show,voted_this_season_tv_show,all_time_voted_tv_show,favourites_last_year_tv_show,favourites_this_year_tv_show,favourites_last_season_tv_show,favourites_this_season_tv_show,all_time_favourites_tv_show</default>
+					<control type="edit" format="string">
+						<heading>30405</heading>
+					</control>
+				</setting>
+				<setting id="tv_show.genres.order" type="string" label="30406" help="">
+					<level>4</level>
+					<default>genres_tv_show//,genre_action_tv_show,genre_adventure_tv_show,genre_comedy_tv_show,genre_drama_tv_show,genre_ecchi_tv_show,genre_fantasy_tv_show,genre_hentai_tv_show,genre_horror_tv_show,genre_shoujo_tv_show,genre_mecha_tv_show,genre_music_tv_show,genre_mystery_tv_show,genre_psychological_tv_show,genre_romance_tv_show,genre_sci_fi_tv_show,genre_slice_of_life_tv_show,genre_sports_tv_show,genre_supernatural_tv_show,genre_thriller_tv_show</default>
+					<control type="edit" format="string">
+						<heading>30406</heading>
+					</control>
+				</setting>
 				<setting id="tv_show.mainmenu.config" type="list[string]" label="30404" help="">
-					<level>2</level>
+					<level>4</level>
 					<default>last_watched_tv_show,watch_history_tv_show,next_up_tv_show,airing_last_season_tv_show,airing_this_season_tv_show,airing_next_season_tv_show,trending_tv_show,popular_tv_show,voted_tv_show,favourites_tv_show,top_100_tv_show,genres_tv_show,search_history_tv_show</default>
 					<constraints>
 						<options>
@@ -3272,7 +3384,7 @@
 					</control>
 				</setting>
 				<setting id="tv_show.submenu.config" type="list[string]" label="30405" help="">
-					<level>2</level>
+					<level>4</level>
 					<default>trending_last_year_tv_show,trending_this_year_tv_show,trending_last_season_tv_show,trending_this_season_tv_show,all_time_trending_tv_show,popular_last_year_tv_show,popular_this_year_tv_show,popular_last_season_tv_show,popular_this_season_tv_show,all_time_popular_tv_show,voted_last_year_tv_show,voted_this_year_tv_show,voted_last_season_tv_show,voted_this_season_tv_show,all_time_voted_tv_show,favourites_last_year_tv_show,favourites_this_year_tv_show,favourites_last_season_tv_show,favourites_this_season_tv_show,all_time_favourites_tv_show</default>
 					<constraints>
 						<options>
@@ -3307,7 +3419,7 @@
 					</control>
 				</setting>
 				<setting id="tv_show.genres.config" type="list[string]" label="30406" help="">
-					<level>2</level>
+					<level>4</level>
 					<default>genres_tv_show//,genre_action_tv_show,genre_adventure_tv_show,genre_comedy_tv_show,genre_drama_tv_show,genre_ecchi_tv_show,genre_fantasy_tv_show,genre_horror_tv_show,genre_shoujo_tv_show,genre_mecha_tv_show,genre_music_tv_show,genre_mystery_tv_show,genre_psychological_tv_show,genre_romance_tv_show,genre_sci_fi_tv_show,genre_slice_of_life_tv_show,genre_sports_tv_show,genre_supernatural_tv_show,genre_thriller_tv_show</default>
 					<constraints>
 						<options>
@@ -3344,8 +3456,50 @@
 			</group>
 			<!-- TV Shorts -->
 			<group id="4" label="30410" help="">
+				<setting id="tv_short.mainmenu.action" type="action" label="30404" help="30674">
+					<level>0</level>
+					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/menu_order?menu=tv_short.mainmenu&amp;setting=true)</data>
+					<control type="button" format="action">
+						<close>true</close>
+					</control>
+				</setting>
+				<setting id="tv_short.submenu.action" type="action" label="30405" help="30674">
+					<level>0</level>
+					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/menu_order?menu=tv_short.submenu&amp;setting=true)</data>
+					<control type="button" format="action">
+						<close>true</close>
+					</control>
+				</setting>
+				<setting id="tv_short.genres.action" type="action" label="30406" help="30674">
+					<level>0</level>
+					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/menu_order?menu=tv_short.genres&amp;setting=true)</data>
+					<control type="button" format="action">
+						<close>true</close>
+					</control>
+				</setting>
+				<setting id="tv_short.mainmenu.order" type="string" label="30404" help="">
+					<level>4</level>
+					<default>last_watched_tv_short,watch_history_tv_short,next_up_tv_short,airing_last_season_tv_short,airing_this_season_tv_short,airing_next_season_tv_short,trending_tv_short,popular_tv_short,voted_tv_short,favourites_tv_short,top_100_tv_short,genres_tv_short,search_history_tv_short</default>
+					<control type="edit" format="string">
+						<heading>30404</heading>
+					</control>
+				</setting>
+				<setting id="tv_short.submenu.order" type="string" label="30405" help="">
+					<level>4</level>
+					<default>trending_last_year_tv_short,trending_this_year_tv_short,trending_last_season_tv_short,trending_this_season_tv_short,all_time_trending_tv_short,popular_last_year_tv_short,popular_this_year_tv_short,popular_last_season_tv_short,popular_this_season_tv_short,all_time_popular_tv_short,voted_last_year_tv_short,voted_this_year_tv_short,voted_last_season_tv_short,voted_this_season_tv_short,all_time_voted_tv_short,favourites_last_year_tv_short,favourites_this_year_tv_short,favourites_last_season_tv_short,favourites_this_season_tv_short,all_time_favourites_tv_short</default>
+					<control type="edit" format="string">
+						<heading>30405</heading>
+					</control>
+				</setting>
+				<setting id="tv_short.genres.order" type="string" label="30406" help="">
+					<level>4</level>
+					<default>genres_tv_short//,genre_action_tv_short,genre_adventure_tv_short,genre_comedy_tv_short,genre_drama_tv_short,genre_ecchi_tv_short,genre_fantasy_tv_short,genre_hentai_tv_short,genre_horror_tv_short,genre_shoujo_tv_short,genre_mecha_tv_short,genre_music_tv_short,genre_mystery_tv_short,genre_psychological_tv_short,genre_romance_tv_short,genre_sci_fi_tv_short,genre_slice_of_life_tv_short,genre_sports_tv_short,genre_supernatural_tv_short,genre_thriller_tv_short</default>
+					<control type="edit" format="string">
+						<heading>30406</heading>
+					</control>
+				</setting>
 				<setting id="tv_short.mainmenu.config" type="list[string]" label="30404" help="">
-					<level>2</level>
+					<level>4</level>
 					<default>last_watched_tv_short,watch_history_tv_short,next_up_tv_short,airing_last_season_tv_short,airing_this_season_tv_short,airing_next_season_tv_short,trending_tv_short,popular_tv_short,voted_tv_short,favourites_tv_short,top_100_tv_short,genres_tv_short,search_history_tv_short</default>
 					<constraints>
 						<options>
@@ -3373,7 +3527,7 @@
 					</control>
 				</setting>
 				<setting id="tv_short.submenu.config" type="list[string]" label="30405" help="">
-					<level>2</level>
+					<level>4</level>
 					<default>trending_last_year_tv_short,trending_this_year_tv_short,trending_last_season_tv_short,trending_this_season_tv_short,all_time_trending_tv_short,popular_last_year_tv_short,popular_this_year_tv_short,popular_last_season_tv_short,popular_this_season_tv_short,all_time_popular_tv_short,voted_last_year_tv_short,voted_this_year_tv_short,voted_last_season_tv_short,voted_this_season_tv_short,all_time_voted_tv_short,favourites_last_year_tv_short,favourites_this_year_tv_short,favourites_last_season_tv_short,favourites_this_season_tv_short,all_time_favourites_tv_short</default>
 					<constraints>
 						<options>
@@ -3408,7 +3562,7 @@
 					</control>
 				</setting>
 				<setting id="tv_short.genres.config" type="list[string]" label="30406" help="">
-					<level>2</level>
+					<level>4</level>
 					<default>genres_tv_short//,genre_action_tv_short,genre_adventure_tv_short,genre_comedy_tv_short,genre_drama_tv_short,genre_ecchi_tv_short,genre_fantasy_tv_short,genre_horror_tv_short,genre_shoujo_tv_short,genre_mecha_tv_short,genre_music_tv_short,genre_mystery_tv_short,genre_psychological_tv_short,genre_romance_tv_short,genre_sci_fi_tv_short,genre_slice_of_life_tv_short,genre_sports_tv_short,genre_supernatural_tv_short,genre_thriller_tv_short</default>
 					<constraints>
 						<options>
@@ -3445,8 +3599,50 @@
 			</group>
 			<!-- Specials -->
 			<group id="5" label="30411" help="">
+				<setting id="special.mainmenu.action" type="action" label="30404" help="30674">
+					<level>0</level>
+					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/menu_order?menu=special.mainmenu&amp;setting=true)</data>
+					<control type="button" format="action">
+						<close>true</close>
+					</control>
+				</setting>
+				<setting id="special.submenu.action" type="action" label="30405" help="30674">
+					<level>0</level>
+					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/menu_order?menu=special.submenu&amp;setting=true)</data>
+					<control type="button" format="action">
+						<close>true</close>
+					</control>
+				</setting>
+				<setting id="special.genres.action" type="action" label="30406" help="30674">
+					<level>0</level>
+					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/menu_order?menu=special.genres&amp;setting=true)</data>
+					<control type="button" format="action">
+						<close>true</close>
+					</control>
+				</setting>
+				<setting id="special.mainmenu.order" type="string" label="30404" help="">
+					<level>4</level>
+					<default>last_watched_special,watch_history_special,next_up_special,airing_last_season_special,airing_this_season_special,airing_next_season_special,trending_special,popular_special,voted_special,favourites_special,top_100_special,genres_special,search_history_special</default>
+					<control type="edit" format="string">
+						<heading>30404</heading>
+					</control>
+				</setting>
+				<setting id="special.submenu.order" type="string" label="30405" help="">
+					<level>4</level>
+					<default>trending_last_year_special,trending_this_year_special,trending_last_season_special,trending_this_season_special,all_time_trending_special,popular_last_year_special,popular_this_year_special,popular_last_season_special,popular_this_season_special,all_time_popular_special,voted_last_year_special,voted_this_year_special,voted_last_season_special,voted_this_season_special,all_time_voted_special,favourites_last_year_special,favourites_this_year_special,favourites_last_season_special,favourites_this_season_special,all_time_favourites_special</default>
+					<control type="edit" format="string">
+						<heading>30405</heading>
+					</control>
+				</setting>
+				<setting id="special.genres.order" type="string" label="30406" help="">
+					<level>4</level>
+					<default>genres_special//,genre_action_special,genre_adventure_special,genre_comedy_special,genre_drama_special,genre_ecchi_special,genre_fantasy_special,genre_hentai_special,genre_horror_special,genre_shoujo_special,genre_mecha_special,genre_music_special,genre_mystery_special,genre_psychological_special,genre_romance_special,genre_sci_fi_special,genre_slice_of_life_special,genre_sports_special,genre_supernatural_special,genre_thriller_special</default>
+					<control type="edit" format="string">
+						<heading>30406</heading>
+					</control>
+				</setting>
 				<setting id="special.mainmenu.config" type="list[string]" label="30404" help="">
-					<level>2</level>
+					<level>4</level>
 					<default>last_watched_special,watch_history_special,next_up_special,airing_last_season_special,airing_this_season_special,airing_next_season_special,trending_special,popular_special,voted_special,favourites_special,top_100_special,genres_special,search_history_special</default>
 					<constraints>
 						<options>
@@ -3474,7 +3670,7 @@
 					</control>
 				</setting>
 				<setting id="special.submenu.config" type="list[string]" label="30405" help="">
-					<level>2</level>
+					<level>4</level>
 					<default>trending_last_year_special,trending_this_year_special,trending_last_season_special,trending_this_season_special,all_time_trending_special,popular_last_year_special,popular_this_year_special,popular_last_season_special,popular_this_season_special,all_time_popular_special,voted_last_year_special,voted_this_year_special,voted_last_season_special,voted_this_season_special,all_time_voted_special,favourites_last_year_special,favourites_this_year_special,favourites_last_season_special,favourites_this_season_special,all_time_favourites_special</default>
 					<constraints>
 						<options>
@@ -3509,7 +3705,7 @@
 					</control>
 				</setting>
 				<setting id="special.genres.config" type="list[string]" label="30406" help="">
-					<level>2</level>
+					<level>4</level>
 					<default>genres_special//,genre_action_special,genre_adventure_special,genre_comedy_special,genre_drama_special,genre_ecchi_special,genre_fantasy_special,genre_horror_special,genre_shoujo_special,genre_mecha_special,genre_music_special,genre_mystery_special,genre_psychological_special,genre_romance_special,genre_sci_fi_special,genre_slice_of_life_special,genre_sports_special,genre_supernatural_special,genre_thriller_special</default>
 					<constraints>
 						<options>
@@ -3544,10 +3740,52 @@
 					</control>
 				</setting>
 			</group>
-			<!-- OVA -->
+			<!-- OVAs -->
 			<group id="6" label="30412" help="">
+				<setting id="ova.mainmenu.action" type="action" label="30404" help="30674">
+					<level>0</level>
+					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/menu_order?menu=ova.mainmenu&amp;setting=true)</data>
+					<control type="button" format="action">
+						<close>true</close>
+					</control>
+				</setting>
+				<setting id="ova.submenu.action" type="action" label="30405" help="30674">
+					<level>0</level>
+					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/menu_order?menu=ova.submenu&amp;setting=true)</data>
+					<control type="button" format="action">
+						<close>true</close>
+					</control>
+				</setting>
+				<setting id="ova.genres.action" type="action" label="30406" help="30674">
+					<level>0</level>
+					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/menu_order?menu=ova.genres&amp;setting=true)</data>
+					<control type="button" format="action">
+						<close>true</close>
+					</control>
+				</setting>
+				<setting id="ova.mainmenu.order" type="string" label="30404" help="">
+					<level>4</level>
+					<default>last_watched_ova,watch_history_ova,next_up_ova,airing_last_season_ova,airing_this_season_ova,airing_next_season_ova,trending_ova,popular_ova,voted_ova,favourites_ova,top_100_ova,genres_ova,search_history_ova</default>
+					<control type="edit" format="string">
+						<heading>30404</heading>
+					</control>
+				</setting>
+				<setting id="ova.submenu.order" type="string" label="30405" help="">
+					<level>4</level>
+					<default>trending_last_year_ova,trending_this_year_ova,trending_last_season_ova,trending_this_season_ova,all_time_trending_ova,popular_last_year_ova,popular_this_year_ova,popular_last_season_ova,popular_this_season_ova,all_time_popular_ova,voted_last_year_ova,voted_this_year_ova,voted_last_season_ova,voted_this_season_ova,all_time_voted_ova,favourites_last_year_ova,favourites_this_year_ova,favourites_last_season_ova,favourites_this_season_ova,all_time_favourites_ova</default>
+					<control type="edit" format="string">
+						<heading>30405</heading>
+					</control>
+				</setting>
+				<setting id="ova.genres.order" type="string" label="30406" help="">
+					<level>4</level>
+					<default>genres_ova//,genre_action_ova,genre_adventure_ova,genre_comedy_ova,genre_drama_ova,genre_ecchi_ova,genre_fantasy_ova,genre_hentai_ova,genre_horror_ova,genre_shoujo_ova,genre_mecha_ova,genre_music_ova,genre_mystery_ova,genre_psychological_ova,genre_romance_ova,genre_sci_fi_ova,genre_slice_of_life_ova,genre_sports_ova,genre_supernatural_ova,genre_thriller_ova</default>
+					<control type="edit" format="string">
+						<heading>30406</heading>
+					</control>
+				</setting>
 				<setting id="ova.mainmenu.config" type="list[string]" label="30404" help="">
-					<level>2</level>
+					<level>4</level>
 					<default>last_watched_ova,watch_history_ova,next_up_ova,airing_last_season_ova,airing_this_season_ova,airing_next_season_ova,trending_ova,popular_ova,voted_ova,favourites_ova,top_100_ova,genres_ova,search_history_ova</default>
 					<constraints>
 						<options>
@@ -3575,7 +3813,7 @@
 					</control>
 				</setting>
 				<setting id="ova.submenu.config" type="list[string]" label="30405" help="">
-					<level>2</level>
+					<level>4</level>
 					<default>trending_last_year_ova,trending_this_year_ova,trending_last_season_ova,trending_this_season_ova,all_time_trending_ova,popular_last_year_ova,popular_this_year_ova,popular_last_season_ova,popular_this_season_ova,all_time_popular_ova,voted_last_year_ova,voted_this_year_ova,voted_last_season_ova,voted_this_season_ova,all_time_voted_ova,favourites_last_year_ova,favourites_this_year_ova,favourites_last_season_ova,favourites_this_season_ova,all_time_favourites_ova</default>
 					<constraints>
 						<options>
@@ -3610,7 +3848,7 @@
 					</control>
 				</setting>
 				<setting id="ova.genres.config" type="list[string]" label="30406" help="">
-					<level>2</level>
+					<level>4</level>
 					<default>genres_ova//,genre_action_ova,genre_adventure_ova,genre_comedy_ova,genre_drama_ova,genre_ecchi_ova,genre_fantasy_ova,genre_horror_ova,genre_shoujo_ova,genre_mecha_ova,genre_music_ova,genre_mystery_ova,genre_psychological_ova,genre_romance_ova,genre_sci_fi_ova,genre_slice_of_life_ova,genre_sports_ova,genre_supernatural_ova,genre_thriller_ova</default>
 					<constraints>
 						<options>
@@ -3645,10 +3883,52 @@
 					</control>
 				</setting>
 			</group>
-			<!-- ONA -->
+			<!-- ONAs -->
 			<group id="7" label="30413" help="">
+				<setting id="ona.mainmenu.action" type="action" label="30404" help="30674">
+					<level>0</level>
+					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/menu_order?menu=ona.mainmenu&amp;setting=true)</data>
+					<control type="button" format="action">
+						<close>true</close>
+					</control>
+				</setting>
+				<setting id="ona.submenu.action" type="action" label="30405" help="30674">
+					<level>0</level>
+					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/menu_order?menu=ona.submenu&amp;setting=true)</data>
+					<control type="button" format="action">
+						<close>true</close>
+					</control>
+				</setting>
+				<setting id="ona.genres.action" type="action" label="30406" help="30674">
+					<level>0</level>
+					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/menu_order?menu=ona.genres&amp;setting=true)</data>
+					<control type="button" format="action">
+						<close>true</close>
+					</control>
+				</setting>
+				<setting id="ona.mainmenu.order" type="string" label="30404" help="">
+					<level>4</level>
+					<default>last_watched_ona,watch_history_ona,next_up_ona,airing_last_season_ona,airing_this_season_ona,airing_next_season_ona,trending_ona,popular_ona,voted_ona,favourites_ona,top_100_ona,genres_ona,search_history_ona</default>
+					<control type="edit" format="string">
+						<heading>30404</heading>
+					</control>
+				</setting>
+				<setting id="ona.submenu.order" type="string" label="30405" help="">
+					<level>4</level>
+					<default>trending_last_year_ona,trending_this_year_ona,trending_last_season_ona,trending_this_season_ona,all_time_trending_ona,popular_last_year_ona,popular_this_year_ona,popular_last_season_ona,popular_this_season_ona,all_time_popular_ona,voted_last_year_ona,voted_this_year_ona,voted_last_season_ona,voted_this_season_ona,all_time_voted_ona,favourites_last_year_ona,favourites_this_year_ona,favourites_last_season_ona,favourites_this_season_ona,all_time_favourites_ona</default>
+					<control type="edit" format="string">
+						<heading>30405</heading>
+					</control>
+				</setting>
+				<setting id="ona.genres.order" type="string" label="30406" help="">
+					<level>4</level>
+					<default>genres_ona//,genre_action_ona,genre_adventure_ona,genre_comedy_ona,genre_drama_ona,genre_ecchi_ona,genre_fantasy_ona,genre_hentai_ona,genre_horror_ona,genre_shoujo_ona,genre_mecha_ona,genre_music_ona,genre_mystery_ona,genre_psychological_ona,genre_romance_ona,genre_sci_fi_ona,genre_slice_of_life_ona,genre_sports_ona,genre_supernatural_ona,genre_thriller_ona</default>
+					<control type="edit" format="string">
+						<heading>30406</heading>
+					</control>
+				</setting>
 				<setting id="ona.mainmenu.config" type="list[string]" label="30404" help="">
-					<level>2</level>
+					<level>4</level>
 					<default>last_watched_ona,watch_history_ona,next_up_ona,airing_last_season_ona,airing_this_season_ona,airing_next_season_ona,trending_ona,popular_ona,voted_ona,favourites_ona,top_100_ona,genres_ona,search_history_ona</default>
 					<constraints>
 						<options>
@@ -3676,7 +3956,7 @@
 					</control>
 				</setting>
 				<setting id="ona.submenu.config" type="list[string]" label="30405" help="">
-					<level>2</level>
+					<level>4</level>
 					<default>trending_last_year_ona,trending_this_year_ona,trending_last_season_ona,trending_this_season_ona,all_time_trending_ona,popular_last_year_ona,popular_this_year_ona,popular_last_season_ona,popular_this_season_ona,all_time_popular_ona,voted_last_year_ona,voted_this_year_ona,voted_last_season_ona,voted_this_season_ona,all_time_voted_ona,favourites_last_year_ona,favourites_this_year_ona,favourites_last_season_ona,favourites_this_season_ona,all_time_favourites_ona</default>
 					<constraints>
 						<options>
@@ -3711,7 +3991,7 @@
 					</control>
 				</setting>
 				<setting id="ona.genres.config" type="list[string]" label="30406" help="">
-					<level>2</level>
+					<level>4</level>
 					<default>genres_ona//,genre_action_ona,genre_adventure_ona,genre_comedy_ona,genre_drama_ona,genre_ecchi_ona,genre_fantasy_ona,genre_horror_ona,genre_shoujo_ona,genre_mecha_ona,genre_music_ona,genre_mystery_ona,genre_psychological_ona,genre_romance_ona,genre_sci_fi_ona,genre_slice_of_life_ona,genre_sports_ona,genre_supernatural_ona,genre_thriller_ona</default>
 					<constraints>
 						<options>
@@ -3748,8 +4028,50 @@
 			</group>
 			<!-- Music -->
 			<group id="8" label="30414" help="">
+				<setting id="music.mainmenu.action" type="action" label="30404" help="30674">
+					<level>0</level>
+					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/menu_order?menu=music.mainmenu&amp;setting=true)</data>
+					<control type="button" format="action">
+						<close>true</close>
+					</control>
+				</setting>
+				<setting id="music.submenu.action" type="action" label="30405" help="30674">
+					<level>0</level>
+					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/menu_order?menu=music.submenu&amp;setting=true)</data>
+					<control type="button" format="action">
+						<close>true</close>
+					</control>
+				</setting>
+				<setting id="music.genres.action" type="action" label="30406" help="30674">
+					<level>0</level>
+					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/menu_order?menu=music.genres&amp;setting=true)</data>
+					<control type="button" format="action">
+						<close>true</close>
+					</control>
+				</setting>
+				<setting id="music.mainmenu.order" type="string" label="30404" help="">
+					<level>4</level>
+					<default>last_watched_music,watch_history_music,next_up_music,airing_last_season_music,airing_this_season_music,airing_next_season_music,trending_music,popular_music,voted_music,favourites_music,top_100_music,genres_music,search_history_music</default>
+					<control type="edit" format="string">
+						<heading>30404</heading>
+					</control>
+				</setting>
+				<setting id="music.submenu.order" type="string" label="30405" help="">
+					<level>4</level>
+					<default>trending_last_year_music,trending_this_year_music,trending_last_season_music,trending_this_season_music,all_time_trending_music,popular_last_year_music,popular_this_year_music,popular_last_season_music,popular_this_season_music,all_time_popular_music,voted_last_year_music,voted_this_year_music,voted_last_season_music,voted_this_season_music,all_time_voted_music,favourites_last_year_music,favourites_this_year_music,favourites_last_season_music,favourites_this_season_music,all_time_favourites_music</default>
+					<control type="edit" format="string">
+						<heading>30405</heading>
+					</control>
+				</setting>
+				<setting id="music.genres.order" type="string" label="30406" help="">
+					<level>4</level>
+					<default>genres_music//,genre_action_music,genre_adventure_music,genre_comedy_music,genre_drama_music,genre_ecchi_music,genre_fantasy_music,genre_hentai_music,genre_horror_music,genre_shoujo_music,genre_mecha_music,genre_music_music,genre_mystery_music,genre_psychological_music,genre_romance_music,genre_sci_fi_music,genre_slice_of_life_music,genre_sports_music,genre_supernatural_music,genre_thriller_music</default>
+					<control type="edit" format="string">
+						<heading>30406</heading>
+					</control>
+				</setting>
 				<setting id="music.mainmenu.config" type="list[string]" label="30404" help="">
-					<level>2</level>
+					<level>4</level>
 					<default>last_watched_music,watch_history_music,next_up_music,airing_last_season_music,airing_this_season_music,airing_next_season_music,trending_music,popular_music,voted_music,favourites_music,top_100_music,genres_music,search_history_music</default>
 					<constraints>
 						<options>
@@ -3777,7 +4099,7 @@
 					</control>
 				</setting>
 				<setting id="music.submenu.config" type="list[string]" label="30405" help="">
-					<level>2</level>
+					<level>4</level>
 					<default>trending_last_year_music,trending_this_year_music,trending_last_season_music,trending_this_season_music,all_time_trending_music,popular_last_year_music,popular_this_year_music,popular_last_season_music,popular_this_season_music,all_time_popular_music,voted_last_year_music,voted_this_year_music,voted_last_season_music,voted_this_season_music,all_time_voted_music,favourites_last_year_music,favourites_this_year_music,favourites_last_season_music,favourites_this_season_music,all_time_favourites_music</default>
 					<constraints>
 						<options>
@@ -3812,7 +4134,7 @@
 					</control>
 				</setting>
 				<setting id="music.genres.config" type="list[string]" label="30406" help="">
-					<level>2</level>
+					<level>4</level>
 					<default>genres_music//,genre_action_music,genre_adventure_music,genre_comedy_music,genre_drama_music,genre_ecchi_music,genre_fantasy_music,genre_horror_music,genre_shoujo_music,genre_mecha_music,genre_music_music,genre_mystery_music,genre_psychological_music,genre_romance_music,genre_sci_fi_music,genre_slice_of_life_music,genre_sports_music,genre_supernatural_music,genre_thriller_music</default>
 					<constraints>
 						<options>

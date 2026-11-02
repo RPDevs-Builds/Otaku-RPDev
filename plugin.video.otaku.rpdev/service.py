@@ -386,30 +386,61 @@ def load_settings():
 
 
 _MENU_SETTINGS = (
+    # Main Menus
     'menu.mainmenu.order',
     'menu.mainmenu.config',
+    'menu.submenu.order',
     'menu.submenu.config',
+    'menu.genres.order',
     'menu.genres.config',
+    # Movies
+    'movie.mainmenu.order',
     'movie.mainmenu.config',
+    'movie.submenu.order',
     'movie.submenu.config',
+    'movie.genres.order',
     'movie.genres.config',
+    # TV Shows
+    'tv_show.mainmenu.order',
     'tv_show.mainmenu.config',
+    'tv_show.submenu.order',
     'tv_show.submenu.config',
+    'tv_show.genres.order',
     'tv_show.genres.config',
+    # TV Shorts
+    'tv_short.mainmenu.order',
     'tv_short.mainmenu.config',
+    'tv_short.submenu.order',
     'tv_short.submenu.config',
+    'tv_short.genres.order',
     'tv_short.genres.config',
+    # Specials
+    'special.mainmenu.order',
     'special.mainmenu.config',
+    'special.submenu.order',
     'special.submenu.config',
+    'special.genres.order',
     'special.genres.config',
+    # OVAs
+    'ova.mainmenu.order',
     'ova.mainmenu.config',
+    'ova.submenu.order',
     'ova.submenu.config',
+    'ova.genres.order',
     'ova.genres.config',
+    # ONAs
+    'ona.mainmenu.order',
     'ona.mainmenu.config',
+    'ona.submenu.order',
     'ona.submenu.config',
+    'ona.genres.order',
     'ona.genres.config',
+    # Music
+    'music.mainmenu.order',
     'music.mainmenu.config',
+    'music.submenu.order',
     'music.submenu.config',
+    'music.genres.order',
     'music.genres.config',
 )
 
@@ -418,7 +449,7 @@ def _get_menu_settings_snapshot():
     snapshot = {}
     for sid in _MENU_SETTINGS:
         try:
-            if sid == 'menu.mainmenu.order':
+            if sid.endswith('.order'):
                 snapshot[sid] = control.getSetting(sid)
             else:
                 snapshot[sid] = control.settings.getStringList(sid)

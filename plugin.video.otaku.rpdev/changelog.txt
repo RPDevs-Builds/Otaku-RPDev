@@ -1,3 +1,6 @@
+Changelog v5.9.12 (2026-11-02):
+- Universal Menu Customization Across All Categories: Expand interactive menu customization and custom item ordering to all 24 menus across 8 categories (Main Menu, Movies, TV Shows, TV Shorts, Specials, OVAs, ONAs, Music Videos for Main, Sub, and Genre menus). Replaced legacy static multiselect lists with interactive WindowXML action buttons, persistent custom ordering, dynamic header titles/descriptions, and add-on wide ordering support in both Main and Submenu navigation routers.
+
 Changelog v5.9.11 (2026-11-02):
 - Menu Order Dialog Event & Visibility Toggle Hardening: Fix duplicate action dispatch and focus jumping by mutating ListItem properties directly in-place without nuclear list resets; ensure list item clicks strictly toggle visibility without unexpected movement; preserve button focus across reordering actions; map list navigation to grouplist container for seamless return to last active button.
 

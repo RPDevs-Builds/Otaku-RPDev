@@ -252,7 +252,7 @@ class TestMenuOrder(unittest.TestCase):
         with patch('resources.lib.windows.menu_order.save_menu_order') as mock_save, \
              patch('resources.lib.ui.control.notify') as mock_notify:
             dlg.onClick(3007)
-            mock_save.assert_called_once_with(dlg.ordered_ids, dlg.enabled_set)
+            mock_save.assert_called_once_with(dlg.ordered_ids, dlg.enabled_set, dlg.menu_key)
             mock_notify.assert_called_once()
             self.assertTrue(dlg._win_closed)
 
@@ -332,8 +332,134 @@ class TestMenuOrder(unittest.TestCase):
     def test_open_menu_order_dialog_lifecycle(self):
         """Test open_menu_order_dialog instantiates MenuOrderDialog and executes doModal."""
         with patch.object(menu_order.MenuOrderDialog, 'doModal') as mock_modal:
-            menu_order.open_menu_order_dialog()
+            menu_order.open_menu_order_dialog('menu.mainmenu')
             mock_modal.assert_called_once()
+
+    def test_menu_config_registry_all_categories(self):
+        """Verify get_menu_config returns valid metadata across all 24 menu configurations."""
+        # 1. Main Menus
+        cfg_main = menu_order.get_menu_config('menu.mainmenu')
+        self.assertEqual(len(cfg_main['items']), 24)
+        self.assertEqual(cfg_main['order_key'], 'menu.mainmenu.order')
+        self.assertEqual(cfg_main['config_key'], 'menu.mainmenu.config')
+
+        cfg_sub = menu_order.get_menu_config('menu.submenu')
+        self.assertEqual(len(cfg_sub['items']), 20)
+        self.assertEqual(cfg_sub['order_key'], 'menu.submenu.order')
+        self.assertEqual(cfg_sub['config_key'], 'menu.submenu.config')
+
+        cfg_genres = menu_order.get_menu_config('menu.genres')
+        self.assertEqual(len(cfg_genres['items']), 20)
+        self.assertEqual(cfg_genres['order_key'], 'menu.genres.order')
+        self.assertEqual(cfg_genres['config_key'], 'menu.genres.config')
+        self.assertIn('genres//', cfg_genres['valid_ids'])
+
+        # 2. Movie Category
+        cfg_movie_main = menu_order.get_menu_config('movie.mainmenu')
+        self.assertEqual(len(cfg_movie_main['items']), 13)
+        self.assertEqual(cfg_movie_main['order_key'], 'movie.mainmenu.order')
+        self.assertEqual(cfg_movie_main['config_key'], 'movie.mainmenu.config')
+
+        cfg_movie_sub = menu_order.get_menu_config('movie.submenu')
+        self.assertEqual(len(cfg_movie_sub['items']), 20)
+        self.assertEqual(cfg_movie_sub['order_key'], 'movie.submenu.order')
+
+        # 3. TV Show, Specials, Music
+        cfg_tv_sub = menu_order.get_menu_config('tv_show.submenu')
+        self.assertEqual(len(cfg_tv_sub['items']), 20)
+        self.assertTrue(all(x.endswith('_tv_show') for x in cfg_tv_sub['valid_ids']))
+
+        cfg_spec_genres = menu_order.get_menu_config('special.genres')
+        self.assertEqual(len(cfg_spec_genres['items']), 20)
+        self.assertIn('genres_special//', cfg_spec_genres['valid_ids'])
+
+        cfg_music_main = menu_order.get_menu_config('music.mainmenu')
+        self.assertEqual(len(cfg_music_main['items']), 13)
+        self.assertTrue(all(x.endswith('_music') for x in cfg_music_main['valid_ids']))
+
+    def test_load_and_save_menu_order_multicategory(self):
+        """Test load_menu_order and save_menu_order for non-main categories (e.g. movie.mainmenu, tv_show.submenu)."""
+        # Save custom movie mainmenu
+        custom_movie_order = ['trending_movie', 'popular_movie', 'last_watched_movie']
+        enabled_movie = {'trending_movie', 'popular_movie'}
+
+        with patch('resources.lib.ui.control.setSetting') as mock_set_setting, \
+             patch('resources.lib.ui.control.setStringList') as mock_set_string_list, \
+             patch('resources.lib.ui.control.setGlobalProp') as mock_set_prop, \
+             patch('resources.lib.ui.control.clearSettingsCache'), \
+             patch('resources.lib.ui.control.refresh'):
+
+            menu_order.save_menu_order(custom_movie_order, enabled_movie, menu_key='movie.mainmenu')
+            mock_set_setting.assert_called_once_with('movie.mainmenu.order', 'trending_movie,popular_movie,last_watched_movie')
+            mock_set_string_list.assert_called_once_with('movie.mainmenu.config', ['trending_movie', 'popular_movie'])
+            mock_set_prop.assert_called_once_with('otaku.menu.needs_refresh', 'true')
+
+        # Load back custom movie mainmenu
+        with patch('resources.lib.ui.control.getSetting', return_value='trending_movie,popular_movie,last_watched_movie'), \
+             patch('resources.lib.ui.control.getStringList', return_value=['trending_movie', 'popular_movie']):
+            ordered_ids, enabled_set = menu_order.load_menu_order('movie.mainmenu')
+            self.assertEqual(ordered_ids[:3], ['trending_movie', 'popular_movie', 'last_watched_movie'])
+            self.assertEqual(len(ordered_ids), 13)
+            self.assertEqual(enabled_set, {'trending_movie', 'popular_movie'})
+
+    def test_collect_category_menu_items_respects_custom_order_movie(self):
+        """Test that sub-category main menus (movies) respect user-configured movie.mainmenu.order."""
+        custom_order = 'trending_movie,popular_movie,last_watched_movie'
+        enabled_config = ['trending_movie', 'last_watched_movie']
+
+        mock_movie_items = [
+            ('Popular', 'popular_movie', 'pop.png', {}),
+            ('Trending', 'trending_movie', 'trend.png', {}),
+        ]
+
+        with patch('resources.lib.ui.control.getSetting', return_value=custom_order), \
+             patch('resources.lib.ui.control.getStringList', return_value=enabled_config), \
+             patch('resources.lib.Main.get_menu_items', return_value=mock_movie_items), \
+             patch('resources.lib.Main.add_last_watched', return_value=[('Last Watched', 'last_watched_movie', 'lw.png', {})]):
+
+            result = Main._collect_category_menu_items('movies', 'movie.mainmenu.config', '_movie')
+
+            # Expected order based on custom_order: trending_movie, last_watched_movie
+            result_keys = [itm[1] for itm in result]
+            self.assertEqual(result_keys, ['trending_movie', 'last_watched_movie'])
+
+    def test_draw_filtered_submenu_respects_custom_order(self):
+        """Test that _draw_filtered_submenu respects configured order in <category>.submenu.order."""
+        mock_sub_items = [
+            ('Popular Last Year', 'popular_last_year', 'pop.png', {}),
+            ('Trending Last Year', 'trending_last_year', 'trend.png', {}),
+            ('All Time Trending', 'all_time_trending', 'trend.png', {}),
+        ]
+        custom_sub_order = 'all_time_trending,popular_last_year,trending_last_year'
+        enabled_sub_config = ['all_time_trending', 'popular_last_year']
+
+        with patch('resources.lib.Main.get_menu_items', return_value=mock_sub_items), \
+             patch('resources.lib.ui.control.getStringList', return_value=enabled_sub_config), \
+             patch('resources.lib.ui.control.getSetting', return_value=custom_sub_order), \
+             patch('resources.lib.ui.control.getBool', return_value=False), \
+             patch('resources.lib.ui.control.draw_items') as mock_draw:
+
+            Main._draw_filtered_submenu('trending', 'menu.submenu.config')
+            mock_draw.assert_called_once()
+            drawn_items = mock_draw.call_args[0][0]
+            drawn_urls = [itm['url'] for itm in drawn_items]
+            self.assertEqual(drawn_urls, ['all_time_trending', 'popular_last_year'])
+
+    def test_menu_order_dialog_with_category(self):
+        """Test MenuOrderDialog initialization with a specific category (e.g. movie.genres)."""
+        dlg = menu_order.MenuOrderDialog("menu_order.xml", control.ADDON_PATH, menu_key="movie.genres")
+        dlg.onInit()
+
+        # Dialog header properties (handles mock 'String_30406' or localized 'Genres')
+        menu_title = dlg.getProperty('menu_title')
+        self.assertTrue("Genres" in menu_title or "30406" in menu_title)
+        self.assertEqual(len(dlg.ordered_ids), 20)
+
+        # Mutate visibility on first item
+        first_id = dlg.ordered_ids[0]
+        was_en = first_id in dlg.enabled_set
+        dlg.onClick(1000)
+        self.assertEqual(first_id in dlg.enabled_set, not was_en)
 
 
 if __name__ == '__main__':

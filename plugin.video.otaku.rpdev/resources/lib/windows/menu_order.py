@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """
     Otaku Add-on - Menu Order & Visibility Customization Dialog
-    Allows reordering and toggling visibility of Home screen main menu items.
+    Allows reordering and toggling visibility of Main Menu, Sub Menu, and Genre Menu items
+    across all categories (Main Menus, Movies, TV Shows, TV Shorts, Specials, OVAs, ONAs, Music).
 """
 
 import xbmcgui
@@ -39,52 +40,200 @@ DEFAULT_ORDER = [x[0] for x in DEFAULT_MENU_ITEMS]
 DEFAULT_ENABLED = [x[0] for x in DEFAULT_MENU_ITEMS if x[2]]
 MENU_ITEM_METADATA = {x[0]: (x[1], x[3]) for x in DEFAULT_MENU_ITEMS}
 
+# Category specifications: (category_key, category_label_string_id, item_suffix)
+CATEGORIES = (
+    ('menu', 30407, ''),            # Main Menus
+    ('movie', 30408, '_movie'),      # Movies
+    ('tv_show', 30409, '_tv_show'),  # TV Shows
+    ('tv_short', 30410, '_tv_short'),# TV Shorts
+    ('special', 30411, '_special'),  # Specials
+    ('ova', 30412, '_ova'),          # OVAs
+    ('ona', 30413, '_ona'),          # ONAs
+    ('music', 30414, '_music'),      # Music Videos
+)
 
-def get_item_label(item_id):
+# Sub-category main menu stems (13 items)
+_SUBCAT_MAINMENU_ITEMS = (
+    ('last_watched', 30000, True, 'last_watched.png'),
+    ('watch_history', 30068, True, 'watch_history.png'),
+    ('next_up', 30451, True, 'next_up.png'),
+    ('airing_last_season', 30002, True, 'airing_anime.png'),
+    ('airing_this_season', 30003, True, 'airing_anime.png'),
+    ('airing_next_season', 30004, True, 'airing_anime.png'),
+    ('trending', 30012, True, 'trending.png'),
+    ('popular', 30013, True, 'popular.png'),
+    ('voted', 30014, True, 'voted.png'),
+    ('favourites', 30015, True, 'favourites.png'),
+    ('top_100', 30016, True, 'top_100_anime.png'),
+    ('genres', 30017, True, 'genres_&_tags.png'),
+    ('search_history', 30018, True, 'search.png'),
+)
+
+# Sub menu items (20 items: Trending, Popular, Voted, Favourites)
+_SUBMENU_ITEMS = (
+    ('trending_last_year', 30020, True, 'trending.png'),
+    ('trending_this_year', 30021, True, 'trending.png'),
+    ('trending_last_season', 30022, True, 'trending.png'),
+    ('trending_this_season', 30023, True, 'trending.png'),
+    ('all_time_trending', 30024, True, 'trending.png'),
+    ('popular_last_year', 30025, True, 'popular.png'),
+    ('popular_this_year', 30026, True, 'popular.png'),
+    ('popular_last_season', 30027, True, 'popular.png'),
+    ('popular_this_season', 30028, True, 'popular.png'),
+    ('all_time_popular', 30029, True, 'popular.png'),
+    ('voted_last_year', 30030, True, 'voted.png'),
+    ('voted_this_year', 30031, True, 'voted.png'),
+    ('voted_last_season', 30032, True, 'voted.png'),
+    ('voted_this_season', 30033, True, 'voted.png'),
+    ('all_time_voted', 30034, True, 'voted.png'),
+    ('favourites_last_year', 30035, True, 'favourites.png'),
+    ('favourites_this_year', 30036, True, 'favourites.png'),
+    ('favourites_last_season', 30037, True, 'favourites.png'),
+    ('favourites_this_season', 30038, True, 'favourites.png'),
+    ('all_time_favourites', 30039, True, 'favourites.png'),
+)
+
+# Genre menu items (20 items: Multi + 19 standard genres)
+_GENRE_ITEMS = (
+    ('genres%s//', 30040, True, 'genre_multi.png'),
+    ('genre_action%s', 30041, True, 'genre_action.png'),
+    ('genre_adventure%s', 30042, True, 'genre_adventure.png'),
+    ('genre_comedy%s', 30043, True, 'genre_comedy.png'),
+    ('genre_drama%s', 30044, True, 'genre_drama.png'),
+    ('genre_ecchi%s', 30045, True, 'genre_ecchi.png'),
+    ('genre_fantasy%s', 30046, True, 'genre_fantasy.png'),
+    ('genre_hentai%s', 30047, False, 'genre_hentai.png'),  # Default disabled
+    ('genre_horror%s', 30048, True, 'genre_horror.png'),
+    ('genre_shoujo%s', 30049, True, 'genre_shoujo.png'),
+    ('genre_mecha%s', 30050, True, 'genre_mecha.png'),
+    ('genre_music%s', 30051, True, 'genre_music.png'),
+    ('genre_mystery%s', 30052, True, 'genre_mystery.png'),
+    ('genre_psychological%s', 30053, True, 'genre_psychological.png'),
+    ('genre_romance%s', 30054, True, 'genre_romance.png'),
+    ('genre_sci_fi%s', 30055, True, 'genre_sci-fi.png'),
+    ('genre_slice_of_life%s', 30056, True, 'genre_slice_of_life.png'),
+    ('genre_sports%s', 30057, True, 'genre_sports.png'),
+    ('genre_supernatural%s', 30058, True, 'genre_supernatural.png'),
+    ('genre_thriller%s', 30059, True, 'genre_thriller.png'),
+)
+
+
+def get_menu_config(menu_key='menu.mainmenu'):
+    """
+    Returns full metadata specification for any of the 24 configurable menus.
+    Key format: '<category>.<menu_type>' (e.g., 'menu.mainmenu', 'movie.submenu', 'tv_show.genres')
+    """
+    if '.' in menu_key:
+        cat_id, type_id = menu_key.split('.', 1)
+    else:
+        cat_id, type_id = 'menu', menu_key
+
+    cat_meta = next((c for c in CATEGORIES if c[0] == cat_id), None)
+    if not cat_meta:
+        cat_id, cat_label_id, suffix = 'menu', 30407, ''
+    else:
+        cat_id, cat_label_id, suffix = cat_meta
+
+    if type_id not in ('mainmenu', 'submenu', 'genres'):
+        type_id = 'mainmenu'
+
+    if cat_id == 'menu' and type_id == 'mainmenu':
+        items = list(DEFAULT_MENU_ITEMS)
+    elif type_id == 'mainmenu':
+        items = [(stem + suffix, lid, def_en, icon) for stem, lid, def_en, icon in _SUBCAT_MAINMENU_ITEMS]
+    elif type_id == 'submenu':
+        items = [(stem + suffix, lid, def_en, icon) for stem, lid, def_en, icon in _SUBMENU_ITEMS]
+    elif type_id == 'genres':
+        items = [(stem % suffix, lid, def_en, icon) for stem, lid, def_en, icon in _GENRE_ITEMS]
+    else:
+        items = list(DEFAULT_MENU_ITEMS)
+
+    cat_label = control.lang(cat_label_id) if cat_label_id else cat_id.title()
+    type_label_id = 30404 if type_id == 'mainmenu' else (30405 if type_id == 'submenu' else 30406)
+    type_label = control.lang(type_label_id)
+
+    if cat_id == 'menu':
+        title = f"{type_label} Order & Customization" if type_id != 'mainmenu' else control.lang(30673)
+    else:
+        title = f"{cat_label}: {type_label} Order & Customization"
+
+    return {
+        'key': f"{cat_id}.{type_id}",
+        'category': cat_id,
+        'type': type_id,
+        'order_key': f"{cat_id}.{type_id}.order",
+        'config_key': f"{cat_id}.{type_id}.config",
+        'title': title,
+        'description': control.lang(30674),
+        'items': items,
+        'default_order': [x[0] for x in items],
+        'default_enabled': [x[0] for x in items if x[2]],
+        'metadata': {x[0]: (x[1], x[3]) for x in items},
+        'valid_ids': set(x[0] for x in items),
+        'is_main_home': (cat_id == 'menu' and type_id == 'mainmenu')
+    }
+
+
+def get_item_label(item_id, metadata=None):
     """Resolve user-visible label for a menu item ID (clean, unnumbered)."""
-    meta = MENU_ITEM_METADATA.get(item_id)
+    meta_dict = metadata if metadata is not None else MENU_ITEM_METADATA
+    meta = meta_dict.get(item_id)
     if meta:
         lbl = control.lang(meta[0])
         if lbl:
             return lbl
-    return item_id.replace('_', ' ').title()
+    # Handle genres// root label
+    if item_id.startswith('genres') and '//' in item_id:
+        return control.lang(30040)
+    return item_id.replace('_', ' ').replace('/', '').title()
 
 
-def load_menu_order():
+def load_menu_order(menu_key='menu.mainmenu'):
     """
-    Loads the current order and enabled set for the main menu.
+    Loads current sequence and enabled set for the specified menu.
     Returns:
         tuple: (ordered_ids, enabled_set)
     """
-    order_setting = control.getSetting('menu.mainmenu.order')
+    cfg = get_menu_config(menu_key)
+    order_key = cfg['order_key']
+    config_key = cfg['config_key']
+    default_order = cfg['default_order']
+    default_enabled = cfg['default_enabled']
+    valid_ids = cfg['valid_ids']
+
+    order_setting = control.getSetting(order_key)
     if order_setting:
         raw_order = [x.strip() for x in order_setting.split(',') if x.strip()]
-        ordered_ids = [x for x in raw_order if x in MENU_ITEM_METADATA]
-        for item in DEFAULT_ORDER:
+        ordered_ids = [x for x in raw_order if x in valid_ids]
+        for item in default_order:
             if item not in ordered_ids:
                 ordered_ids.append(item)
     else:
-        ordered_ids = list(DEFAULT_ORDER)
+        ordered_ids = list(default_order)
 
-    config_list = control.getStringList('menu.mainmenu.config')
+    config_list = control.getStringList(config_key)
     if config_list:
         enabled_set = set(config_list)
-        # Backward compatibility: If order was never customized and watchlist wasn't in config_list, enable it
-        if not order_setting and 'watchlist' not in enabled_set:
+        # Backward compatibility: Home screen watchlist auto-include when order never customized
+        if cfg['is_main_home'] and not order_setting and 'watchlist' not in enabled_set:
             enabled_set.add('watchlist')
     else:
-        enabled_set = set(DEFAULT_ENABLED)
+        enabled_set = set(default_enabled)
 
     return ordered_ids, enabled_set
 
 
-def save_menu_order(ordered_ids, enabled_set):
+def save_menu_order(ordered_ids, enabled_set, menu_key='menu.mainmenu'):
     """
-    Persists the complete order and ordered enabled subset, then signals refresh.
+    Persists complete order and ordered enabled subset for the menu, then signals refresh.
     """
-    control.setSetting('menu.mainmenu.order', ','.join(ordered_ids))
+    cfg = get_menu_config(menu_key)
+    order_key = cfg['order_key']
+    config_key = cfg['config_key']
+
+    control.setSetting(order_key, ','.join(ordered_ids))
     enabled_ordered = [x for x in ordered_ids if x in enabled_set]
-    control.setStringList('menu.mainmenu.config', enabled_ordered)
+    control.setStringList(config_key, enabled_ordered)
     control.setGlobalProp('otaku.menu.needs_refresh', 'true')
     control.clearSettingsCache()
     control.refresh()
@@ -107,14 +256,15 @@ def move_item(items, from_idx, to_idx):
 
 class MenuOrderDialog(xbmcgui.WindowXMLDialog):
     """
-    Interactive full GUI Window for arranging Home screen item order and toggling visibility.
-    Displays items cleanly without numbers and provides prominent action buttons:
-    Move Up, Move Down, Move to Top, Move to Bottom, Toggle Visibility, Reset, Save, Cancel.
+    Interactive full GUI Window for arranging item order and toggling visibility
+    across all categories and sub-menus in Otaku.
     """
 
-    def __init__(self, xml_file, location):
+    def __init__(self, xml_file, location, menu_key='menu.mainmenu'):
         super().__init__(xml_file, location)
-        self.ordered_ids, self.enabled_set = load_menu_order()
+        self.menu_key = menu_key
+        self.menu_config = get_menu_config(menu_key)
+        self.ordered_ids, self.enabled_set = load_menu_order(menu_key)
         self.list_control = None
         self.selected_index = 0
         self.modified = False
@@ -122,6 +272,10 @@ class MenuOrderDialog(xbmcgui.WindowXMLDialog):
 
     def onInit(self):
         control.closeBusyDialog()
+        # Set dynamic title & description for window header
+        self.setProperty('menu_title', self.menu_config.get('title', 'Menu Order & Customization'))
+        self.setProperty('menu_description', self.menu_config.get('description', ''))
+
         try:
             self.list_control = self.getControl(1000)
         except Exception as e:
@@ -153,18 +307,24 @@ class MenuOrderDialog(xbmcgui.WindowXMLDialog):
             pass
 
         self.list_control.reset()
+        meta_dict = self.menu_config['metadata']
+        is_main = self.menu_config['is_main_home']
+
         for item_id in self.ordered_ids:
-            title = get_item_label(item_id)
+            title = get_item_label(item_id, meta_dict)
             is_enabled = item_id in self.enabled_set
 
             item = xbmcgui.ListItem(label=title)
-            meta = MENU_ITEM_METADATA.get(item_id)
+            meta = meta_dict.get(item_id)
             icon_file = meta[1] if meta else 'tools.png'
             icon_path = utils._get_artwork_path(icon_file)
             item.setArt({'icon': icon_path, 'thumb': icon_path})
 
             status_badge = '[COLOR deepskyblue][✓][/COLOR]' if is_enabled else '[COLOR grey][  ][/COLOR]'
-            status_text = control.lang(30690) if is_enabled else control.lang(30691)
+            if is_main:
+                status_text = control.lang(30690) if is_enabled else control.lang(30691)
+            else:
+                status_text = control.lang(30695) if is_enabled else control.lang(30696)
 
             item.setProperty('status_badge', status_badge)
             item.setProperty('status_text', status_text)
@@ -241,7 +401,10 @@ class MenuOrderDialog(xbmcgui.WindowXMLDialog):
                 if li is not None:
                     is_enabled = item_id in self.enabled_set
                     status_badge = '[COLOR deepskyblue][✓][/COLOR]' if is_enabled else '[COLOR grey][  ][/COLOR]'
-                    status_text = control.lang(30690) if is_enabled else control.lang(30691)
+                    if self.menu_config['is_main_home']:
+                        status_text = control.lang(30690) if is_enabled else control.lang(30691)
+                    else:
+                        status_text = control.lang(30695) if is_enabled else control.lang(30696)
                     li.setProperty('status_badge', status_badge)
                     li.setProperty('status_text', status_text)
             except Exception as e:
@@ -249,14 +412,14 @@ class MenuOrderDialog(xbmcgui.WindowXMLDialog):
 
     def reset_defaults(self):
         if control.yesno_dialog(control.lang(30682), control.lang(30686)):
-            self.ordered_ids = list(DEFAULT_ORDER)
-            self.enabled_set = set(DEFAULT_ENABLED)
+            self.ordered_ids = list(self.menu_config['default_order'])
+            self.enabled_set = set(self.menu_config['default_enabled'])
             self.selected_index = 0
             self.modified = True
             self._populate_list(selected_idx=0)
 
     def save_and_close(self):
-        save_menu_order(self.ordered_ids, self.enabled_set)
+        save_menu_order(self.ordered_ids, self.enabled_set, self.menu_key)
         control.notify(control.ADDON_NAME, control.lang(30684))
         self._win_closed = True
         self.close()
@@ -297,16 +460,16 @@ class MenuOrderDialog(xbmcgui.WindowXMLDialog):
             self.cancel_and_close()
 
 
-def open_menu_order_dialog():
+def open_menu_order_dialog(menu_key='menu.mainmenu'):
     """
-    Open the interactive Main Menu Order & Customization window.
+    Open the interactive Menu Order & Customization window for any category or sub-menu.
     """
     window = None
     try:
-        window = MenuOrderDialog("menu_order.xml", control.ADDON_PATH)
+        window = MenuOrderDialog("menu_order.xml", control.ADDON_PATH, menu_key=menu_key)
         window.doModal()
     except Exception as e:
-        control.log(f"Error in open_menu_order_dialog: {e}", 'error')
+        control.log(f"Error in open_menu_order_dialog({menu_key}): {e}", 'error')
     finally:
         if window:
             del window

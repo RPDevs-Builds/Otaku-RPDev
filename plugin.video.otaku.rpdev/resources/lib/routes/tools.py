@@ -948,7 +948,8 @@ def CLEAN_SETTINGS(payload, params):
 
 @Route('menu_order')
 def MENU_ORDER(payload, params):
-    """Open interactive main menu order and visibility customization dialog."""
+    """Open interactive menu order and visibility customization dialog."""
     from resources.lib.windows.menu_order import open_menu_order_dialog
-    open_menu_order_dialog()
+    menu_key = params.get('menu', 'menu.mainmenu')
+    open_menu_order_dialog(menu_key)
 
