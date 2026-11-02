@@ -25,6 +25,7 @@ import io
 import json
 import os
 import pickle
+import random
 import re
 import threading
 import time
@@ -140,6 +141,68 @@ def close_thread_connections(path=None):
 atexit.register(close_thread_connections)
 
 
+def _is_db_corruption_error(exc):
+    if not exc:
+        return False
+    msg = str(exc).lower()
+    return any(p in msg for p in ('malformed', 'not a database', 'disk image is malformed', 'file is encrypted'))
+
+
+def _quarantine_and_recover_db(path):
+    if not path:
+        return
+    abs_path = os.path.abspath(path)
+    close_thread_connections(abs_path)
+    ts = int(time.time())
+    control.log(f"CRITICAL: SQLite database corruption detected on {abs_path}. Quarantining database.", level='error')
+    for ext in ('', '-wal', '-shm', '-journal'):
+        f = abs_path + ext
+        if os.path.exists(f):
+            try:
+                os.rename(f, f"{f}.corrupt.{ts}")
+            except OSError as oe:
+                control.log(f"Failed to quarantine {f}: {oe}", level='warning')
+
+    cache_path = os.path.abspath(control.cacheFile) if getattr(control, 'cacheFile', None) else ''
+    search_path = os.path.abspath(control.searchHistoryDB) if getattr(control, 'searchHistoryDB', None) else ''
+    malsync_path = os.path.abspath(control.malSyncDB) if getattr(control, 'malSyncDB', None) else ''
+    mapping_path = os.path.abspath(control.mappingDB) if getattr(control, 'mappingDB', None) else ''
+
+    try:
+        if abs_path == cache_path:
+            _tables_ready.discard(f"{control.cacheFile}:cache")
+            _init_cache_table()
+            control.log("Auto-recovery: Re-initialized cache.db schema", level='info')
+        elif abs_path == search_path:
+            _tables_ready.discard(f"{control.searchHistoryDB}:search_tables")
+            _ensure_search_tables()
+            control.log("Auto-recovery: Re-initialized search.db schema", level='info')
+        elif abs_path == malsync_path:
+            from resources.lib.ui.database_sync import OtakuDatabase
+            OtakuDatabase.create_tables()
+            control.log("Auto-recovery: Re-initialized malSync.db schema", level='info')
+        elif abs_path == mapping_path:
+            control.log("Auto-recovery: mappings.db quarantined; will be restored on next service sync", level='info')
+    except Exception as re:
+        control.log(f"Auto-recovery schema recreation error for {abs_path}: {re}", level='error')
+
+
+def execute_write_with_retry(cur, sql, params=(), max_retries=3):
+    """Execute a write statement with exponential backoff and jitter on database lock."""
+    for attempt in range(max_retries):
+        try:
+            return cur.execute(sql, params)
+        except (dbapi2.OperationalError, OperationalError) as e:
+            if 'locked' in str(e).lower() or 'busy' in str(e).lower():
+                if attempt == max_retries - 1:
+                    raise
+                jitter = random.uniform(0.01, 0.04)
+                backoff = (0.05 * (2 ** attempt)) + jitter
+                time.sleep(backoff)
+            else:
+                raise
+
+
 class SQL:
     """Thread-local pooled SQLite context manager with optimized PRAGMAs.
 
@@ -172,78 +235,82 @@ class SQL:
         if not is_readonly and not xbmcvfs.exists(control.dataPath):
             xbmcvfs.mkdirs(control.dataPath)
 
-        conns = _get_thread_conns()
-        st_ino = None
-        if os.path.exists(abs_path):
-            try:
-                st_ino = os.stat(abs_path).st_ino
-            except OSError:
-                st_ino = None
-
-        if abs_path in conns:
-            cached_conn, cached_ino = conns[abs_path]
-            if st_ino is None or (cached_ino is not None and st_ino != cached_ino):
+        for attempt in range(2):
+            conns = _get_thread_conns()
+            st_ino = None
+            if os.path.exists(abs_path):
                 try:
-                    cached_conn.close()
-                except (dbapi2.Error, OSError) as e:
-                    control.log(f"cached db close error: {e}", 'debug')
-                conns.pop(abs_path, None)
+                    st_ino = os.stat(abs_path).st_ino
+                except OSError:
+                    st_ino = None
 
-        try:
-            if abs_path not in conns:
-                if self.is_readonly and os.path.exists(self.path):
+            if abs_path in conns:
+                cached_conn, cached_ino = conns[abs_path]
+                if st_ino is None or (cached_ino is not None and st_ino != cached_ino):
                     try:
-                        conn = dbapi2.connect(
-                            f"file:{self.path}?mode=ro",
-                            uri=True,
-                            timeout=30.0,
-                            isolation_level=None,
-                            check_same_thread=False
-                        )
-                    except Exception:
-                        conn = dbapi2.connect(self.path, timeout=self.timeout, isolation_level=None)
-                else:
-                    conn = dbapi2.connect(self.path, timeout=self.timeout, isolation_level=None)
-                conn.row_factory = _dict_factory
-                if not is_readonly:
-                    conn.execute("PRAGMA foreign_keys = ON")
-                    # Synchronous setting (0=OFF, 1=NORMAL, 2=FULL)
-                    sync_val = control.getSetting('db.sqlite.synchronous')
-                    sync_modes = {'0': 'OFF', '1': 'NORMAL', '2': 'FULL'}
-                    sync_mode = sync_modes.get(str(sync_val), 'NORMAL')
-                    conn.execute(f"PRAGMA synchronous = {sync_mode}")
-                    try:
-                        conn.execute("PRAGMA journal_mode = WAL")
-                    except dbapi2.DatabaseError:
-                        pass
-                    # Cache size setting (negative value in KiB)
-                    cache_mb = control.getInt('db.sqlite.cache_size_mb') or (16 if control.is_low_memory() else 32)
-                    if cache_mb > 0:
-                        conn.execute(f"PRAGMA cache_size = -{cache_mb * 1024}")
-                    # Memory map size setting
-                    mmap_setting_mb = control.getInt('db.sqlite.mmap_size_mb') or 32
-                    if control.is_low_memory():
-                        mmap_size = min(4194304, mmap_setting_mb * 1048576)
+                        cached_conn.close()
+                    except (dbapi2.Error, OSError) as e:
+                        control.log(f"cached db close error: {e}", 'debug')
+                    conns.pop(abs_path, None)
+
+            try:
+                if abs_path not in conns:
+                    if self.is_readonly and os.path.exists(self.path):
+                        try:
+                            conn = dbapi2.connect(
+                                f"file:{self.path}?mode=ro",
+                                uri=True,
+                                timeout=30.0,
+                                isolation_level=None,
+                                check_same_thread=False
+                            )
+                        except Exception:
+                            conn = dbapi2.connect(self.path, timeout=self.timeout, isolation_level=None)
                     else:
-                        mmap_size = mmap_setting_mb * 1048576
-                    conn.execute(f"PRAGMA mmap_size = {mmap_size}")
-                    # Temp store in RAM
-                    if control.getBool('db.sqlite.temp_store_ram', default=True):
-                        conn.execute("PRAGMA temp_store = MEMORY")
-                if os.path.exists(abs_path):
-                    try:
-                        st_ino = os.stat(abs_path).st_ino
-                    except OSError:
-                        st_ino = None
-                conns[abs_path] = (conn, st_ino)
+                        conn = dbapi2.connect(self.path, timeout=self.timeout, isolation_level=None)
+                    conn.row_factory = _dict_factory
+                    if not is_readonly:
+                        conn.execute("PRAGMA foreign_keys = ON")
+                        # Synchronous setting (0=OFF, 1=NORMAL, 2=FULL)
+                        sync_val = control.getSetting('db.sqlite.synchronous')
+                        sync_modes = {'0': 'OFF', '1': 'NORMAL', '2': 'FULL'}
+                        sync_mode = sync_modes.get(str(sync_val), 'NORMAL')
+                        conn.execute(f"PRAGMA synchronous = {sync_mode}")
+                        try:
+                            conn.execute("PRAGMA journal_mode = WAL")
+                        except dbapi2.DatabaseError:
+                            pass
+                        # Cache size setting (negative value in KiB)
+                        cache_mb = control.getInt('db.sqlite.cache_size_mb') or (16 if control.is_low_memory() else 32)
+                        if cache_mb > 0:
+                            conn.execute(f"PRAGMA cache_size = -{cache_mb * 1024}")
+                        # Memory map size setting
+                        mmap_setting_mb = control.getInt('db.sqlite.mmap_size_mb') or 32
+                        if control.is_low_memory():
+                            mmap_size = min(4194304, mmap_setting_mb * 1048576)
+                        else:
+                            mmap_size = mmap_setting_mb * 1048576
+                        conn.execute(f"PRAGMA mmap_size = {mmap_size}")
+                        # Temp store in RAM
+                        if control.getBool('db.sqlite.temp_store_ram', default=True):
+                            conn.execute("PRAGMA temp_store = MEMORY")
+                    if os.path.exists(abs_path):
+                        try:
+                            st_ino = os.stat(abs_path).st_ino
+                        except OSError:
+                            st_ino = None
+                    conns[abs_path] = (conn, st_ino)
 
-            self._conn = conns[abs_path][0]
-            self._cursor = self._conn.cursor()
-            return self._cursor
-        except Exception:
-            close_thread_connections(self.path)
-            self._conn = None
-            raise
+                self._conn = conns[abs_path][0]
+                self._cursor = self._conn.cursor()
+                return self._cursor
+            except Exception as exc:
+                close_thread_connections(self.path)
+                self._conn = None
+                if attempt == 0 and _is_db_corruption_error(exc):
+                    _quarantine_and_recover_db(self.path)
+                    continue
+                raise
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         try:
@@ -259,6 +326,9 @@ class SQL:
             except dbapi2.Error as e:
                 control.log(f"db rollback error: {e}", 'debug')
             close_thread_connections(self.path)
+
+            if _is_db_corruption_error(exc_val):
+                _quarantine_and_recover_db(self.path)
 
             if exc_type is OperationalError:
                 import traceback
@@ -526,7 +596,8 @@ def is_cache_valid(cached_time, hours):
 def _cache_write(key, value_repr):
     _init_cache_table()
     with SQL(control.cacheFile) as cur:
-        cur.execute(
+        execute_write_with_retry(
+            cur,
             'REPLACE INTO cache (key, value, date) VALUES (?, ?, ?)',
             (key, value_repr, int(time.time())))
         cur.connection.commit()
@@ -534,7 +605,10 @@ def _cache_write(key, value_repr):
 
 def _cache_delete(key):
     with SQL(control.cacheFile) as cur:
-        cur.execute('DELETE FROM cache WHERE key=?', (key,))
+        execute_write_with_retry(
+            cur,
+            'DELETE FROM cache WHERE key=?',
+            (key,))
         cur.connection.commit()
 
 

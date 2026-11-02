@@ -298,6 +298,7 @@ class Sources(GetSources):
 
                 if (
                     self.canceled
+                    or control.abort_requested()
                     or no_remaining
                     or (control.getBool('general.terminate.oncloud') and has_cloud)
                     or (control.getBool('general.terminate.onlocal') and has_local)
@@ -321,11 +322,12 @@ class Sources(GetSources):
             control.log(f"Error in getSources: {e}", 'error')
             self.return_data = []
         finally:
+            self.canceled = True
             self.close()
         return self.return_data
 
     def _torrent_sources_worker(self, provider, query, mal_id, episode, status, media_type, rescrape, season, part):
-        if self.canceled:
+        if self.canceled or control.abort_requested():
             return
         try:
             mod, cache_key = _TORRENT_MODULES[provider]
@@ -335,7 +337,7 @@ class Sources(GetSources):
                 all_sources = get_sources(*call_args, rescrape=True)
             else:
                 all_sources = database.get(get_sources, _scraper_cache_ttl(), *call_args, key=cache_key)
-            if self.canceled:
+            if self.canceled or control.abort_requested():
                 return
             if not all_sources:
                 all_sources = {'cached': [], 'uncached': []}
@@ -354,7 +356,7 @@ class Sources(GetSources):
                     self.remainingProviders.remove(provider)
 
     def _hoster_sources_worker(self, hoster, query, mal_id, episode, status, media_type, rescrape, season, part):
-        if self.canceled:
+        if self.canceled or control.abort_requested():
             return
         try:
             mod, cache_key, _, merge_mode = _HOSTER_MODULES[hoster]
@@ -364,7 +366,7 @@ class Sources(GetSources):
                 all_sources = get_sources(*call_args)
             else:
                 all_sources = database.get(get_sources, _scraper_cache_ttl(), *call_args, key=cache_key)
-            if self.canceled:
+            if self.canceled or control.abort_requested():
                 return
             if not all_sources:
                 all_sources = {'cached': [], 'uncached': []}
@@ -386,7 +388,7 @@ class Sources(GetSources):
                     self.remainingProviders.remove(hoster)
 
     def _embed_sources_worker(self, pid, mod, cache_key, skip_prefix, needs_media_type, mal_id, episode, media_type, rescrape):
-        if self.canceled:
+        if self.canceled or control.abort_requested():
             return
         try:
             get_sources = mod.Sources().get_sources
@@ -400,7 +402,7 @@ class Sources(GetSources):
                     src = get_sources(mal_id, episode)
                 else:
                     src = database.get(get_sources, _scraper_cache_ttl(), mal_id, episode, key=cache_key)
-            if self.canceled:
+            if self.canceled or control.abort_requested():
                 return
             if not src:
                 src = []
@@ -419,11 +421,11 @@ class Sources(GetSources):
                     self.remainingProviders.remove(pid)
 
     def user_local_inspection(self, query, mal_id, episode, season):
-        if self.canceled:
+        if self.canceled or control.abort_requested():
             return
         try:
             res = localfiles.Sources().get_sources(query, mal_id, episode, season)
-            if self.canceled:
+            if self.canceled or control.abort_requested():
                 return
             if res:
                 with self._results_lock:
@@ -436,11 +438,11 @@ class Sources(GetSources):
                     self.remainingProviders.remove('Local Inspection')
 
     def user_cloud_inspection(self, query, mal_id, episode, season):
-        if self.canceled:
+        if self.canceled or control.abort_requested():
             return
         try:
             res = debrid_cloudfiles.Sources().get_sources(query, mal_id, episode, season)
-            if self.canceled:
+            if self.canceled or control.abort_requested():
                 return
             if res:
                 with self._results_lock:

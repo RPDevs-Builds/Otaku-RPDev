@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import os
+import time
 import xml.etree.ElementTree as ET
 
 from resources.lib import MetaBrowser
@@ -306,6 +307,152 @@ def CHECK_DB_INTEGRITY(payload, params):
         control.textviewer_dialog('Database Integrity Issues Found', err_msg)
 
 
+def generate_diagnostics_report():
+    lines = []
+    lines.append("=" * 64)
+    lines.append(f"  {control.ADDON_NAME} System Health & Diagnostics Report")
+    lines.append(f"  Generated: {time.strftime('%Y-%m-%d %H:%M:%S')}")
+    lines.append("=" * 64)
+    lines.append("")
+
+    # 1. System & Environment
+    lines.append("[1] System Environment")
+    lines.append(f"  • Platform:        {control.sys.platform}")
+    lines.append(f"  • Python Version:  {control.sys.version.split()[0]}")
+    lines.append(f"  • Kodi Version:    {control.kodi_version}")
+    lines.append(f"  • Addon Version:   v{control.ADDON_VERSION}")
+    import sqlite3
+    lines.append(f"  • SQLite Version:  {sqlite3.sqlite_version}")
+    lines.append(f"  • Low-RAM Mode:    {'YES' if control.is_low_memory() else 'NO'}")
+    lines.append("")
+
+    # 2. Debrid Services
+    lines.append("[2] Debrid Cloud Providers")
+    debrid_keys = [
+        ('Real-Debrid', 'realdebrid.token'),
+        ('TorBox', 'torbox.token'),
+        ('Premiumize', 'premiumize.token'),
+        ('AllDebrid', 'alldebrid.token'),
+        ('Debrid-Link', 'debridlink.token'),
+        ('EasyDebrid', 'easydebrid.token'),
+        ('Easynews', 'easynews.username'),
+    ]
+    for d_name, s_key in debrid_keys:
+        token_val = control.getSetting(s_key)
+        enabled = control.getBool(f'provider.{d_name.lower().replace("-", "").replace(" ", "")}', default=True)
+        status_str = "AUTHENTICATED" if token_val else "UNCONFIGURED"
+        lines.append(f"  • {d_name:<14}: {status_str} (Enabled: {'YES' if enabled else 'NO'})")
+    lines.append("")
+
+    # 3. Watchlist Accounts
+    lines.append("[3] Watchlist Services")
+    watchlist_services = [
+        ('Simkl', 'simkl.token', 'simkl.username'),
+        ('AniList', 'anilist.token', 'anilist.username'),
+        ('MyAnimeList', 'mal.token', 'mal.username'),
+        ('Kitsu', 'kitsu.token', 'kitsu.username'),
+    ]
+    for wl_name, tok_key, usr_key in watchlist_services:
+        token_val = control.getSetting(tok_key)
+        uname = control.getSetting(usr_key) or '(no username)'
+        status_str = f"AUTHENTICATED as {uname}" if token_val else "UNCONFIGURED"
+        lines.append(f"  • {wl_name:<14}: {status_str}")
+    lines.append("")
+
+    # 4. Database Integrity & Storage
+    lines.append("[4] SQLite Databases & Storage")
+    dbs = [
+        ('Cache Database', getattr(control, 'cacheFile', None)),
+        ('Sync Database', getattr(control, 'malSyncDB', None)),
+        ('Search History', getattr(control, 'searchHistoryDB', None)),
+        ('ID Mappings', getattr(control, 'mappingDB', None)),
+    ]
+    for db_label, db_file in dbs:
+        if not db_file or not os.path.exists(db_file):
+            lines.append(f"  • {db_label:<16}: NOT FOUND / UNINITIALIZED")
+            continue
+        try:
+            size_mb = os.path.getsize(db_file) / (1024 * 1024)
+            wal_file = db_file + '-wal'
+            wal_mb = (os.path.getsize(wal_file) / (1024 * 1024)) if os.path.exists(wal_file) else 0.0
+            with database.SQL(db_file, is_readonly=True) as cur:
+                cur.execute("PRAGMA integrity_check(1)")
+                res = cur.fetchone()
+                status = "OK" if res and list(res.values())[0] == 'ok' else "INTEGRITY ERROR"
+            lines.append(f"  • {db_label:<16}: {status} | Size: {size_mb:.2f} MB (WAL: {wal_mb:.2f} MB)")
+        except Exception as e:
+            lines.append(f"  • {db_label:<16}: ERROR ({e})")
+    lines.append("")
+
+    # 5. Scrapers & Circuit Breakers
+    lines.append("[5] Scraper Circuit Breakers & Domains")
+    from resources.lib.pages import circuit_breaker
+    from resources.lib.ui import domains
+    all_scrapers = ['nyaa', 'animetosho', 'bitsearch', 'piratebay', 'hianime', 'animepahe', 'anikoto', 'watchnixtoons2', 'animix']
+    for sc in all_scrapers:
+        tripped = circuit_breaker.is_tripped(sc)
+        domain = domains.get_domain(sc) if hasattr(domains, 'get_domain') else 'default'
+        state = "OPEN (TRIPPED)" if tripped else "CLOSED (HEALTHY)"
+        lines.append(f"  • {sc:<16}: {state:<16} | Mirror: {domain}")
+
+    lines.append("")
+    lines.append("=" * 64)
+    lines.append("  End of Diagnostics Report")
+    lines.append("=" * 64)
+    return "\n".join(lines)
+
+
+def execute_system_repair():
+    progress = control.progressDialog
+    progress.create(control.ADDON_NAME, "Executing Otaku System Repair...")
+    try:
+        progress.update(20, "Checkpointing SQLite databases...")
+        database.checkpoint_databases(truncate=True)
+
+        progress.update(40, "Pruning expired cache items...")
+        database.prune_expired_cache(max_age_days=7)
+
+        progress.update(60, "Optimizing and vacuuming databases...")
+        reclaimed = database.vacuum_all_databases()
+        reclaimed_str = database._format_db_bytes(reclaimed)
+
+        progress.update(80, "Resetting scraper circuit breakers...")
+        from resources.lib.pages import circuit_breaker
+        circuit_breaker.reset()
+
+        progress.update(90, "Refreshing dynamic scraper domains...")
+        from resources.lib.ui import domains
+        domains.refresh_domains()
+
+        progress.update(100, "Cleaning system memory...")
+        control.clean_memory()
+    finally:
+        progress.close()
+
+    control.notify(
+        f"{control.ADDON_NAME}: Repair",
+        f"Repair complete! Reclaimed {reclaimed_str}, databases flushed & circuits reset.",
+        time=5000,
+        sound=False
+    )
+
+
+@Route('system_health_diagnostics')
+def SYSTEM_HEALTH_DIAGNOSTICS(payload, params):
+    choice = control.select_dialog(
+        f"{control.ADDON_NAME}: System Health & Diagnostics",
+        [
+            "[Diagnostics] View Comprehensive Diagnostics Report",
+            "[Repair] Execute 1-Click System Repair & Maintenance"
+        ]
+    )
+    if choice == 0:
+        report = generate_diagnostics_report()
+        control.textviewer_dialog('Otaku System Health & Diagnostics', report)
+    elif choice == 1:
+        execute_system_repair()
+
+
 @Route('sync_mappings')
 def SYNC_MAPPINGS(payload, params):
     import service
@@ -429,23 +576,32 @@ def apply_hardware_preset(preset_idx):
       2 = Low-RAM (Firestick Lite / Budget TV / RPi)
     """
     if preset_idx == 0:
-        control.setInt('scraper.concurrency.workers', 14)
+        control.setInt('scraper.concurrency.workers', 16)
         control.setInt('general.timeout', 20)
+        control.setInt('db.sqlite.cache_size_mb', 32)
+        control.setInt('db.sqlite.mmap_size_mb', 64)
         control.setBool('general.kodi.cache', True)
         control.setBool('smartplay.preresolve', True)
-        control.log("Setup Wizard: High-End Hardware preset applied (14 workers, 20s timeout)")
+        control.setBool('clean.memory', False)
+        control.log("Setup Wizard: High-End Hardware preset applied (16 workers, 20s timeout, 32MB SQLite cache)")
     elif preset_idx == 1:
         control.setInt('scraper.concurrency.workers', 8)
         control.setInt('general.timeout', 15)
+        control.setInt('db.sqlite.cache_size_mb', 16)
+        control.setInt('db.sqlite.mmap_size_mb', 32)
         control.setBool('general.kodi.cache', True)
         control.setBool('smartplay.preresolve', True)
-        control.log("Setup Wizard: Balanced Hardware preset applied (8 workers, 15s timeout)")
+        control.setBool('clean.memory', False)
+        control.log("Setup Wizard: Balanced Hardware preset applied (8 workers, 15s timeout, 16MB SQLite cache)")
     elif preset_idx == 2:
         control.setInt('scraper.concurrency.workers', 4)
         control.setInt('general.timeout', 12)
+        control.setInt('db.sqlite.cache_size_mb', 8)
+        control.setInt('db.sqlite.mmap_size_mb', 4)
         control.setBool('general.kodi.cache', False)
         control.setBool('smartplay.preresolve', False)
-        control.log("Setup Wizard: Low-RAM Hardware preset applied (4 workers, 12s timeout)")
+        control.setBool('clean.memory', True)
+        control.log("Setup Wizard: Low-RAM Hardware preset applied (4 workers, 12s timeout, 8MB SQLite cache)")
 
 
 def apply_playback_profile(profile_idx):
@@ -552,9 +708,9 @@ def SETUP_WIZARD(payload, params):
     hw_choice = control.select_dialog(
         "Otaku Setup: Hardware Performance Preset",
         [
-            "[High-End] Nvidia Shield Pro / PC / Apple TV (14 workers, 20s timeout)",
-            "[Balanced] Onn 4K Pro / Fire TV 4K Max / Chromecast (8 workers, 15s timeout)",
-            "[Low-RAM] Firestick Lite / Budget Smart TV / Raspberry Pi (4 workers, 12s timeout)"
+            "[High-End] Nvidia Shield Pro / PC / Apple TV (16 workers, 20s timeout, 32MB cache)",
+            "[Balanced] Onn 4K Pro / Fire TV 4K Max / Chromecast (8 workers, 15s timeout, 16MB cache)",
+            "[Low-RAM] Firestick Lite / Budget Smart TV / Raspberry Pi (4 workers, 12s timeout, 8MB cache)"
         ]
     )
     if hw_choice in (0, 1, 2):

@@ -25,10 +25,14 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install Test Dependencies
+      - name: Install Test Dependencies & Lint Tools
         run: |
           pip install --upgrade pip
-          pip install beautifulsoup4 pyqrcode
+          pip install beautifulsoup4 pyqrcode ruff
+
+      - name: Static Analysis (ruff)
+        run: |
+          ruff check --select E9,F63,F7,F82 plugin.video.otaku.rpdev context.otaku.rpdev tests
 
       - name: Validate Python Syntax (compileall)
         run: |

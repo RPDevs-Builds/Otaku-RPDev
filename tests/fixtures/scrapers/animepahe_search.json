@@ -1,0 +1,31 @@
+{
+  "total": 2,
+  "per_page": 30,
+  "current_page": 1,
+  "data": [
+    {
+      "id": 16498,
+      "title": "Shingeki no Kyojin",
+      "type": "TV",
+      "episodes": 25,
+      "status": "Finished Airing",
+      "season": "Spring",
+      "year": 2013,
+      "score": 8.54,
+      "poster": "https://i.animepahe.ru/posters/12345.jpg",
+      "session": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+    },
+    {
+      "id": 25777,
+      "title": "Shingeki no Kyojin Season 2",
+      "type": "TV",
+      "episodes": 12,
+      "status": "Finished Airing",
+      "season": "Spring",
+      "year": 2017,
+      "score": 8.51,
+      "poster": "https://i.animepahe.ru/posters/67890.jpg",
+      "session": "b2c3d4e5-f6a7-8901-bcde-f12345678901"
+    }
+  ]
+}

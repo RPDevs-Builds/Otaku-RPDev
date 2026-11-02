@@ -13,8 +13,10 @@ class TestSetupWizard(unittest.TestCase):
 
     def test_apply_hardware_preset_high_end(self):
         tools.apply_hardware_preset(0)
-        self.assertEqual(control.getInt('scraper.concurrency.workers'), 14)
+        self.assertEqual(control.getInt('scraper.concurrency.workers'), 16)
         self.assertEqual(control.getInt('general.timeout'), 20)
+        self.assertEqual(control.getInt('db.sqlite.cache_size_mb'), 32)
+        self.assertEqual(control.getInt('db.sqlite.mmap_size_mb'), 64)
         self.assertTrue(control.getBool('general.kodi.cache'))
         self.assertTrue(control.getBool('smartplay.preresolve'))
 
@@ -22,6 +24,8 @@ class TestSetupWizard(unittest.TestCase):
         tools.apply_hardware_preset(1)
         self.assertEqual(control.getInt('scraper.concurrency.workers'), 8)
         self.assertEqual(control.getInt('general.timeout'), 15)
+        self.assertEqual(control.getInt('db.sqlite.cache_size_mb'), 16)
+        self.assertEqual(control.getInt('db.sqlite.mmap_size_mb'), 32)
         self.assertTrue(control.getBool('general.kodi.cache'))
         self.assertTrue(control.getBool('smartplay.preresolve'))
 
@@ -29,8 +33,11 @@ class TestSetupWizard(unittest.TestCase):
         tools.apply_hardware_preset(2)
         self.assertEqual(control.getInt('scraper.concurrency.workers'), 4)
         self.assertEqual(control.getInt('general.timeout'), 12)
+        self.assertEqual(control.getInt('db.sqlite.cache_size_mb'), 8)
+        self.assertEqual(control.getInt('db.sqlite.mmap_size_mb'), 4)
         self.assertFalse(control.getBool('general.kodi.cache'))
         self.assertFalse(control.getBool('smartplay.preresolve'))
+        self.assertTrue(control.getBool('clean.memory'))
 
     def test_apply_torrent_providers_recommended(self):
         tools.apply_torrent_providers_preset(0)

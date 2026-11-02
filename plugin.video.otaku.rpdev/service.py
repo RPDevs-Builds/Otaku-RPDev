@@ -100,6 +100,8 @@ def cleanup_cache_databases():
 
 
 def sync_watchlist(silent=False):
+    if control.abort_requested():
+        return
     if control.getBool('watchlist.sync.enabled'):
         control.log('### Updating Completed Sync')
         from resources.lib.WatchlistFlavor import WatchlistFlavor
@@ -148,6 +150,8 @@ def prefetch_watchlist():
         from resources.lib.WatchlistFlavor import WatchlistFlavor
 
         for flavor_name in enabled:
+            if control.abort_requested():
+                break
             statuses = status_map.get(flavor_name)
             if not statuses:
                 continue
@@ -157,6 +161,8 @@ def prefetch_watchlist():
                 continue
 
             for status in statuses:
+                if control.abort_requested():
+                    break
                 # Check if cache is still valid - skip this status
                 if is_watchlist_cache_valid(flavor_name, status):
                     control.log(f'### Watchlist cache valid for {flavor_name}/{status}, skipping')
@@ -171,6 +177,9 @@ def prefetch_watchlist():
                     control.log(f'### Prefetch failed for {status}: {e}', 'warning')
 
             control.log(f'### Watchlist prefetch finished for {flavor_name}')
+
+        if control.abort_requested():
+            return
 
         # Consolidated AniList enrichment: ONE API call for ALL watchlist MAL IDs
         try:
@@ -196,6 +205,8 @@ def prefetch_watchlist():
 
 def prefetch_calendar():
     """Warm AnimeSchedule cache in background at Kodi startup."""
+    if control.abort_requested():
+        return
     try:
         from resources.lib.AnimeSchedule import AnimeScheduleCalendar
         control.log('### Prefetching airing calendar cache')
@@ -484,6 +495,11 @@ if __name__ == "__main__":
             control.log('Device display is in standby - pausing periodic memory trim')
             continue
         control.clean_memory()
+        try:
+            from resources.lib.ui import database
+            database.checkpoint_databases(truncate=False)
+        except Exception as e:
+            control.log(f"Periodic WAL checkpoint notice: {e}", 'debug')
     # Checkpoint WAL databases to 0 bytes on shutdown
     try:
         from resources.lib.ui import database

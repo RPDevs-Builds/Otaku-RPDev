@@ -1,3 +1,6 @@
+Changelog v5.9.5 (2026-11-02):
+- Milestone v6.0.0 Production Hardening: Scraper Zombie Abort, SQLite Self-Healing & Lock Jitter, System Health Diagnostics, Hardware Profiles, HTTP Keep-Alive & Offline Scraper Tests
+
 Changelog v5.9.4 (2026-11-02):
 - Fix completed watchlist paging, eliminate prefetch thread invoker hangs, and prevent mid-navigation cache invalidation
 

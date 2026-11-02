@@ -1,0 +1,42 @@
+[
+  {
+    "id": 185001,
+    "title": "[SubsPlease] Shingeki no Kyojin - 01 (1080p) [ABCD1234].mkv",
+    "link": "https://animetosho.org/view/subsplease-shingeki-no-kyojin-01-1080p.n185001",
+    "timestamp": 1600000000,
+    "status": 1,
+    "tosho_id": 185001,
+    "nyaa_id": 1234567,
+    "anidb_aid": 9541,
+    "anidb_eid": 145001,
+    "anidb_fid": 200001,
+    "torrent_url": "https://storage.animetosho.org/torrents/test1.torrent",
+    "info_hash": "abcdef1234567890abcdef1234567890abcdef12",
+    "magnet_uri": "magnet:?xt=urn:btih:abcdef1234567890abcdef1234567890abcdef12&dn=%5BSubsPlease%5D+Shingeki+no+Kyojin+-+01+%281080p%29",
+    "seeders": 150,
+    "leechers": 5,
+    "torrent_downloaded_count": 500,
+    "total_size": 1480000000,
+    "num_files": 1
+  },
+  {
+    "id": 185002,
+    "title": "[Erai-raws] Shingeki no Kyojin - 01 [720p][Multiple Subtitle].mkv",
+    "link": "https://animetosho.org/view/erai-raws-shingeki-no-kyojin-01-720p.n185002",
+    "timestamp": 1600000100,
+    "status": 1,
+    "tosho_id": 185002,
+    "nyaa_id": 1234568,
+    "anidb_aid": 9541,
+    "anidb_eid": 145001,
+    "anidb_fid": 200002,
+    "torrent_url": "https://storage.animetosho.org/torrents/test2.torrent",
+    "info_hash": "1122334455667788990011223344556677889900",
+    "magnet_uri": "magnet:?xt=urn:btih:1122334455667788990011223344556677889900&dn=%5BErai-raws%5D+Shingeki+no+Kyojin+-+01",
+    "seeders": 50,
+    "leechers": 2,
+    "torrent_downloaded_count": 200,
+    "total_size": 890000000,
+    "num_files": 1
+  }
+]

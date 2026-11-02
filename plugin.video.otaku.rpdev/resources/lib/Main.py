@@ -249,6 +249,7 @@ def _search_menu():
 def _tools_menu():
     tools = (
         (30069, 'setup_wizard', 'tools.png'),
+        (30671, 'system_health_diagnostics', 'tools.png'),
         (30070, 'change_log', 'changelog.png'),
         (30071, 'settings', 'open_settings_menu.png'),
         (30072, 'clear_cache', 'clear_cache.png'),

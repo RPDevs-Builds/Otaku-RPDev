@@ -24,6 +24,7 @@ import json
 import os
 import random
 import re
+import socket
 import ssl
 import sys
 import threading
@@ -46,6 +47,13 @@ TRANSLATEPATH = xbmcvfs.translatePath
 CERT_FILE = TRANSLATEPATH('special://xbmc/system/certs/cacert.pem')
 _COOKIE_HEADER = "Cookie"
 _HEADER_RE = re.compile(r"^([\w\d-]+?)=(.*?)$")
+
+# Enforce a global default socket timeout so hung DNS/sockets never freeze worker threads indefinitely
+try:
+    if socket.getdefaulttimeout() is None or socket.getdefaulttimeout() > 15.0:
+        socket.setdefaulttimeout(15.0)
+except Exception:
+    pass
 
 class _SessionOpenerDict(dict):
     """Dict keyed by (domain, bool(verify)) with backward-compatible domain string lookup."""
@@ -383,6 +391,10 @@ def request(
         if 'Accept' not in _headers:
             _headers['Accept'] = '*/*'
 
+        if 'Connection' not in _headers:
+            if can_use_session_opener or not close:
+                _headers['Connection'] = 'keep-alive'
+
         if 'X-Requested-With' in _headers:
             pass
         elif XHR:
@@ -459,7 +471,8 @@ def request(
 
         try:
             # Use local/session opener so concurrent threads never clobber global urllib state
-            response = opener.open(req, timeout=int(timeout))
+            req_timeout = int(timeout) if timeout else 15
+            response = opener.open(req, timeout=req_timeout)
         except urllib.error.HTTPError as e:
             if error is True:
                 response = e

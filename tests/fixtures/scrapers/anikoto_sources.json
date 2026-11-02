@@ -1,0 +1,24 @@
+{
+  "sources": [
+    {
+      "file": "https://stream.megaplay.buzz/hls/anikoto/attack_on_titan_ep1/master.m3u8",
+      "type": "hls"
+    }
+  ],
+  "tracks": [
+    {
+      "file": "https://sub.megaplay.buzz/subs/attack_on_titan_ep1_eng.vtt",
+      "label": "English",
+      "kind": "captions",
+      "default": true
+    }
+  ],
+  "intro": {
+    "start": 90,
+    "end": 180
+  },
+  "outro": {
+    "start": 1380,
+    "end": 1470
+  }
+}

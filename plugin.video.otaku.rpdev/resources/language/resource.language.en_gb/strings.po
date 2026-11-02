@@ -2629,6 +2629,15 @@ msgctxt "#30670"
 msgid "Verify HTTPS SSL/TLS certificates when scraping or downloading metadata. Disable only if experiencing certificate validation errors on legacy Android devices."
 msgstr ""
 
+msgctxt "#30671"
+msgid "System Health & Diagnostics"
+msgstr ""
+
+msgctxt "#30672"
+msgid "Comprehensive diagnostics suite inspecting debrid accounts, watchlist tokens, database integrity, and scraper mirrors with 1-click repair."
+msgstr ""
+
+
 
 
 
