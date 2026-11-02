@@ -256,6 +256,79 @@ class TestMenuOrder(unittest.TestCase):
             mock_notify.assert_called_once()
             self.assertTrue(dlg._win_closed)
 
+    def test_toggle_visibility_in_place_no_reset(self):
+        """Verify toggle_visibility mutates ListItem in-place and never calls reset()."""
+        dlg = menu_order.MenuOrderDialog("menu_order.xml", control.ADDON_PATH)
+        dlg.onInit()
+
+        # Select index 3
+        dlg.list_control.selectItem(3)
+        target_id = dlg.ordered_ids[3]
+        initial_order = list(dlg.ordered_ids)
+
+        with patch.object(dlg.list_control, 'reset') as mock_reset:
+            # 1. Toggle visibility on index 3
+            dlg.toggle_visibility(3)
+            # Must NOT call reset() on the list
+            mock_reset.assert_not_called()
+
+            # Item order must remain 100% identical
+            self.assertEqual(dlg.ordered_ids, initial_order)
+
+            # Property on ListItem must be updated in-place
+            li = dlg.list_control.getListItem(3)
+            self.assertIsNotNone(li)
+            badge = li.getProperty('status_badge')
+            is_en = target_id in dlg.enabled_set
+            expected_badge = '[COLOR deepskyblue][✓][/COLOR]' if is_en else '[COLOR grey][  ][/COLOR]'
+            self.assertEqual(badge, expected_badge)
+
+    def test_clicking_list_item_only_toggles_and_never_moves(self):
+        """Verify clicking on a list item (Control ID 1000) only toggles visibility and NEVER moves the item."""
+        dlg = menu_order.MenuOrderDialog("menu_order.xml", control.ADDON_PATH)
+        dlg.onInit()
+
+        # Select an item that is NOT at the top (e.g., index 4)
+        dlg.list_control.selectItem(4)
+        item_at_4 = dlg.ordered_ids[4]
+        initial_order = list(dlg.ordered_ids)
+        was_enabled = item_at_4 in dlg.enabled_set
+
+        # Click the list item directly (Control 1000)
+        dlg.onClick(1000)
+
+        # Order must remain completely unchanged
+        self.assertEqual(dlg.ordered_ids, initial_order)
+        self.assertEqual(dlg.ordered_ids[4], item_at_4)
+
+        # Visibility must be cleanly flipped
+        self.assertEqual(item_at_4 in dlg.enabled_set, not was_enabled)
+
+        # Click again to toggle back
+        dlg.onClick(1000)
+        self.assertEqual(dlg.ordered_ids, initial_order)
+        self.assertEqual(item_at_4 in dlg.enabled_set, was_enabled)
+
+    def test_onaction_back_and_cancel_handling(self):
+        """Verify onAction properly routes back actions (9, 10, 92, 110, 216) to cancel_and_close."""
+        dlg = menu_order.MenuOrderDialog("menu_order.xml", control.ADDON_PATH)
+        dlg.onInit()
+
+        mock_action = MagicMock()
+        with patch.object(dlg, 'cancel_and_close') as mock_cancel:
+            for action_code in [9, 10, 92, 110, 216]:
+                mock_action.getId.return_value = action_code
+                dlg.onAction(mock_action)
+            self.assertEqual(mock_cancel.call_count, 5)
+
+        # Action 7 (Enter) is not intercepted by onAction, avoiding duplicate event dispatch
+        with patch.object(dlg, 'onClick') as mock_click, \
+             patch.object(dlg, 'toggle_visibility') as mock_toggle:
+            mock_action.getId.return_value = 7
+            dlg.onAction(mock_action)
+            mock_click.assert_not_called()
+            mock_toggle.assert_not_called()
+
     def test_open_menu_order_dialog_lifecycle(self):
         """Test open_menu_order_dialog instantiates MenuOrderDialog and executes doModal."""
         with patch.object(menu_order.MenuOrderDialog, 'doModal') as mock_modal:

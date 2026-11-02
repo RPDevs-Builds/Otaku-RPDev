@@ -74,8 +74,8 @@
                 <height>730</height>
                 <onup>1000</onup>
                 <ondown>1000</ondown>
-                <onright>3001</onright>
-                <onleft>3001</onleft>
+                <onright>2000</onright>
+                <onleft>2000</onleft>
                 <pagecontrol>17</pagecontrol>
                 <scrolltime>150</scrolltime>
 
@@ -185,7 +185,7 @@
                 <visible>true</visible>
                 <orientation>vertical</orientation>
                 <onleft>1000</onleft>
-                <onright>3001</onright>
+                <onright>2000</onright>
             </control>
 
             <!-- Right Panel: Action Buttons (Control ID: 2000) -->

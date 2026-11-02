@@ -116,6 +116,7 @@ class MenuOrderDialog(xbmcgui.WindowXMLDialog):
         super().__init__(xml_file, location)
         self.ordered_ids, self.enabled_set = load_menu_order()
         self.list_control = None
+        self.selected_index = 0
         self.modified = False
         self._win_closed = False
 
@@ -135,14 +136,21 @@ class MenuOrderDialog(xbmcgui.WindowXMLDialog):
             try:
                 pos = self.list_control.getSelectedPosition()
                 if 0 <= pos < len(self.ordered_ids):
+                    self.selected_index = pos
                     return pos
             except Exception:
                 pass
-        return 0
+        return getattr(self, 'selected_index', 0)
 
     def _populate_list(self, selected_idx=0):
         if self.list_control is None:
             return
+
+        current_focus = None
+        try:
+            current_focus = self.getFocusId()
+        except Exception:
+            pass
 
         self.list_control.reset()
         for item_id in self.ordered_ids:
@@ -165,12 +173,20 @@ class MenuOrderDialog(xbmcgui.WindowXMLDialog):
 
         if len(self.ordered_ids) > 0:
             target_idx = max(0, min(len(self.ordered_ids) - 1, selected_idx))
+            self.selected_index = target_idx
             self.list_control.selectItem(target_idx)
+
+        if current_focus and current_focus != 1000:
+            try:
+                self.setFocusId(current_focus)
+            except Exception:
+                pass
 
     def move_up(self):
         idx = self._get_current_index()
         if idx > 0:
             new_idx = move_item(self.ordered_ids, idx, idx - 1)
+            self.selected_index = new_idx
             self.modified = True
             self._populate_list(selected_idx=new_idx)
             return new_idx
@@ -180,6 +196,7 @@ class MenuOrderDialog(xbmcgui.WindowXMLDialog):
         idx = self._get_current_index()
         if idx < len(self.ordered_ids) - 1:
             new_idx = move_item(self.ordered_ids, idx, idx + 1)
+            self.selected_index = new_idx
             self.modified = True
             self._populate_list(selected_idx=new_idx)
             return new_idx
@@ -189,6 +206,7 @@ class MenuOrderDialog(xbmcgui.WindowXMLDialog):
         idx = self._get_current_index()
         if idx > 0:
             new_idx = move_item(self.ordered_ids, idx, 0)
+            self.selected_index = 0
             self.modified = True
             self._populate_list(selected_idx=0)
             return 0
@@ -199,25 +217,41 @@ class MenuOrderDialog(xbmcgui.WindowXMLDialog):
         last_idx = len(self.ordered_ids) - 1
         if idx < last_idx:
             new_idx = move_item(self.ordered_ids, idx, last_idx)
+            self.selected_index = last_idx
             self.modified = True
             self._populate_list(selected_idx=last_idx)
             return last_idx
         return idx
 
-    def toggle_visibility(self):
-        idx = self._get_current_index()
+    def toggle_visibility(self, index=None):
+        idx = index if index is not None else self._get_current_index()
+        if idx < 0 or idx >= len(self.ordered_ids):
+            return
         item_id = self.ordered_ids[idx]
         if item_id in self.enabled_set:
             self.enabled_set.discard(item_id)
         else:
             self.enabled_set.add(item_id)
         self.modified = True
-        self._populate_list(selected_idx=idx)
+
+        # In-place widget update: modify existing ListItem properties without reset()
+        if self.list_control is not None:
+            try:
+                li = self.list_control.getListItem(idx)
+                if li is not None:
+                    is_enabled = item_id in self.enabled_set
+                    status_badge = '[COLOR deepskyblue][✓][/COLOR]' if is_enabled else '[COLOR grey][  ][/COLOR]'
+                    status_text = control.lang(30690) if is_enabled else control.lang(30691)
+                    li.setProperty('status_badge', status_badge)
+                    li.setProperty('status_text', status_text)
+            except Exception as e:
+                control.log(f"MenuOrderDialog: Failed in-place item update: {e}", 'warning')
 
     def reset_defaults(self):
         if control.yesno_dialog(control.lang(30682), control.lang(30686)):
             self.ordered_ids = list(DEFAULT_ORDER)
             self.enabled_set = set(DEFAULT_ENABLED)
+            self.selected_index = 0
             self.modified = True
             self._populate_list(selected_idx=0)
 
@@ -237,7 +271,7 @@ class MenuOrderDialog(xbmcgui.WindowXMLDialog):
 
     def onClick(self, control_id):
         if control_id == 1000:
-            # Clicking on a list item directly toggles its visibility
+            # Clicking on a list item directly toggles its visibility in-place without moving
             self.toggle_visibility()
         elif control_id == 3001:  # Move Up
             self.move_up()
@@ -258,16 +292,9 @@ class MenuOrderDialog(xbmcgui.WindowXMLDialog):
 
     def onAction(self, action):
         action_id = action.getId() if hasattr(action, 'getId') else int(action)
-        if action_id in [9, 10, 92, 216]:
+        if action_id in [9, 10, 92, 110, 216]:
             # Back / ESC
             self.cancel_and_close()
-        elif action_id == 7:
-            # Enter / Select
-            focus_id = self.getFocusId()
-            if focus_id == 1000:
-                self.toggle_visibility()
-            else:
-                self.onClick(focus_id)
 
 
 def open_menu_order_dialog():
