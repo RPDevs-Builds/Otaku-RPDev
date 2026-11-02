@@ -16,11 +16,13 @@ Usage:
 
 import argparse
 import datetime
+import json
 import os
 import re
 import shutil
 import subprocess
 import sys
+import time
 import xml.etree.ElementTree as ET
 
 
@@ -315,6 +317,60 @@ def main():
         print("  ✓ Pushed CDN repo to origin/main.")
     else:
         print("  ℹ️ Working tree clean in CDN repo. Nothing to commit.")
+
+    # 7. Live CDN Deployment & Remote Checksum Verification
+    print("\n🔍 Step 7: Verifying Live CDN Deployment & Checksum Propagation...")
+    md5_file = os.path.join(cdn_dir, "addons.xml.md5")
+    expected_md5 = ""
+    if os.path.isfile(md5_file):
+        with open(md5_file, "r", encoding="utf-8") as f:
+            expected_md5 = f.read().strip()
+
+    cdn_url = "https://kodi.repo.iamrp.dev/addons.xml.md5"
+    verified = False
+    start_time = time.time()
+    max_wait = 120  # 2 minutes max wait
+
+    while time.time() - start_time < max_wait:
+        # Check live CDN md5
+        res = subprocess.run(["curl", "-s", "--max-time", "5", cdn_url], capture_output=True, text=True)
+        remote_md5 = res.stdout.strip()
+        if expected_md5 and remote_md5 == expected_md5:
+            verified = True
+            print(f"  ✓ Live CDN checksum verified: {remote_md5}")
+            print("  ✓ Repository update confirmed live for Kodi clients!")
+            break
+
+        # Check GitHub Pages deployment status via gh CLI
+        gh_check = subprocess.run(
+            ["gh", "run", "list", "--repo", "rpdev-cdn/kodi.repo.iamrp.dev", "--limit", "1", "--json", "databaseId,status,conclusion"],
+            capture_output=True, text=True
+        )
+        if gh_check.returncode == 0:
+            try:
+                runs = json.loads(gh_check.stdout)
+                if runs:
+                    latest = runs[0]
+                    if latest.get("status") == "completed" and latest.get("conclusion") == "failure":
+                        run_id = latest.get("databaseId")
+                        print(f"  ⚠️ Detected failed Pages deployment (run {run_id}). Automatically triggering rerun...")
+                        subprocess.run(["gh", "run", "rerun", str(run_id), "--repo", "rpdev-cdn/kodi.repo.iamrp.dev"], capture_output=True)
+            except Exception:
+                pass
+
+        time.sleep(5)
+
+    if not verified:
+        print(f"\n  ⚠️ Warning: Live CDN did not propagate new checksum within {max_wait}s.")
+        print(f"  Expected: {expected_md5}")
+        print(f"  Received: {remote_md5 or 'No response'}")
+        print("  Please check GitHub Pages deployment status: gh run list --repo rpdev-cdn/kodi.repo.iamrp.dev")
+
+    # Verify release zip archive accessibility
+    zip_url = f"https://kodi.repo.iamrp.dev/{args.addon_id}/{args.addon_id}-{next_ver}.zip"
+    zip_res = subprocess.run(["curl", "-sI", "--max-time", "5", zip_url], capture_output=True, text=True)
+    if "200" in zip_res.stdout:
+        print(f"  ✓ Distribution archive verified reachable: {zip_url}")
 
     print("\n═══════════════════════════════════════════════════════════════════════════")
     print(f" 🎉 RELEASE v{next_ver} COMPLETE & PUBLISHED TO CDN!")
