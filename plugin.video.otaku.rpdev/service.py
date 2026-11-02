@@ -386,6 +386,7 @@ def load_settings():
 
 
 _MENU_SETTINGS = (
+    'menu.mainmenu.order',
     'menu.mainmenu.config',
     'menu.submenu.config',
     'menu.genres.config',
@@ -417,7 +418,10 @@ def _get_menu_settings_snapshot():
     snapshot = {}
     for sid in _MENU_SETTINGS:
         try:
-            snapshot[sid] = control.settings.getStringList(sid)
+            if sid == 'menu.mainmenu.order':
+                snapshot[sid] = control.getSetting(sid)
+            else:
+                snapshot[sid] = control.settings.getStringList(sid)
         except Exception:
             try:
                 snapshot[sid] = control.getSetting(sid)

@@ -1,3 +1,6 @@
+Changelog v5.9.9 (2026-11-02):
+- Menu Customization & Home Screen Item Ordering: Add dedicated interactive Main Menu Order & Visibility manager combining reordering (Move Up, Move Down, Move to Position, Move to Top, Move to Bottom), visibility toggle, batch multiselect, and default reset. Refactor _collect_category_menu_items to strictly adhere to custom item order while preserving 100% legacy compatibility.
+
 Changelog v5.9.8 (2026-11-02):
 - Comprehensive Subsystem Maturity Hardening: Scraper URL Normalization & Double Slash Elimination, Safe Selection Dict Keys & User Cancellation State, Franchise Filtering Precompiled Regex Optimization, OAuth Progress Dialog C++ Window Leak Elimination, Managed Context File Descriptors, and Resilient Watchlist Fallback JSON Parsing Across All Flavors
 

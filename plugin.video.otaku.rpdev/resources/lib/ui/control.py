@@ -1053,9 +1053,13 @@ def multiselect_dialog(title, dialog_list, preselect=None):
     return xbmcgui.Dialog().multiselect(sanitize_dialog_text(title), clean_list, preselect=preselect)
 
 
-def select_dialog(title, dialog_list):
+def select_dialog(title, dialog_list, preselect=0):
     clean_list = [sanitize_dialog_text(item) if isinstance(item, str) else item for item in dialog_list]
-    return xbmcgui.Dialog().select(sanitize_dialog_text(title), clean_list)
+    return xbmcgui.Dialog().select(sanitize_dialog_text(title), clean_list, preselect=preselect)
+
+
+def numeric_dialog(type_, heading, default_value=''):
+    return xbmcgui.Dialog().numeric(type_, sanitize_dialog_text(heading), default_value)
 
 
 def context_menu(context_list):

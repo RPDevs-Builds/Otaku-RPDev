@@ -250,6 +250,7 @@ def _tools_menu():
     tools = (
         (30069, 'setup_wizard', 'tools.png'),
         (30671, 'system_health_diagnostics', 'tools.png'),
+        (30673, 'menu_order', 'tools.png'),
         (30070, 'change_log', 'changelog.png'),
         (30071, 'settings', 'open_settings_menu.png'),
         (30072, 'clear_cache', 'clear_cache.png'),
@@ -756,28 +757,78 @@ def _maybe_refresh_main_menu(log_msg):
 
 
 def _collect_category_menu_items(menu_items_key, settings_key, extra_key_suffix):
-    enabled_items = []
-    enabled_items = add_watchlist(enabled_items)
     enabled_ids = control.getStringList(settings_key)
-    if "last_watched%s" % extra_key_suffix in enabled_ids:
-        enabled_items = add_last_watched(enabled_items)
-    if "watch_history%s" % extra_key_suffix in enabled_ids:
-        enabled_items = add_watch_history(enabled_items)
-    if "next_up%s" % extra_key_suffix in enabled_ids:
-        enabled_items = add_next_up(enabled_items)
-    if "my_cloud%s" % extra_key_suffix in enabled_ids:
-        enabled_items = add_my_cloud(enabled_items)
+    if not enabled_ids:
+        enabled_ids = []
+
+    # Map available generators for dynamic and fixed menu items
+    items_by_id = {}
+    if menu_items_key == 'main':
+        items_by_id['watchlist'] = lambda: add_watchlist([])
+
+    items_by_id['last_watched%s' % extra_key_suffix] = lambda: add_last_watched([])
+    items_by_id['watch_history%s' % extra_key_suffix] = lambda: add_watch_history([])
+    items_by_id['next_up%s' % extra_key_suffix] = lambda: add_next_up([])
+    items_by_id['my_cloud%s' % extra_key_suffix] = lambda: add_my_cloud([])
+
     for item in get_menu_items(menu_items_key):
-        if item[1] in enabled_ids:
-            enabled_items.append(item)
+        items_by_id[item[1]] = [item]
+
+    enabled_items = []
     seen = set()
-    unique_items = []
-    for itm in enabled_items:
-        key = itm[2] if (len(itm) == 6 and itm[0] == 'LAST_WATCHED_ITEM') else itm[1]
-        if key not in seen:
-            seen.add(key)
-            unique_items.append(itm)
-    return unique_items
+
+    def _append_resolved(resolved_items):
+        for itm in resolved_items:
+            key = itm[2] if (len(itm) == 6 and itm[0] == 'LAST_WATCHED_ITEM') else itm[1]
+            if key not in seen:
+                seen.add(key)
+                enabled_items.append(itm)
+
+    if menu_items_key == 'main':
+        order_setting = control.getSetting('menu.mainmenu.order')
+        if order_setting:
+            order_ids = [x.strip() for x in order_setting.split(',') if x.strip()]
+        else:
+            order_ids = None
+
+        if order_ids:
+            # Ordered mode: iterate through configured order_ids
+            for item_id in order_ids:
+                if item_id in enabled_ids and item_id in items_by_id:
+                    gen_or_list = items_by_id[item_id]
+                    resolved = gen_or_list() if callable(gen_or_list) else gen_or_list
+                    _append_resolved(resolved)
+
+            # Safety fallback for any newly enabled items not yet in order_ids
+            for item_id in enabled_ids:
+                if item_id in items_by_id and item_id not in order_ids:
+                    gen_or_list = items_by_id[item_id]
+                    resolved = gen_or_list() if callable(gen_or_list) else gen_or_list
+                    _append_resolved(resolved)
+            return enabled_items
+        else:
+            # Legacy default mode: watchlist at top (if active), followed by default order
+            _append_resolved(items_by_id['watchlist']())
+            for item_id in ('last_watched', 'watch_history', 'next_up', 'my_cloud'):
+                if item_id in enabled_ids and item_id in items_by_id:
+                    _append_resolved(items_by_id[item_id]())
+            for item in get_menu_items(menu_items_key):
+                if item[1] in enabled_ids:
+                    _append_resolved([item])
+            return enabled_items
+
+    else:
+        # Sub-category menus (movie, tv_show, etc.)
+        for item_id in ('last_watched%s' % extra_key_suffix,
+                        'watch_history%s' % extra_key_suffix,
+                        'next_up%s' % extra_key_suffix,
+                        'my_cloud%s' % extra_key_suffix):
+            if item_id in enabled_ids and item_id in items_by_id:
+                _append_resolved(items_by_id[item_id]())
+        for item in get_menu_items(menu_items_key):
+            if item[1] in enabled_ids:
+                _append_resolved([item])
+        return enabled_items
 
 
 def _finalize_menu_list_items(menu_items):

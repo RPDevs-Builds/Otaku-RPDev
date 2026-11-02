@@ -2637,9 +2637,67 @@ msgctxt "#30672"
 msgid "Comprehensive diagnostics suite inspecting debrid accounts, watchlist tokens, database integrity, and scraper mirrors with 1-click repair."
 msgstr ""
 
+msgctxt "#30673"
+msgid "Main Menu Order & Customization"
+msgstr ""
 
+msgctxt "#30674"
+msgid "Reorder and customize visibility of Home screen items."
+msgstr ""
 
+msgctxt "#30675"
+msgid "Move Up"
+msgstr ""
 
+msgctxt "#30676"
+msgid "Move Down"
+msgstr ""
 
+msgctxt "#30677"
+msgid "Move to Position"
+msgstr ""
 
+msgctxt "#30678"
+msgid "Move to Top"
+msgstr ""
+
+msgctxt "#30679"
+msgid "Move to Bottom"
+msgstr ""
+
+msgctxt "#30680"
+msgid "Toggle Visibility (Show/Hide)"
+msgstr ""
+
+msgctxt "#30681"
+msgid "Batch Select Enabled Items"
+msgstr ""
+
+msgctxt "#30682"
+msgid "Reset to Default Order & Visibility"
+msgstr ""
+
+msgctxt "#30683"
+msgid "Enter new position"
+msgstr ""
+
+msgctxt "#30684"
+msgid "Main menu order and visibility updated."
+msgstr ""
+
+msgctxt "#30685"
+msgid "Select Action"
+msgstr ""
+
+msgctxt "#30686"
+msgid "Reset to defaults? All custom ordering and visibility will be restored to default."
+msgstr ""
+
+msgctxt "#30687"
+msgid "Save and Close"
+msgstr ""
+
+msgctxt "#30688"
+msgid "Save changes before exiting?"
+msgstr ""
 

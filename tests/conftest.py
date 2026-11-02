@@ -451,6 +451,9 @@ class MockDialog:
     def textviewer(self, heading, text):
         self.textviewer_contents.append({'heading': heading, 'text': text})
 
+    def numeric(self, type_, heading, default_value=''):
+        return str(default_value)
+
 
 class MockDialogProgress:
     def __init__(self):

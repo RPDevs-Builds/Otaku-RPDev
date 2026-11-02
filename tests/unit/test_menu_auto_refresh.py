@@ -34,6 +34,7 @@ class TestMenuAutoRefresh(unittest.TestCase):
     def test_get_menu_settings_snapshot_contains_all_menu_keys(self):
         snapshot = service._get_menu_settings_snapshot()
         self.assertIsInstance(snapshot, dict)
+        self.assertIn('menu.mainmenu.order', snapshot)
         self.assertIn('menu.mainmenu.config', snapshot)
         self.assertIn('menu.submenu.config', snapshot)
         self.assertIn('menu.genres.config', snapshot)

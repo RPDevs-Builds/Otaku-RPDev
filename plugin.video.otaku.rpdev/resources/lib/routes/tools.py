@@ -945,3 +945,10 @@ def CLEAN_SETTINGS(payload, params):
         )
         control.log(f"Error in CLEAN_SETTINGS: {e}", level='error')
 
+
+@Route('menu_order')
+def MENU_ORDER(payload, params):
+    """Open interactive main menu order and visibility customization dialog."""
+    from resources.lib.windows.menu_order import open_menu_order_dialog
+    open_menu_order_dialog()
+
