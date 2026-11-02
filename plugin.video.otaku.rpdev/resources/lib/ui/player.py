@@ -298,23 +298,46 @@ class WatchlistPlayer(player):
             embed_extractor.del_subs()
         except Exception:
             pass
-        if self.context and self.path:
-            if getattr(self, 'total_time', 0) > 60 and 0 < getattr(self, 'current_time', 0) < self.total_time:
-                if 10 < self.getWatchedPercent() < 90:
-                    query = {
-                        'jsonrpc': '2.0',
-                        'method': 'Files.SetFileDetails',
-                        'params': {
-                            'file': self.path,
-                            'media': 'video',
-                            'resume': {
-                                'position': self.current_time,
-                                'total': self.total_time
-                            }
-                        },
-                        'id': 1
-                    }
-                    control.jsonrpc(query)
+        target_file = self.path or ''
+        if not target_file:
+            try:
+                target_file = self.getPlayingFile()
+            except Exception:
+                target_file = ''
+
+        if target_file and getattr(self, 'total_time', 0) > 60:
+            watched_pct = self.getWatchedPercent()
+            if 10 < watched_pct < 90 and 0 < getattr(self, 'current_time', 0) < self.total_time:
+                query = {
+                    'jsonrpc': '2.0',
+                    'method': 'Files.SetFileDetails',
+                    'params': {
+                        'file': target_file,
+                        'media': 'video',
+                        'resume': {
+                            'position': self.current_time,
+                            'total': self.total_time
+                        }
+                    },
+                    'id': 1
+                }
+                control.jsonrpc(query)
+            elif watched_pct >= 90:
+                # Clear bookmark when episode is finished so Kodi does not prompt resume on replay
+                query = {
+                    'jsonrpc': '2.0',
+                    'method': 'Files.SetFileDetails',
+                    'params': {
+                        'file': target_file,
+                        'media': 'video',
+                        'resume': {
+                            'position': 0,
+                            'total': self.total_time
+                        }
+                    },
+                    'id': 1
+                }
+                control.jsonrpc(query)
         control.clean_memory()
 
     def onPlayBackEnded(self):
@@ -325,6 +348,27 @@ class WatchlistPlayer(player):
             embed_extractor.del_subs()
         except Exception:
             pass
+        target_file = self.path or ''
+        if not target_file:
+            try:
+                target_file = self.getPlayingFile()
+            except Exception:
+                target_file = ''
+        if target_file and getattr(self, 'total_time', 0) > 60:
+            query = {
+                'jsonrpc': '2.0',
+                'method': 'Files.SetFileDetails',
+                'params': {
+                    'file': target_file,
+                    'media': 'video',
+                    'resume': {
+                        'position': 0,
+                        'total': self.total_time
+                    }
+                },
+                'id': 1
+            }
+            control.jsonrpc(query)
         control.clean_memory()
 
     def onPlayBackError(self):

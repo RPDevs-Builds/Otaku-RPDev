@@ -351,6 +351,8 @@ class SQL:
 
 _window = control.homeWindow
 _MEM_GEN_PROP = f'{control.ADDON_ID}_cache_gen'
+_MEM_KEYS_PROP = f'{control.ADDON_ID}_cache_keys'
+_MAX_MEM_CACHE_BYTES = 65536  # 64 KB ceiling to prevent Kodi GUI memory bloat
 
 
 def _get_mem_prefix():
@@ -358,7 +360,32 @@ def _get_mem_prefix():
     return f'{control.ADDON_ID}_c{gen}_'
 
 
+def _register_mem_key(full_key):
+    """Keep track of active window property keys for generational garbage collection."""
+    try:
+        existing = _window.getProperty(_MEM_KEYS_PROP) or ''
+        keys = set(existing.split(',')) if existing else set()
+        if full_key not in keys:
+            keys.add(full_key)
+            if len(keys) > 500:
+                keys = set(list(keys)[-250:])
+            _window.setProperty(_MEM_KEYS_PROP, ','.join(keys))
+    except Exception:
+        pass
+
+
 def _bump_mem_generation():
+    """Increment generation counter and purge window properties from previous generation."""
+    try:
+        registered = _window.getProperty(_MEM_KEYS_PROP) or ''
+        if registered:
+            for k in registered.split(','):
+                if k:
+                    _window.clearProperty(k)
+            _window.clearProperty(_MEM_KEYS_PROP)
+    except Exception:
+        pass
+
     try:
         gen = int(_window.getProperty(_MEM_GEN_PROP) or '0') + 1
     except ValueError:
@@ -383,9 +410,13 @@ def _mem_get(key):
 
 
 def _mem_set(key, value_repr, hours):
-    """Store *value_repr* (a ``repr()`` string) with an expiry of *hours*."""
+    """Store *value_repr* (a ``repr()`` string) with an expiry of *hours*. Payloads >64KB bypass RAM window cache."""
+    if not value_repr or len(value_repr) > _MAX_MEM_CACHE_BYTES:
+        return
     expires = int(time.time() + hours * 3600)
-    _window.setProperty(_get_mem_prefix() + key, f"{expires}|{value_repr}")
+    full_key = _get_mem_prefix() + key
+    _window.setProperty(full_key, f"{expires}|{value_repr}")
+    _register_mem_key(full_key)
 
 
 def _mem_del(key):

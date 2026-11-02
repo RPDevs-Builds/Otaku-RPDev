@@ -18,6 +18,10 @@ class KitsuWLF(WatchlistFlavorBase):
         self.mapping = []
 
     def __headers(self):
+        kitsu_expiry = control.getInt('kitsu.expiry')
+        if kitsu_expiry and time.time() > (kitsu_expiry - 300):
+            self.refresh_token()
+            self.token = control.getSetting('kitsu.token')
         headers = {
             'Content-Type': 'application/vnd.api+json',
             'Accept': 'application/vnd.api+json',

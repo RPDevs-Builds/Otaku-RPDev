@@ -6,9 +6,21 @@ class Anilist:
     _BASE_URL = "https://graphql.anilist.co"
 
     def get_anilist_by_mal_ids(self, mal_ids, page=1, media_type="ANIME"):
+        if not mal_ids:
+            return []
+
+        clean_ids = []
+        for mid in mal_ids:
+            try:
+                clean_ids.append(int(mid))
+            except (ValueError, TypeError):
+                continue
+        if not clean_ids:
+            return []
+
         query = '''
         query ($page: Int, $malIds: [Int], $type: MediaType) {
-          Page(page: $page) {
+          Page(page: $page, perPage: 50) {
             pageInfo {
               hasNextPage
               total
@@ -85,28 +97,32 @@ class Anilist:
         '''
 
         all_media = []
-        page = 1
-        while page <= 50:
-            variables = {
-                "page": page,
-                "malIds": mal_ids,
-                "type": media_type
-            }
-            result = client.request(self._BASE_URL, post={'query': query, 'variables': variables}, jpost=True)
-            if not result:
-                break
-            try:
-                results = json.loads(result) if isinstance(result, str) else control.safe_json(result)
-            except Exception as e:
-                control.log(f"AniList mal_ids parse error: {e}", 'warning')
-                break
-            page_data = results.get('data', {}).get('Page', {})
-            media = page_data.get('media', [])
-            all_media.extend(media)
-            has_next = page_data.get('pageInfo', {}).get('hasNextPage', False)
-            if not has_next:
-                break
-            page += 1
+        # Chunk into slices of 50 to strictly comply with AniList GraphQL idMal_in constraint
+        chunk_size = 50
+        for i in range(0, len(clean_ids), chunk_size):
+            chunk = clean_ids[i:i + chunk_size]
+            current_page = 1
+            while current_page <= 50:
+                variables = {
+                    "page": current_page,
+                    "malIds": chunk,
+                    "type": media_type
+                }
+                result = client.request(self._BASE_URL, post={'query': query, 'variables': variables}, jpost=True)
+                if not result:
+                    break
+                try:
+                    results = json.loads(result) if isinstance(result, str) else control.safe_json(result)
+                except Exception as e:
+                    control.log(f"AniList mal_ids parse error: {e}", 'warning')
+                    break
+                page_data = results.get('data', {}).get('Page', {})
+                media = page_data.get('media', [])
+                all_media.extend(media)
+                has_next = page_data.get('pageInfo', {}).get('hasNextPage', False)
+                if not has_next:
+                    break
+                current_page += 1
         return all_media
 
     def get_enrichment_for_mal_ids(self, mal_ids):
@@ -186,60 +202,64 @@ class Anilist:
         '''
 
         ratings_map = {}
-        page = 1
+        chunk_size = 50
 
         try:
-            while True:
-                variables = {
-                    "page": page,
-                    "malIds": valid_mal_ids,
-                    "type": "ANIME"
-                }
+            for i in range(0, len(valid_mal_ids), chunk_size):
+                chunk = valid_mal_ids[i:i + chunk_size]
+                page = 1
 
-                result = client.post(self._BASE_URL, json_data={'query': query, 'variables': variables})
-
-                if not result:
-                    break
-
-                results = control.safe_json(result, default={})
-
-                # Check for errors
-                if "errors" in results:
-                    control.log(f"AniList API error: {results['errors']}", "error")
-                    break
-
-                page_data = results.get('data', {}).get('Page', {})
-                media_list = page_data.get('media', [])
-
-                # Process each anime's rating
-                for media in media_list:
-                    mal_id = media.get('idMal')
-                    if not mal_id:
-                        continue
-
-                    # AniList averageScore is already on 0-100 scale
-                    avg_score = media.get('averageScore', 0)
-                    mean_score = media.get('meanScore', 0)
-
-                    # Use averageScore (community rating), fallback to meanScore if not available
-                    score = avg_score if avg_score else mean_score
-
-                    ratings_map[int(mal_id)] = {
-                        'anilist_score': int(score) if score else 0
+                while True:
+                    variables = {
+                        "page": page,
+                        "malIds": chunk,
+                        "type": "ANIME"
                     }
 
-                # Check if there are more pages
-                has_next = page_data.get('pageInfo', {}).get('hasNextPage', False)
-                if not has_next:
-                    break
+                    result = client.post(self._BASE_URL, json_data={'query': query, 'variables': variables})
 
-                page += 1
+                    if not result:
+                        break
+
+                    results = control.safe_json(result, default={})
+
+                    # Check for errors
+                    if "errors" in results:
+                        control.log(f"AniList API error: {results['errors']}", "error")
+                        break
+
+                    page_data = results.get('data', {}).get('Page', {})
+                    media_list = page_data.get('media', [])
+
+                    # Process each anime's rating
+                    for media in media_list:
+                        mal_id = media.get('idMal')
+                        if not mal_id:
+                            continue
+
+                        # AniList averageScore is already on 0-100 scale
+                        avg_score = media.get('averageScore', 0)
+                        mean_score = media.get('meanScore', 0)
+
+                        # Use averageScore (community rating), fallback to meanScore if not available
+                        score = avg_score if avg_score else mean_score
+
+                        ratings_map[int(mal_id)] = {
+                            'anilist_score': int(score) if score else 0
+                        }
+
+                    # Check if there are more pages
+                    has_next = page_data.get('pageInfo', {}).get('hasNextPage', False)
+                    if not has_next:
+                        break
+
+                    page += 1
 
             return ratings_map
 
         except Exception as e:
             control.log(f"Error fetching AniList ratings batch: {str(e)}", "error")
-            return {}
+            return ratings_map
 
     def get_banners_batch(self, mal_ids):
         """
@@ -285,51 +305,55 @@ class Anilist:
         '''
 
         banner_map = {}
-        page = 1
+        chunk_size = 50
 
         try:
-            while True:
-                variables = {
-                    "page": page,
-                    "malIds": valid_mal_ids,
-                    "type": "ANIME"
-                }
+            for i in range(0, len(valid_mal_ids), chunk_size):
+                chunk = valid_mal_ids[i:i + chunk_size]
+                page = 1
 
-                result = client.post(self._BASE_URL, json_data={'query': query, 'variables': variables})
+                while True:
+                    variables = {
+                        "page": page,
+                        "malIds": chunk,
+                        "type": "ANIME"
+                    }
 
-                if not result:
-                    break
+                    result = client.post(self._BASE_URL, json_data={'query': query, 'variables': variables})
 
-                results = control.safe_json(result, default={})
+                    if not result:
+                        break
 
-                # Check for errors
-                if "errors" in results:
-                    control.log(f"AniList API error: {results['errors']}", "error")
-                    break
+                    results = control.safe_json(result, default={})
 
-                page_data = results.get('data', {}).get('Page', {})
-                media_list = page_data.get('media', [])
+                    # Check for errors
+                    if "errors" in results:
+                        control.log(f"AniList API error: {results['errors']}", "error")
+                        break
 
-                # Process each anime's banner
-                for media in media_list:
-                    mal_id = media.get('idMal')
-                    banner_url = media.get('bannerImage')
+                    page_data = results.get('data', {}).get('Page', {})
+                    media_list = page_data.get('media', [])
 
-                    if mal_id and banner_url:
-                        banner_map[int(mal_id)] = banner_url
+                    # Process each anime's banner
+                    for media in media_list:
+                        mal_id = media.get('idMal')
+                        banner_url = media.get('bannerImage')
 
-                # Check if there are more pages
-                has_next = page_data.get('pageInfo', {}).get('hasNextPage', False)
-                if not has_next:
-                    break
+                        if mal_id and banner_url:
+                            banner_map[int(mal_id)] = banner_url
 
-                page += 1
+                    # Check if there are more pages
+                    has_next = page_data.get('pageInfo', {}).get('hasNextPage', False)
+                    if not has_next:
+                        break
+
+                    page += 1
 
             return banner_map
 
         except Exception as e:
             control.log(f"Error fetching AniList banners batch: {str(e)}", "error")
-            return {}
+            return banner_map
 
     def get_banner(self, mal_id):
         """

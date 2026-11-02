@@ -1,3 +1,4 @@
+import time
 import urllib.parse
 from resources.lib.ui import client, control, source_utils
 
@@ -112,13 +113,27 @@ class AllDebrid:
             return True
         return False
 
+    def _request_with_backoff(self, method, url, **kwargs):
+        """Execute HTTP request with 1x exponential backoff if HTTP 429 is received."""
+        r = getattr(client, method.lower())(url, **kwargs)
+        if r and r.status_code == 429:
+            try:
+                wait_seconds = int(r.headers.get('Retry-After', 1))
+            except (ValueError, TypeError):
+                wait_seconds = 1
+            wait_seconds = min(max(wait_seconds, 1), 3)
+            control.log(f"AllDebrid API rate limited (429) for {url}, backing off {wait_seconds}s", 'warning')
+            time.sleep(wait_seconds)
+            r = getattr(client, method.lower())(url, **kwargs)
+        return r
+
     def addMagnet(self, magnet_hash):
         params = {
             'agent': self.agent_identifier,
             'apikey': self.token,
             'magnets': magnet_hash
         }
-        r = client.get(f'{self.base_url}/magnet/upload', params=params)
+        r = self._request_with_backoff('get', f'{self.base_url}/magnet/upload', params=params)
         return (r.json() or {}).get('data') if r else None
 
     def resolve_hoster(self, url):
@@ -127,7 +142,7 @@ class AllDebrid:
             'apikey': self.token,
             'link': url
         }
-        r = client.get(f'{self.base_url}/link/unlock', params=params)
+        r = self._request_with_backoff('get', f'{self.base_url}/link/unlock', params=params)
         resolve = ((r.json() or {}).get('data') or {}) if r else {}
         return resolve.get('link')
 
@@ -137,7 +152,7 @@ class AllDebrid:
             'apikey': self.token,
             'id': magnet_id
         }
-        r = client.get(f'{self.base_url}/magnet/status', params=params)
+        r = self._request_with_backoff('get', f'{self.base_url}/magnet/status', params=params)
         return (r.json() or {}).get('data') if r else None
 
     def list_saved_links(self):
@@ -145,7 +160,7 @@ class AllDebrid:
             'agent': self.agent_identifier,
             'apikey': self.token
         }
-        r = client.get(f'{self.base_url}/user/links', params=params)
+        r = self._request_with_backoff('get', f'{self.base_url}/user/links', params=params)
         return (r.json() or {}).get('data') if r else None
 
     def list_torrents(self):
@@ -154,7 +169,7 @@ class AllDebrid:
             'apikey': self.token,
             'status': 'ready'
         }
-        r = client.get(f'{self.base_url}/magnet/status', params=params)
+        r = self._request_with_backoff('get', f'{self.base_url}/magnet/status', params=params)
         data = (r.json() or {}).get('data') if r else None
         if not data:
             return []
@@ -168,7 +183,7 @@ class AllDebrid:
             'agent': self.agent_identifier,
             'apikey': self.token
         }
-        r = client.get(f'{self.base_url}/user/history', params=params)
+        r = self._request_with_backoff('get', f'{self.base_url}/user/history', params=params)
         return (r.json() or {}).get('data') if r else None
 
     def link_info(self, link):
@@ -179,7 +194,7 @@ class AllDebrid:
         }
         encoded_params = urllib.parse.urlencode(params, doseq=True)
         url = f'{self.base_url}/link/infos?{encoded_params}'
-        r = client.get(url)
+        r = self._request_with_backoff('get', url)
         return (r.json() or {}).get('data') if r else None
 
     def resolve_single_magnet(self, hash_, magnet, episode, pack_select, filename=None):
@@ -229,7 +244,7 @@ class AllDebrid:
             'apikey': self.token,
             'id': magnet_id
         }
-        r = client.get(f'{self.base_url}/magnet/delete', params=params)
+        r = self._request_with_backoff('get', f'{self.base_url}/magnet/delete', params=params)
         return r and r.ok
 
     def get_torrent_status(self, magnet):

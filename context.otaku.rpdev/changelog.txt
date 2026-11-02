@@ -1,3 +1,6 @@
+Changelog v1.0.44 (2026-11-02):
+- Implement defensive subpath extraction and trailing digits resolution across all context menu actions, eliminating IndexError on third-party skin widgets
+
 Changelog v1.0.43 (2026-11-01):
 - Convert info.db to DELETE mode, sanitize query parameters, and fix markedasunwatched visibility
 

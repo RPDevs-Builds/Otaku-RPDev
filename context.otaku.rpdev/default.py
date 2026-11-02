@@ -54,6 +54,20 @@ def get_video_info(li: xbmcgui.ListItem) -> dict:
     return params
 
 
+def _extract_subpath(path: str, prefix: str, default: str = '') -> str:
+    """Extract subpath after prefix safely without raising IndexError."""
+    if not path:
+        return default
+    if prefix in path:
+        parts = path.split(prefix, 1)
+        return parts[1] if len(parts) > 1 else default
+    clean = path.split('?', 1)[0].rstrip('/')
+    if clean:
+        parts = [p for p in clean.split('/') if p]
+        return f"/{parts[-1]}" if parts else default
+    return default
+
+
 def _extract_watch_target(path: str, plugin: str) -> str:
     """Extracts '/mal_id/episode' from various plugin URL schemes safely without index errors."""
     clean_path = path.split('?', 1)[0]
@@ -73,6 +87,9 @@ def _extract_watch_target(path: str, plugin: str) -> str:
     if parts[0] in ('play', 'play_oot', 'play_al', 'play_mal', 'animes') and len(parts) >= 2:
         return f"/{parts[1]}/1"
 
+    if len(parts) >= 2 and parts[-2].isdigit() and parts[-1].isdigit():
+        return f"/{parts[-2]}/{parts[-1]}"
+
     if parts[0].isdigit():
         ep = parts[1] if len(parts) >= 2 and parts[1].isdigit() else "1"
         return f"/{parts[0]}/{ep}"
@@ -80,6 +97,9 @@ def _extract_watch_target(path: str, plugin: str) -> str:
     if len(parts) >= 2 and parts[1].isdigit():
         ep = parts[2] if len(parts) >= 3 and parts[2].isdigit() else "1"
         return f"/{parts[1]}/{ep}"
+
+    if len(parts) >= 1 and parts[-1].isdigit():
+        return f"/{parts[-1]}/1"
 
     if f'{plugin}/play' in clean_path:
         return clean_path.split(f'{plugin}/play', 1)[1]
@@ -92,41 +112,41 @@ def main():
     path = item.getPath()
     plugin = 'plugin://plugin.video.otaku.rpdev'
     if arg == 'findrecommendations':
-        path = path.split(plugin, 1)[1]
-        xbmc.executebuiltin(f"Container.Update({plugin}/find_recommendations{path})")
+        subpath = _extract_subpath(path, plugin)
+        xbmc.executebuiltin(f"Container.Update({plugin}/find_recommendations{subpath})")
     elif arg == 'findrelations':
-        path = path.split(plugin, 1)[1]
-        xbmc.executebuiltin(f"Container.Update({plugin}/find_relations{path})")
+        subpath = _extract_subpath(path, plugin)
+        xbmc.executebuiltin(f"Container.Update({plugin}/find_relations{subpath})")
     elif arg == 'getwatchorder':
-        path = path.split(plugin, 1)[1]
-        xbmc.executebuiltin(f"Container.Update({plugin}/watch_order{path})")
+        subpath = _extract_subpath(path, plugin)
+        xbmc.executebuiltin(f"Container.Update({plugin}/watch_order{subpath})")
     elif arg == 'viewreviews':
-        path = path.split(plugin, 1)[1]
-        xbmc.executebuiltin(f"Container.Update({plugin}/anime_reviews{path})")
+        subpath = _extract_subpath(path, plugin)
+        xbmc.executebuiltin(f"Container.Update({plugin}/anime_reviews{subpath})")
     elif arg == 'viewstatistics':
-        path = path.split(plugin, 1)[1]
-        xbmc.executebuiltin(f"Container.Update({plugin}/anime_statistics{path})")
+        subpath = _extract_subpath(path, plugin)
+        xbmc.executebuiltin(f"Container.Update({plugin}/anime_statistics{subpath})")
     elif arg == 'rescrape':
         params = get_video_info(item)
         params['rescrape'] = 'true'
-        base_path = path.split('?', 1)[0]
+        base_path = path.split('?', 1)[0] if path else plugin
         path = f"{base_path}?{parse.urlencode(params)}"
         xbmc.executebuiltin(f"PlayMedia({path})")
     elif arg == 'sourceselect':
         params = get_video_info(item)
         params['source_select'] = 'true'
-        base_path = path.split('?', 1)[0]
+        base_path = path.split('?', 1)[0] if path else plugin
         path = f"{base_path}?{parse.urlencode(params)}"
         xbmc.executebuiltin(f"PlayMedia({path})")
     elif arg == 'logout':
-        path = path.split(f'{plugin}/watchlist', 1)[1]
-        xbmc.executebuiltin(f"RunPlugin({plugin}/watchlist_logout{path})")
+        subpath = _extract_subpath(path, f'{plugin}/watchlist')
+        xbmc.executebuiltin(f"RunPlugin({plugin}/watchlist_logout{subpath})")
     elif arg == 'deletefromdatabase':
-        path = path.split(plugin, 1)[1]
-        xbmc.executebuiltin(f"RunPlugin({plugin}/delete_anime_database{path})")
+        subpath = _extract_subpath(path, plugin)
+        xbmc.executebuiltin(f"RunPlugin({plugin}/delete_anime_database{subpath})")
     elif arg == 'watchlist':
-        path = path.split(plugin, 1)[1]
-        xbmc.executebuiltin(f"RunPlugin({plugin}/watchlist_manager{path})")
+        subpath = _extract_subpath(path, plugin)
+        xbmc.executebuiltin(f"RunPlugin({plugin}/watchlist_manager{subpath})")
     elif arg == 'markedaswatched':
         target = _extract_watch_target(path, plugin)
         xbmc.executebuiltin(f"RunPlugin({plugin}/marked_as_watched{target})")
@@ -139,8 +159,8 @@ def main():
     elif arg == 'clearcache':
         xbmc.executebuiltin(f"RunPlugin({plugin}/clear_cache)")
     elif arg == 'fanartselect':
-        path = path.split(plugin, 1)[1]
-        xbmc.executebuiltin(f"Container.Update({plugin}/fanart_select{path})")
+        subpath = _extract_subpath(path, plugin)
+        xbmc.executebuiltin(f"Container.Update({plugin}/fanart_select{subpath})")
     else:
         raise KeyError("Could Not find %s in Context Menu Action" % arg)
 

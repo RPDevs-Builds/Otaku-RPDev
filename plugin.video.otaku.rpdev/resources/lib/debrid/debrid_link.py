@@ -21,6 +21,20 @@ class DebridLink:
     def headers(self):
         return {'User-Agent': self.USER_AGENT, 'Authorization': f"Bearer {self.token}"}
 
+    def _request_with_backoff(self, method, url, **kwargs):
+        """Execute HTTP request with 1x exponential backoff if HTTP 429 is received."""
+        r = getattr(client, method.lower())(url, **kwargs)
+        if r and r.status_code == 429:
+            try:
+                wait_seconds = int(r.headers.get('Retry-After', 1))
+            except (ValueError, TypeError):
+                wait_seconds = 1
+            wait_seconds = min(max(wait_seconds, 1), 3)
+            control.log(f"Debrid-Link API rate limited (429) for {url}, backing off {wait_seconds}s", 'warning')
+            time.sleep(wait_seconds)
+            r = getattr(client, method.lower())(url, **kwargs)
+        return r
+
     def auth_loop(self):
         if self.dialog and self.dialog.iscanceled():
             self.OauthTimeout = 0
@@ -157,12 +171,12 @@ class DebridLink:
             'async': 'true'
         }
         url = f"{self.api_url}/seedbox/add"
-        r = client.post(url, data=postData, headers=self.headers())
+        r = self._request_with_backoff('post', url, data=postData, headers=self.headers())
         return r.json().get('value') if r else None
 
     def delete_magnet(self, magnet_id):
         url = f'{self.api_url}/seedbox/{magnet_id}/remove'
-        return client.delete(url, headers=self.headers())
+        return self._request_with_backoff('delete', url, headers=self.headers())
 
     def resolve_single_magnet(self, hash_, magnet, episode, pack_select, filename=None):
         magnet_data = self.addMagnet(magnet)

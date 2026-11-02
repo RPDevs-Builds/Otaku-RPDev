@@ -1,3 +1,4 @@
+import time
 import urllib.parse
 
 from resources.lib.ui import source_utils, client, control, database
@@ -19,6 +20,20 @@ class Premiumize:
 
     def headers(self):
         return {'Authorization': f"Bearer {self.token}"}
+
+    def _request_with_backoff(self, method, url, **kwargs):
+        """Execute HTTP request with 1x exponential backoff if HTTP 429 is received."""
+        r = getattr(client, method.lower())(url, **kwargs)
+        if r and r.status_code == 429:
+            try:
+                wait_seconds = int(r.headers.get('Retry-After', 1))
+            except (ValueError, TypeError):
+                wait_seconds = 1
+            wait_seconds = min(max(wait_seconds, 1), 3)
+            control.log(f"Premiumize API rate limited (429) for {url}, backing off {wait_seconds}s", 'warning')
+            time.sleep(wait_seconds)
+            r = getattr(client, method.lower())(url, **kwargs)
+        return r
 
     def auth(self):
         import os
@@ -134,49 +149,49 @@ class Premiumize:
 
     def search_folder(self, query):
         params = {'q': query}
-        r = client.get(f'{self.base_url}/folder/search', headers=self.headers(), params=params)
+        r = self._request_with_backoff('get', f'{self.base_url}/folder/search', headers=self.headers(), params=params)
         return (r.json() or {}).get('content', []) if r else None
 
     def list_folder(self, folderid=None):
         params = {'id': folderid} if (folderid and folderid != 'root') else None
-        r = client.get(f"{self.base_url}/folder/list", headers=self.headers(), params=params)
+        r = self._request_with_backoff('get', f"{self.base_url}/folder/list", headers=self.headers(), params=params)
         data = r.json() if r else {}
         return data.get('content', []) if isinstance(data, dict) else []
 
     def get_root_folder_id(self):
-        r = client.get(f"{self.base_url}/folder/list", headers=self.headers())
+        r = self._request_with_backoff('get', f"{self.base_url}/folder/list", headers=self.headers())
         data = r.json() if r else {}
         return data.get('folder_id') if isinstance(data, dict) else None
 
     def item_details(self, item_id):
-        r = client.get(f"{self.base_url}/item/details", headers=self.headers(), params={'id': item_id})
+        r = self._request_with_backoff('get', f"{self.base_url}/item/details", headers=self.headers(), params={'id': item_id})
         return r.json() if r else None
 
     def create_folder(self, name, parent_id=None):
         data = {'name': name}
         if parent_id and parent_id != 'root':
             data['parent_id'] = parent_id
-        r = client.post(f"{self.base_url}/folder/create", headers=self.headers(), data=data)
+        r = self._request_with_backoff('post', f"{self.base_url}/folder/create", headers=self.headers(), data=data)
         return r.json() if r else None
 
     def rename_folder(self, folder_id, name):
         data = {'id': folder_id, 'name': name}
-        r = client.post(f"{self.base_url}/folder/rename", headers=self.headers(), data=data)
+        r = self._request_with_backoff('post', f"{self.base_url}/folder/rename", headers=self.headers(), data=data)
         return r.json() if r else None
 
     def rename_item(self, item_id, name):
         data = {'id': item_id, 'name': name}
-        r = client.post(f"{self.base_url}/item/rename", headers=self.headers(), data=data)
+        r = self._request_with_backoff('post', f"{self.base_url}/item/rename", headers=self.headers(), data=data)
         return r.json() if r else None
 
     def delete_folder(self, folder_id):
         data = {'id': folder_id}
-        r = client.post(f"{self.base_url}/folder/delete", headers=self.headers(), data=data)
+        r = self._request_with_backoff('post', f"{self.base_url}/folder/delete", headers=self.headers(), data=data)
         return r.json() if r else None
 
     def delete_item(self, item_id):
         data = {'id': item_id}
-        r = client.post(f"{self.base_url}/item/delete", headers=self.headers(), data=data)
+        r = self._request_with_backoff('post', f"{self.base_url}/item/delete", headers=self.headers(), data=data)
         return r.json() if r else None
 
     def move_items(self, target_folder_id, file_ids=None, folder_ids=None):
@@ -189,7 +204,7 @@ class Premiumize:
             data.append(('files[]', fid))
         for flid in (folder_ids or []):
             data.append(('folders[]', flid))
-        r = client.post(f"{self.base_url}/folder/paste", headers=self.headers(), data=data)
+        r = self._request_with_backoff('post', f"{self.base_url}/folder/paste", headers=self.headers(), data=data)
         return r.json() if r else None
 
     def hash_check(self, hashlist):
@@ -200,7 +215,7 @@ class Premiumize:
         for i in range(0, len(hashlist), chunk_size):
             chunk = hashlist[i:i + chunk_size]
             data = [('items[]', h) for h in chunk]
-            r = client.post(f'{self.base_url}/cache/check', headers=self.headers(), data=data)
+            r = self._request_with_backoff('post', f'{self.base_url}/cache/check', headers=self.headers(), data=data)
             res = r.json() if r else None
             if not res or 'response' not in res:
                 return None
@@ -209,21 +224,21 @@ class Premiumize:
 
     def direct_download(self, src):
         postData = {'src': src}
-        r = client.post(f'{self.base_url}/transfer/directdl', headers=self.headers(), data=postData)
+        r = self._request_with_backoff('post', f'{self.base_url}/transfer/directdl', headers=self.headers(), data=postData)
         return r.json() if r else None
 
     def addMagnet(self, src):
         postData = {'src': src}
-        r = client.post(f'{self.base_url}/transfer/create', headers=self.headers(), data=postData)
+        r = self._request_with_backoff('post', f'{self.base_url}/transfer/create', headers=self.headers(), data=postData)
         return r.json() if r else None
 
     def transfer_list(self):
-        r = client.get(f'{self.base_url}/transfer/list', headers=self.headers())
+        r = self._request_with_backoff('get', f'{self.base_url}/transfer/list', headers=self.headers())
         return (r.json() or {}).get('transfers', []) if r else None
 
     def delete_torrent(self, torrent_id):
         params = {'id': torrent_id}
-        r = client.post(f'{self.base_url}/transfer/delete', headers=self.headers(), data=params)
+        r = self._request_with_backoff('post', f'{self.base_url}/transfer/delete', headers=self.headers(), data=params)
         return r.json() if r else None
 
     def manage_storage_space(self):
@@ -240,7 +255,7 @@ class Premiumize:
                     break
 
     def get_storage_info(self):
-        r = client.get(f'{self.base_url}/account/info', headers=self.headers())
+        r = self._request_with_backoff('get', f'{self.base_url}/account/info', headers=self.headers())
         return r.json() if r else None
 
     def get_oldest_items(self):

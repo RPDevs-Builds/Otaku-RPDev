@@ -496,6 +496,10 @@ if __name__ == "__main__":
             continue
         control.clean_memory()
         try:
+            refresh_apis()
+        except Exception as e:
+            control.log(f"Periodic API token refresh notice: {e}", 'debug')
+        try:
             from resources.lib.ui import database
             database.checkpoint_databases(truncate=False)
         except Exception as e:

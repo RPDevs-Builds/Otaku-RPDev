@@ -13,6 +13,10 @@ class MyAnimeListWLF(WatchlistFlavorBase):
     _IMAGE = "myanimelist.png"
 
     def __headers(self):
+        mal_expiry = control.getInt('mal.expiry')
+        if mal_expiry and time.time() > (mal_expiry - 300):
+            self.refresh_token()
+            self.token = control.getSetting('mal.token')
         headers = {
             'Authorization': f'Bearer {self.token}',
             'Content-Type': 'application/x-www-form-urlencoded'
