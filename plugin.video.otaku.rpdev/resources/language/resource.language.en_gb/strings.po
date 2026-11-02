@@ -2733,4 +2733,8 @@ msgctxt "#30696"
 msgid "Hidden from menu"
 msgstr ""
 
+msgctxt "#30697"
+msgid "Toggle All On / Off"
+msgstr ""
+
 

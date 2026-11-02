@@ -242,6 +242,14 @@ class TestMenuOrder(unittest.TestCase):
         dlg.onClick(1000)
         self.assertEqual(curr_id in dlg.enabled_set, was_enabled)
 
+        # 5b. Toggle All On / Off (Button 3009)
+        dlg.onClick(3009)
+        # If it was partially enabled, toggling all turns all ON
+        self.assertEqual(len(dlg.enabled_set), len(dlg.ordered_ids))
+        # Clicking again turns all OFF
+        dlg.onClick(3009)
+        self.assertEqual(len(dlg.enabled_set), 0)
+
         # 6. Reset to Defaults (Button 3006)
         with patch('resources.lib.ui.control.yesno_dialog', return_value=True):
             dlg.onClick(3006)
@@ -282,6 +290,36 @@ class TestMenuOrder(unittest.TestCase):
             is_en = target_id in dlg.enabled_set
             expected_badge = '[COLOR deepskyblue][✓][/COLOR]' if is_en else '[COLOR grey][  ][/COLOR]'
             self.assertEqual(badge, expected_badge)
+
+    def test_toggle_all_in_place_no_reset(self):
+        """Verify toggle_all flips all items and mutates ListItems in-place without calling reset()."""
+        dlg = menu_order.MenuOrderDialog("menu_order.xml", control.ADDON_PATH)
+        dlg.onInit()
+
+        initial_order = list(dlg.ordered_ids)
+
+        with patch.object(dlg.list_control, 'reset') as mock_reset:
+            # 1. Turn all ON from partial
+            dlg.toggle_all()
+            mock_reset.assert_not_called()
+            self.assertEqual(len(dlg.enabled_set), len(dlg.ordered_ids))
+            self.assertEqual(dlg.ordered_ids, initial_order)
+
+            # Check all items have enabled badge
+            for i in range(len(dlg.ordered_ids)):
+                li = dlg.list_control.getListItem(i)
+                self.assertEqual(li.getProperty('status_badge'), '[COLOR deepskyblue][✓][/COLOR]')
+
+            # 2. Turn all OFF from all ON
+            dlg.toggle_all()
+            mock_reset.assert_not_called()
+            self.assertEqual(len(dlg.enabled_set), 0)
+            self.assertEqual(dlg.ordered_ids, initial_order)
+
+            # Check all items have disabled badge
+            for i in range(len(dlg.ordered_ids)):
+                li = dlg.list_control.getListItem(i)
+                self.assertEqual(li.getProperty('status_badge'), '[COLOR grey][  ][/COLOR]')
 
     def test_clicking_list_item_only_toggles_and_never_moves(self):
         """Verify clicking on a list item (Control ID 1000) only toggles visibility and NEVER moves the item."""

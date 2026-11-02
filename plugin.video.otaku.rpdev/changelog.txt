@@ -1,3 +1,6 @@
+Changelog v5.9.13 (2026-11-02):
+- Menu Order Window 'Toggle All On / Off': Add dedicated 'Toggle All On / Off' button (Control ID 3009) positioned directly below 'Toggle Visibility (Show / Hide)', providing single-click bulk toggling of all items in the active menu. Operates via non-destructive in-place ListItem property mutations preserving scroll offset and button focus.
+
 Changelog v5.9.12 (2026-11-02):
 - Universal Menu Customization Across All Categories: Expand interactive menu customization and custom item ordering to all 24 menus across 8 categories (Main Menu, Movies, TV Shows, TV Shorts, Specials, OVAs, ONAs, Music Videos for Main, Sub, and Genre menus). Replaced legacy static multiselect lists with interactive WindowXML action buttons, persistent custom ordering, dynamic header titles/descriptions, and add-on wide ordering support in both Main and Submenu navigation routers.
 

@@ -194,13 +194,13 @@
                 <top>115</top>
                 <width>485</width>
                 <height>730</height>
-                <itemgap>14</itemgap>
+                <itemgap>12</itemgap>
                 <onleft>1000</onleft>
                 <onright>1000</onright>
 
                 <!-- Move Up -->
                 <control type="button" id="3001">
-                    <height>64</height>
+                    <height>58</height>
                     <width>485</width>
                     <align>center</align>
                     <aligny>center</aligny>
@@ -214,7 +214,7 @@
 
                 <!-- Move Down -->
                 <control type="button" id="3002">
-                    <height>64</height>
+                    <height>58</height>
                     <width>485</width>
                     <align>center</align>
                     <aligny>center</aligny>
@@ -228,7 +228,7 @@
 
                 <!-- Move to Top -->
                 <control type="button" id="3003">
-                    <height>64</height>
+                    <height>58</height>
                     <width>485</width>
                     <align>center</align>
                     <aligny>center</aligny>
@@ -242,7 +242,7 @@
 
                 <!-- Move to Bottom -->
                 <control type="button" id="3004">
-                    <height>64</height>
+                    <height>58</height>
                     <width>485</width>
                     <align>center</align>
                     <aligny>center</aligny>
@@ -256,7 +256,7 @@
 
                 <!-- Toggle Visibility -->
                 <control type="button" id="3005">
-                    <height>64</height>
+                    <height>58</height>
                     <width>485</width>
                     <align>center</align>
                     <aligny>center</aligny>
@@ -268,9 +268,23 @@
                     <texturefocus colordiffuse="FF00BFFF">white.png</texturefocus>
                 </control>
 
+                <!-- Toggle All On / Off -->
+                <control type="button" id="3009">
+                    <height>58</height>
+                    <width>485</width>
+                    <align>center</align>
+                    <aligny>center</aligny>
+                    <font>font14</font>
+                    <label>[B]⇄  Toggle All On / Off[/B]</label>
+                    <onleft>1000</onleft>
+                    <onright>1000</onright>
+                    <texturenofocus colordiffuse="30FFFFFF">white.png</texturenofocus>
+                    <texturefocus colordiffuse="FF00BFFF">white.png</texturefocus>
+                </control>
+
                 <!-- Reset to Defaults -->
                 <control type="button" id="3006">
-                    <height>64</height>
+                    <height>58</height>
                     <width>485</width>
                     <align>center</align>
                     <aligny>center</aligny>
@@ -284,7 +298,7 @@
 
                 <!-- Save & Apply -->
                 <control type="button" id="3007">
-                    <height>76</height>
+                    <height>70</height>
                     <width>485</width>
                     <align>center</align>
                     <aligny>center</aligny>
@@ -298,7 +312,7 @@
 
                 <!-- Cancel -->
                 <control type="button" id="3008">
-                    <height>56</height>
+                    <height>52</height>
                     <width>485</width>
                     <align>center</align>
                     <aligny>center</aligny>

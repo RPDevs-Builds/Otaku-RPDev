@@ -410,6 +410,41 @@ class MenuOrderDialog(xbmcgui.WindowXMLDialog):
             except Exception as e:
                 control.log(f"MenuOrderDialog: Failed in-place item update: {e}", 'warning')
 
+    def toggle_all(self):
+        """
+        Toggles all items on or off.
+        If all items are currently enabled, disables all items.
+        Otherwise (if some or none are enabled), enables all items.
+        Updates ListItem properties in-place without resetting scroll or focus.
+        """
+        if not self.ordered_ids:
+            return
+
+        if len(self.enabled_set) == len(self.ordered_ids):
+            self.enabled_set.clear()
+        else:
+            self.enabled_set = set(self.ordered_ids)
+
+        self.modified = True
+
+        # In-place widget update for all items without resetting list focus or position
+        if self.list_control is not None:
+            is_main = self.menu_config['is_main_home']
+            for idx, item_id in enumerate(self.ordered_ids):
+                try:
+                    li = self.list_control.getListItem(idx)
+                    if li is not None:
+                        is_enabled = item_id in self.enabled_set
+                        status_badge = '[COLOR deepskyblue][✓][/COLOR]' if is_enabled else '[COLOR grey][  ][/COLOR]'
+                        if is_main:
+                            status_text = control.lang(30690) if is_enabled else control.lang(30691)
+                        else:
+                            status_text = control.lang(30695) if is_enabled else control.lang(30696)
+                        li.setProperty('status_badge', status_badge)
+                        li.setProperty('status_text', status_text)
+                except Exception as e:
+                    control.log(f"MenuOrderDialog: Failed in-place item update at index {idx}: {e}", 'warning')
+
     def reset_defaults(self):
         if control.yesno_dialog(control.lang(30682), control.lang(30686)):
             self.ordered_ids = list(self.menu_config['default_order'])
@@ -446,6 +481,8 @@ class MenuOrderDialog(xbmcgui.WindowXMLDialog):
             self.move_bottom()
         elif control_id == 3005:  # Toggle Visibility
             self.toggle_visibility()
+        elif control_id == 3009:  # Toggle All On / Off
+            self.toggle_all()
         elif control_id == 3006:  # Reset Defaults
             self.reset_defaults()
         elif control_id == 3007:  # Save & Apply
