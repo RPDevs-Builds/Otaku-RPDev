@@ -1,3 +1,6 @@
+Changelog v6.0.1 (2026-11-02):
+- Fix Scraper Initialization Freeze on Kodi 22: Removed legacy aniwave prefix from embed skip time reset loop in pages/__init__.py and player.py; hardened all control.py setting setters (setInt, setBool, setStr, setSetting, setNumber) with defensive exception guards against undeclared setting C++ exceptions in Kodi 22.
+
 Changelog v6.0.0 (2026-11-02):
 - Milestone v6.0.0 Major Release: Otaku RPDev enters v6.0.0 with complete codebase maturity, architectural hardening, and full lineage comparison against upstream documented in root CHANGEREPORT.md.
 - Responsive Abort Loops in Playback & Dialogs: Replaced synchronous xbmc.sleep(3000ms/5000ms/1000ms) in player.py and skip_intro.py with non-blocking control.monitor.waitForAbort() loops, eliminating thread freezes and hung processes when Kodi terminates or switches media streams.

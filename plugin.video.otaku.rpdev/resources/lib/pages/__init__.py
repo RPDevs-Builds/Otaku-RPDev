@@ -195,7 +195,7 @@ class Sources(GetSources):
 
         self.setProperty('process_started', 'true')
 
-        for prefix in ('hianime', 'aniwave', 'animekai', 'anikoto'):
+        for prefix in ('hianime', 'animekai', 'anikoto'):
             for key in ('skipintro.start', 'skipintro.end', 'skipoutro.start', 'skipoutro.end'):
                 control.setInt(f'{prefix}.{key}', -1)
 

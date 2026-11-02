@@ -276,7 +276,7 @@ class WatchlistPlayer(player):
         """Process skip times in background to avoid blocking playback"""
         def _process():
             try:
-                if self.provider in ('aniwave', 'hianime', 'animekai', 'anikoto'):
+                if self.provider in ('hianime', 'animekai', 'anikoto'):
                     self.process_embed(self.provider)
                 self.process_aniskip()
                 self.process_animeskip()
@@ -523,7 +523,7 @@ class WatchlistPlayer(player):
         # Continue with audio/subtitle setup which is needed immediately
         if self.type not in ['embed', 'direct']:
             self.setup_audio_and_subtitles()
-        elif self.provider in ['aniwave', 'hianime', 'anikoto']:
+        elif self.provider in ['hianime', 'anikoto']:
             self.setup_audio_and_subtitles()
 
         # Handle different media types

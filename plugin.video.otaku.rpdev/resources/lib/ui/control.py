@@ -143,28 +143,52 @@ class _SettingsProxy:
         return self._get_settings().getNumberList(key)
 
     def setBool(self, key, value):
-        return self._get_settings().setBool(key, bool(value))
+        try:
+            return self._get_settings().setBool(key, bool(value))
+        except Exception:
+            return False
 
     def setInt(self, key, value):
-        return self._get_settings().setInt(key, int(value))
+        try:
+            return self._get_settings().setInt(key, int(value))
+        except Exception:
+            return False
 
     def setNumber(self, key, value):
-        return self._get_settings().setNumber(key, float(value))
+        try:
+            return self._get_settings().setNumber(key, float(value))
+        except Exception:
+            return False
 
     def setString(self, key, value):
-        return self._get_settings().setString(key, str(value))
+        try:
+            return self._get_settings().setString(key, str(value))
+        except Exception:
+            return False
 
     def setStringList(self, key, value):
-        return self._get_settings().setStringList(key, value)
+        try:
+            return self._get_settings().setStringList(key, value)
+        except Exception:
+            return False
 
     def setBoolList(self, key, value):
-        return self._get_settings().setBoolList(key, value)
+        try:
+            return self._get_settings().setBoolList(key, value)
+        except Exception:
+            return False
 
     def setIntList(self, key, value):
-        return self._get_settings().setIntList(key, value)
+        try:
+            return self._get_settings().setIntList(key, value)
+        except Exception:
+            return False
 
     def setNumberList(self, key, value):
-        return self._get_settings().setNumberList(key, value)
+        try:
+            return self._get_settings().setNumberList(key, value)
+        except Exception:
+            return False
 
 
 class _AddonProxy:
@@ -742,7 +766,10 @@ def _evict_setting(settingid):
 
 def setSetting(settingid, value):
     """Set setting as string - kept for backward compatibility"""
-    settings.setString(settingid, str(value))
+    try:
+        settings.setString(settingid, str(value))
+    except Exception:
+        pass
     _evict_setting(settingid)
     _settings_cache[f's_{settingid}'] = str(value)
     homeWindow.setProperty(f'{ADDON_ID}_{settingid}', str(value))
@@ -750,7 +777,10 @@ def setSetting(settingid, value):
 
 def setBool(settingid, value):
     """Set setting as boolean"""
-    settings.setBool(settingid, value)
+    try:
+        settings.setBool(settingid, value)
+    except Exception:
+        pass
     _evict_setting(settingid)
     _settings_cache[f'b_{settingid}'] = bool(value)
     homeWindow.setProperty(f'{ADDON_ID}_{settingid}', 'true' if value else 'false')
@@ -758,7 +788,10 @@ def setBool(settingid, value):
 
 def setInt(settingid, value):
     """Set setting as integer"""
-    settings.setInt(settingid, value)
+    try:
+        settings.setInt(settingid, value)
+    except Exception:
+        pass
     _evict_setting(settingid)
     _settings_cache[f'i_{settingid}'] = int(value)
     homeWindow.setProperty(f'{ADDON_ID}_{settingid}', str(value))
@@ -766,7 +799,10 @@ def setInt(settingid, value):
 
 def setStr(settingid, value):
     """Set setting as string"""
-    settings.setString(settingid, value)
+    try:
+        settings.setString(settingid, value)
+    except Exception:
+        pass
     _evict_setting(settingid)
     _settings_cache[f's_{settingid}'] = str(value)
     homeWindow.setProperty(f'{ADDON_ID}_{settingid}', str(value))
@@ -774,7 +810,10 @@ def setStr(settingid, value):
 
 def setNumber(settingid, value):
     """Set setting as float/number"""
-    settings.setNumber(settingid, value)
+    try:
+        settings.setNumber(settingid, value)
+    except Exception:
+        pass
     _evict_setting(settingid)
     _settings_cache[f'n_{settingid}'] = float(value)
     homeWindow.setProperty(f'{ADDON_ID}_{settingid}', str(value))

@@ -1,4 +1,16 @@
 ================================================================================
+                    OTAKU RPDEV v6.0.1 - EMERGENCY HOTFIX
+================================================================================
+
+[ Hotfix: Scraper Initialization Freeze & Kodi 22 Setting Hardening ]
+• Scraper Initialization Fix: Removed legacy defunct 'aniwave' prefix from the embed
+  skip time initialization loop in pages/__init__.py and player.py.
+• Kodi 22 Setting Setter Resilience: Hardened control.py setters (setInt, setBool,
+  setString, setNumber) to gracefully handle undeclared setting exceptions, preventing
+  background scraper worker thread crashes and UI lockups on Kodi 22.
+
+
+================================================================================
                     OTAKU RPDEV v6.0.0 - MAJOR MILESTONE RELEASE
 ================================================================================
 
