@@ -1,3 +1,6 @@
+Changelog v5.9.8 (2026-11-02):
+- Comprehensive Subsystem Maturity Hardening: Scraper URL Normalization & Double Slash Elimination, Safe Selection Dict Keys & User Cancellation State, Franchise Filtering Precompiled Regex Optimization, OAuth Progress Dialog C++ Window Leak Elimination, Managed Context File Descriptors, and Resilient Watchlist Fallback JSON Parsing Across All Flavors
+
 Changelog v5.9.7 (2026-11-02):
 - Milestone v6.0.0 Pre-Release Hardening: HTTP Client Float Timeout Precision, Response.json Safe Fallbacks, EasyDebrid 429/503 Backoff, Easynews Playback Stream Auth Pipe Headers, Non-Destructive Database Schema Evolution, AnimeFiller 7-Day SQLite Caching, and Dialog Lifecycle Cleanup
 

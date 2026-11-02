@@ -96,23 +96,27 @@ class RealDebrid:
         self.dialog = Progress_dialog('progress_dialog.xml', control.ADDON_PATH, config=config)
         self.dialog.show()
 
-        self.OauthTotalTimeout = self.OauthTimeout = int(resp.get('expires_in', 900))
-        self.OauthTimeStep = max(1, int(resp.get('interval', 5)))
-        self.DeviceCode = resp['device_code']
         auth_done = False
-        while not auth_done and self.OauthTimeout > 0:
-            for _ in range(self.OauthTimeStep):
+        try:
+            self.OauthTotalTimeout = self.OauthTimeout = int(resp.get('expires_in', 900))
+            self.OauthTimeStep = max(1, int(resp.get('interval', 5)))
+            self.DeviceCode = resp['device_code']
+            while not auth_done and self.OauthTimeout > 0:
+                for _ in range(self.OauthTimeStep):
+                    if control.abort_requested() or (self.dialog and self.dialog.iscanceled()):
+                        break
+                    control.sleep(1000)
                 if control.abort_requested() or (self.dialog and self.dialog.iscanceled()):
                     break
-                control.sleep(1000)
-            if control.abort_requested() or (self.dialog and self.dialog.iscanceled()):
-                break
-            self.OauthTimeout -= self.OauthTimeStep
-            auth_done = self.auth_loop()
+                self.OauthTimeout -= self.OauthTimeStep
+                auth_done = self.auth_loop()
+                if self.dialog:
+                    self.dialog.update(int(self.OauthTimeout / self.OauthTotalTimeout * 100))
+        finally:
             if self.dialog:
-                self.dialog.update(int(self.OauthTimeout / self.OauthTotalTimeout * 100))
-        if self.dialog:
-            self.dialog.close()
+                self.dialog.close()
+                del self.dialog
+                self.dialog = None
 
         if auth_done:
             self.token_request()

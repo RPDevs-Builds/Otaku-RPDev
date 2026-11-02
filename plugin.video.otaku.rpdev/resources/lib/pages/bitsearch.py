@@ -247,7 +247,7 @@ class Sources(BrowserBase):
 
     def _fetch_search_results(self, query):
         clean_q = re.sub(r'[^A-Za-z0-9\s\.-]+', ' ', query).strip()
-        url = f"{self._BASE_URL}/search?q={urllib.parse.quote_plus(clean_q)}&sort=size"
+        url = f"{self._BASE_URL.rstrip('/')}/search?q={urllib.parse.quote_plus(clean_q)}&sort=size"
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',

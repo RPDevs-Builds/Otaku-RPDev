@@ -110,20 +110,23 @@ class DebridLink:
         self.dialog.show()
 
         auth_done = False
-        while not auth_done and self.OauthTimeout > 0:
-            for _ in range(self.OauthTimeStep):
+        try:
+            while not auth_done and self.OauthTimeout > 0:
+                for _ in range(self.OauthTimeStep):
+                    if control.abort_requested() or (self.dialog and self.dialog.iscanceled()):
+                        break
+                    control.sleep(1000)
                 if control.abort_requested() or (self.dialog and self.dialog.iscanceled()):
                     break
-                control.sleep(1000)
-            if control.abort_requested() or (self.dialog and self.dialog.iscanceled()):
-                break
-            self.OauthTimeout -= self.OauthTimeStep
-            auth_done = self.auth_loop()
+                self.OauthTimeout -= self.OauthTimeStep
+                auth_done = self.auth_loop()
+                if self.dialog:
+                    self.dialog.update(int(self.OauthTimeout / self.OauthTotalTimeout * 100))
+        finally:
             if self.dialog:
-                self.dialog.update(int(self.OauthTimeout / self.OauthTotalTimeout * 100))
-
-        if self.dialog:
-            self.dialog.close()
+                self.dialog.close()
+                del self.dialog
+                self.dialog = None
 
         if auth_done:
             self.status()
@@ -135,7 +138,7 @@ class DebridLink:
         if not response:
             control.ok_dialog(control.ADDON_NAME, 'Failed to get Debrid-Link user info')
             return
-        response = response.json()
+        response = response.json(default={})
         if 'value' not in response:
             control.ok_dialog(control.ADDON_NAME, 'Failed to get Debrid-Link user info')
             return

@@ -90,19 +90,23 @@ class Premiumize:
         self.dialog.show()
 
         auth_done = False
-        while not auth_done and self.OauthTimeout > 0:
-            for _ in range(max(1, self.OauthTimeStep)):
+        try:
+            while not auth_done and self.OauthTimeout > 0:
+                for _ in range(max(1, self.OauthTimeStep)):
+                    if control.abort_requested() or (self.dialog and self.dialog.iscanceled()):
+                        break
+                    control.sleep(1000)
                 if control.abort_requested() or (self.dialog and self.dialog.iscanceled()):
                     break
-                control.sleep(1000)
-            if control.abort_requested() or (self.dialog and self.dialog.iscanceled()):
-                break
-            self.OauthTimeout -= self.OauthTimeStep
-            auth_done = self.auth_loop(resp['device_code'])
+                self.OauthTimeout -= self.OauthTimeStep
+                auth_done = self.auth_loop(resp['device_code'])
+                if self.dialog:
+                    self.dialog.update(int(self.OauthTimeout / self.OauthTotalTimeout * 100))
+        finally:
             if self.dialog:
-                self.dialog.update(int(self.OauthTimeout / self.OauthTotalTimeout * 100))
-        if self.dialog:
-            self.dialog.close()
+                self.dialog.close()
+                del self.dialog
+                self.dialog = None
 
         if auth_done:
             self.status()
@@ -110,7 +114,7 @@ class Premiumize:
 
     def status(self):
         r = client.get(f'{self.base_url}/account/info', headers=self.headers())
-        user_information = r.json() if (r and r.ok) else {}
+        user_information = r.json(default={}) if (r and r.ok) else {}
         premium_until = user_information.get('premium_until') or 0
         premium = int(premium_until) > 0 if str(premium_until).isdigit() else False
         customer_id = str(user_information.get('customer_id', ''))

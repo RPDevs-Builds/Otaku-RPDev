@@ -38,7 +38,7 @@ class KitsuWLF(WatchlistFlavorBase):
         )
         if not r:
             return None
-        data = r.json()
+        data = r.json(default={})
         user_data = data.get('data', {}).get('attributes', {})
         updated_at = user_data.get('updatedAt', '')
         return updated_at if updated_at else None
@@ -57,7 +57,7 @@ class KitsuWLF(WatchlistFlavorBase):
             resp = client.post(f'{self._URL}/oauth/token', json_data=params)
             if not resp or not resp.ok:
                 return None
-            data = resp.json()
+            data = resp.json(default={})
         except Exception as e:
             control.log(f"Kitsu token request error: {e}", 'warning')
             return None
@@ -68,7 +68,7 @@ class KitsuWLF(WatchlistFlavorBase):
         self.token = data.get('access_token')
         try:
             resp2 = client.get(f'{self._URL}/edge/users', headers=self.__headers(), params={'filter[self]': True})
-            data2_list = resp2.json().get("data", []) if (resp2 and resp2.ok) else []
+            data2_list = resp2.json(default={}).get("data", []) if (resp2 and resp2.ok) else []
         except Exception:
             data2_list = []
 
@@ -101,7 +101,7 @@ class KitsuWLF(WatchlistFlavorBase):
             resp = client.post(f'{self._URL}/oauth/token', json_data=params)
             if not resp or not resp.ok:
                 return
-            data = resp.json()
+            data = resp.json(default={})
             if not data or 'access_token' not in data:
                 return
             control.setSetting('kitsu.token', data.get('access_token'))

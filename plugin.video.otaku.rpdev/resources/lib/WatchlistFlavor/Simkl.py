@@ -74,38 +74,39 @@ class SimklWLF(WatchlistFlavorBase):
         total_timeout = int(device_code.get('expires_in', 900))
         remaining_timeout = total_timeout
 
-        while remaining_timeout > 0:
-            if dialog.iscanceled() or control.abort_requested():
-                dialog.close()
-                return None
-
-            for _ in range(interval):
+        try:
+            while remaining_timeout > 0:
                 if dialog.iscanceled() or control.abort_requested():
-                    dialog.close()
                     return None
-                control.sleep(1000)
 
-            remaining_timeout -= interval
+                for _ in range(interval):
+                    if dialog.iscanceled() or control.abort_requested():
+                        return None
+                    control.sleep(1000)
 
-            r = client.get(f'{self._URL}/oauth/pin/{user_code}', params=params)
-            r = r.json() if r else {}
-            if r.get('result') == 'OK':
+                remaining_timeout -= interval
+
+                r = client.get(f'{self._URL}/oauth/pin/{user_code}', params=params)
+                r = r.json(default={}) if r else {}
+                if r.get('result') == 'OK':
+                    self.token = r.get('access_token')
+                    login_data = {'token': self.token}
+                    try:
+                        r = client.post(f'{self._URL}/users/settings', headers=self.__headers(), json_data={}, params=params)
+                        if r:
+                            user = r.json(default={}).get('user', {})
+                            if user.get('name'):
+                                login_data['username'] = user['name']
+                    except Exception as e:
+                        control.log(f"Simkl users/settings error: {e}", 'warning')
+                    return login_data
+
+                dialog.update(int(remaining_timeout / total_timeout * 100))
+        finally:
+            if dialog:
                 dialog.close()
-                self.token = r.get('access_token')
-                login_data = {'token': self.token}
-                try:
-                    r = client.post(f'{self._URL}/users/settings', headers=self.__headers(), json_data={}, params=params)
-                    if r:
-                        user = r.json().get('user', {})
-                        if user.get('name'):
-                            login_data['username'] = user['name']
-                except Exception as e:
-                    control.log(f"Simkl users/settings error: {e}", 'warning')
-                return login_data
+                del dialog
 
-            dialog.update(int(remaining_timeout / total_timeout * 100))
-
-        dialog.close()
         return None
 
     def watchlist(self):
@@ -583,7 +584,7 @@ class SimklWLF(WatchlistFlavorBase):
         r = client.post(f'{self._URL}/sync/watched?extended=counters', headers=self.__headers(), json_data=data)
         if not r:
             return {}
-        results = r.json()
+        results = r.json(default=[])
         if not results or not isinstance(results, list):
             return {}
         item = results[0] if results else {}
@@ -611,14 +612,14 @@ class SimklWLF(WatchlistFlavorBase):
             # 'next_watch_info': 'yes'
         }
         r = client.get(f'{self._URL}/sync/all-items/anime/{status}', headers=self.__headers(), params=params)
-        return r.json() if r else {}
+        return r.json(default={}) if r else {}
 
     def get_last_activity_timestamp(self):
         """Check Simkl's /sync/activities endpoint for the latest anime list activity."""
         r = client.get(f'{self._URL}/sync/activities', headers=self.__headers())
         if not r:
             return None
-        data = r.json()
+        data = r.json(default={})
         anime = data.get('anime', {})
         # Collect all activity timestamps and return the most recent
         timestamps = [
@@ -643,7 +644,7 @@ class SimklWLF(WatchlistFlavorBase):
         }
         r = client.post(f'{self._URL}/sync/add-to-list', headers=self.__headers(), json_data=data)
         if r:
-            r = r.json()
+            r = r.json(default={})
             not_found = r.get('not_found', {})
             if not not_found.get('shows') and not not_found.get('movies'):
                 clear_watchlist_cache(self._NAME)  # Clear all statuses since item moved
@@ -669,7 +670,7 @@ class SimklWLF(WatchlistFlavorBase):
         }
         r = client.post(f'{self._URL}/sync/history', headers=self.__headers(), json_data=data)
         if r:
-            r = r.json()
+            r = r.json(default={})
             not_found = r.get('not_found', {})
             if not not_found.get('shows') and not not_found.get('movies'):
                 clear_watchlist_cache(self._NAME)  # Clear cache to reflect progress
@@ -692,7 +693,7 @@ class SimklWLF(WatchlistFlavorBase):
 
         r = client.post(url, headers=self.__headers(), json_data=data)
         if r:
-            r = r.json()
+            r = r.json(default={})
             not_found = r.get('not_found', {})
             if not not_found.get('shows') and not not_found.get('movies'):
                 clear_watchlist_cache(self._NAME)  # Clear cache to reflect score
@@ -710,7 +711,7 @@ class SimklWLF(WatchlistFlavorBase):
         }
         r = client.post(f"{self._URL}/sync/history/remove", headers=self.__headers(), json_data=data)
         if r:
-            r = r.json()
+            r = r.json(default={})
             not_found = r.get('not_found', {})
             if not not_found.get('shows') and not not_found.get('movies'):
                 clear_watchlist_cache(self._NAME)  # Clear cache after deletion

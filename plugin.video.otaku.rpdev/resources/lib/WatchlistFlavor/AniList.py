@@ -36,8 +36,10 @@ class AniListWLF(WatchlistFlavorBase):
         r = client.post(self._URL, headers=self.__headers(), json_data={'query': query})
         if not r:
             return None
-        data = r.json()
+        data = r.json(default={})
         viewer = data.get('data', {}).get('Viewer', {})
+        if not viewer:
+            return None
         updated_at = viewer.get('updatedAt', '')
         anime_count = viewer.get('statistics', {}).get('anime', {}).get('count', 0)
         # Combine timestamp and count so both deletions and updates trigger refresh
@@ -62,7 +64,7 @@ class AniListWLF(WatchlistFlavorBase):
         r = None
         try:
             r = client.post(self._URL, headers=self.__headers(), json_data={'query': query, 'variables': variables})
-            results = r.json() if (r and r.ok) else None
+            results = r.json(default={}) if (r and r.ok) else None
         except Exception as e:
             control.log(f"AniList login exception: {e}", 'warning')
             results = None
@@ -628,7 +630,7 @@ class AniListWLF(WatchlistFlavorBase):
         r = client.post(self._URL, headers=self.__headers(), json_data={'query': query, 'variables': variables})
         if not r:
             return {}
-        media = r.json().get('data', {}).get('Media') or {}
+        media = r.json(default={}).get('data', {}).get('Media') or {}
         if not media:
             return {}
         list_entry = media.get('mediaListEntry') or {}

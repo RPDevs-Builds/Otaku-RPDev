@@ -246,7 +246,7 @@ class Sources(BrowserBase):
 
     def _fetch_apibay_results(self, query, cat='205,208'):
         clean_q = re.sub(r'[^A-Za-z0-9\s\.-]+', ' ', query).strip()
-        url = f"{self._BASE_URL}/q.php?q={urllib.parse.quote_plus(clean_q)}&cat={cat}"
+        url = f"{self._BASE_URL.rstrip('/')}/q.php?q={urllib.parse.quote_plus(clean_q)}&cat={cat}"
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Accept': 'application/json',

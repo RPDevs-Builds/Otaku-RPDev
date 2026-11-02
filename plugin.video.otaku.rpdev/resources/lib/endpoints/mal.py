@@ -57,7 +57,10 @@ class Mal:
 
     def get_cached_data(self):
         if os.path.exists(control.mal_calendar_json):
-            return control.safe_call(lambda: json.load(open(control.mal_calendar_json, 'r')))
+            def _read_data():
+                with open(control.mal_calendar_json, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            return control.safe_call(_read_data)
         return None
 
     def set_cached_data(self, data):

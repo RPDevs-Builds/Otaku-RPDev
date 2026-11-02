@@ -26,6 +26,7 @@ _ROMAN_PARTS = {
 }
 
 _RE_PART_OR_COUR = re.compile(r'\b(?:part|cour)\s*([0-9]+|[ivx]+)\b', re.IGNORECASE)
+_RE_BATCH_RANGE = re.compile(r'[\(\[\s]([0-9]{1,4})\s*[-~–]\s*([0-9]{1,4})[\)\]\s]')
 
 
 def _get_mappings_info(mal_id):
@@ -100,7 +101,7 @@ def _extract_part_from_title(title_lower):
 
 def _extract_batch_range(title_lower):
     """Extract ascending batch episode range like (01-12), [01-24], etc."""
-    m = re.search(r'[\(\[\s]([0-9]{1,4})\s*[-~–]\s*([0-9]{1,4})[\)\]\s]', title_lower)
+    m = _RE_BATCH_RANGE.search(title_lower)
     if m:
         try:
             start, end = int(m.group(1)), int(m.group(2))

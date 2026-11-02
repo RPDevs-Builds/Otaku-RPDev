@@ -75,23 +75,27 @@ class TorBox:
         self.dialog = Progress_dialog('progress_dialog.xml', control.ADDON_PATH, config=config)
         self.dialog.show()
 
-        self.OauthTotalTimeout = self.OauthTimeout = expires_in
-        self.OauthTimeStep = max(1, interval)
-
         auth_done = False
-        while not auth_done and self.OauthTimeout > 0:
-            for _ in range(self.OauthTimeStep):
+        try:
+            self.OauthTotalTimeout = self.OauthTimeout = expires_in
+            self.OauthTimeStep = max(1, interval)
+
+            while not auth_done and self.OauthTimeout > 0:
+                for _ in range(self.OauthTimeStep):
+                    if control.abort_requested() or (self.dialog and self.dialog.iscanceled()):
+                        break
+                    control.sleep(1000)
                 if control.abort_requested() or (self.dialog and self.dialog.iscanceled()):
                     break
-                control.sleep(1000)
-            if control.abort_requested() or (self.dialog and self.dialog.iscanceled()):
-                break
-            self.OauthTimeout -= self.OauthTimeStep
-            auth_done = self.auth_loop(device_code)
+                self.OauthTimeout -= self.OauthTimeStep
+                auth_done = self.auth_loop(device_code)
+                if self.dialog:
+                    self.dialog.update(int(self.OauthTimeout / self.OauthTotalTimeout * 100))
+        finally:
             if self.dialog:
-                self.dialog.update(int(self.OauthTimeout / self.OauthTotalTimeout * 100))
-        if self.dialog:
-            self.dialog.close()
+                self.dialog.close()
+                del self.dialog
+                self.dialog = None
 
         if auth_done:
             self.status()

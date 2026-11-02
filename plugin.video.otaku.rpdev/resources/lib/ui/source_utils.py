@@ -508,10 +508,14 @@ def get_best_match(dict_key, dictionary_list, episode, pack_select=False, filena
         files = [i for i in files if len(i['regex_matches']) > 0]
         if len(files) == 0:
             control.setBool('best_match', False)
-            return {}
+            return {dict_key: '', 'path': ''}
         files = sorted(files, key=lambda x: len(' '.join(list(x['regex_matches'][0]))), reverse=True)
         if len(files) != 1:
             files = user_select(files, dict_key)
+
+    if not files or not files[0] or (not files[0].get(dict_key) and not files[0].get('path')):
+        control.setBool('best_match', False)
+        return {dict_key: '', 'path': ''}
 
     return files[0]
 
@@ -850,9 +854,11 @@ def is_file_ext_valid(file_name):
 
 
 def user_select(files, dict_key):
+    if not files:
+        return [{dict_key: '', 'path': ''}]
     idx = control.select_dialog('Select File', [i[dict_key].rsplit('/')[-1] for i in files])
     if idx == -1:
-        file = [{'path': ''}]
+        file = [{dict_key: '', 'path': ''}]
     else:
         file = [files[idx]]
     return file

@@ -32,7 +32,7 @@ class MyAnimeListWLF(WatchlistFlavorBase):
         )
         if not r:
             return None
-        data = r.json()
+        data = r.json(default={})
         stats = data.get('anime_statistics', {})
         # Build a composite key from counts across all statuses
         # Any add/delete/move will change at least one of these
@@ -83,7 +83,7 @@ class MyAnimeListWLF(WatchlistFlavorBase):
             if not r or not r.ok:
                 control.log(f"MAL oauth token request failed: {r.status_code if r else 'No response'}", level='warning')
                 return None
-            res = r.json()
+            res = r.json(default={})
         except Exception as e:
             control.log(f"MAL oauth error: {e}", level='warning')
             return None
@@ -94,7 +94,7 @@ class MyAnimeListWLF(WatchlistFlavorBase):
         self.token = res.get('access_token')
         try:
             user_resp = client.get(f'{self._URL}/users/@me', headers=self.__headers(), params={'fields': 'name'})
-            user = user_resp.json() if (user_resp and user_resp.ok) else {}
+            user = user_resp.json(default={}) if (user_resp and user_resp.ok) else {}
         except Exception:
             user = {}
 
@@ -126,7 +126,7 @@ class MyAnimeListWLF(WatchlistFlavorBase):
             r = client.post(oauth_url, data=data)
             if not r or not r.ok:
                 return
-            res = r.json()
+            res = r.json(default={})
             if not res or 'access_token' not in res:
                 return
             control.setSetting('mal.token', res.get('access_token'))
