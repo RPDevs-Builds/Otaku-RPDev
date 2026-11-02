@@ -3016,7 +3016,7 @@
 		<category id="Menu Customization" label="30291" help="">
 			<!-- Main Menus -->
 			<group id="1" label="30407" help="">
-				<setting id="menu.mainmenu.order_action" type="action" label="30673" help="30674">
+				<setting id="menu.mainmenu.order_action" type="action" label="30404" help="30674">
 					<level>0</level>
 					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/menu_order?menu=menu.mainmenu&amp;setting=true)</data>
 					<control type="button" format="action">
@@ -3037,11 +3037,11 @@
 						<close>true</close>
 					</control>
 				</setting>
-				<setting id="menu.mainmenu.order" type="string" label="30673" help="">
+				<setting id="menu.mainmenu.order" type="string" label="30404" help="">
 					<level>4</level>
 					<default>watchlist,last_watched,watch_history,next_up,my_cloud,airing_calendar,airing_last_season,airing_this_season,airing_next_season,movies,tv_shows,tv_shorts,specials,ovas,onas,music,trending,popular,voted,favourites,top_100,genres,search,tools</default>
 					<control type="edit" format="string">
-						<heading>30673</heading>
+						<heading>30404</heading>
 					</control>
 				</setting>
 				<setting id="menu.submenu.order" type="string" label="30405" help="">

@@ -153,7 +153,7 @@ def get_menu_config(menu_key='menu.mainmenu'):
     type_label = control.lang(type_label_id)
 
     if cat_id == 'menu':
-        title = f"{type_label} Order & Customization" if type_id != 'mainmenu' else control.lang(30673)
+        title = f"{type_label} Order & Customization"
     else:
         title = f"{cat_label}: {type_label} Order & Customization"
 
@@ -461,7 +461,8 @@ class MenuOrderDialog(xbmcgui.WindowXMLDialog):
 
     def cancel_and_close(self):
         if self.modified:
-            if control.yesno_dialog(control.lang(30673), control.lang(30688)):
+            dialog_title = self.menu_config.get('title', control.lang(30404))
+            if control.yesno_dialog(dialog_title, control.lang(30688)):
                 self.save_and_close()
                 return
         self._win_closed = True
