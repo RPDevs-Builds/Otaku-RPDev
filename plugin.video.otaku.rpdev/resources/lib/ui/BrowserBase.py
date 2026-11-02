@@ -30,7 +30,9 @@ class BrowserBase(object):
 
     @staticmethod
     def handle_paging(hasnextpage, base_url, page):
-        if not hasnextpage or not control.is_addon_visible() and control.getBool('widget.hide.nextpage'):
+        if not hasnextpage:
+            return []
+        if page <= 1 and not control.is_addon_visible() and control.getBool('widget.hide.nextpage'):
             return []
 
         next_page = page + 1

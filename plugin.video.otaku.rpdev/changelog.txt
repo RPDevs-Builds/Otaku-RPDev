@@ -1,3 +1,6 @@
+Changelog v5.9.4 (2026-11-02):
+- Fix completed watchlist paging, eliminate prefetch thread invoker hangs, and prevent mid-navigation cache invalidation
+
 Changelog v5.9.3 (2026-11-01):
 - Complete repository audit remediation across 261 files (Specifications 08-12): core engine, database locks & prank removal, player & subtitles encoding, scrapers & debrid deduplication, browser & watchlist stability, 38 skin XML templates, and 430 automated tests
 

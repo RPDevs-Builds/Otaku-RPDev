@@ -1444,19 +1444,10 @@ def item_looks_like_next_page_row(item):
 
 
 def schedule_next_page_prefetch(items, prefetch_callable):
-    """Warm ``database.get`` / API cache for the following page after the directory is shown."""
-    if not items or not callable(prefetch_callable):
-        return
-    if not item_looks_like_next_page_row(items[-1]):
-        return
-
-    def _run():
-        try:
-            prefetch_callable()
-        except Exception as e:
-            log(f'prefetch next page: {e}', level='debug')
-
-    threading.Thread(target=_run, daemon=True).start()
+    """Prefetching inside short-lived directory invokers causes Kodi CPythonInvoker::onExecutionDone()
+    to block waiting for thread termination, leading to 10-30s UI hangs and blocking subsequent directory navigation.
+    Retained as safe no-op for backward compatibility."""
+    return
 
 
 def bulk_draw_items(video_data):
@@ -1621,7 +1612,17 @@ def exit_(code):
 
 
 def is_addon_visible():
-    return xbmc.getInfoLabel('Container.PluginName') == 'plugin.video.otaku.rpdev'
+    try:
+        if xbmcgui.getCurrentWindowId() == 10025:
+            return True
+    except Exception:
+        pass
+    if xbmc.getInfoLabel('Container.PluginName') == 'plugin.video.otaku.rpdev':
+        return True
+    folder_path = xbmc.getInfoLabel('Container.FolderPath')
+    if folder_path and 'plugin.video.otaku.rpdev' in folder_path:
+        return True
+    return False
 
 
 def abort_requested():

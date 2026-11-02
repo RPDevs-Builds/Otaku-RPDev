@@ -140,15 +140,20 @@ class SimklWLF(WatchlistFlavorBase):
 
     @staticmethod
     def handle_paging(hasmore, base_url, page):
-        if not hasmore or not control.is_addon_visible() and control.getBool('widget.hide.nextpage'):
+        if not hasmore:
+            return []
+        if page <= 1 and not control.is_addon_visible() and control.getBool('widget.hide.nextpage'):
             return []
         next_page = page + 1
         name = "Next Page (%d)" % next_page
         return [utils.allocate_item(name, f'{base_url}?page={next_page}', True, False, [], 'next.png', {'plot': name}, fanart='next.png')]
 
     def get_watchlist_status(self, status, next_up, offset, page, cache_only=False):
-        # Check for remote changes before using cache
-        self._should_refresh_cache()
+        offset_val = int(offset) if offset else 0
+        # Check for remote changes before using cache, but only on the first page
+        # Never invalidate or clear the SQLite cache mid-navigation (offset > 0)
+        if offset_val == 0:
+            self._should_refresh_cache()
 
         # Handle Next Up separately - it needs special episode-level processing
         if next_up and not cache_only:
@@ -161,7 +166,7 @@ class SimklWLF(WatchlistFlavorBase):
 
         paging_enabled = control.getBool('interface.watchlist.paging')
         per_page = control.getInt('interface.perpage.watchlist') if paging_enabled else 0
-        offset = int(offset) if offset else 0
+        offset = offset_val
 
         # Check cache validity
         if not is_watchlist_cache_valid(self._NAME, status):
@@ -323,7 +328,7 @@ class SimklWLF(WatchlistFlavorBase):
 
     def _handle_next_up_paging(self, next_offset, page):
         """Handle paging for Next Up with next_up=true parameter preserved"""
-        if not control.is_addon_visible() and control.getBool('widget.hide.nextpage'):
+        if page <= 1 and not control.is_addon_visible() and control.getBool('widget.hide.nextpage'):
             return []
         next_page = page + 1
         name = "Next Page (%d)" % next_page
