@@ -35,7 +35,8 @@ class SkipIntro(BaseWindow):
                     break
             except Exception:
                 break
-            xbmc.sleep(1000)
+            if control.monitor.waitForAbort(1):
+                break
         self.close()
 
     def doModal(self):

@@ -180,6 +180,39 @@ class TestDatabaseAndClient(unittest.TestCase):
         # Call count must be 1 because get_coalesced shared the result!
         self.assertEqual(call_count, 1)
 
+    def test_database_readonly_uri_mode(self):
+        """SQL with is_readonly=True connects in read-only mode and prohibits write operations."""
+        import sqlite3
+        test_db = f"{conftest.TEST_PROFILE_DIR}/ro_test.db"
+        # Seed test db
+        with database.SQL(test_db) as cur:
+            cur.execute("CREATE TABLE IF NOT EXISTS sample (id INT, val TEXT)")
+            cur.execute("INSERT INTO sample VALUES (1, 'readonly_check')")
+            cur.connection.commit()
+
+        # Connect in read-only mode
+        with database.SQL(test_db, is_readonly=True) as cur_ro:
+            cur_ro.execute("SELECT val FROM sample WHERE id=1")
+            row = cur_ro.fetchone()
+            self.assertEqual(row['val'], 'readonly_check')
+            # Attempting write on readonly connection must raise OperationalError
+            with self.assertRaises(sqlite3.OperationalError):
+                cur_ro.execute("INSERT INTO sample VALUES (2, 'fail')")
+
+    def test_database_readonly_and_readwrite_cache_isolation(self):
+        """Read-only and read-write connections on the same database are cached separately."""
+        test_db = f"{conftest.TEST_PROFILE_DIR}/ro_rw_test.db"
+        with database.SQL(test_db) as cur_rw:
+            cur_rw.execute("CREATE TABLE IF NOT EXISTS test_iso (k TEXT)")
+            cur_rw.execute("INSERT INTO test_iso VALUES ('ok')")
+            cur_rw.connection.commit()
+            conn_rw = cur_rw.connection
+
+        with database.SQL(test_db, is_readonly=True) as cur_ro:
+            conn_ro = cur_ro.connection
+
+        self.assertIsNot(conn_rw, conn_ro, "Read-write and read-only connections must not collide")
+
 
 if __name__ == '__main__':
     unittest.main()

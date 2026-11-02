@@ -682,24 +682,6 @@
 						<dependency type="visible" setting="provider.animepahe">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="provider.animix" type="boolean" label="30238" help="">
-					<level>1</level>
-					<default>true</default>
-					<control type="toggle" />
-				</setting>
-				<!-- <setting id="provider.animixalt" type="boolean" label="30243" help="" parent="provider.animix">
-					<level>2</level>
-					<default>false</default>
-					<control type="toggle"/>
-					<dependencies>
-						<dependency type="visible" setting="provider.animix">true</dependency>
-					</dependencies>
-				</setting>
-				<setting id="provider.aniwave" type="boolean" label="30239" help="">
-					<level>2</level>
-					<default>true</default>
-					<control type="toggle"/>
-				</setting> -->
 				<!-- <setting id="provider.gogo" type="boolean" label="30236" help="">
 					<level>2</level>
 					<default>true</default>
@@ -739,7 +721,7 @@
 					<constraints>
 						<minimum>5</minimum>
 						<step>5</step>
-						<maximum>60</maximum>
+						<maximum>30</maximum>
 					</constraints>
 					<control type="slider" format="integer">
 						<popup>false</popup>
@@ -4693,26 +4675,6 @@
 					<constraints>
 						<allowempty>true</allowempty>
 					</constraints>
-				</setting>
-				<setting id="aniwave.skipintro.end" type="integer" label="" help="">
-					<level>4</level>
-					<default>0</default>
-					<control type="edit" format="integer" />
-				</setting>
-				<setting id="aniwave.skipintro.start" type="integer" label="" help="">
-					<level>4</level>
-					<default>0</default>
-					<control type="edit" format="integer" />
-				</setting>
-				<setting id="aniwave.skipoutro.end" type="integer" label="" help="">
-					<level>4</level>
-					<default>0</default>
-					<control type="edit" format="integer" />
-				</setting>
-				<setting id="aniwave.skipoutro.start" type="integer" label="" help="">
-					<level>4</level>
-					<default>0</default>
-					<control type="edit" format="integer" />
 				</setting>
 				<setting id="best_match" type="boolean" label="" help="">
 					<level>4</level>

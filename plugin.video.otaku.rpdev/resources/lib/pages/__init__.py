@@ -6,7 +6,7 @@ from functools import partial
 
 from resources.lib.pages import (
     nyaa, animetosho, nekobt, torrentio, debrid_cloudfiles, easynews,
-    animepahe, anikoto, animixplay, hianime, watchnixtoons2, localfiles,
+    animepahe, anikoto, hianime, watchnixtoons2, localfiles,
     bitsearch, piratebay
 )
 from resources.lib.ui import control, database, source_utils
@@ -273,7 +273,7 @@ class Sources(GetSources):
                     if pid in self.remainingProviders:
                         self.remainingProviders.remove(pid)
 
-        timeout = 60 if rescrape else control.getInt('general.timeout')
+        timeout = 30 if rescrape else min(30, max(5, control.getInt('general.timeout') or 20))
         start_time = time.perf_counter()
         runtime = 0
 

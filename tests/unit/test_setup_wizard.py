@@ -72,7 +72,6 @@ class TestSetupWizard(unittest.TestCase):
         self.assertTrue(control.getBool('provider.animepahe'))
         self.assertTrue(control.getBool('provider.anikoto'))
         self.assertTrue(control.getBool('provider.watchnixtoons2'))
-        self.assertFalse(control.getBool('provider.animix'))
 
     def test_apply_embed_providers_all(self):
         tools.apply_embed_providers_preset(1)
@@ -80,7 +79,6 @@ class TestSetupWizard(unittest.TestCase):
         self.assertTrue(control.getBool('provider.animepahe'))
         self.assertTrue(control.getBool('provider.anikoto'))
         self.assertTrue(control.getBool('provider.watchnixtoons2'))
-        self.assertTrue(control.getBool('provider.animix'))
 
     def test_apply_embed_providers_none(self):
         tools.apply_embed_providers_preset(2)
@@ -88,7 +86,6 @@ class TestSetupWizard(unittest.TestCase):
         self.assertFalse(control.getBool('provider.animepahe'))
         self.assertFalse(control.getBool('provider.anikoto'))
         self.assertFalse(control.getBool('provider.watchnixtoons2'))
-        self.assertFalse(control.getBool('provider.animix'))
 
     def test_apply_playback_profile_sub(self):
         with patch('resources.lib.windows.sort_select.SortSelect.auto_action') as mock_sort:

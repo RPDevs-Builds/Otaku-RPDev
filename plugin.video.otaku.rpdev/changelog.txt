@@ -1,3 +1,11 @@
+Changelog v6.0.0 (2026-11-02):
+- Milestone v6.0.0 Major Release: Otaku RPDev enters v6.0.0 with complete codebase maturity, architectural hardening, and full lineage comparison against upstream documented in root CHANGEREPORT.md.
+- Responsive Abort Loops in Playback & Dialogs: Replaced synchronous xbmc.sleep(3000ms/5000ms/1000ms) in player.py and skip_intro.py with non-blocking control.monitor.waitForAbort() loops, eliminating thread freezes and hung processes when Kodi terminates or switches media streams.
+- Defunct Scraper Deprecation & Settings Stripping: Fully stripped deprecated scraper settings (provider.animix, provider.aniwave, and aniwave.skipintro.*) from settings.xml; stubbed aniwave.py (domain shut down Aug 2024) and animixplay.py (domain shut down Dec 2022) to return 0 sources immediately with zero worker thread or network waste; updated Setup Wizard presets and diagnostics.
+- Scraper Diagnostic Decoupling & Residential/VPN Protocol: Removed scraper_health.yml scheduled action from GitHub Actions CI due to cloud datacenter IP blocks by Cloudflare and streaming hosts; documented local and residential/VPN audit execution for check_scraper_health.py while CI continues deterministic verification using tests/fixtures/scrapers/ offline golden fixtures.
+- Read-Only SQLite URI Connection Enforcement: Enforced URI read-only mode (file:...db?mode=ro) for info.db and mappings.db read lookups in database.py, with distinct cache keys separating read-only and read-write connection pools to eliminate any possibility of database locks or worker thread contention.
+- Scraper Timeout Hardening: Capped scraping timeouts add-on-wide to a strict 30-second ceiling in pages/__init__.py and settings.xml slider constraints, eliminating UI freezing during network degradation.
+
 Changelog v5.9.14 (2026-11-02):
 - Menu Customization Consistency: Standardize Home screen menu customization label to 'Main Menu Items' (string 30404) across Settings, Tools, and Dialog headers, ensuring complete naming uniformity with Sub Menu Items and Genre Menu Items across all categories.
 

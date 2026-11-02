@@ -440,8 +440,8 @@ class WatchlistPlayer(player):
         if self._watchlist_update:
             any_completed = self._watchlist_update(self.mal_id, self.episode)
             if any_completed:
-                xbmc.sleep(3000)
-                service.sync_watchlist(True)
+                if not control.monitor.waitForAbort(3):
+                    service.sync_watchlist(True)
 
     def onWatchedPercent(self):
         while self.isPlaying() and not self.updated:
@@ -451,7 +451,8 @@ class WatchlistPlayer(player):
             if watched_percentage > self.update_percent:
                 self._update_watched_progress()
                 break
-            xbmc.sleep(5000)
+            if control.monitor.waitForAbort(5):
+                break
 
     def keepAlive(self):
         # Monitor the Playback with optimized wait
@@ -680,7 +681,8 @@ class WatchlistPlayer(player):
                     control.log(f"Player: Background pre-scraping ep {next_ep} for {self.mal_id}", level='info')
                     if control.is_low_memory():
                         control.log("Player: Throttling background pre-scrape on low-memory device", level='info')
-                        xbmc.sleep(1000)
+                        if control.monitor.waitForAbort(1):
+                            return
                     from resources.lib import MetaBrowser
                     sources = MetaBrowser.get_sources(self.mal_id, next_ep, 'show', rescrape=False, source_select=False, silent=True)
                     if sources:

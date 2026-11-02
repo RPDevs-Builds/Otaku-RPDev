@@ -123,12 +123,13 @@ def close_thread_connections(path=None):
         return
     if path is not None:
         target = os.path.abspath(path)
-        entry = conns.pop(target, None)
-        if entry:
-            try:
-                entry[0].close()
-            except (dbapi2.Error, OSError) as e:
-                control.log(f"database close error: {e}", 'debug')
+        for key in (target, f"{target}:ro"):
+            entry = conns.pop(key, None)
+            if entry:
+                try:
+                    entry[0].close()
+                except (dbapi2.Error, OSError) as e:
+                    control.log(f"database close error: {e}", 'debug')
     else:
         for _, (conn, _) in list(conns.items()):
             try:
@@ -235,6 +236,8 @@ class SQL:
         if not is_readonly and not xbmcvfs.exists(control.dataPath):
             xbmcvfs.mkdirs(control.dataPath)
 
+        cache_key = f"{abs_path}:ro" if is_readonly else abs_path
+
         for attempt in range(2):
             conns = _get_thread_conns()
             st_ino = None
@@ -244,21 +247,21 @@ class SQL:
                 except OSError:
                     st_ino = None
 
-            if abs_path in conns:
-                cached_conn, cached_ino = conns[abs_path]
+            if cache_key in conns:
+                cached_conn, cached_ino = conns[cache_key]
                 if st_ino is None or (cached_ino is not None and st_ino != cached_ino):
                     try:
                         cached_conn.close()
                     except (dbapi2.Error, OSError) as e:
                         control.log(f"cached db close error: {e}", 'debug')
-                    conns.pop(abs_path, None)
+                    conns.pop(cache_key, None)
 
             try:
-                if abs_path not in conns:
+                if cache_key not in conns:
                     if self.is_readonly and os.path.exists(self.path):
                         try:
                             conn = dbapi2.connect(
-                                f"file:{self.path}?mode=ro",
+                                f"file:{abs_path}?mode=ro",
                                 uri=True,
                                 timeout=30.0,
                                 isolation_level=None,
@@ -299,9 +302,9 @@ class SQL:
                             st_ino = os.stat(abs_path).st_ino
                         except OSError:
                             st_ino = None
-                    conns[abs_path] = (conn, st_ino)
+                    conns[cache_key] = (conn, st_ino)
 
-                self._conn = conns[abs_path][0]
+                self._conn = conns[cache_key][0]
                 self._cursor = self._conn.cursor()
                 return self._cursor
             except Exception as exc:
@@ -959,7 +962,7 @@ def get_mappings(anime_id, send_id):
         return {}
     try:
         _validate_identifier(send_id)
-        with SQL(control.mappingDB) as cur:
+        with SQL(control.mappingDB, is_readonly=True) as cur:
             cur.execute(
                 f'SELECT * FROM anime WHERE {send_id}=?', (anime_id,))
             rows = cur.fetchall()
@@ -974,7 +977,7 @@ def get_unique_ids(anime_id, send_id):
         return {}
     try:
         _validate_identifier(send_id)
-        with SQL(control.mappingDB) as cur:
+        with SQL(control.mappingDB, is_readonly=True) as cur:
             cur.execute(
                 f'SELECT mal_id, mal_dub_id, anilist_id, kitsu_id, anidb_id, '
                 f'simkl_id, thetvdb_id, themoviedb_id, imdb_id, trakt_id '
@@ -1004,7 +1007,7 @@ def get_mal_ids(anime_id, send_id):
         return []
     try:
         _validate_identifier(send_id)
-        with SQL(control.mappingDB) as cur:
+        with SQL(control.mappingDB, is_readonly=True) as cur:
             cur.execute(
                 f'SELECT * FROM anime WHERE {send_id}=?', (anime_id,))
             return cur.fetchall() or []
@@ -1035,7 +1038,7 @@ def get_info(api_name):
     row = None
     try:
         if getattr(control, 'infoDB', None) and os.path.exists(control.infoDB):
-            with SQL(control.infoDB) as cur:
+            with SQL(control.infoDB, is_readonly=True) as cur:
                 cur.execute('SELECT * FROM info WHERE api_name=?', (api_name,))
                 row = cur.fetchone()
     except (dbapi2.DatabaseError, dbapi2.OperationalError) as e:

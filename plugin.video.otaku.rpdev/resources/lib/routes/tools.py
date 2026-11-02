@@ -388,7 +388,7 @@ def generate_diagnostics_report():
     lines.append("[5] Scraper Circuit Breakers & Domains")
     from resources.lib.pages import circuit_breaker
     from resources.lib.ui import domains
-    all_scrapers = ['nyaa', 'animetosho', 'bitsearch', 'piratebay', 'hianime', 'animepahe', 'anikoto', 'watchnixtoons2', 'animix']
+    all_scrapers = ['nyaa', 'animetosho', 'bitsearch', 'piratebay', 'hianime', 'animepahe', 'anikoto', 'watchnixtoons2']
     for sc in all_scrapers:
         tripped = circuit_breaker.is_tripped(sc)
         domain = domains.get_domain(sc) if hasattr(domains, 'get_domain') else 'default'
@@ -676,7 +676,7 @@ def apply_embed_providers_preset(choice_idx):
     """
     choice_idx:
       0 = Recommended (HiAnime, AnimePahe, AniKoto, WatchNixtoons2)
-      1 = All (All embed scrapers including Animix)
+      1 = All (All active embed scrapers)
       2 = None (Disable all embed scrapers)
     """
     if choice_idx == 0:
@@ -684,21 +684,18 @@ def apply_embed_providers_preset(choice_idx):
         control.setBool('provider.animepahe', True)
         control.setBool('provider.anikoto', True)
         control.setBool('provider.watchnixtoons2', True)
-        control.setBool('provider.animix', False)
         control.log("Setup Wizard: Recommended embed providers enabled")
     elif choice_idx == 1:
         control.setBool('provider.hianime', True)
         control.setBool('provider.animepahe', True)
         control.setBool('provider.anikoto', True)
         control.setBool('provider.watchnixtoons2', True)
-        control.setBool('provider.animix', True)
         control.log("Setup Wizard: All embed providers enabled")
     elif choice_idx == 2:
         control.setBool('provider.hianime', False)
         control.setBool('provider.animepahe', False)
         control.setBool('provider.anikoto', False)
         control.setBool('provider.watchnixtoons2', False)
-        control.setBool('provider.animix', False)
         control.log("Setup Wizard: All embed providers disabled")
 
 
@@ -752,7 +749,7 @@ def SETUP_WIZARD(payload, params):
         "Otaku Setup: Embed Streaming Providers",
         [
             "[Recommended] HiAnime, AnimePahe, AniKoto, WatchNixtoons2 (Fast & 1080p)",
-            "[All] Enable all embed scrapers (Includes Animix & mirrors)",
+            "[All] Enable all active embed scrapers",
             "[None] Disable all embed scrapers (Optimized for pure Debrid users)"
         ]
     )

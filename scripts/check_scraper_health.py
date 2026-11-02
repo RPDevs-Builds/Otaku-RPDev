@@ -1,19 +1,28 @@
 #!/usr/bin/env python3
 """
-check_scraper_health.py — Automated Scraper Health & Yield Monitor
-==================================================================
-Runs automated search and extraction health checks across active anime providers
-(Nyaa, AnimeTosho, HiAnime, AnimePahe, AniKoto, AnimeKai, Gogoanime).
+check_scraper_health.py — Local Scraper Health & Yield Diagnostic Auditor
+==========================================================================
+Runs search and extraction health checks across active anime providers
+(Nyaa, AnimeTosho, HiAnime, AnimePahe, AniKoto, WatchNixtoons2).
 Measures latency, HTTP status, and items yielded. Outputs markdown summary table.
+
+NETWORK & ENVIRONMENT NOTE:
+    Public anime scraper domains and Cloudflare anti-bot systems actively block
+    datacenter IP ranges (GitHub Actions, Azure, AWS). Live scraper audits must
+    be executed locally or through a residential/VPN connection.
+    Automated CI relies strictly on deterministic offline fixtures located in
+    `tests/fixtures/scrapers/` (see `tests/unit/test_scrapers_offline.py`).
 
 Usage:
     python3 scripts/check_scraper_health.py [--provider <name>] [--timeout <sec>] [--json] [--strict]
 """
 
 import argparse
+import concurrent.futures
 import json
 import os
 import sys
+import threading
 import time
 import traceback
 
@@ -52,15 +61,37 @@ def _seed_test_show_metadata():
     database.update_show(mal_id, kodi_meta)
 
 
-def check_provider(name, func, *args, timeout=20):
-    """Run health check against a provider function with latency measurement."""
+def run_with_timeout(func, args=(), timeout=10):
+    """Execute a function in a daemon thread with an absolute timeout ceiling."""
+    result = [None]
+    exception = [None]
+
+    def worker():
+        try:
+            result[0] = func(*args)
+        except Exception as e:
+            exception[0] = e
+
+    thread = threading.Thread(target=worker, daemon=True)
+    thread.start()
+    thread.join(timeout=timeout)
+
+    if thread.is_alive():
+        raise TimeoutError(f"Timeout exceeded ({timeout}s)")
+    if exception[0] is not None:
+        raise exception[0]
+    return result[0]
+
+
+def check_provider(name, func, *args, timeout=10):
+    """Run health check against a provider function with latency measurement and strict daemon timeout."""
     t0 = time.perf_counter()
     status = 'FAIL'
     count = 0
     err_msg = ''
 
     try:
-        results = func(*args)
+        results = run_with_timeout(func, args, timeout=timeout)
         elapsed_ms = int((time.perf_counter() - t0) * 1000)
         if isinstance(results, list):
             count = len(results)
@@ -70,6 +101,10 @@ def check_provider(name, func, *args, timeout=20):
             status = 'PASS' if count > 0 else 'WARN (0 items)'
         else:
             status = 'PASS' if results else 'WARN (empty)'
+    except TimeoutError as te:
+        elapsed_ms = int((time.perf_counter() - t0) * 1000)
+        err_msg = str(te)
+        status = 'FAIL (Timeout)'
     except Exception as e:
         elapsed_ms = int((time.perf_counter() - t0) * 1000)
         err_msg = str(e)
@@ -161,17 +196,24 @@ def run_health_checks(target_provider=None, timeout=20):
     except Exception as e:
         providers['ThePirateBay'] = ('Torrent/REST', lambda: (_ for _ in ()).throw(e))
 
+    timeout = min(30, max(5, timeout))
+    per_provider_timeout = min(10, timeout)
+
+    filtered_providers = [
+        (pname, ptype, pfunc)
+        for pname, (ptype, pfunc) in providers.items()
+        if not target_provider or target_provider.lower() == pname.lower()
+    ]
+
     results = []
-    for prov_name, (ptype, pfunc) in providers.items():
-        if target_provider and target_provider.lower() != prov_name.lower():
-            continue
-        print(f"Testing {prov_name} ({ptype})...", end=' ', flush=True)
-        res = check_provider(prov_name, pfunc, timeout=timeout)
+    for pname, ptype, pfunc in filtered_providers:
+        res = check_provider(pname, pfunc, timeout=min(timeout, 3))
         res['type'] = ptype
         results.append(res)
         icon = '✅' if 'PASS' in res['status'] else ('⚠️' if 'WARN' in res['status'] else '❌')
-        print(f"{icon} {res['status']} ({res['latency_ms']}ms, {res['yield_count']} items)")
+        print(f"[{pname}] {icon} {res['status']} ({res['latency_ms']}ms, {res['yield_count']} items)")
 
+    results.sort(key=lambda r: r['provider'])
     return results
 
 

@@ -98,11 +98,11 @@ class TestResourceAndStability(unittest.TestCase):
             self.assertTrue(mock_thread.called)
             # The target worker function inside should have throttling branch
             worker_fn = mock_thread.call_args[1].get('target') or mock_thread.call_args[0][0]
-            with patch('xbmc.sleep') as mock_sleep, \
+            with patch('resources.lib.ui.control.monitor.waitForAbort', return_value=False) as mock_abort, \
                  patch('resources.lib.ui.control.log') as mock_log, \
                  patch('resources.lib.MetaBrowser.get_sources'):
                 worker_fn()
-                mock_sleep.assert_called_with(1000)
+                mock_abort.assert_called_with(1)
 
     # ── Group 2: Browsing & Concurrency Speed ───────────────────────────
 
