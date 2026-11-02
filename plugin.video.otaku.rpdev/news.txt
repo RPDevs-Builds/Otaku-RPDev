@@ -1,4 +1,45 @@
 ================================================================================
+                    OTAKU RPDEV v6.0.0 - MAJOR MILESTONE RELEASE
+================================================================================
+
+[ Milestone v6.0.0 • Complete Codebase Maturity • Performance & Resilience ]
+
+Welcome to Otaku RPDev v6.0.0! This landmark milestone represents the culmination
+of comprehensive subsystem hardening, universal customization, and architectural
+modernization since forking from Goldenfreddy0703/Otaku v5.3.4 (with over 1,170 file
+changes and +39,000 additions cataloged in the root CHANGEREPORT.md).
+
+--------------------------------------------------------------------------------
+New in v6.0.0: Architecture Hardening & Code Maturity
+--------------------------------------------------------------------------------
+• Responsive Abort Loops in Playback: Replaced synchronous sleeps in playback
+  monitoring and skip-intro countdowns with non-blocking waitForAbort() loops.
+  Kodi shutdown, stream transitions, and manual aborts now respond instantaneously
+  with zero worker hangs or delayed process terminations.
+• Defunct Scraper Pruning: Fully stripped out dead scrapers (AniWave and AniMixPlay)
+  and their legacy settings from settings.xml and active source registries, saving
+  valuable worker threads, memory, and network bandwidth on defunct domains.
+• Universal Menu Customization Across All Categories: Completely revamped the
+  Menu Order & Customization interface into a native WindowXML dialog (menu_order.xml).
+  Provides Move Up, Move Down, Move to Top, Move to Bottom, Toggle Visibility, and
+  a single-click 'Toggle All On / Off' button across all 24 category menus (Main Menu,
+  Movies, TV Shows, TV Shorts, Specials, OVAs, ONAs, Music Videos for Main, Sub,
+  and Genre menus) with standardized "Main Menu Items" naming.
+• Strict 30-Second Scraper Timeout: Capped scraping timeouts add-on-wide to a strict
+  30-second ceiling across settings and concurrency coordinators, ensuring that slow
+  or unresponsive remote providers never freeze the scraping window.
+• Read-Only SQLite URI Connections: Enforced mode=ro URI mode on static databases
+  (info.db and mappings.db lookups) with isolated connection cache keys, guaranteeing
+  zero database lock contention between UI listings, scrapers, and sync threads.
+• Scraper Health Decoupled from Cloud CI: Scraper diagnostics are optimized for
+  local and residential/VPN execution, bypassing Cloudflare datacenter IP blocks,
+  while automated CI continues deterministic testing against 512+ offline tests.
+• Zero-Wait Stream Pre-Resolution & "Still Watching?" Binge Safeguards: Streamlined
+  background next-episode resolution (70% playback progress) and binge-watching
+  protections preventing unwatched playlist runaway.
+
+
+================================================================================
                     OTAKU RPDEV v5.8.1 - WHAT'S NEW & MILESTONES
 ================================================================================
 
