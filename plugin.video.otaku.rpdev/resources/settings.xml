@@ -5000,6 +5000,11 @@
 					<default>0</default>
 					<control type="edit" format="integer" />
 				</setting>
+				<setting id="clean.memory" type="boolean" label="" help="">
+					<level>4</level>
+					<default>false</default>
+					<control type="toggle" />
+				</setting>
 				<setting id="changelog.version" type="string" label="" help="">
 					<level>4</level>
 					<default />

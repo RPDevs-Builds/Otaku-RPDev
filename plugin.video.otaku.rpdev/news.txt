@@ -1,4 +1,21 @@
 ================================================================================
+                    OTAKU RPDEV v6.0.2 - CODE HARDENING & INTEGRITY
+================================================================================
+
+[ Architecture Hardening • Single Source of Truth • Schema Integrity ]
+• _SettingsProxy Defensive Getters: Hardened all SettingsProxy getter methods (getInt,
+  getBool, getNumber, getString, etc.) with defensive exception handling and defaults.
+• Top-Level Module Import Fallback: Added resilient fallback defaults for xbmcaddon.Addon()
+  at control.py module initialization, preventing transient startup failures during updates.
+• Dynamic Embed Skip-Time Registry: Unified EMBED_SKIP_PREFIXES as a single source of
+  truth derived from active _EMBED_MODULES, eliminating hardcoded provider drift.
+• Debrid Diagnostics Mapping: Corrected debrid settings mapping in Tools Diagnostics to
+  query {service}.enabled instead of non-existent provider.{service} keys.
+• Enhanced AST Schema Verification: Expanded test suite to audit all setting getters/setters
+  and added explicit dynamic schema verification for skip times, debrid, and watchlists.
+
+
+================================================================================
                     OTAKU RPDEV v6.0.1 - EMERGENCY HOTFIX
 ================================================================================
 

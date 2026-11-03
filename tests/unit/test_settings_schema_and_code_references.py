@@ -114,7 +114,19 @@ class TestSettingsSchemaAndCodeReferences(unittest.TestCase):
         to control.getSetting(), setSetting(), getInt(), getBool(), getSettingDefault()
         are declared in resources/settings.xml.
         """
-        target_methods = {'getSetting', 'setSetting', 'getInt', 'getBool', 'getSettingDefault'}
+        target_methods = {
+            'getSetting', 'setSetting',
+            'getInt', 'setInt',
+            'getBool', 'setBool',
+            'getStr', 'setStr',
+            'getNumber', 'setNumber',
+            'getString', 'setString',
+            'getStringList', 'setStringList',
+            'getBoolList', 'setBoolList',
+            'getIntList', 'setIntList',
+            'getNumberList', 'setNumberList',
+            'getSettingDefault'
+        }
         static_keys = {}  # key -> list of (file, line_no)
 
         for root_dir, _, files in os.walk(self.addon_dir):
@@ -186,6 +198,30 @@ class TestSettingsSchemaAndCodeReferences(unittest.TestCase):
                 self.declared_settings,
                 f"Hoster provider '{name}' missing corresponding setting '{setting_id}' in settings.xml"
             )
+
+        # Active embed skip-time prefixes must have all 4 skip settings declared
+        from resources.lib.pages import EMBED_SKIP_PREFIXES
+        self.assertGreater(len(EMBED_SKIP_PREFIXES), 0, "Expected at least one active embed skip prefix")
+        for prefix in EMBED_SKIP_PREFIXES:
+            for key in ('skipintro.start', 'skipintro.end', 'skipoutro.start', 'skipoutro.end'):
+                sid = f"{prefix}.{key}"
+                self.assertIn(
+                    sid,
+                    self.declared_settings,
+                    f"Embed skip setting '{sid}' missing from settings.xml"
+                )
+
+        # Debrid services audited in Tools Diagnostics must have enabled and token settings
+        debrid_services = ['realdebrid', 'torbox', 'premiumize', 'alldebrid', 'debridlink', 'easydebrid']
+        for d in debrid_services:
+            self.assertIn(f"{d}.enabled", self.declared_settings, f"Debrid setting '{d}.enabled' missing from settings.xml")
+            self.assertIn(f"{d}.token", self.declared_settings, f"Debrid setting '{d}.token' missing from settings.xml")
+        self.assertIn("provider.easynews", self.declared_settings)
+
+        # Watchlist services must have sort, order, and token settings
+        for wf in ['mal', 'anilist', 'kitsu', 'simkl']:
+            self.assertIn(f"{wf}.sort", self.declared_settings, f"Watchlist setting '{wf}.sort' missing from settings.xml")
+            self.assertIn(f"{wf}.order", self.declared_settings, f"Watchlist setting '{wf}.order' missing from settings.xml")
 
 
 if __name__ == '__main__':

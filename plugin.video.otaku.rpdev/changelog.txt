@@ -1,3 +1,6 @@
+Changelog v6.0.2 (2026-11-03):
+- Hardening & Schema Integrity: Defensive _SettingsProxy getters; resilient top-level xbmcaddon.Addon() import fallbacks; EMBED_SKIP_PREFIXES unified as single source of truth; corrected debrid .enabled diagnostics settings; expanded AST schema tests for all setters and dynamic settings.
+
 Changelog v6.0.1 (2026-11-02):
 - Fix Scraper Initialization Freeze on Kodi 22: Removed legacy aniwave prefix from embed skip time reset loop in pages/__init__.py and player.py; hardened all control.py setting setters (setInt, setBool, setStr, setSetting, setNumber) with defensive exception guards against undeclared setting C++ exceptions in Kodi 22.
 

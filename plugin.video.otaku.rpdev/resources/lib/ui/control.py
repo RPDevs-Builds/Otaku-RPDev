@@ -118,29 +118,61 @@ class _SettingsProxy:
         self._cached = None
         self._addon = None
 
-    def getBool(self, key):
-        return self._get_settings().getBool(key)
+    def getBool(self, key, default=False):
+        try:
+            return self._get_settings().getBool(key)
+        except Exception:
+            return default
 
-    def getInt(self, key):
-        return self._get_settings().getInt(key)
+    def getInt(self, key, default=0):
+        try:
+            return self._get_settings().getInt(key)
+        except Exception:
+            return default
 
-    def getNumber(self, key):
-        return self._get_settings().getNumber(key)
+    def getNumber(self, key, default=0.0):
+        try:
+            return self._get_settings().getNumber(key)
+        except Exception:
+            return default
 
-    def getString(self, key):
-        return self._get_settings().getString(key)
+    def getString(self, key, default=''):
+        try:
+            return self._get_settings().getString(key)
+        except Exception:
+            return default
 
-    def getBoolList(self, key):
-        return self._get_settings().getBoolList(key)
+    def getBoolList(self, key, default=None):
+        if default is None:
+            default = []
+        try:
+            return self._get_settings().getBoolList(key)
+        except Exception:
+            return default
 
-    def getIntList(self, key):
-        return self._get_settings().getIntList(key)
+    def getIntList(self, key, default=None):
+        if default is None:
+            default = []
+        try:
+            return self._get_settings().getIntList(key)
+        except Exception:
+            return default
 
-    def getStringList(self, key):
-        return self._get_settings().getStringList(key)
+    def getStringList(self, key, default=None):
+        if default is None:
+            default = []
+        try:
+            return self._get_settings().getStringList(key)
+        except Exception:
+            return default
 
-    def getNumberList(self, key):
-        return self._get_settings().getNumberList(key)
+    def getNumberList(self, key, default=None):
+        if default is None:
+            default = []
+        try:
+            return self._get_settings().getNumberList(key)
+        except Exception:
+            return default
 
     def setBool(self, key, value):
         try:
@@ -359,21 +391,33 @@ class _MonitorProxy:
         self._cached = None
 
 
-_init_addon = xbmcaddon.Addon()
-ADDON_ID = _init_addon.getAddonInfo('id')
-_target_addon = xbmcaddon.Addon(ADDON_ID)
-ADDON_NAME = _target_addon.getAddonInfo('name')
-ADDON_VERSION = _target_addon.getAddonInfo('version')
-ADDON_ICON = _target_addon.getAddonInfo('icon')
-OTAKU_FANART = _target_addon.getAddonInfo('fanart')
-ADDON_PATH = _target_addon.getAddonInfo('path')
-dataPath = xbmcvfs.translatePath(_target_addon.getAddonInfo('profile'))
-del _target_addon
-del _init_addon
+try:
+    _init_addon = xbmcaddon.Addon()
+    ADDON_ID = _init_addon.getAddonInfo('id')
+    _target_addon = xbmcaddon.Addon(ADDON_ID)
+    ADDON_NAME = _target_addon.getAddonInfo('name')
+    ADDON_VERSION = _target_addon.getAddonInfo('version')
+    ADDON_ICON = _target_addon.getAddonInfo('icon')
+    OTAKU_FANART = _target_addon.getAddonInfo('fanart')
+    ADDON_PATH = _target_addon.getAddonInfo('path')
+    dataPath = xbmcvfs.translatePath(_target_addon.getAddonInfo('profile'))
+    del _target_addon
+    del _init_addon
+except Exception:
+    ADDON_ID = 'plugin.video.otaku.rpdev'
+    ADDON_NAME = 'Otaku RPDev'
+    ADDON_VERSION = '6.0.2'
+    ADDON_ICON = ''
+    OTAKU_FANART = ''
+    ADDON_PATH = xbmcvfs.translatePath(f'special://home/addons/{ADDON_ID}/')
+    dataPath = xbmcvfs.translatePath(f'special://profile/addon_data/{ADDON_ID}/')
 
-_kodi_addon = xbmcaddon.Addon('xbmc.addon')
-kodi_version = float(_kodi_addon.getAddonInfo('version')[:4])
-del _kodi_addon
+try:
+    _kodi_addon = xbmcaddon.Addon('xbmc.addon')
+    kodi_version = float(_kodi_addon.getAddonInfo('version')[:4])
+    del _kodi_addon
+except Exception:
+    kodi_version = 22.0
 
 ADDONS_PATH = xbmcvfs.translatePath('special://home/addons/')
 pathExists = xbmcvfs.exists

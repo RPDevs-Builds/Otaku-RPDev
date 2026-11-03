@@ -20,6 +20,7 @@ import json
 from resources.lib.ui import control, database, source_utils
 from resources.lib.endpoints import aniskip, anime_skip
 from resources.lib import indexers
+from resources.lib.pages import EMBED_SKIP_PREFIXES
 
 playList = control.playList
 player = xbmc.Player
@@ -276,7 +277,7 @@ class WatchlistPlayer(player):
         """Process skip times in background to avoid blocking playback"""
         def _process():
             try:
-                if self.provider in ('hianime', 'animekai', 'anikoto'):
+                if self.provider in EMBED_SKIP_PREFIXES:
                     self.process_embed(self.provider)
                 self.process_aniskip()
                 self.process_animeskip()
@@ -523,7 +524,7 @@ class WatchlistPlayer(player):
         # Continue with audio/subtitle setup which is needed immediately
         if self.type not in ['embed', 'direct']:
             self.setup_audio_and_subtitles()
-        elif self.provider in ['hianime', 'anikoto']:
+        elif self.provider in EMBED_SKIP_PREFIXES:
             self.setup_audio_and_subtitles()
 
         # Handle different media types

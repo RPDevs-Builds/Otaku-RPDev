@@ -34,7 +34,7 @@ _HOSTER_MODULES = {
 }
 
 # (provider_id, module, database.get key, skip window prefix or None, pass_media_type)
-# skip prefix drives _apply_embed_skip (aniwave / hianime / animekai)
+# skip prefix drives _apply_embed_skip (hianime / anikoto)
 _EMBED_MODULES = (
     ('animepahe', animepahe, 'animepahe', None, False),
     # ('animix', animixplay, 'animix', None, False),
@@ -44,6 +44,9 @@ _EMBED_MODULES = (
     ('anikoto', anikoto, 'anikoto', 'anikoto', False),
     ('watchnixtoons2', watchnixtoons2, 'watchnixtoons2', None, True),
 )
+
+# Single source of truth for active embed skip-time prefixes
+EMBED_SKIP_PREFIXES = tuple(dict.fromkeys(row[3] for row in _EMBED_MODULES if row[3]))
 
 
 class ScraperCircuitBreaker:
@@ -195,7 +198,7 @@ class Sources(GetSources):
 
         self.setProperty('process_started', 'true')
 
-        for prefix in ('hianime', 'animekai', 'anikoto'):
+        for prefix in EMBED_SKIP_PREFIXES:
             for key in ('skipintro.start', 'skipintro.end', 'skipoutro.start', 'skipoutro.end'):
                 control.setInt(f'{prefix}.{key}', -1)
 

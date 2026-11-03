@@ -339,7 +339,9 @@ def generate_diagnostics_report():
     ]
     for d_name, s_key in debrid_keys:
         token_val = control.getSetting(s_key)
-        enabled = control.getBool(f'provider.{d_name.lower().replace("-", "").replace(" ", "")}', default=True)
+        clean_name = d_name.lower().replace("-", "").replace(" ", "")
+        setting_key = 'provider.easynews' if clean_name == 'easynews' else f'{clean_name}.enabled'
+        enabled = control.getBool(setting_key, default=True)
         status_str = "AUTHENTICATED" if token_val else "UNCONFIGURED"
         lines.append(f"  • {d_name:<14}: {status_str} (Enabled: {'YES' if enabled else 'NO'})")
     lines.append("")
