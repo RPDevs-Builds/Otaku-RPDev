@@ -111,10 +111,9 @@ class Anilist:
                 result = client.request(self._BASE_URL, post={'query': query, 'variables': variables}, jpost=True)
                 if not result:
                     break
-                try:
-                    results = json.loads(result) if isinstance(result, str) else control.safe_json(result)
-                except Exception as e:
-                    control.log(f"AniList mal_ids parse error: {e}", 'warning')
+                results = control.safe_json(result, default=None)
+                if not isinstance(results, dict):
+                    control.log("AniList mal_ids parse error: non-dict JSON payload", 'warning')
                     break
                 page_data = results.get('data', {}).get('Page', {})
                 media = page_data.get('media', [])

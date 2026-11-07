@@ -215,12 +215,13 @@ class Response:
         """Parse response content as JSON with optional default fallback."""
         if not self.text:
             return {} if default is _JSON_RAISE else default
-        try:
-            return json.loads(self.text)
-        except (json.JSONDecodeError, ValueError) as e:
+        sentinel = object()
+        parsed = control.loads_json(self.text, default=sentinel)
+        if parsed is sentinel:
             if default is not _JSON_RAISE:
                 return default
-            raise ValueError(f"Invalid JSON response: {str(e)}")
+            raise ValueError("Invalid JSON response")
+        return parsed
 
     def __bool__(self):
         """Allow truthiness check like: if response:"""
@@ -431,12 +432,9 @@ def request(
                 elif control.pathExists(json_path):
                     raw_json = retrieve(cpath + '.json')
                     if raw_json:
-                        try:
-                            cfhdrs = json.loads(raw_json)
-                            if isinstance(cfhdrs, dict):
-                                _headers.update(cfhdrs)
-                        except (json.JSONDecodeError, TypeError, ValueError):
-                            pass
+                        cfhdrs = control.loads_json(raw_json, default={})
+                        if isinstance(cfhdrs, dict):
+                            _headers.update(cfhdrs)
 
         if 'Accept-Encoding' in _headers:
             pass

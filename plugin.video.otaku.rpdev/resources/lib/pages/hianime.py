@@ -335,12 +335,7 @@ class Sources(BrowserBase):
 
     def _get_json_request(self, url, headers=None):
         raw = self._get_request(url, headers=headers)
-        if raw:
-            try:
-                return json.loads(raw)
-            except Exception:
-                pass
-        return None
+        return control.loads_json(raw, default=None) if raw else None
 
     @staticmethod
     def _proxy_playlist(m3u8_url, proxy_base, referer=None):

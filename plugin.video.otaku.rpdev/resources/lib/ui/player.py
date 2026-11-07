@@ -464,7 +464,8 @@ class WatchlistPlayer(player):
                 return control.log('playbackerror', 'warning')
             if self.isPlayingVideo() and self.getTotalTime() != 0:
                 break
-            self._monitor.waitForAbort(0.5)  # Check every 0.5 seconds
+            if self._monitor.waitForAbort(0.5):  # Check every 0.5 seconds
+                break
 
         # Check if the player is playing a video
         if not self.isPlayingVideo():

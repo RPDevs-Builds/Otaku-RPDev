@@ -1,3 +1,9 @@
+Changelog v6.0.6 (2026-11-07):
+- Static AST Guardrails, Universal Safe JSON & Teardown Abort Hardening:
+- - Codified AGENTS.md guardrails into test_ast_integrity.py and test_windowxml_event_dispatch.py (578 passing tests)
+- - Migrated all 23 residual direct json.loads() calls outside control.py to control.loads_json() / control.safe_json()
+- - Remediated all 6 unchecked standalone waitForAbort() calls in player.py, playback.py, and premiumize.py
+
 Changelog v6.0.5 (2026-11-07):
 - Project-Wide Architecture, GUI & Transport Hardening:
 - Memory Safeguards & SQLite Concurrency: Enforced 64KB C++ window property ceiling guard in control.py, offloaded user review caches to SQLite WAL cache.db in Main.py, and added automatic read-only URI pooling (file:...db?mode=ro) with (path, is_readonly) key partitioning for mappings.db in database.py.

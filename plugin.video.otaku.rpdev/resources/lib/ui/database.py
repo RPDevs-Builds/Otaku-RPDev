@@ -74,6 +74,9 @@ def dumps(obj):
         return pickle.dumps(obj)
 
 
+_JSON_PARSE_MISS = object()
+
+
 def loads(blob):
     """Safely deserialize a SQLite blob (UTF-8 JSON or legacy restricted pickle)."""
     if blob is None or blob == b'' or blob == '':
@@ -85,14 +88,18 @@ def loads(blob):
         if blob[:1] == b'\x80':
             return _SafeUnpickler(io.BytesIO(blob)).load()
         try:
-            return json.loads(blob.decode('utf-8'))
-        except (UnicodeDecodeError, json.JSONDecodeError):
+            decoded = blob.decode('utf-8')
+        except UnicodeDecodeError:
             return _SafeUnpickler(io.BytesIO(blob)).load()
+        parsed = control.loads_json(decoded, default=_JSON_PARSE_MISS)
+        if parsed is not _JSON_PARSE_MISS:
+            return parsed
+        return _SafeUnpickler(io.BytesIO(blob)).load()
     if isinstance(blob, str):
-        try:
-            return json.loads(blob)
-        except json.JSONDecodeError:
-            return _SafeUnpickler(io.BytesIO(blob.encode('latin-1'))).load()
+        parsed = control.loads_json(blob, default=_JSON_PARSE_MISS)
+        if parsed is not _JSON_PARSE_MISS:
+            return parsed
+        return _SafeUnpickler(io.BytesIO(blob.encode('latin-1'))).load()
     return {}
 
 

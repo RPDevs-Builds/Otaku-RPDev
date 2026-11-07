@@ -97,10 +97,9 @@ class Sources(BrowserBase):
         if not r:
             return None
 
-        try:
-            html = json.loads(r).get('result', {}).get('html', '')
-        except (json.JSONDecodeError, AttributeError):
-            return None
+        parsed = control.loads_json(r, default={})
+        res_obj = parsed.get('result') if isinstance(parsed, dict) else None
+        html = res_obj.get('html', '') if isinstance(res_obj, dict) else ''
 
         if not html:
             return None
@@ -155,11 +154,9 @@ class Sources(BrowserBase):
 
         match = re.search(r'id="syncData"[^>]*>(.*?)</script>', r, re.DOTALL)
         if match:
-            try:
-                sync_data = json.loads(match.group(1))
+            sync_data = control.loads_json(match.group(1), default={})
+            if isinstance(sync_data, dict):
                 return sync_data.get('anime_id', '')
-            except (json.JSONDecodeError, AttributeError):
-                pass
         return None
 
     def _encode_token(self, text):
@@ -220,9 +217,11 @@ class Sources(BrowserBase):
         if not r:
             return None
 
-        try:
-            html = json.loads(r).get('result', '')
-        except (json.JSONDecodeError, AttributeError):
+        parsed = control.loads_json(r, default=None)
+        if not isinstance(parsed, dict):
+            return None
+        html = parsed.get('result', '')
+        if not isinstance(html, str):
             return None
 
         soup = BeautifulSoup(html, "html.parser")
@@ -251,9 +250,11 @@ class Sources(BrowserBase):
         if not r:
             return None
 
-        try:
-            html = json.loads(r).get('result', '')
-        except (json.JSONDecodeError, AttributeError):
+        parsed = control.loads_json(r, default=None)
+        if not isinstance(parsed, dict):
+            return None
+        html = parsed.get('result', '')
+        if not isinstance(html, str):
             return None
 
         soup = BeautifulSoup(html, "html.parser")
@@ -294,7 +295,8 @@ class Sources(BrowserBase):
             if not r:
                 return sources
 
-            encrypted_result = json.loads(r).get('result', '')
+            parsed = control.loads_json(r, default={})
+            encrypted_result = parsed.get('result', '') if isinstance(parsed, dict) else ''
             embed_data = self._decode_kai(encrypted_result)
             if not embed_data:
                 control.log(f"AnimeKAI: Embed decryption failed for server '{server_name}'")

@@ -197,9 +197,8 @@ def probe_stream_chapters(ffprobe_path: str, play_url: str, timeout: int = 18) -
             control.log(f'ffprobe: exit {proc.returncode} — {err}', 'debug')
         return []
 
-    try:
-        data = json.loads(proc.stdout or '{}')
-    except json.JSONDecodeError:
+    data = control.loads_json(proc.stdout or '{}', default=None)
+    if not isinstance(data, dict):
         return []
 
     out = []

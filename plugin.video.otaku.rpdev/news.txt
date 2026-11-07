@@ -1,4 +1,24 @@
 ================================================================================
+         OTAKU RPDEV v6.0.6 - AST GUARDRAIL GATES & DEFENSIVE DECODING
+================================================================================
+
+[ Static CI AST Gates • Universal Safe JSON • Immediate Teardown Abort Exits ]
+• Universal Defensive JSON Decoding: Migrated all 23 residual direct json.loads() call
+  sites across embed extractors (ok.ru, VOE, GoLoad, MegaPlay, MegaCloud), scrapers
+  (AnimeKAI, GogoAnime, HiAnime, PirateBay), AniList, ffprobe, and SQLite deserializers
+  to control.loads_json() / control.safe_json(), preventing crashes on malformed HTML/CF
+  challenge payloads.
+• Immediate Shutdown & Startup Abort Responsiveness: Eliminated all unchecked standalone
+  waitForAbort() calls in WatchlistPlayer.keepAlive(), TMDbHelper playback notifications,
+  and Premiumize OAuth slow_down polling so Kodi exits immediately without firing
+  post-abort notifications or loops.
+• Automated AGENTS.md Static AST Lint Gates: Expanded test_ast_integrity and WindowXML
+  static AST suites (578 passing tests) to block unchecked waitForAbort() calls, direct
+  json.loads() outside control.py, mutable defaults, legacy super(), raw print(), and
+  WindowXML double event dispatch.
+
+
+================================================================================
               OTAKU RPDEV v6.0.5 - ARCHITECTURE & SUBSYSTEM HARDENING
 ================================================================================
 

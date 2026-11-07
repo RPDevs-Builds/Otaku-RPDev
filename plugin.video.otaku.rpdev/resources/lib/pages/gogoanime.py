@@ -46,10 +46,8 @@ class Sources(BrowserBase):
             data=params,
             headers=headers
         )
-        try:
-            r = json.loads(r).get('content') if r else ''
-        except Exception:
-            r = ''
+        parsed = control.loads_json(r, default={}) if r else {}
+        r = parsed.get('content') if isinstance(parsed, dict) else ''
 
         if not r and ':' in title:
             title = title.split(':')[0]
@@ -61,10 +59,8 @@ class Sources(BrowserBase):
                 data=params,
                 headers=headers
             )
-            try:
-                r = json.loads(r).get('content') if r else ''
-            except Exception:
-                r = ''
+            parsed = control.loads_json(r, default={}) if r else {}
+            r = parsed.get('content') if isinstance(parsed, dict) else ''
 
         items = []
         if r:

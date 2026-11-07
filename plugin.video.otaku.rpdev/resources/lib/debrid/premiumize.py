@@ -150,7 +150,9 @@ class Premiumize:
                 self.OauthTimeout = 0
             elif error == 'slow_down':
                 self.OauthTimeStep += 5
-                control.monitor.waitForAbort(5)
+                if control.monitor.waitForAbort(5):
+                    self.OauthTimeout = 0
+                    return False
         return False
 
     def search_folder(self, query):

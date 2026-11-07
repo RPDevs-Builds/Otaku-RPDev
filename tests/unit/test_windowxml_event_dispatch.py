@@ -12,11 +12,14 @@ if _TESTS_DIR not in sys.path:
 
 import conftest  # Centralized Kodi mock harness  # noqa: F401
 
+import ast
+import glob
 import unittest
 from unittest.mock import MagicMock, patch
 
 import xbmcgui
 from resources.lib.ui import control
+from resources.lib.windows.anichart import Anichart
 from resources.lib.windows.source_select import SourceSelect
 from resources.lib.windows.download_manager import DownloadManager
 from resources.lib.windows.playing_next import PlayingNext
@@ -25,6 +28,55 @@ from resources.lib.windows.clear_cache import ClearCacheDialog
 from resources.lib.windows.textviewer import TextViewerXML
 from resources.lib.windows.still_watching import StillWatchingXML
 from resources.lib.windows.wlf_auth import WatchlistFlavorAuth
+
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+WINDOWS_DIR = os.path.join(REPO_ROOT, 'plugin.video.otaku.rpdev', 'resources', 'lib', 'windows')
+FORBIDDEN_ONACTION_CONSTS = frozenset({7, 100})
+FORBIDDEN_ONACTION_SYMBOLS = frozenset({
+    'ACTION_SELECT_ITEM',
+    'ACTION_MOUSE_LEFT_CLICK',
+    'ACTION_MOUSE_DOUBLE_CLICK',
+})
+
+
+def _find_windowxml_double_dispatch_violations(tree, filename='<ast>'):
+    """
+    AGENTS.md §8: Any WindowXML class defining both onAction and onClick must NEVER
+    intercept Action IDs 7/100 or ACTION_SELECT_ITEM / ACTION_MOUSE_LEFT_CLICK /
+    ACTION_MOUSE_DOUBLE_CLICK inside onAction().
+    """
+    violations = []
+    for cls in (n for n in ast.walk(tree) if isinstance(n, ast.ClassDef)):
+        methods = {m.name: m for m in cls.body if isinstance(m, ast.FunctionDef)}
+        if 'onAction' not in methods or 'onClick' not in methods:
+            continue
+        on_action = methods['onAction']
+        for sub in ast.walk(on_action):
+            if isinstance(sub, ast.Constant) and type(sub.value) is int and sub.value in FORBIDDEN_ONACTION_CONSTS:
+                violations.append((filename, sub.lineno, cls.name, f"numeric Action ID {sub.value}"))
+            elif isinstance(sub, ast.Attribute) and sub.attr in FORBIDDEN_ONACTION_SYMBOLS:
+                violations.append((filename, sub.lineno, cls.name, sub.attr))
+            elif isinstance(sub, ast.Name) and sub.id in FORBIDDEN_ONACTION_SYMBOLS:
+                violations.append((filename, sub.lineno, cls.name, sub.id))
+    return violations
+
+
+def _find_windowxml_sleep_or_unchecked_abort(tree, filename='<ast>'):
+    """AGENTS.md §8 & §9: WindowXML modules must have zero blocking sleep calls and zero unchecked waitForAbort()."""
+    violations = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Expr) and isinstance(node.value, ast.Call):
+            func = node.value.func
+            if isinstance(func, ast.Attribute) and func.attr in ('waitForAbort', 'wait_for_abort'):
+                violations.append((filename, node.lineno, 'unchecked waitForAbort'))
+            elif isinstance(func, ast.Name) and func.id in ('waitForAbort', 'wait_for_abort'):
+                violations.append((filename, node.lineno, 'unchecked waitForAbort'))
+        if isinstance(node, ast.Call):
+            func = node.func
+            if isinstance(func, ast.Attribute) and func.attr == 'sleep':
+                if isinstance(func.value, ast.Name) and func.value.id in ('control', 'xbmc', 'time'):
+                    violations.append((filename, node.lineno, f"{func.value.id}.sleep"))
+    return violations
 
 
 class MockRemovableControlList:
@@ -208,6 +260,96 @@ class TestWindowXMLEventDispatch(unittest.TestCase):
         sw.onAction(action)
         self.assertTrue(sw.keep_watching)
         sw.close.assert_not_called()
+
+    def test_anichart_single_dispatch_and_double_click_idempotency(self):
+        """Verify Anichart ignores 7/100 in onAction and guards handle_action with _activated."""
+        ac = Anichart.__new__(Anichart)
+        ac.anime_items = [{'mal_id': 21, 'release_title': 'One Piece'}]
+        ac.position = 0
+        ac.anime_path = ''
+        ac.display_list = MagicMock()
+        ac.display_list.getSelectedPosition.return_value = 0
+        ac.getFocusId = MagicMock(return_value=1000)
+        ac.close = MagicMock()
+
+        for act_id in (7, 100):
+            act = MagicMock()
+            act.getId.return_value = act_id
+            ac.onAction(act)
+        self.assertFalse(getattr(ac, '_activated', False))
+        ac.close.assert_not_called()
+
+        with patch('resources.lib.OtakuBrowser.OtakuBrowser') as mock_browser, \
+             patch('resources.lib.windows.anichart.Main.ANIMES_PAGE') as mock_animes_page:
+            mock_browser.return_value.get_anime_data = MagicMock()
+            ac.onClick(1000)
+            ac.onDoubleClick(1000)
+            self.assertEqual(mock_animes_page.call_count, 1)
+
+    def test_clear_cache_and_textviewer_single_dispatch(self):
+        """Verify ClearCacheDialog and TextViewerXML ignore 7/100 in onAction."""
+        cc = ClearCacheDialog.__new__(ClearCacheDialog)
+        cc.selected = None
+        cc.list_control = None
+        cc._items_meta = [{'title': 'T', 'description': 'D', 'label': 'L', 'subtitle': 'S', 'action': 'a'}]
+        cc.close = MagicMock()
+
+        tv = TextViewerXML.__new__(TextViewerXML)
+        tv.actioned = None
+        tv.close = MagicMock()
+
+        for act_id in (7, 100):
+            act = MagicMock()
+            act.getId.return_value = act_id
+            cc.onAction(act)
+            tv.onAction(act)
+
+        self.assertIsNone(cc.selected)
+        cc.close.assert_not_called()
+        self.assertIsNone(tv.actioned)
+        tv.close.assert_not_called()
+
+    def test_all_windowxml_modules_pass_static_single_dispatch_ast_gate(self):
+        """Static AST gate across resources/lib/windows/*.py forbidding Action 7/100 or symbolic select/click in onAction."""
+        py_files = sorted(glob.glob(f"{WINDOWS_DIR}/*.py"))
+        self.assertGreaterEqual(len(py_files), 15, "Should scan all WindowXML controller modules")
+
+        dispatch_violations = []
+        abort_sleep_violations = []
+        for path in py_files:
+            with open(path, 'rb') as fp:
+                tree = ast.parse(fp.read(), filename=path)
+            dispatch_violations.extend(_find_windowxml_double_dispatch_violations(tree, path))
+            abort_sleep_violations.extend(_find_windowxml_sleep_or_unchecked_abort(tree, path))
+
+        self.assertEqual(
+            dispatch_violations,
+            [],
+            f"WindowXML classes with onClick must not handle select/click in onAction: {dispatch_violations}",
+        )
+        self.assertEqual(
+            abort_sleep_violations,
+            [],
+            f"WindowXML modules must not use blocking sleep() or unchecked waitForAbort(): {abort_sleep_violations}",
+        )
+
+    def test_windowxml_static_ast_detector_catches_synthetic_violations(self):
+        """Self-test proving the WindowXML AST gate catches numeric (7/100) and symbolic select/click actions."""
+        bad_tree = ast.parse(
+            "class BadDialog(WindowXMLDialog):\n"
+            "    def onClick(self, cid):\n"
+            "        self.activate()\n"
+            "    def onAction(self, action):\n"
+            "        aid = action.getId()\n"
+            "        if aid in (7, 100) or aid == xbmcgui.ACTION_SELECT_ITEM or aid == ACTION_MOUSE_LEFT_CLICK:\n"
+            "            self.activate()\n"
+            "        control.sleep(1000)\n"
+            "        control.monitor.waitForAbort(1)\n"
+        )
+        dispatch_hits = _find_windowxml_double_dispatch_violations(bad_tree)
+        self.assertEqual(len(dispatch_hits), 4)
+        sleep_hits = _find_windowxml_sleep_or_unchecked_abort(bad_tree)
+        self.assertEqual(len(sleep_hits), 2)
 
 
 if __name__ == '__main__':

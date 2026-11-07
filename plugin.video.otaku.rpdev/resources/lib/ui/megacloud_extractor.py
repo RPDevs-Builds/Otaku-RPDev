@@ -337,10 +337,11 @@ def extract_megacloud_sources(embed_url, referer="https://hianime.to/"):
                     decrypted = decryptor.decrypt(data.get('sources', ''), nonce, key)
 
             if decrypted:
-                try:
-                    data['sources'] = json.loads(decrypted)
-                except Exception as e:
-                    control.log(f"Megacloud: Failed to parse decrypted sources JSON: {e}", level='error')
+                parsed_sources = control.loads_json(decrypted, default=None)
+                if parsed_sources is not None:
+                    data['sources'] = parsed_sources
+                else:
+                    control.log("Megacloud: Failed to parse decrypted sources JSON", level='error')
                     data['sources'] = [{'file': ''}]
             else:
                 control.log("Megacloud: Decryption returned empty payload", level='error')

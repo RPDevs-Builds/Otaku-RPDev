@@ -153,9 +153,8 @@ def PLAY(payload, params):
         control.playerWindow.clearProperty('otaku.preResolved_episode')
         control.playerWindow.clearProperty('otaku.preResolved_data')
 
-        try:
-            preresolved_data = json.loads(preresolved_data_str) if preresolved_data_str else {}
-        except Exception:
+        preresolved_data = control.loads_json(preresolved_data_str, default={}) if preresolved_data_str else {}
+        if not isinstance(preresolved_data, dict):
             preresolved_data = {}
 
         import xbmcgui, xbmcplugin
@@ -389,11 +388,12 @@ def TMDB_HELPER(payload, params):
                     control.setInt('general.playstyle.movie', 0)
 
                 PLAY_MOVIE(f"{mal_id}/", parms)
-                control.monitor.waitForAbort(3)
+                if control.monitor.waitForAbort(3):
+                    return
                 return
             else:
-                control.monitor.waitForAbort(3)
-                control.notify(control.ADDON_NAME, 'No MAL ID found from this movie')
+                if not control.monitor.waitForAbort(3):
+                    control.notify(control.ADDON_NAME, 'No MAL ID found from this movie')
                 return
 
         else:
@@ -432,11 +432,12 @@ def TMDB_HELPER(payload, params):
                         control.setInt('general.playstyle.episode', 0)
 
                     PLAY(f"{mal_id}/{episode_num}", parms)
-                    control.monitor.waitForAbort(3)
+                    if control.monitor.waitForAbort(3):
+                        return
                     return
                 else:
-                    control.monitor.waitForAbort(3)
-                    control.notify(control.ADDON_NAME, 'No MAL ID found from this episode')
+                    if not control.monitor.waitForAbort(3):
+                        control.notify(control.ADDON_NAME, 'No MAL ID found from this episode')
                     return
     finally:
         control.setInt('general.playstyle.movie', playstyle_movie)

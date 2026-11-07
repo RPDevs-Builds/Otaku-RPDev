@@ -262,7 +262,10 @@ class Sources(BrowserBase):
             elif isinstance(response, (dict, list)):
                 data = response
             else:
-                data = json.loads(str(response))
+                sentinel = object()
+                data = control.loads_json(str(response), default=sentinel)
+                if data is sentinel:
+                    raise ValueError("Invalid JSON payload")
         except Exception as e:
             control.log(f"PirateBay: JSON decode error: {e}", 'warning')
             return []
@@ -271,10 +274,7 @@ class Sources(BrowserBase):
 
     def _parse_apibay_results(self, data):
         if isinstance(data, str):
-            try:
-                data = json.loads(data)
-            except Exception:
-                return []
+            data = control.loads_json(data, default=[])
 
         if not isinstance(data, list):
             return []

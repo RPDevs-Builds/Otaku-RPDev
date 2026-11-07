@@ -197,8 +197,8 @@ def __extract_okru(url, page_content, referer=None):
     if not res:
         return
     html = res.text if hasattr(res, 'text') else str(res)
-    json_data = json.loads(html)
-    if 'error' in json_data:
+    json_data = control.loads_json(html, default=None)
+    if not isinstance(json_data, dict) or 'error' in json_data:
         return
     strurl = json_data.get('hlsManifestUrl')
     return strurl
@@ -308,8 +308,12 @@ def __extract_streamwish(url, page_content, referer=None):
 def __extract_voe(url, page_content, referer=None):
     r = re.search(r"let\s*(?:wc0|[0-9a-f]+)\s*=\s*'([^']+)", page_content)
     if r:
-        r = json.loads(base64.b64decode(r.group(1)).decode('utf-8')[::-1])
-        stream_url = r.get('file')
+        try:
+            decoded_voe = base64.b64decode(r.group(1)).decode('utf-8', errors='replace')[::-1]
+        except Exception:
+            decoded_voe = ''
+        voe_data = control.loads_json(decoded_voe, default={})
+        stream_url = voe_data.get('file') if isinstance(voe_data, dict) else None
         if stream_url:
             headers = {'User-Agent': _EDGE_UA}
             return stream_url + __append_headers(headers)
@@ -360,18 +364,23 @@ def __extract_goload(url, page_content, referer=None):
         eurl = 'https://{0}/encrypt-ajax.php?id={1}&alias={2}'.format(
             host, _encrypt(media_id, keys[0], iv), params)
         response = client.get(eurl)
-        try:
-            response = json.loads(response.text).get('data')
-        except Exception:
-            return
-        if response:
-            result = _decrypt(response, keys[1], iv)
-            result = json.loads(result)
+        resp_json = control.safe_json(response, default={})
+        enc_payload = resp_json.get('data') if isinstance(resp_json, dict) else None
+        if enc_payload:
+            try:
+                decrypted = _decrypt(enc_payload, keys[1], iv)
+            except Exception:
+                return
+            result = control.loads_json(decrypted, default={})
+            if not isinstance(result, dict):
+                return
             str_url = ''
-            if len(result.get('source')) > 0:
-                str_url = result.get('source')[0].get('file')
-            if not str_url and len(result.get('source_bk')) > 0:
-                str_url = result.get('source_bk')[0].get('file')
+            sources_primary = result.get('source') or []
+            sources_backup = result.get('source_bk') or []
+            if len(sources_primary) > 0 and isinstance(sources_primary[0], dict):
+                str_url = sources_primary[0].get('file')
+            if not str_url and len(sources_backup) > 0 and isinstance(sources_backup[0], dict):
+                str_url = sources_backup[0].get('file')
             if str_url:
                 headers = {'User-Agent': _EDGE_UA,
                            'Referer': 'https://{0}/'.format(host),

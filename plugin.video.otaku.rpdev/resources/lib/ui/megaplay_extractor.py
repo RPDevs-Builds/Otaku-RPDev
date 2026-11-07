@@ -17,8 +17,8 @@ def decrypt_megaplay_source(enc_data):
     decrypter = pyaes.Decrypter(pyaes.AESModeOfOperationCBC(key, iv))
     dec_text = decrypter.feed(base64.b64decode(enc_data))
     dec_text += decrypter.feed()
-    data = json.loads(dec_text.decode('utf-8'))
-    return data.get('file')
+    data = control.loads_json(dec_text.decode('utf-8', errors='replace'), default={})
+    return data.get('file') if isinstance(data, dict) else None
 
 
 def extract_megaplay_sources(embed_url, referer=None):
