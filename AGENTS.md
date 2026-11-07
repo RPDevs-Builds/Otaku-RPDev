@@ -49,3 +49,10 @@
 ## Memory Management & Low-RAM Streaming Device Safeguards
 - **64KB Window Property Ceiling**: Never store payloads exceeding 64KB in Kodi C++ window properties (`_window.setProperty`). Large datasets must be stored in SQLite WAL `cache.db` to prevent heap fragmentation on 1GB RAM streaming devices.
 - **Proactive OAuth Refresh**: Always evaluate OAuth token expiry with a 300-second buffer (`time.time() > expiry - 300`) prior to issuing API calls, and maintain token freshness via the background 15-minute service loop.
+
+## Dual Kodi 20/21 (Nexus/Omega) & Kodi 22 (Piers) Compatibility Mandates
+- **InfoTagVideo Modernization**: Always populate media metadata via `vinfo = li.getVideoInfoTag()` with typed setters. Never invoke deprecated `ListItem.setInfo()`. For Kodi 22+ exclusive tags (`setOriginalLanguage`, `setTagLine`, `setSeasonPlot`), guard with `hasattr(vinfo, ...)` and mirror the value via `li.setProperty(...)` for Kodi 20/21 skin compatibility.
+- **SWIG Non-Null Type Contracts**: Never pass `None` to Kodi C++ APIs (`xbmc.Actor`, `xbmcgui.ListItem`, `vinfo`, `control.setSetting`). Always coerce inputs explicitly (`str(val or '')`, `int(val or 0)`) to prevent fatal SWIG `TypeError` exceptions.
+- **Dual BCP 47 & ISO 639-2 Normalization**: All audio and subtitle stream selectors must route through `is_language_match()` to seamlessly match both 2-letter BCP 47 codes (`ja`, `en`) from Kodi 22 and 3-letter ISO 639-2 codes (`jpn`, `eng`) from Kodi 20/21.
+- **Demuxer Chapter Fallback Chain**: Intro/outro skip detection must first attempt native Kodi 22 demuxer chapter queries (`Player.GetChapters` via JSON-RPC), then pre-probed chapters, and finally duration-based filler/AnimeSkip timestamps.
+- **Python 3.12–3.14 Clean Runtimes**: Zero imports of modules removed in Python 3.13/3.14 (e.g. `cgi`, `pipes`, `imghdr`, `sunau`). Always use standard cooperative `super().__init__()`.
