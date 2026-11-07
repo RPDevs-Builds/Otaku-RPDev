@@ -27,3 +27,12 @@
 - **No Domain Hardcoding in Resolvers**: Scrapers and embed extractors must remain domain-agnostic. Never hardcode single-domain filters (e.g. `if 'domain' in decoded_url`) in hash decoders or server list parsers; always accept valid HTTP/HTTPS URLs and dynamically derive API origins (`f"{parsed.scheme}://{parsed.netloc}"`).
 - **Multi-Server Fallback Order**: When multiple stream servers or mirrors are returned by a provider, collect them into prioritized candidate lists and attempt resolution sequentially. Never discard alternate hosts.
 - **Upstream Feature Parity Guard**: Prior to refactoring any scraper, browser, or resolver, verify historical commits and upstream (Goldenfreddy0703/Otaku) to guarantee that generic decoding, multi-part handling, or extraction logic is not degraded.
+
+## Kodi 22 (Piers) Subsystem & C++ Setting Invariants
+- **Defensive Setting Accessors**: Always route setting reads and writes through `control.py` helpers. Never assume a setting key exists; accessors must catch C++ exceptions and supply safe fallback values.
+- **AST Schema Auditing on Setting Removals**: Prior to removing or renaming any setting from `resources/settings.xml`, run full AST schema verification (`test_settings_schema_and_code_references.py`) to confirm that zero residual runtime references remain across code, skins, and services.
+- **Responsive Abort Loops**: Never execute synchronous `xbmc.sleep()` calls exceeding 500ms in player, countdown, or background service loops. Use non-blocking `control.monitor.waitForAbort(seconds)` to guarantee immediate responsiveness during player abort or Kodi shutdown.
+
+## SQLite Concurrency & Static Dictionary Access Protocol
+- **Read-Only URI Enforcement**: All auxiliary readers querying static dictionaries (`info.db`, `mappings.db`) must enforce URI read-only mode (`file:...db?mode=ro`).
+- **Connection Key Separation**: SQLite connection caches must partition connection pools by `(db_path, mode)` so read-only connection handles are never mixed with or starved by write transactions.
