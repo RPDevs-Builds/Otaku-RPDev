@@ -1,58 +1,116 @@
-# RPDevs-Builds Project Workspace Rules
+# Otaku-RPDev Development & Engineering Rules
 
-## Infrastructure Environment Reference
-- **Single Source of Truth**: `/mnt/sharedroot/projects/infra-audit-engine/docs/CURRENT_ENV.yml` contains the authoritative state, node hardware specs, networking interfaces, OpenWrt configs, and Docker status across `t430`, `llmadmin01`, and `edge`.
-- **Environment Audit Orchestrator**: Run `python src/orchestrator.py` from `/mnt/sharedroot/projects/infra-audit-engine` (using `.venv` Python 3.12) to refresh `CURRENT_ENV.yml` and log configuration drift.
+Authoritative engineering invariants, architectural contracts, and operational mandates for `Otaku-RPDev` (`plugin.video.otaku.rpdev` & `context.otaku.rpdev`), synthesized from project-wide audits, upstream parity reviews (`Goldenfreddy0703/Otaku`), and 420+ historical implementation plans.
 
-## Reusable Helper Script Management Protocol
-- **Script Location**: All reusable small/utility scripts created for organizational maintenance, repo auditing, telemetry, or fleet checks must be stored under `/home/llmuser/projects/.scripts/`.
-- **Subdirectory Categorization**:
-  - Python scripts: `/home/llmuser/projects/.scripts/python/`
-  - Shell scripts: `/home/llmuser/projects/.scripts/shell/`
-- **Master Script Registry**: Maintain `/home/llmuser/projects/.scripts/SCRIPTS.md`. Every script added must be documented with labels, path, description, and usage commands.
+---
 
-## Historical Plan & Walkthrough Archival Protocol
-- **Plan Archival Location**: Historical copies of all Implementation Plans (`implementation_plan.md`) and Walkthroughs (`walkthrough.md`) must be archived under `/home/llmuser/projects/.plans/<date>/<project>/file_<datetime>.md`.
-- **Master Plans Index**: Maintain `/home/llmuser/projects/.plans/INDEX.md`. Every archived plan and walkthrough must be cataloged in `INDEX.md` with links, dates, project names, and concise summaries.
-- **Naming Pattern**: Format path as `/home/llmuser/projects/.plans/YYYY-MM-DD/<project_name>/implementation_plan_YYYY-MM-DD_HHMMSS.md` and `walkthrough_YYYY-MM-DD_HHMMSS.md`.
+## 1. Repository Architecture & Module Boundaries
+- **`plugin.video.otaku.rpdev/`**: Primary video add-on targeting Kodi 20 (Nexus), Kodi 21 (Omega), and Kodi 22 (Piers).
+  - **Entrypoints**: `default.py` (plugin router dispatch; decouples modal changelog display from root `GetDirectory` to prevent 45s timeouts) and `service.py` (startup maintenance, `clean_settings`, 15-minute proactive OAuth refresh, and passive SQLite WAL checkpoints).
+  - **Core Subsystems (`resources/lib/ui/`)**: `control.py` (Kodi C++ settings/window/ListItem abstraction), `database.py` (thread-safe SQLite pools, migrations, corruption auto-recovery), `client.py` (HTTP/TLS/FlareSolverr transport), `player.py` (`WatchlistPlayer` playback, scrobbling, chapters, subtitles), `source_utils.py`, and `embed_extractor.py` / `megaplay_extractor.py`.
+  - **Routing & Menus (`resources/lib/Main.py`, `resources/lib/routes/`)**: Modular route handlers (`playback.py`, `tools.py`, `search.py`, `watchlist.py`, etc.) and 24 customizable menus across 8 content categories.
+  - **Providers & Resolvers**: `resources/lib/pages/` (torrent, Usenet, and embed scrapers orchestrated by `pages/__init__.py`) and `resources/lib/debrid/` (`real_debrid.py`, `torbox.py`, `all_debrid.py`, `debrid_link.py`, `premiumize.py`, `easydebrid.py`, `easynews.py`).
+  - **Metadata & Watchlists**: `resources/lib/endpoints/` (`anilist.py`, `mal.py`, `tmdb.py`, `tvdb.py`, `anizip.py`, `anime_filler.py`, `aniskip.py`) and `resources/lib/WatchlistFlavor/` (`AniList.py`, `MyAnimeList.py`, `Kitsu.py`, `Simkl.py`).
+  - **GUI (`resources/lib/windows/`, `resources/skins/Default/1080i/`)**: Custom `WindowXML` / `WindowXMLDialog` controllers and 38 1080i XML skin templates.
+- **`context.otaku.rpdev/`**: Standalone Kodi context menu extension. Uses defensive `_extract_subpath()` regex parsing for third-party skin widgets (Aura, Arctic Horizon, Cosmic) and accesses `info.db` strictly in read-only / `DELETE` journal mode to avoid cross-addon locks.
+- **`resource.images.animestudio.{coloured,white}/`**: Bundled studio logo packs (normalize `InfoTagVideo` studios to primary animation studio to prevent multi-studio texture 404 spam).
+- **`tests/`**: Hermetic offline test suite (`tests/conftest.py` C++ SWIG mocks + socket network guard, `tests/unit/`, `tests/integration/`, `tests/lint/`, `tests/fixtures/`).
 
-## Workspace Home & Execution Baseline
-- **Execution Root**: All future projects and commands are launched from `/home/llmuser/projects` as the home directory of reference unless explicitly specified otherwise.
+---
 
-## Deployment & Addon Release Mandate
-- **No Direct Target Updates**: Never push code or update addon files directly onto target devices (such as ONN Android TV / Kodi via ADB).
-- **GitHub Pipeline Validation**: All releases must go through GitHub (`release_addon.py` -> GitHub push -> CDN repo update) so that the live device receives updates via the standard Kodi repository update mechanism. This rigorously tests the build process, metadata generation, and CI/CD distribution pipeline.
+## 2. Workspace Governance, Scripts, Archives & Network Boundaries
+- **Infrastructure Source of Truth**: `/mnt/sharedroot/projects/infra-audit-engine/docs/CURRENT_ENV.yml` (refresh via `.venv/bin/python src/orchestrator.py` in `/mnt/sharedroot/projects/infra-audit-engine`).
+- **Execution Baseline**: Default workspace root is `/home/llmuser/projects` (`/mnt/sharedroot/projects`); run `Otaku-RPDev` test and build commands from `/mnt/sharedroot/projects/RPDevs-Builds/Otaku-RPDev`.
+- **Reusable Helper Scripts**: Store reusable maintenance/audit/release scripts under `/home/llmuser/projects/.scripts/python/` or `/home/llmuser/projects/.scripts/shell/` and register every script in `/home/llmuser/projects/.scripts/SCRIPTS.md`. Purge one-off migration scripts after use.
+- **Historical Plan & Walkthrough Archival**: Archive every `implementation_plan.md` and `walkthrough.md` to `/home/llmuser/projects/.plans/YYYY-MM-DD/Otaku-RPDev/<type>_YYYY-MM-DD_HHMMSS.md` and catalog it in `/home/llmuser/projects/.plans/INDEX.md`.
+- **Network & DNS Filter Respect**: Never attempt to bypass NextDNS, firewall rules, or sandbox boundaries. Handle DNS-blocked streaming domains (`127.0.0.1` / connection refused) gracefully via multi-server failover and report blocked domains to the user.
 
-## Feature Preservation & Scraper Genericity Protocol
-- **No Domain Hardcoding in Resolvers**: Scrapers and embed extractors must remain domain-agnostic. Never hardcode single-domain filters (e.g. `if 'domain' in decoded_url`) in hash decoders or server list parsers; always accept valid HTTP/HTTPS URLs and dynamically derive API origins (`f"{parsed.scheme}://{parsed.netloc}"`).
-- **Multi-Server Fallback Order**: When multiple stream servers or mirrors are returned by a provider, collect them into prioritized candidate lists and attempt resolution sequentially. Never discard alternate hosts.
-- **Upstream Feature Parity Guard**: Prior to refactoring any scraper, browser, or resolver, verify historical commits and upstream (Goldenfreddy0703/Otaku) to guarantee that generic decoding, multi-part handling, or extraction logic is not degraded.
+---
 
-## Kodi 22 (Piers) Subsystem & C++ Setting Invariants
-- **Defensive Setting Accessors**: Always route setting reads and writes through `control.py` helpers. Never assume a setting key exists; accessors must catch C++ exceptions and supply safe fallback values.
-- **AST Schema Auditing on Setting Removals**: Prior to removing or renaming any setting from `resources/settings.xml`, run full AST schema verification (`test_settings_schema_and_code_references.py`) to confirm that zero residual runtime references remain across code, skins, and services.
-- **Responsive Abort Loops**: Never execute synchronous `xbmc.sleep()` calls exceeding 500ms in player, countdown, or background service loops. Use non-blocking `control.monitor.waitForAbort(seconds)` to guarantee immediate responsiveness during player abort or Kodi shutdown.
+## 3. Deployment & Addon Release Pipeline Mandate
+- **No Direct Target Updates**: Never push add-on code or assets directly onto target hardware (e.g., ONN Android TV `10.13.0.16` via ADB). Live devices must receive updates exclusively via the Kodi repository update mechanism.
+- **Automated Release Pipeline**:
+  1. Prepend human-readable release highlights to `plugin.video.otaku.rpdev/news.txt`.
+  2. Execute `/home/llmuser/projects/.scripts/python/release_addon.py plugin.video.otaku.rpdev --bump [patch|minor|major] -m "..."`.
+  3. `release_addon.py` enforces pre-flight unit/AST tests, dual headless real-Kodi 21 & Kodi 22 Xvfb smoke boots (scanning `kodi.log` for `CSettingSection::Deserialize`, `Invalid setting type`, `SWIG director`, and segfaults), bumps `addon.xml` + `changelog.txt`, packages clean ZIPs to `/mnt/sharedroot/projects/rpdev-cdn/kodi.repo.iamrp.dev`, regenerates `addons.xml` & `addons.xml.md5`, commits with `--no-gpg-sign`, pushes both repos to GitHub, and verifies live CDN checksum & HTTP 200 ZIP reachability at `https://kodi.repo.iamrp.dev`.
 
-## SQLite Concurrency & Static Dictionary Access Protocol
-- **Read-Only URI Enforcement**: All auxiliary readers querying static dictionaries (`info.db`, `mappings.db`) must enforce URI read-only mode (`file:...db?mode=ro`).
-- **Connection Key Separation**: SQLite connection caches must partition connection pools by `(db_path, mode)` so read-only connection handles are never mixed with or starved by write transactions.
+---
 
-## Kodi GUI WindowXML & Event Handling Protocol
-- **In-Place ListItem Mutation**: Never call `self.list_control.reset()` to toggle item states in custom WindowXML dialogs. Mutate `ListItem` properties in place (`getListItem(idx).setProperty(...)`) to prevent Kodi C++ focus eviction.
-- **Single Event Dispatch**: Do not forward action ID 7 (Enter/Select) from `onAction()` to `onClick()`; Kodi automatically dispatches `onClick(control_id)`. Double routing causes actions to fire twice.
+## 4. Dual Kodi 20/21 (Nexus/Omega) & Kodi 22 (Piers) Compatibility
+- **`InfoTagVideo` Modernization**: Always populate metadata via `vinfo = li.getVideoInfoTag()` with typed setters (`setTitle`, `setPlot`, `setYear`, `setGenres`, `setCast`, `setDuration`). Never call deprecated `ListItem.setInfo()`. For Kodi 22+ exclusive setters (`setOriginalLanguage`, `setTagLine`, `setSeasonPlot`), guard with `hasattr(vinfo, ...)` inside `try...except` and mirror values to `li.setProperty(...)` for Kodi 20/21 skin compatibility.
+- **SWIG Non-Null Type Contracts**: Kodi 22 SWIG directors reject `None` for `std::string` / numeric arguments with fatal `TypeError` exceptions. Explicitly coerce every argument passed to `xbmc.Actor`, `xbmcgui.ListItem(str(name or ''))`, `vinfo`, and `_AddonProxy.setSetting(str(id or ''), str(val if val is not None else ''))`. Never use `str(val)` on nullable values (which writes literal `'None'`).
+- **Dual BCP 47 & ISO 639-2 Language Matching**: Route all audio and subtitle track selectors through `is_language_match()` (`LANGUAGE_SYNONYMS`) so 2-letter BCP 47 / regional tags (`ja`, `en`, `en-US` in Kodi 22) and 3-letter ISO 639-2 codes (`jpn`, `eng` in Kodi 20/21) match identically. Position `latin-1` last in subtitle encoding fallbacks.
+- **Python 3.12–3.14 Clean Runtimes & Invoker Hygiene**:
+  - Zero imports of PEP 594 removed stdlib modules (`cgi`, `pipes`, `imghdr`, `sunau`, `crypt`, `chunk`, `uu`, `telnetlib`, etc.).
+  - Always use Python 3 cooperative `super().__init__()` / `super().method()`, never `super(ClassName, self)`.
+  - Never use mutable default arguments (`def fn(items=[], data={})`); use `None` sentinels initialized inside the function body so state never leaks across persistent `reuselanguageinvoker` executions.
+  - Never use raw `print()`; route diagnostics through `control.log()` / `xbmc.log()`.
+  - Keep `control.schedule_next_page_prefetch` as a safe no-op; never spawn detached background `CPythonInvoker` threads that cause 10–30s shutdown freezes on Kodi 22 / Android TV.
 
-## HTTP Transport & Rate-Limiting Invariants
-- **Float Timeout Precision**: HTTP client methods must cast timeouts to `float(timeout)` rather than `int(timeout)` to prevent sub-second timeouts (`0.5`s) from truncating to 0.
-- **Defensive JSON Decoding**: Never assume API responses are valid JSON. Always route parsing through `safe_json()` or `r.json(default={})` to gracefully handle HTML error/challenge responses from Cloudflare or streaming hosts.
-- **Debrid & API 429 Backoff**: All external debrid and metadata API callers must catch HTTP 429, respect `Retry-After` headers (capped to 3 seconds with jitter), and retry once before failing.
+---
 
-## Memory Management & Low-RAM Streaming Device Safeguards
-- **64KB Window Property Ceiling**: Never store payloads exceeding 64KB in Kodi C++ window properties (`_window.setProperty`). Large datasets must be stored in SQLite WAL `cache.db` to prevent heap fragmentation on 1GB RAM streaming devices.
-- **Proactive OAuth Refresh**: Always evaluate OAuth token expiry with a 300-second buffer (`time.time() > expiry - 300`) prior to issuing API calls, and maintain token freshness via the background 15-minute service loop.
+## 5. Kodi C++ Settings Schema & Defensive Accessors
+- **Centralized Defensive Accessors**: Route all internal setting reads/writes through `control.py` (`getBool`, `getInt`, `getStr`, `getNumber`, `setBool`, `setInt`, `setStr`, `setNumber`, and `*List` variants). Protect module-load `xbmcaddon.Addon()` initialization with static fallback constants to survive transient `RuntimeError: Unknown addon id` during addon ZIP upgrades.
+- **Coerce Before C++ & Cache Writes**: Inside every `control.py` setter, coerce `settingid` and `value` inside `try...except (ValueError, TypeError)` with typed defaults (`0`, `0.0`, `''`, `[]`) *before* calling `settings.set*` **and** *before* updating `_settings_cache` or `homeWindow.setProperty`. Wrap all scalar and `*List` getters/setters in `try...except Exception:` so undeclared or mismatched keys never crash worker threads.
+- **Single Source of Truth for Dynamic Settings**: Derive dynamic setting prefixes (e.g., `EMBED_SKIP_PREFIXES` from `_EMBED_MODULES` in `pages/__init__.py`) from a single authoritative registry rather than duplicating provider tuples across `pages/__init__.py` and `player.py`.
+- **Mandatory AST Schema & Credential Audits**: Prior to adding, renaming, or removing any setting in `resources/settings.xml` (use `<level>4</level>` for hidden internal settings), run `test_settings_schema_and_code_references.py` and `test_clean_settings.py` to guarantee zero orphaned runtime references and confirm `clean_settings` never prunes user OAuth/Debrid credentials.
 
-## Dual Kodi 20/21 (Nexus/Omega) & Kodi 22 (Piers) Compatibility Mandates
-- **InfoTagVideo Modernization**: Always populate media metadata via `vinfo = li.getVideoInfoTag()` with typed setters. Never invoke deprecated `ListItem.setInfo()`. For Kodi 22+ exclusive tags (`setOriginalLanguage`, `setTagLine`, `setSeasonPlot`), guard with `hasattr(vinfo, ...)` and mirror the value via `li.setProperty(...)` for Kodi 20/21 skin compatibility.
-- **SWIG Non-Null Type Contracts**: Never pass `None` to Kodi C++ APIs (`xbmc.Actor`, `xbmcgui.ListItem`, `vinfo`, `control.setSetting`). Always coerce inputs explicitly (`str(val or '')`, `int(val or 0)`) to prevent fatal SWIG `TypeError` exceptions.
-- **Dual BCP 47 & ISO 639-2 Normalization**: All audio and subtitle stream selectors must route through `is_language_match()` to seamlessly match both 2-letter BCP 47 codes (`ja`, `en`) from Kodi 22 and 3-letter ISO 639-2 codes (`jpn`, `eng`) from Kodi 20/21.
-- **Demuxer Chapter Fallback Chain**: Intro/outro skip detection must first attempt native Kodi 22 demuxer chapter queries (`Player.GetChapters` via JSON-RPC), then pre-probed chapters, and finally duration-based filler/AnimeSkip timestamps.
-- **Python 3.12–3.14 Clean Runtimes**: Zero imports of modules removed in Python 3.13/3.14 (e.g. `cgi`, `pipes`, `imghdr`, `sunau`). Always use standard cooperative `super().__init__()`.
+---
+
+## 6. Memory Management & Low-RAM (1GB Android TV) Safeguards
+- **64KB Window Property Ceiling (UTF-8 Byte-Measured)**: Never store payloads exceeding `65,536` UTF-8 bytes in Kodi C++ window properties (`_WindowProxy.setProperty`, `control.setGlobalProp`). Always measure encoded byte length via `len(val_str.encode('utf-8', errors='replace')) > 65536` (not `len(val_str)`, which misses 3–4 byte UTF-8 characters). Store large datasets (such as multi-entry user reviews `otaku_reviews_{mal_id}`) in SQLite WAL `cache.db`.
+- **WindowXML C++ Object Disposal**: Always wrap modal dialog invocations (`doModal()`) in `try ... finally:` blocks that call `dlg.close()`, execute `del dlg`, and clear instance references (`self.dialog = None`) to prevent C++ `WindowXML` memory leaks across marathon autoplay sessions.
+
+---
+
+## 7. SQLite Concurrency, Static Dictionaries & Self-Healing
+- **In-Memory Locks Only**: Never create filesystem `.lock` files (`*.db.lock`), which orphan on sudden power loss or Android task kills. Use `threading.RLock()` and `execute_write_with_retry()` with jittered backoff (`10ms–150ms`).
+- **Automatic Read-Only URI Mode & Pool Isolation**: Static reference databases (`control.infoDB` `info.db` and `control.mappingDB` `mappings.db`) must default to `is_readonly=True` in `database.SQL`, connect via `file:{abs_path}?mode=ro` (`uri=True`, `timeout=float(self.timeout)`), **skip all write PRAGMAs** (`journal_mode=WAL`, `synchronous=NORMAL`) when `is_readonly` is `True`, and partition thread-local connection caches by `(abs_path, is_readonly)` tuples (evicting all tuple/string variants in `close_thread_connections`).
+- **Non-Destructive Migrations & Auto-Recovery**: Never wipe user databases via `re_build_database(True)` during version upgrades; evolve schemas via `PRAGMA table_info` + `ALTER TABLE` in `_migrate_database()`. Preserve `_quarantine_and_recover_db()` self-healing on `DatabaseError` and passive `PRAGMA wal_checkpoint(PASSIVE)` in `service.py`. Avoid blocking `VACUUM` during normal scraping/playback flows.
+
+---
+
+## 8. Kodi GUI WindowXML & Single Event Dispatch Protocol
+- **Single Event Dispatch (`onClick` Exclusivity)**: Never handle Action ID `7` (`xbmcgui.ACTION_SELECT_ITEM`), Action ID `100` (`xbmcgui.ACTION_MOUSE_LEFT_CLICK`), or `xbmcgui.ACTION_MOUSE_DOUBLE_CLICK` inside `onAction()` when `onClick(control_id)` is present. Kodi's C++ GUI engine natively dispatches `onClick(control_id)` on Enter/Select/Click; handling selection in `onAction()` fires actions twice (causing double stream seeks, double resolvers, and close race conditions). Guard irreversible modal actions with an idempotency flag (`self._activated` / `self.actioned`).
+- **Non-Destructive In-Place `ControlList` Updates**: Never call `list_control.reset()` to toggle item states, reorder items (`menu_order.py`), or refresh task progress (`download_manager.py`), as `reset()` evicts C++ focus to index `0`. Update existing items via `getListItem(idx).setProperty(...)` / `setLabel(...)`, trim excess tail items via `removeItem(size - 1)` (guarded with `hasattr(ctrl, 'removeItem')` for mock compatibility), and restore `selectItem(pos)`.
+- **Skin XML Integrity**: All 38 XML files in `resources/skins/Default/1080i/` must remain well-formed (`xml.etree.ElementTree` validated in `test_ast_integrity.py`) with valid `<defaultcontrol>` IDs and Android TV Back action `9` (`[9, 10, 92, 216]`) handled in `onAction()`.
+
+---
+
+## 9. Responsive Abort Loops & Teardown Safety
+- **No Blocking Sleeps >500ms**: Never call `xbmc.sleep()` or `time.sleep()` for >500ms in playback, countdowns, scrapers, dialogs, or background services. Slice polling loops into `<=100–200ms` ticks checking `abortRequested()` or call `control.monitor.waitForAbort(seconds)`.
+- **Mandatory Inspection of `waitForAbort()` Return Value**: Calling `waitForAbort(seconds)` without checking its boolean return is a bug:
+  - In retry/backoff loops (debrid `_request_with_backoff`, Jikan 429 retries, WCO session retries): `if control.monitor.waitForAbort(wait_seconds): return None` (or `break`) so HTTP calls are never reissued during shutdown.
+  - Before delayed side effects (e.g., `if not control.monitor.waitForAbort(3): service.sync_watchlist(True)` in `routes/playback.py` and `player.py`, or post-`RunPlugin` dialogs in `sort_select.py`): skip execution when `True` to prevent teardown socket errors.
+- **Bounded Scraper Lifecycles**: Enforce `self.canceled = True` in `getSources()` `finally` blocks, check `control.abort_requested()` in scraper worker loops, bound debrid hash-check joins, and cap provider scraping timeouts to `<=30s`. On user cancellation in `source_utils.user_select()`, return standardized `[{dict_key: '', 'path': ''}]` and reset `best_match=False`.
+
+---
+
+## 10. Feature Preservation, Scraper Genericity & Playback Pipeline
+- **Domain-Agnostic Scrapers & Extractors**: Never hardcode single-domain filters (e.g., `if 'megaplay.buzz' in url`) or static embed hosts (`https://embed.wcostream.com`). Derive origins dynamically via `urllib.parse.urlparse` using `scheme = parsed.scheme or 'https'` (`f"{scheme}://{parsed.netloc}"`), normalize base URLs with `.rstrip('/')` before path concatenation (preventing `//` 301 Cloudflare triggers), and match query parameters position-agnostically (`[?&]pid=([0-9]+)`).
+- **Multi-Server Candidate Retention**: Collect all enabled stream servers/mirrors into prioritized candidate lists and attempt resolution sequentially (`hianime.py`, `gogoanime.py`, etc.). Never place an early `break` after the first server match.
+- **Upstream Feature Parity & Defunct Stubs**: Check `Goldenfreddy0703/Otaku` history/PRs before refactoring browsers, resolvers, or mappers so multi-part/generic logic is never degraded. In `TMDB_HELPER` (`routes/playback.py`), evaluate `tmdb_mapping_match()` against `mappings.db` season layouts *before* fuzzy `find_episode_by_title()`. Replace permanently defunct scrapers (`aniwave.py`, `animixplay.py`) with 0ms stubs returning `[]`.
+- **Demuxer Chapters, Scrobbling & Stream Headers**:
+  - In `WatchlistPlayer` (`player.py`), execute `query_demuxer_chapters()` (`Player.GetChapters` JSON-RPC, playerid 1) **first** on playback start, completely decoupled from `ffprobe.chapters.enable` and prior to waiting on external AniSkip APIs; snap missing final chapter end bounds (`if end <= start: end = total`).
+  - Route Zero-Wait playback through `WatchlistPlayer`, decouple resume bookmark saving from `self.context` (clearing bookmarks at `>=90%`), and preserve `|Authorization=...` pipe headers on authenticated streams (e.g., Easynews).
+
+---
+
+## 11. HTTP Transport, Debrid Resilience, Watchlists & OAuth
+- **Sub-Second Float Timeouts & Streaming Downloads**: Always cast HTTP timeouts to `float(timeout)` (never `int(timeout)`, which truncates `0.5s` to `0`). Never reintroduce single-read byte caps that truncate multi-megabyte database/archive downloads in `client.py`.
+- **Universal Defensive JSON Decoding**: Never invoke bare `json.loads()` or unguarded `r.json()` on HTTP responses, FlareSolverr/DDG proxy payloads (`cfcookie`, `ddgcookie`), or SQLite `cache.db` values (`VIEW_REVIEW`). Always use `control.safe_json(resp, default=...)`, `control.loads_json(raw, default=...)`, or `r.json(default={})`, and verify `isinstance(data, dict)` before `.get()`.
+- **Jittered 429/503 Backoff**: All debrid and external API clients must catch HTTP 429 (and 503 where applicable), parse `float(r.headers.get('Retry-After', 1))`, clamp backoff to `min(max(wait, 1.0), 3.0) + random.uniform(0.1, 0.4)`, abort immediately if `control.monitor.waitForAbort(wait)` returns `True`, and retry once before failing.
+- **Proactive OAuth Refresh & Watchlist Scaling**:
+  - Check OAuth token expiry with a 300s pre-flight buffer (`expiry > 0 and time.time() > expiry - 300`) in API/Debrid headers (`RealDebrid`, `DebridLink`, `MyAnimeList`, `Kitsu`) alongside the 15-minute `service.py` refresh loop.
+  - Chunk AniList `idMal_in` GraphQL queries into 50-item batches and paginate `MediaListCollection` via `$chunk`/`$perChunk` (`hasNextChunk`) to prevent HTTP 400 errors on 300+ item lists.
+  - Recognize `WINDOW_VIDEOS` (`10025`) in `control.is_addon_visible()`, run `_should_refresh_cache()` strictly on Page 1 (`offset == 0`), never suppress `Next Page` when `page > 1`, and maintain the 168-hour SQLite cache on `anime_filler`.
+
+---
+
+## 12. Hermetic Testing, CI & Pre-Commit Verification Gate
+- **Hermetic Offline Test Contract**: All unit/integration tests must include the standard standalone bootstrap importing `conftest` (`tests/conftest.py`), which enforces an offline socket guard blocking live external network calls. Store scraper HTML/JSON payloads as deterministic golden fixtures under `tests/fixtures/`. Live provider diagnostics (`scripts/check_scraper_health.py`) are strictly for local/VPN execution and must never run in GitHub Actions CI.
+- **Mandatory 4-Step Local Verification Gate**: Run and pass all four checks from `/mnt/sharedroot/projects/RPDevs-Builds/Otaku-RPDev` before every commit or release:
+  1. `python3 -m unittest discover tests` (568+ unit, integration, and adversarial tests; 0 failures/errors)
+  2. `python3 -m unittest tests/lint/test_ast_integrity.py` (AST syntax, zero bare `except:`, zero `pickle`, 38 skin XMLs valid)
+  3. `python3 -m unittest tests/unit/test_settings_schema_and_code_references.py tests/unit/test_clean_settings.py`
+  4. `python3 -m compileall -q plugin.video.otaku.rpdev context.otaku.rpdev tests`
