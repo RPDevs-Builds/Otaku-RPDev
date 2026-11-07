@@ -36,3 +36,16 @@
 ## SQLite Concurrency & Static Dictionary Access Protocol
 - **Read-Only URI Enforcement**: All auxiliary readers querying static dictionaries (`info.db`, `mappings.db`) must enforce URI read-only mode (`file:...db?mode=ro`).
 - **Connection Key Separation**: SQLite connection caches must partition connection pools by `(db_path, mode)` so read-only connection handles are never mixed with or starved by write transactions.
+
+## Kodi GUI WindowXML & Event Handling Protocol
+- **In-Place ListItem Mutation**: Never call `self.list_control.reset()` to toggle item states in custom WindowXML dialogs. Mutate `ListItem` properties in place (`getListItem(idx).setProperty(...)`) to prevent Kodi C++ focus eviction.
+- **Single Event Dispatch**: Do not forward action ID 7 (Enter/Select) from `onAction()` to `onClick()`; Kodi automatically dispatches `onClick(control_id)`. Double routing causes actions to fire twice.
+
+## HTTP Transport & Rate-Limiting Invariants
+- **Float Timeout Precision**: HTTP client methods must cast timeouts to `float(timeout)` rather than `int(timeout)` to prevent sub-second timeouts (`0.5`s) from truncating to 0.
+- **Defensive JSON Decoding**: Never assume API responses are valid JSON. Always route parsing through `safe_json()` or `r.json(default={})` to gracefully handle HTML error/challenge responses from Cloudflare or streaming hosts.
+- **Debrid & API 429 Backoff**: All external debrid and metadata API callers must catch HTTP 429, respect `Retry-After` headers (capped to 3 seconds with jitter), and retry once before failing.
+
+## Memory Management & Low-RAM Streaming Device Safeguards
+- **64KB Window Property Ceiling**: Never store payloads exceeding 64KB in Kodi C++ window properties (`_window.setProperty`). Large datasets must be stored in SQLite WAL `cache.db` to prevent heap fragmentation on 1GB RAM streaming devices.
+- **Proactive OAuth Refresh**: Always evaluate OAuth token expiry with a 300-second buffer (`time.time() > expiry - 300`) prior to issuing API calls, and maintain token freshness via the background 15-minute service loop.
