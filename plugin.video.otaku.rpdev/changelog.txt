@@ -1,3 +1,6 @@
+Changelog v6.0.4 (2026-11-07):
+- TMDbHelper Accurate Mapping Matching (PR #500): Integrated tmdb_mapping_match in playback.py leveraging mappings.db season layout and absolute-number episode ranges before fuzzy title matching; distributed project AGENTS.md rules with repository.
+
 Changelog v6.0.3 (2026-11-07):
 - Generic Stream Domain Decoding & Failover: Generalized HiAnime server hash decoding to accept all returned HTTP/HTTPS streaming domains (including zokoanime.video and future embed providers) rather than hardcoding megaplay.buzz; implemented multi-candidate fallback order per audio type; updated MegaPlay extractor to dynamically derive API origin from embed URLs.
 

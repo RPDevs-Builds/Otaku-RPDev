@@ -1,4 +1,17 @@
 ================================================================================
+                    OTAKU RPDEV v6.0.4 - UPSTREAM PARITY & ACCURACY
+================================================================================
+
+[ TMDbHelper Integration • Season & Episode Mapping • Project Governance ]
+• TMDbHelper Season/Episode Mapping Match: Integrated upstream PR #500 innovation.
+  When playing episodes via TMDbHelper, Otaku now evaluates TMDb and TVDb season
+  layouts against mappings.db before falling back to fuzzy title matching, correctly
+  resolving multi-part seasons and absolute-numbered anime (e.g. One Piece, Naruto).
+• Workspace Governance & Rules Distribution: Packaged AGENTS.md directly in the
+  repository to enforce non-degradation invariants and domain-agnostic scraper design.
+
+
+================================================================================
                     OTAKU RPDEV v6.0.3 - DYNAMIC EMBED PROVIDERS
 ================================================================================
 
