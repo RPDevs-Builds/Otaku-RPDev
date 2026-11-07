@@ -532,15 +532,19 @@ class WatchlistPlayer(player):
             self.build_playlist()
 
         if self.media_type != 'movie':
-            # Fast-path: if ffprobe/container chapters are already available, process them immediately!
+            # Demuxer Chapter Fallback Chain:
+            # 1. Direct query of native Kodi 22 demuxer chapters (Player.GetChapters), decoupled from ffprobe
+            if not self.ffprobe_chapters:
+                self.query_demuxer_chapters()
+
             if self.ffprobe_chapters:
                 self.process_ffprobe_chapter_skips()
 
-            # Only wait for external skip APIs if intro or outro has not yet been resolved
+            # 2. Only wait for external skip APIs if intro or outro has not yet been resolved
             if not (self.skipintro_aniskip and self.skipoutro_aniskip):
                 timeout = 30
                 while not self._skip_processed and timeout > 0:
-                    if self._playback_stopped or not self.isPlaying():
+                    if self._playback_stopped or not self.isPlaying() or (self._monitor and self._monitor.abortRequested()):
                         break
                     xbmc.sleep(100)
                     timeout -= 1
@@ -899,50 +903,53 @@ class WatchlistPlayer(player):
 
     # ── Skip Time Processing (AniSkip / AnimeSkip / Embed / FFprobe chapters) ─
 
+    def query_demuxer_chapters(self):
+        """Query native Kodi 22 demuxer chapters via Player.GetChapters JSON-RPC directly."""
+        try:
+            res = control.jsonrpc({
+                'jsonrpc': '2.0',
+                'method': 'Player.GetChapters',
+                'params': {'playerid': 1},
+                'id': 1
+            })
+            if isinstance(res, dict) and 'result' in res:
+                raw_ch = res['result'].get('chapters', [])
+                if raw_ch:
+                    parsed = []
+                    for ch in raw_ch:
+                        ch_title = ch.get('title') or ch.get('name') or ''
+                        ch_time = ch.get('time')
+                        if isinstance(ch_time, dict):
+                            s_time = float(ch_time.get('hours', 0) or 0) * 3600.0 + \
+                                     float(ch_time.get('minutes', 0) or 0) * 60.0 + \
+                                     float(ch_time.get('seconds', 0) or 0) + \
+                                     (float(ch_time.get('milliseconds', 0) or 0) / 1000.0)
+                        elif isinstance(ch_time, (int, float)):
+                            s_time = float(ch_time)
+                        else:
+                            s_time = 0.0
+                        parsed.append({'title': ch_title, 'start': s_time, 'end': 0.0})
+                    parsed.sort(key=lambda x: x['start'])
+                    for idx in range(len(parsed)):
+                        if idx + 1 < len(parsed):
+                            parsed[idx]['end'] = parsed[idx + 1]['start']
+                        elif self.total_time:
+                            parsed[idx]['end'] = float(self.total_time)
+                    self.ffprobe_chapters = parsed
+                    control.log(f'Player: Populated {len(self.ffprobe_chapters)} chapter(s) via Kodi Player.GetChapters', 'info')
+                    return True
+        except Exception as e:
+            control.log(f'Player: Kodi Player.GetChapters lookup failed: {e}', 'debug')
+        return False
+
     def process_ffprobe_chapter_skips(self):
         """
-        Last-resort intro/outro windows from ffprobe chapter titles + timestamps.
-        Runs only after embed / AniSkip / AnimeSkip; does not override them.
+        Intro/outro windows from native demuxer chapters or ffprobe container chapters.
+        First queries native Kodi 22 Player.GetChapters directly (decoupled from ffprobe setting),
+        then processes pre-probed chapters.
         """
-        if not control.getBool('ffprobe.chapters.enable'):
-            return
-
-        # Kodi 22+ Demuxer Chapter Fallback: query Player.GetChapters via JSON-RPC if not pre-probed
         if not self.ffprobe_chapters:
-            try:
-                res = control.jsonrpc({
-                    'jsonrpc': '2.0',
-                    'method': 'Player.GetChapters',
-                    'params': {'playerid': 1},
-                    'id': 1
-                })
-                if isinstance(res, dict) and 'result' in res:
-                    raw_ch = res['result'].get('chapters', [])
-                    if raw_ch:
-                        parsed = []
-                        for ch in raw_ch:
-                            ch_title = ch.get('title') or ch.get('name') or ''
-                            ch_time = ch.get('time')
-                            if isinstance(ch_time, dict):
-                                s_time = float(ch_time.get('hours', 0) or 0) * 3600.0 + \
-                                         float(ch_time.get('minutes', 0) or 0) * 60.0 + \
-                                         float(ch_time.get('seconds', 0) or 0) + \
-                                         (float(ch_time.get('milliseconds', 0) or 0) / 1000.0)
-                            elif isinstance(ch_time, (int, float)):
-                                s_time = float(ch_time)
-                            else:
-                                s_time = 0.0
-                            parsed.append({'title': ch_title, 'start': s_time, 'end': 0.0})
-                        parsed.sort(key=lambda x: x['start'])
-                        for idx in range(len(parsed)):
-                            if idx + 1 < len(parsed):
-                                parsed[idx]['end'] = parsed[idx + 1]['start']
-                            elif self.total_time:
-                                parsed[idx]['end'] = float(self.total_time)
-                        self.ffprobe_chapters = parsed
-                        control.log(f'Player: Populated {len(self.ffprobe_chapters)} chapter(s) via Kodi Player.GetChapters', 'info')
-            except Exception as e:
-                control.log(f'Player: Kodi Player.GetChapters lookup failed: {e}', 'debug')
+            self.query_demuxer_chapters()
 
         if not self.ffprobe_chapters or not self.total_time:
             return

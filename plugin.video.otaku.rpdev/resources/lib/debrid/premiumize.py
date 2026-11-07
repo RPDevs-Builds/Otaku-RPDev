@@ -1,3 +1,4 @@
+import random
 import time
 import urllib.parse
 
@@ -26,12 +27,13 @@ class Premiumize:
         r = getattr(client, method.lower())(url, **kwargs)
         if r and r.status_code == 429:
             try:
-                wait_seconds = int(r.headers.get('Retry-After', 1))
+                wait_seconds = float(r.headers.get('Retry-After', 1))
             except (ValueError, TypeError):
-                wait_seconds = 1
-            wait_seconds = min(max(wait_seconds, 1), 3)
-            control.log(f"Premiumize API rate limited (429) for {url}, backing off {wait_seconds}s", 'warning')
-            time.sleep(wait_seconds)
+                wait_seconds = 1.0
+            wait_seconds = min(max(wait_seconds, 1.0), 3.0) + random.uniform(0.1, 0.4)
+            control.log(f"Premiumize API rate limited (429) for {url}, backing off {wait_seconds:.2f}s", 'warning')
+            if control.monitor.waitForAbort(wait_seconds):
+                return None
             r = getattr(client, method.lower())(url, **kwargs)
         return r
 
@@ -148,7 +150,7 @@ class Premiumize:
                 self.OauthTimeout = 0
             elif error == 'slow_down':
                 self.OauthTimeStep += 5
-                control.sleep(5000)
+                control.monitor.waitForAbort(5)
         return False
 
     def search_folder(self, query):

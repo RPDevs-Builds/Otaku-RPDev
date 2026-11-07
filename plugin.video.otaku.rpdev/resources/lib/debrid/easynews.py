@@ -41,7 +41,7 @@ class Easynews:
         params['gps'] = query
         url = self.base_url + self.search_link
         try:
-            r = client.get(url, headers=self._auth_headers(), params=params, timeout=int(_TIMEOUT))
+            r = client.get(url, headers=self._auth_headers(), params=params, timeout=float(_TIMEOUT))
             if not r or not r.ok:
                 return []
             data = r.json()
@@ -95,7 +95,7 @@ class Easynews:
                 result = client.request(
                     url_dl,
                     headers=self._auth_headers(),
-                    timeout=int(_UNRESTRICT_TIMEOUT),
+                    timeout=float(_UNRESTRICT_TIMEOUT),
                     limit=1024,
                     output='extended',
                     use_session=True,

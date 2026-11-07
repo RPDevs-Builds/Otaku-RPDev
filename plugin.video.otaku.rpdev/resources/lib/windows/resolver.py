@@ -661,7 +661,7 @@ class Resolver(BaseWindow):
                         self.source_select_close()
                     self.resolve(self.sources)
                 else:
-                    super(Resolver, self).doModal()
+                    super().doModal()
             finally:
                 self.close()
 

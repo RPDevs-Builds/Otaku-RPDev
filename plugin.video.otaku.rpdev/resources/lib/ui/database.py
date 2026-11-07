@@ -123,7 +123,7 @@ def close_thread_connections(path=None):
         return
     if path is not None:
         target = os.path.abspath(path)
-        for key in (target, f"{target}:ro"):
+        for key in ((target, True), (target, False), (target, 'ro'), (target, 'rw'), target, f"{target}:ro"):
             entry = conns.pop(key, None)
             if entry:
                 try:
@@ -224,19 +224,21 @@ class SQL:
         self._cursor = None
         abs_path = os.path.abspath(self.path) if self.path else ''
         info_path = os.path.abspath(control.infoDB) if getattr(control, 'infoDB', None) else ''
-        self.is_readonly = (abs_path == info_path) if is_readonly is None else bool(is_readonly)
+        mapping_path = os.path.abspath(control.mappingDB) if getattr(control, 'mappingDB', None) else ''
+        self.is_readonly = (abs_path in (info_path, mapping_path)) if is_readonly is None else bool(is_readonly)
 
     def __enter__(self):
         abs_path = os.path.abspath(self.path)
         info_path = os.path.abspath(control.infoDB) if getattr(control, 'infoDB', None) else ''
-        if not self.is_readonly and abs_path == info_path:
+        mapping_path = os.path.abspath(control.mappingDB) if getattr(control, 'mappingDB', None) else ''
+        if not self.is_readonly and abs_path in (info_path, mapping_path):
             self.is_readonly = True
         is_readonly = self.is_readonly
 
         if not is_readonly and not xbmcvfs.exists(control.dataPath):
             xbmcvfs.mkdirs(control.dataPath)
 
-        cache_key = f"{abs_path}:ro" if is_readonly else abs_path
+        cache_key = (abs_path, is_readonly)
 
         for attempt in range(2):
             conns = _get_thread_conns()
@@ -263,14 +265,24 @@ class SQL:
                             conn = dbapi2.connect(
                                 f"file:{abs_path}?mode=ro",
                                 uri=True,
-                                timeout=30.0,
+                                timeout=float(self.timeout),
                                 isolation_level=None,
                                 check_same_thread=False
                             )
                         except Exception:
-                            conn = dbapi2.connect(self.path, timeout=self.timeout, isolation_level=None)
+                            conn = dbapi2.connect(
+                                self.path,
+                                timeout=float(self.timeout),
+                                isolation_level=None,
+                                check_same_thread=False
+                            )
                     else:
-                        conn = dbapi2.connect(self.path, timeout=self.timeout, isolation_level=None)
+                        conn = dbapi2.connect(
+                            self.path,
+                            timeout=float(self.timeout),
+                            isolation_level=None,
+                            check_same_thread=False
+                        )
                     conn.row_factory = _dict_factory
                     if not is_readonly:
                         conn.execute("PRAGMA foreign_keys = ON")
@@ -1622,7 +1634,7 @@ def get_database_stats():
             lines.append(f"   Storage: {_format_db_bytes(main_size)} (Main) | {_format_db_bytes(wal_size)} (WAL) | {_format_db_bytes(shm_size)} (SHM)")
             lines.append(f"   Total Footprint: {_format_db_bytes(db_total)}")
 
-            with SQL(db_path) as cur:
+            with SQL(db_path, is_readonly=True) as cur:
                 cur.execute("PRAGMA journal_mode")
                 j_mode = (cur.fetchone() or {}).get('journal_mode', 'unknown')
                 cur.execute("PRAGMA page_count")
@@ -1814,7 +1826,7 @@ def check_database_integrity():
             results[name] = "Not initialized"
             continue
         try:
-            with SQL(path) as cur:
+            with SQL(path, is_readonly=True) as cur:
                 cur.execute("PRAGMA integrity_check")
                 row = cur.fetchone()
                 status = row.get('integrity_check', 'ok') if row else 'ok'

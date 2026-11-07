@@ -1,3 +1,10 @@
+Changelog v6.0.5 (2026-11-07):
+- Project-Wide Architecture, GUI & Transport Hardening:
+- Memory Safeguards & SQLite Concurrency: Enforced 64KB C++ window property ceiling guard in control.py, offloaded user review caches to SQLite WAL cache.db in Main.py, and added automatic read-only URI pooling (file:...db?mode=ro) with (path, is_readonly) key partitioning for mappings.db in database.py.
+- WindowXML Single Event Dispatch & Focus Stability: Removed duplicate Action ID 7/100 routing from onAction() across 11 WindowXML dialogs and implemented in-place ListItem mutation in DownloadManager without destructive list resets.
+- Scraper Genericity & Native Kodi 22 Demuxer Priority: Dynamized embed API origins in WatchNixtoons2, preserved multi-server stream mirrors in GogoAnime, decoupled Player.GetChapters demuxer queries from ffprobe in player.py, and replaced blocking sleeps (>500ms) with non-blocking waitForAbort().
+- Debrid Transport & Python 3.12+ Cleanliness: Standardized float timeout precision, jittered 429 Retry-After backoff with immediate abort exit across all debrid clients, proactive 300s OAuth token refresh checks, and SWIG non-null type coercion (568/568 automated tests passing).
+
 Changelog v6.0.4 (2026-11-07):
 - TMDbHelper Accurate Mapping Matching (PR #500): Integrated tmdb_mapping_match in playback.py leveraging mappings.db season layout and absolute-number episode ranges before fuzzy title matching; distributed project AGENTS.md rules with repository.
 

@@ -124,9 +124,9 @@ class TestPremiumizeOAuth(unittest.TestCase):
         self.assertFalse(result)
         self.assertEqual(pm.OauthTimeout, 300)
 
-    @patch('resources.lib.ui.control.sleep')
+    @patch('resources.lib.ui.control.monitor.waitForAbort')
     @patch('resources.lib.ui.client.post')
-    def test_premiumize_auth_loop_400_slow_down(self, mock_post, mock_sleep):
+    def test_premiumize_auth_loop_400_slow_down(self, mock_post, mock_wait):
         from resources.lib.debrid.premiumize import Premiumize
 
         pm = Premiumize()
@@ -145,7 +145,7 @@ class TestPremiumizeOAuth(unittest.TestCase):
         result = pm.auth_loop('dev_code_xyz')
         self.assertFalse(result)
         self.assertEqual(pm.OauthTimeStep, 10)  # incremented by 5
-        mock_sleep.assert_called_with(5000)
+        mock_wait.assert_called_with(5)
 
     @patch('resources.lib.ui.client.post')
     def test_premiumize_auth_loop_400_access_denied(self, mock_post):

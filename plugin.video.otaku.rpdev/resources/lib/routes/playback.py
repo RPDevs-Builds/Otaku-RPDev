@@ -389,10 +389,10 @@ def TMDB_HELPER(payload, params):
                     control.setInt('general.playstyle.movie', 0)
 
                 PLAY_MOVIE(f"{mal_id}/", parms)
-                control.sleep(3000)
+                control.monitor.waitForAbort(3)
                 return
             else:
-                control.sleep(3000)
+                control.monitor.waitForAbort(3)
                 control.notify(control.ADDON_NAME, 'No MAL ID found from this movie')
                 return
 
@@ -432,10 +432,10 @@ def TMDB_HELPER(payload, params):
                         control.setInt('general.playstyle.episode', 0)
 
                     PLAY(f"{mal_id}/{episode_num}", parms)
-                    control.sleep(3000)
+                    control.monitor.waitForAbort(3)
                     return
                 else:
-                    control.sleep(3000)
+                    control.monitor.waitForAbort(3)
                     control.notify(control.ADDON_NAME, 'No MAL ID found from this episode')
                     return
     finally:
@@ -549,12 +549,14 @@ def find_episode_by_title(mal_ids, episode_titles):
         if requests_made == 3:
             elapsed = time.time() - last_request_time
             if elapsed < 4.0:
-                time.sleep(4.0 - elapsed)
+                if control.monitor.waitForAbort(max(0.01, 4.0 - elapsed)):
+                    break
             requests_made = 0
             last_request_time = time.time()
         # Space each request by at least 1.33 seconds
         if requests_made > 0:
-            time.sleep(1.33)
+            if control.monitor.waitForAbort(1.33):
+                break
         # Retry logic for HTTP 429
         retries = 0
         max_retries = 3
@@ -567,7 +569,8 @@ def find_episode_by_title(mal_ids, episode_titles):
             except Exception as e:
                 if hasattr(e, 'response') and getattr(e.response, 'status_code', None) == 429:
                     control.log(f"Jikan API rate limited (429) for mal_id {mal_id}, retrying in {backoff} seconds...")
-                    time.sleep(backoff)
+                    if control.monitor.waitForAbort(backoff):
+                        break
                     retries += 1
                     backoff *= 2
                 else:
@@ -640,8 +643,8 @@ def MARKED_AS_WATCHED(payload, params):
 
     any_completed = watchlist_update_episode(mal_id, episode)
     if any_completed:
-        control.sleep(3000)
-        service.sync_watchlist(True)
+        if not control.monitor.waitForAbort(3):
+            service.sync_watchlist(True)
 
     # Synchronize Watch History
     if mal_id:
@@ -718,8 +721,8 @@ def MARKED_AS_UNWATCHED(payload, params):
 
     any_completed = watchlist_update_episode(mal_id, target_ep)
     if any_completed:
-        control.sleep(1000)
-        service.sync_watchlist(True)
+        if not control.monitor.waitForAbort(3):
+            service.sync_watchlist(True)
 
     # Invalidate cached eps_watched in kodi_meta so UI repaints playcounts
     show = database.get_show(mal_id)
@@ -821,8 +824,8 @@ def MARK_PREVIOUS_WATCHED(payload, params):
     # Update watchlist for target_ep (MAL/AniList/Simkl/Kitsu sets progress to target_ep)
     any_completed = watchlist_update_episode(mal_id, target_ep, up_to=True)
     if any_completed:
-        control.sleep(3000)
-        service.sync_watchlist(True)
+        if not control.monitor.waitForAbort(3):
+            service.sync_watchlist(True)
 
     # Save to watch history for target_ep
     try:

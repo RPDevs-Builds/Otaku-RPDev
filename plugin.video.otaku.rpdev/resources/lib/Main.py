@@ -328,7 +328,7 @@ def draw_anime_reviews_listing(mal_id, page, path, eps_watched):
         control.notify(control.ADDON_NAME, control.lang(30461))
         control.draw_items([], 'addons')
         return
-    control.setGlobalProp('otaku.reviews.cache', json.dumps(reviews))
+    database.cache_insert(f'otaku_reviews_{mal_id}', json.dumps(reviews))
     control.setGlobalProp('otaku.reviews.mal_id', str(mal_id))
     control.setGlobalProp('otaku.reviews.page', str(page))
     items = result.get('items') or []
@@ -420,7 +420,11 @@ def VIEW_REVIEW(payload, params):
         review_idx = int(parts[1])
     except (IndexError, ValueError):
         return control.exit_code()
-    cached = control.getGlobalProp('otaku.reviews.cache') if control.getGlobalProp('otaku.reviews.mal_id') == str(mal_id) else ''
+    cached = ''
+    if control.getGlobalProp('otaku.reviews.mal_id') == str(mal_id):
+        cache_row = database.cache_get(f'otaku_reviews_{mal_id}')
+        if cache_row:
+            cached = cache_row.get('value') if isinstance(cache_row, dict) else cache_row[1]
     if not cached:
         page = int(control.getGlobalProp('otaku.reviews.page') or 1)
         reviews = BROWSER.refetch_reviews_page(mal_id, page)
@@ -428,7 +432,7 @@ def VIEW_REVIEW(payload, params):
             control.notify(control.ADDON_NAME, control.lang(30461))
             return
     else:
-        reviews = json.loads(cached)
+        reviews = control.loads_json(cached, default=[])
     if review_idx >= len(reviews):
         control.notify(control.ADDON_NAME, control.lang(30461))
         return

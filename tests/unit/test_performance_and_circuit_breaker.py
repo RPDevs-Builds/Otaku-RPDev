@@ -92,10 +92,13 @@ class TestPerformanceAndCircuitBreaker(unittest.TestCase):
         mock_200 = MagicMock(status_code=200, ok=True, json=lambda: {'id': 'RD_TORRENT_123'})
 
         with patch('resources.lib.ui.client.post', side_effect=[mock_429, mock_200]), \
-             patch('time.sleep') as mock_sleep:
+             patch.object(control.monitor, 'waitForAbort', return_value=False) as mock_wait:
             res = rd.addMagnet("magnet:?xt=urn:btih:ABCDEF123456")
             self.assertEqual(res, {'id': 'RD_TORRENT_123'})
-            mock_sleep.assert_called_once_with(1)
+            mock_wait.assert_called_once()
+            called_wait = mock_wait.call_args[0][0]
+            self.assertGreaterEqual(called_wait, 1.1)
+            self.assertLessEqual(called_wait, 1.45)
 
     def test_torbox_429_backoff_retry(self):
         tb = TorBox()
@@ -103,10 +106,13 @@ class TestPerformanceAndCircuitBreaker(unittest.TestCase):
         mock_200 = MagicMock(status_code=200, ok=True, json=lambda: {'data': {'torrent_id': 'TB_999'}})
 
         with patch('resources.lib.ui.client.post', side_effect=[mock_429, mock_200]), \
-             patch('time.sleep') as mock_sleep:
+             patch.object(control.monitor, 'waitForAbort', return_value=False) as mock_wait:
             res = tb.addMagnet("magnet:?xt=urn:btih:ABCDEF123456")
             self.assertEqual(res, {'torrent_id': 'TB_999'})
-            mock_sleep.assert_called_once_with(1)
+            mock_wait.assert_called_once()
+            called_wait = mock_wait.call_args[0][0]
+            self.assertGreaterEqual(called_wait, 1.1)
+            self.assertLessEqual(called_wait, 1.45)
 
 
 if __name__ == '__main__':

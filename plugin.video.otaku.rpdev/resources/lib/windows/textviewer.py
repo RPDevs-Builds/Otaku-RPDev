@@ -46,11 +46,6 @@ class TextViewerXML(WindowXMLDialog):
             self.close()
             return
 
-        # 7: ACTION_SELECT_ITEM, 100: ACTION_MOUSE_LEFT_CLICK
-        if actionID in (7, 100):
-            self.handle_action(actionID)
-            return
-
         try:
             super().onAction(action)
         except Exception:

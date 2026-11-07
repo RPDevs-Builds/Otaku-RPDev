@@ -126,20 +126,6 @@ class ClearCacheDialog(xbmcgui.WindowXMLDialog):
             self.close()
             return
 
-        # Select / Enter / Space
-        if action_id in [7, 100]:
-            try:
-                focus_id = self.getFocusId()
-            except Exception:
-                focus_id = 1000
-
-            if focus_id == 3001:
-                self.selected = 'cancel'
-                self.close()
-            else:
-                self._handle_selection()
-            return
-
         # Up, Down, Left, Right navigation: refresh description
         if action_id in [1, 2, 3, 4]:
             self._update_description()

@@ -384,7 +384,9 @@ def __extract_goload(url, page_content, referer=None):
 #  Extractor Registry
 # ═══════════════════════════════════════════════════════════════════════════
 
-def __register_extractor(urls, function, url_preloader=None, datas=[]):
+def __register_extractor(urls, function, url_preloader=None, datas=None):
+    if datas is None:
+        datas = []
     if type(urls) is not list:
         urls = [urls]
 

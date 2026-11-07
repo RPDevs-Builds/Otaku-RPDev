@@ -70,7 +70,9 @@ class TestChangelogDismissal(unittest.TestCase):
         action_select = MagicMock()
         action_select.getId.return_value = 7
         viewer.onAction(action_select)
+        self.assertIsNone(viewer.actioned)
 
+        viewer.onClick(2062)
         self.assertTrue(viewer.actioned)
         viewer.close.assert_called_once()
 

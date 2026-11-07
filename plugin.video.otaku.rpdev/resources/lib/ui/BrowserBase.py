@@ -106,7 +106,9 @@ class BrowserBase(object):
             response = client.get(url, headers=headers)
         return response.text if response else None
 
-    def _post_request(self, url, data={}, headers=None):
+    def _post_request(self, url, data=None, headers=None):
+        if data is None:
+            data = {}
         return self._send_request(url, data, headers)
 
     def _get_request(self, url, data=None, headers=None):

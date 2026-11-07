@@ -162,7 +162,7 @@ class SourceSelect(BaseWindow):
             self.display_list.addItem(menu_item)
 
     def doModal(self):
-        super(SourceSelect, self).doModal()
+        super().doModal()
         return self.stream_link
 
     def handle_action(self, action_id):
@@ -184,7 +184,10 @@ class SourceSelect(BaseWindow):
             self._show_current_sources(cached, both, uncached, embeds)
 
         elif controlId == 1000:
-            pass
+            self.position = self.display_list.getSelectedPosition()
+            if self.position < 0 or not self.displayed_sources or self.position >= len(self.displayed_sources):
+                return
+            self.resolve_item()
 
     def onAction(self, action):
         actionID = action.getId()
@@ -194,12 +197,6 @@ class SourceSelect(BaseWindow):
             control.playList.clear()
             self.stream_link = False
             self.close()
-
-        if actionID in [7, 100] and self.getFocusId() == 1000:
-            self.position = self.display_list.getSelectedPosition()
-            if self.position < 0 or not self.displayed_sources or self.position >= len(self.displayed_sources):
-                return
-            self.resolve_item()
 
         if actionID == 117:
             context = control.context_menu(

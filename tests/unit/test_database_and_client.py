@@ -20,7 +20,7 @@ import pickle
 import unittest
 from unittest.mock import MagicMock, patch
 
-from resources.lib.ui import database, client
+from resources.lib.ui import database, client, control
 
 
 class TestDatabaseAndClient(unittest.TestCase):
@@ -212,6 +212,46 @@ class TestDatabaseAndClient(unittest.TestCase):
             conn_ro = cur_ro.connection
 
         self.assertIsNot(conn_rw, conn_ro, "Read-write and read-only connections must not collide")
+
+    def test_database_mapping_and_info_default_readonly(self):
+        """database.SQL defaults to is_readonly=True for mappingDB and infoDB."""
+        with database.SQL(control.infoDB) as cur_info:
+            self.assertTrue(getattr(cur_info, 'is_readonly', True))
+        sql_map = database.SQL(control.mappingDB)
+        self.assertTrue(sql_map.is_readonly)
+        sql_info = database.SQL(control.infoDB)
+        self.assertTrue(sql_info.is_readonly)
+
+    def test_client_basic_request_float_timeout(self):
+        """_basic_request casts timeout to float and handles None safely."""
+        with patch('urllib.request.urlopen') as mock_urlopen:
+            mock_urlopen.return_value = MagicMock(read=lambda: b'ok', info=lambda: MagicMock())
+            client._basic_request('http://example.com/test', timeout=1.5)
+            self.assertTrue(mock_urlopen.called)
+            _, kwargs = mock_urlopen.call_args
+            self.assertEqual(kwargs.get('timeout'), 1.5)
+            self.assertIsInstance(kwargs.get('timeout'), float)
+
+            client._basic_request('http://example.com/test', timeout=None)
+            _, kwargs_none = mock_urlopen.call_args
+            self.assertEqual(kwargs_none.get('timeout'), 60.0)
+            self.assertIsInstance(kwargs_none.get('timeout'), float)
+
+    def test_client_flaresolverr_defensive_json(self):
+        """cfcookie and ddgcookie handle malformed or non-JSON FlareSolverr responses gracefully."""
+        cf = client.cfcookie()
+        with patch('resources.lib.ui.client._basic_request', return_value='<html>502 Bad Gateway</html>'), \
+             patch('resources.lib.ui.control.getSetting', return_value='http://127.0.0.1:8191'), \
+             patch('resources.lib.ui.control.getInt', return_value=10):
+            cf._get_cookie('http://example.com', 10)
+            self.assertIsNone(cf.cookie)
+
+        ddg = client.ddgcookie()
+        with patch('resources.lib.ui.client._basic_request', return_value='<html>502 Bad Gateway</html>'), \
+             patch('resources.lib.ui.control.getSetting', return_value='http://127.0.0.1:8191'), \
+             patch('resources.lib.ui.control.getInt', return_value=10):
+            ddg._get_cookie('http://example.com', 10)
+            self.assertIsNone(ddg.cookie)
 
 
 if __name__ == '__main__':

@@ -288,7 +288,8 @@ class Sources(BrowserBase):
                         level='warning',
                     )
                     self._thread_local.wco_session = None
-                    time.sleep(2)
+                    if control.monitor.waitForAbort(2):
+                        return None
                     continue
 
                 iframe_sources = self._extract_iframe_sources(
@@ -319,7 +320,8 @@ class Sources(BrowserBase):
     def _embed_api_origin(self, embed_url):
         parsed = urllib.parse.urlparse(embed_url)
         if parsed.netloc:
-            return f'{parsed.scheme}://{parsed.netloc}/'
+            scheme = parsed.scheme or 'https'
+            return f'{scheme}://{parsed.netloc}/'
         return 'https://embed.wcostream.com/'
 
     def _find_embed_url(self, page_content, episode_url):
@@ -378,9 +380,10 @@ class Sources(BrowserBase):
 
         control.log('WatchNixtoons2: running WCO ad-verify for embed', level='info')
         flag = '__abd_' + uuid.uuid4().hex[:8]
+        origin = self._embed_api_origin(embed_url).rstrip('/')
         self._make_request(
-            'https://embed.wcostream.com/assets/ads/advertisement.js?flag={0}&_={1}'.format(
-                flag, int(time.time() * 1000)
+            '{0}/assets/ads/advertisement.js?flag={1}&_={2}'.format(
+                origin, flag, int(time.time() * 1000)
             ),
             headers={
                 'Accept': '*/*',
@@ -389,14 +392,14 @@ class Sources(BrowserBase):
             use_cache=False,
         )
 
-        pid_match = re.search(r'&pid=([0-9]+)', embed_url)
+        pid_match = re.search(r'[?&]pid=([0-9]+)', embed_url)
         if not pid_match:
             control.log('WatchNixtoons2: embed URL missing pid for ad-verify', level='warning')
             return embed_url.replace('inc/embed/index.php', 'inc/embed/video-js-old.php')
 
         nonce = uuid.uuid4().hex
         self._make_request(
-            'https://embed.wcostream.com/ad-verify',
+            '{0}/ad-verify'.format(origin),
             method='POST',
             json_data={'nonce': nonce, 'status': 'clear', 'id': pid_match.group(1)},
             headers={
@@ -416,7 +419,8 @@ class Sources(BrowserBase):
                     'WatchNixtoons2: pipelined DUB start failed: {0}'.format(exc),
                     level='warning',
                 )
-        time.sleep(5)
+        if control.monitor.waitForAbort(5):
+            return None
         return player_url
 
     def _follow_redirect_url(self, url, referer):
@@ -507,7 +511,7 @@ class Sources(BrowserBase):
         if 'getRedirectedUrl(videoUrl)' in player_html:
             match = re.search(r'\$\.getJSON\("([^"]+)"', player_html, re.DOTALL)
             if match:
-                source_url = 'https://embed.wcostream.com/' + match.group(1).lstrip('/')
+                source_url = self._embed_api_origin(embed_url).rstrip('/') + '/' + match.group(1).lstrip('/')
                 if 'json' not in source_url:
                     source_url += '&json' if '?' in source_url else '?json'
                 return source_url
@@ -526,7 +530,7 @@ class Sources(BrowserBase):
 
         match = re.search(r'"(/inc/embed/getvidlink[^"]+)', player_html or '', re.DOTALL)
         if match:
-            embed_fallback = 'https://embed.wcostream.com' + match.group(1)
+            embed_fallback = self._embed_api_origin(embed_url).rstrip('/') + match.group(1)
             if embed_fallback not in candidates:
                 candidates.append(embed_fallback)
 

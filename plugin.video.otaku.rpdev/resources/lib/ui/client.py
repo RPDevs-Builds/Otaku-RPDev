@@ -997,7 +997,8 @@ def _basic_request(url, headers=None, post=None, timeout=60, jpost=False, limit=
                     )
         if headers is not None:
             _add_request_header(request, headers)
-        response = urllib.request.urlopen(request, timeout=timeout)
+        req_timeout = float(timeout if timeout is not None else 60.0)
+        response = urllib.request.urlopen(request, timeout=req_timeout)
         return _get_result(response, limit)
     except Exception:
         return
@@ -1128,8 +1129,11 @@ class cfcookie:
                 'maxTimeout': fs_timeout * 1000}
         resp = _basic_request(fs_url, post=post, jpost=True)
         if resp:
-            resp = json.loads(resp)
-            soln = resp.get('solution')
+            resp = control.loads_json(resp, default={})
+            soln = resp.get('solution') if isinstance(resp, dict) else None
+            if not soln:
+                control.log('%s returned invalid response. Could not collect tokens.' % netloc)
+                return
             if soln.get('status') < 300:
                 cookie = '; '.join(['%s=%s' % (i.get('name'), i.get('value')) for i in soln.get('cookies')])
                 if 'cf_clearance' in cookie:
@@ -1171,8 +1175,11 @@ class ddgcookie:
                 'maxTimeout': fs_timeout * 1000}
         resp = _basic_request(fs_url, post=post, jpost=True)
         if resp:
-            resp = json.loads(resp)
-            soln = resp.get('solution')
+            resp = control.loads_json(resp, default={})
+            soln = resp.get('solution') if isinstance(resp, dict) else None
+            if not soln:
+                control.log('%s returned invalid response. Could not collect tokens.' % netloc)
+                return
             if soln.get('status') < 300:
                 cookie = '; '.join(['%s=%s' % (i.get('name'), i.get('value')) for i in soln.get('cookies') if 'ddg' in i.get('name')])
                 if '__ddg2_' in cookie:

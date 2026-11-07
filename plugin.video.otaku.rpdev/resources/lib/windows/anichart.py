@@ -66,6 +66,9 @@ class Anichart(BaseWindow):
             control.log("Handling double click action")
             self.handle_action(controlId)
 
+    def onClick(self, controlId):
+        self.handle_action(controlId)
+
     def onAction(self, action):
         actionID = action.getId()
         control.log(f"Action detected: {actionID}")
@@ -75,15 +78,9 @@ class Anichart(BaseWindow):
                         xbmcgui.ACTION_NAV_BACK,
                         xbmcgui.ACTION_PREVIOUS_MENU]:
             self.close()
-        # Handle different input methods differently
-        elif actionID == xbmcgui.ACTION_SELECT_ITEM:
-            # Traditional input (remote, keyboard) - single click activates
-            control.log("Traditional input detected - single click activation")
-            self.handle_action(actionID)
-        elif actionID in [xbmcgui.ACTION_TOUCH_TAP,
-                          xbmcgui.ACTION_MOUSE_LEFT_CLICK]:
-            # Touch/mouse input - require double tap/click
-            control.log("Touch/mouse input detected - checking for double tap")
+        # Touch input fallback - require double tap when onClick is not dispatched
+        elif actionID == xbmcgui.ACTION_TOUCH_TAP:
+            control.log("Touch input detected - checking for double tap")
             current_time = time.time()
             current_position = self.display_list.getSelectedPosition() if self.getFocusId() == 1000 else -1
 
@@ -95,7 +92,7 @@ class Anichart(BaseWindow):
 
             if is_double_tap:
                 control.log("Double tap detected - activating")
-                self.handle_action(actionID)
+                self.handle_action(1000)
                 # Reset to prevent triple-tap activation
                 self.last_action_time = 0
                 self.last_touch_position = -1
@@ -104,10 +101,6 @@ class Anichart(BaseWindow):
                 # Store tap info for potential double-tap
                 self.last_action_time = current_time
                 self.last_touch_position = current_position
-        elif actionID == xbmcgui.ACTION_MOUSE_DOUBLE_CLICK:
-            # Direct double-click event - activate immediately
-            control.log("Direct double-click detected - activating")
-            self.handle_action(actionID)
 
         # rest of your existing context‐menu code…
         if actionID == 117:
@@ -167,13 +160,16 @@ class Anichart(BaseWindow):
                 WatchlistIntegration.CONTEXT_MENU(payload, params)
 
     def handle_action(self, actionID) -> None:
-        # only act when focus is on our list
-        if self.getFocusId() != 1000:
+        if getattr(self, '_activated', False):
+            return
+        # only act when control 1000 is clicked or focused
+        if actionID != 1000 and self.getFocusId() != 1000:
             return
 
         self.position = self.display_list.getSelectedPosition()
         if not self.anime_items or not (0 <= self.position < len(self.anime_items)):
             return
+        self._activated = True
 
         # Get the selected anime item
         selected_item = self.anime_items[self.position]

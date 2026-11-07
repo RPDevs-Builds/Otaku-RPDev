@@ -47,14 +47,6 @@ class StillWatchingXML(BaseWindow):
         if action_id in self.closing_actions:
             self.keep_watching = False
             self.close()
-        elif action_id in self.selection_actions:
-            focus_id = self.getFocusId()
-            if focus_id == 3001:
-                self.keep_watching = True
-                self.close()
-            elif focus_id == 3002:
-                self.keep_watching = False
-                self.close()
 
     def _monitor(self):
         """Non-blocking timer updating progress and prompt."""

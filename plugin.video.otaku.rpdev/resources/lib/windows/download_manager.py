@@ -35,10 +35,6 @@ class DownloadManager(BaseWindow):
             self.abort = True
             self.close()
 
-        if actionID == 7:
-            # ENTER
-            self.handle_action(self.getFocusId())
-
         elif actionID == 117:
             context_response = control.context_menu(['Cancel Download'])
             if context_response == 0:
@@ -75,19 +71,37 @@ class DownloadManager(BaseWindow):
             self.set_menu_item_properties(new_item, download_item)
             return new_item
 
-        if len(self.downloads) < self.display_list.size():
-            self.display_list.reset()
+        curr_selected = self.display_list.getSelectedPosition() if self.display_list else 0
+        target_len = len(self.downloads)
+        current_len = self.display_list.size() if self.display_list else 0
 
-        for idx, download in enumerate(self.downloads):
-            if idx < self.display_list.size():
-                menu_item = self.display_list.getListItem(idx)
-                self.set_menu_item_properties(menu_item, download)
+        if target_len < current_len:
+            if hasattr(self.display_list, 'removeItem'):
+                while self.display_list.size() > target_len:
+                    self.display_list.removeItem(self.display_list.size() - 1)
+                for idx, download in enumerate(self.downloads):
+                    menu_item = self.display_list.getListItem(idx)
+                    if menu_item is not None:
+                        self.set_menu_item_properties(menu_item, download)
             else:
-                menu_item = create_menu_item(download)
-                self.display_list.addItem(menu_item)
+                self.display_list.reset()
+                for download in self.downloads:
+                    self.display_list.addItem(create_menu_item(download))
+            if target_len > 0 and 0 <= curr_selected < target_len:
+                self.display_list.selectItem(curr_selected)
+        else:
+            for idx, download in enumerate(self.downloads):
+                if idx < current_len:
+                    menu_item = self.display_list.getListItem(idx)
+                    self.set_menu_item_properties(menu_item, download)
+                else:
+                    menu_item = create_menu_item(download)
+                    self.display_list.addItem(menu_item)
 
     @staticmethod
     def set_menu_item_properties(menu_item, download_info):
+        if hasattr(menu_item, 'setLabel'):
+            menu_item.setLabel(f"{download_info['filename']}")
         menu_item.setProperty('item.info.speed', download_info['speed'])
         menu_item.setProperty('item.info.progress', str(download_info['progress']))
         menu_item.setProperty('item.info.filename', download_info['filename'])

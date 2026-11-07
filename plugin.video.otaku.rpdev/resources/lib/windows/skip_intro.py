@@ -40,14 +40,14 @@ class SkipIntro(BaseWindow):
         self.close()
 
     def doModal(self):
-        super(SkipIntro, self).doModal()
+        super().doModal()
 
     def close(self):
         if getattr(self, 'closed', False):
             return
         self.closed = True
         self.player = None
-        super(SkipIntro, self).close()
+        super().close()
 
     def onClick(self, controlId):
         self.handle_action(controlId)
@@ -71,7 +71,3 @@ class SkipIntro(BaseWindow):
         if actionID in [9, 10, 92, 216]:
             # BACK / BACKSPACE / ESCAPE (including Android TV remote back action 9)
             self.close()
-
-        if actionID in (7, 100):
-            # ENTER / SELECT
-            self.handle_action(self.getFocusId())

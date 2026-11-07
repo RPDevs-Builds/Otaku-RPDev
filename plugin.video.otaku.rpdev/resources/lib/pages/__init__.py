@@ -149,7 +149,7 @@ class Sources(GetSources):
         return sem
 
     def __init__(self, xml_file, location, actionArgs=None):
-        super(Sources, self).__init__(xml_file, location, actionArgs=actionArgs)
+        super().__init__(xml_file, location, actionArgs=actionArgs)
         self.torrentProviders = [row[0] for row in _TORRENT_MODULES.items()]
         self.embedProviders = [row[0] for row in _EMBED_MODULES]
         self.hosterProviders = [row[0] for row in _HOSTER_MODULES.items()]

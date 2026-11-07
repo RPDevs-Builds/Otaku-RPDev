@@ -153,7 +153,7 @@ class TestResilienceAndUI(unittest.TestCase):
         ss.resolve_item.assert_not_called()
 
     def test_textviewer_select_keys(self):
-        """Verify textviewer dismisses on remote SELECT/ENTER keys (action IDs 7 and 100)."""
+        """Verify textviewer single event dispatch: onAction ignores 7/100 to prevent double dispatch, delegating to onClick."""
         from resources.lib.windows.textviewer import TextViewerXML
 
         tv = TextViewerXML.__new__(TextViewerXML)
@@ -163,14 +163,16 @@ class TestResilienceAndUI(unittest.TestCase):
         action_enter = MagicMock()
         action_enter.getId.return_value = 7
         tv.onAction(action_enter)
-        self.assertTrue(tv.actioned)
-        tv.close.assert_called_once()
+        self.assertIsNone(tv.actioned)
+        tv.close.assert_not_called()
 
-        tv.actioned = None
-        tv.close.reset_mock()
         action_select = MagicMock()
         action_select.getId.return_value = 100
         tv.onAction(action_select)
+        self.assertIsNone(tv.actioned)
+        tv.close.assert_not_called()
+
+        tv.onClick(2062)
         self.assertTrue(tv.actioned)
         tv.close.assert_called_once()
 

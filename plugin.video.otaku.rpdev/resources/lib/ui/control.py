@@ -93,8 +93,11 @@ max_threads = _detect_max_threads()
 try:
     HANDLE = int(sys.argv[1])
 except (IndexError, ValueError):
-    print('No handle found, using default 0')
     HANDLE = 0
+    try:
+        xbmc.log('OTAKU RPDEV (0): No handle found, using default 0', xbmc.LOGDEBUG)
+    except Exception:
+        pass
 
 class _SettingsProxy:
     """Session-cached proxy for xbmcaddon.Settings avoiding persistent SWIG wrapper leaks."""
@@ -251,7 +254,7 @@ class _AddonProxy:
         return self._get_addon().getSetting(setting_id)
 
     def setSetting(self, setting_id, value):
-        return self._get_addon().setSetting(setting_id, value)
+        return self._get_addon().setSetting(str(setting_id or ''), str(value if value is not None else ''))
 
     def getSettings(self):
         return _SettingsProxy(self._addon_id)
@@ -279,7 +282,14 @@ class _WindowProxy:
         return self._get_win().getProperty(key)
 
     def setProperty(self, key, value):
-        self._get_win().setProperty(key, str(value))
+        val_str = str(value if value is not None else '')
+        if len(val_str.encode('utf-8')) > 65536:
+            try:
+                log(f"Window property '{key}' exceeds 64KB ceiling ({len(val_str.encode('utf-8'))} bytes), rejecting write", 'warning')
+            except Exception:
+                pass
+            return
+        self._get_win().setProperty(key, val_str)
 
     def clearProperty(self, key):
         self._get_win().clearProperty(key)
@@ -810,81 +820,152 @@ def _evict_setting(settingid):
 
 def setSetting(settingid, value):
     """Set setting as string - kept for backward compatibility"""
+    val_str = str(value if value is not None else '')
+    sid_str = str(settingid or '')
     try:
-        settings.setString(settingid, str(value))
+        settings.setString(sid_str, val_str)
     except Exception:
         pass
-    _evict_setting(settingid)
-    _settings_cache[f's_{settingid}'] = str(value)
-    homeWindow.setProperty(f'{ADDON_ID}_{settingid}', str(value))
+    _evict_setting(sid_str)
+    _settings_cache[f's_{sid_str}'] = val_str
+    homeWindow.setProperty(f'{ADDON_ID}_{sid_str}', val_str)
 
 
 def setBool(settingid, value):
     """Set setting as boolean"""
+    sid_str = str(settingid or '')
+    val_bool = bool(value)
     try:
-        settings.setBool(settingid, value)
+        settings.setBool(sid_str, val_bool)
     except Exception:
         pass
-    _evict_setting(settingid)
-    _settings_cache[f'b_{settingid}'] = bool(value)
-    homeWindow.setProperty(f'{ADDON_ID}_{settingid}', 'true' if value else 'false')
+    _evict_setting(sid_str)
+    _settings_cache[f'b_{sid_str}'] = val_bool
+    homeWindow.setProperty(f'{ADDON_ID}_{sid_str}', 'true' if val_bool else 'false')
 
 
 def setInt(settingid, value):
     """Set setting as integer"""
+    sid_str = str(settingid or '')
     try:
-        settings.setInt(settingid, value)
+        val_int = int(value)
+    except (ValueError, TypeError):
+        val_int = 0
+    try:
+        settings.setInt(sid_str, val_int)
     except Exception:
         pass
-    _evict_setting(settingid)
-    _settings_cache[f'i_{settingid}'] = int(value)
-    homeWindow.setProperty(f'{ADDON_ID}_{settingid}', str(value))
+    _evict_setting(sid_str)
+    _settings_cache[f'i_{sid_str}'] = val_int
+    homeWindow.setProperty(f'{ADDON_ID}_{sid_str}', str(val_int))
 
 
 def setStr(settingid, value):
     """Set setting as string"""
+    sid_str = str(settingid or '')
+    val_str = str(value if value is not None else '')
     try:
-        settings.setString(settingid, value)
+        settings.setString(sid_str, val_str)
     except Exception:
         pass
-    _evict_setting(settingid)
-    _settings_cache[f's_{settingid}'] = str(value)
-    homeWindow.setProperty(f'{ADDON_ID}_{settingid}', str(value))
+    _evict_setting(sid_str)
+    _settings_cache[f's_{sid_str}'] = val_str
+    homeWindow.setProperty(f'{ADDON_ID}_{sid_str}', val_str)
+
+
+setString = setSetting
 
 
 def setNumber(settingid, value):
     """Set setting as float/number"""
+    sid_str = str(settingid or '')
     try:
-        settings.setNumber(settingid, value)
+        val_num = float(value)
+    except (ValueError, TypeError):
+        val_num = 0.0
+    try:
+        settings.setNumber(sid_str, val_num)
     except Exception:
         pass
-    _evict_setting(settingid)
-    _settings_cache[f'n_{settingid}'] = float(value)
-    homeWindow.setProperty(f'{ADDON_ID}_{settingid}', str(value))
+    _evict_setting(sid_str)
+    _settings_cache[f'n_{sid_str}'] = val_num
+    homeWindow.setProperty(f'{ADDON_ID}_{sid_str}', str(val_num))
 
 
 def setStringList(settingid, value):
     """Set setting as list of strings"""
-    settings.setStringList(settingid, value)
-    _evict_setting(settingid)
+    sid_str = str(settingid or '')
+    val_list = [str(x) for x in value] if isinstance(value, (list, tuple)) else []
+    try:
+        settings.setStringList(sid_str, val_list)
+    except Exception:
+        pass
+    _evict_setting(sid_str)
+    _settings_cache[f'sl_{sid_str}'] = val_list
+    try:
+        homeWindow.setProperty(f'{ADDON_ID}_{sid_str}', json.dumps(val_list))
+    except Exception:
+        pass
 
 
 def setBoolList(settingid, value):
     """Set setting as list of booleans"""
-    settings.setBoolList(settingid, value)
-    _evict_setting(settingid)
+    sid_str = str(settingid or '')
+    val_list = [bool(x) for x in value] if isinstance(value, (list, tuple)) else []
+    try:
+        settings.setBoolList(sid_str, val_list)
+    except Exception:
+        pass
+    _evict_setting(sid_str)
+    _settings_cache[f'bl_{sid_str}'] = val_list
+    try:
+        homeWindow.setProperty(f'{ADDON_ID}_{sid_str}', json.dumps(val_list))
+    except Exception:
+        pass
 
 
 def setIntList(settingid, value):
     """Set setting as list of integers"""
-    settings.setIntList(settingid, value)
-    _evict_setting(settingid)
+    sid_str = str(settingid or '')
+    val_list = []
+    if isinstance(value, (list, tuple)):
+        for x in value:
+            try:
+                val_list.append(int(x))
+            except (ValueError, TypeError):
+                val_list.append(0)
+    try:
+        settings.setIntList(sid_str, val_list)
+    except Exception:
+        pass
+    _evict_setting(sid_str)
+    _settings_cache[f'il_{sid_str}'] = val_list
+    try:
+        homeWindow.setProperty(f'{ADDON_ID}_{sid_str}', json.dumps(val_list))
+    except Exception:
+        pass
 
 
 def setNumberList(settingid, value):
     """Set setting as list of numbers"""
-    settings.setNumberList(settingid, value)
-    _evict_setting(settingid)
+    sid_str = str(settingid or '')
+    val_list = []
+    if isinstance(value, (list, tuple)):
+        for x in value:
+            try:
+                val_list.append(float(x))
+            except (ValueError, TypeError):
+                val_list.append(0.0)
+    try:
+        settings.setNumberList(sid_str, val_list)
+    except Exception:
+        pass
+    _evict_setting(sid_str)
+    _settings_cache[f'nl_{sid_str}'] = val_list
+    try:
+        homeWindow.setProperty(f'{ADDON_ID}_{sid_str}', json.dumps(val_list))
+    except Exception:
+        pass
 
 
 def clearSettingsCache():
@@ -932,7 +1013,14 @@ def process_context():
 # ═══════════════════════════════════════════════════════════════════════════
 
 def setGlobalProp(property, value):
-    homeWindow.setProperty(property, str(value))
+    val_str = str(value if value is not None else '')
+    if len(val_str.encode('utf-8')) > 65536:
+        try:
+            log(f"Global property '{property}' exceeds 64KB ceiling ({len(val_str.encode('utf-8'))} bytes), rejecting write", 'warning')
+        except Exception:
+            pass
+        return
+    homeWindow.setProperty(property, val_str)
 
 
 def getGlobalProp(property):
@@ -1396,7 +1484,7 @@ def get_database_name(db_type='video'):
 
 def xbmc_add_dir(name, url, art, info, draw_cm, bulk_add, isfolder, isplayable, bulk_prefs=None):
     u = addon_url(url)
-    liz = xbmcgui.ListItem(name, offscreen=True)
+    liz = xbmcgui.ListItem(str(name or ''), offscreen=True)
     if info:
         set_videotags(liz, info)
         # Upcoming dub release: render in Label2 (right-aligned between title and watch indicator)
@@ -1749,16 +1837,31 @@ def safe_call(func, *args, default=None, log_msg='', **kwargs):
         return default
 
 
-def safe_json(response, default=None):
-    """Safely parse a response as JSON, returning default on failure."""
-    if default is None:
-        default = {}
+_JSON_DEFAULT_SENTINEL = object()
+
+
+def safe_json(response, default=_JSON_DEFAULT_SENTINEL):
+    """Safely parse a response or string/bytes as JSON, returning default on failure."""
+    def_val = {} if default is _JSON_DEFAULT_SENTINEL else default
     if not response:
-        return default
+        return def_val
+    if hasattr(response, 'json'):
+        try:
+            res = response.json()
+            return res if res is not None else def_val
+        except (ValueError, AttributeError, TypeError, json.JSONDecodeError):
+            return def_val
+    if isinstance(response, (str, bytes)):
+        try:
+            res = json.loads(response)
+            return res if res is not None else def_val
+        except (ValueError, AttributeError, TypeError, json.JSONDecodeError):
+            return def_val
     try:
-        return response.json()
-    except (ValueError, AttributeError, TypeError):
-        return default
+        res = response.json()
+        return res if res is not None else def_val
+    except (ValueError, AttributeError, TypeError, json.JSONDecodeError):
+        return def_val
 
 
 def loads_json(text, default=None):

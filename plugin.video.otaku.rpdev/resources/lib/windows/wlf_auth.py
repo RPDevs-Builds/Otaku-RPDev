@@ -33,7 +33,7 @@ class WatchlistFlavorAuth(BaseWindow):
         self.setFocusId(1000)
 
     def doModal(self):
-        super(WatchlistFlavorAuth, self).doModal()
+        super().doModal()
         return self.authorized
 
     def onClick(self, controlId):
@@ -67,10 +67,6 @@ class WatchlistFlavorAuth(BaseWindow):
         if actionID in [9, 10, 92, 216]:
             # BACK / BACKSPACE / ESCAPE (including Android TV remote back action 9)
             self.close()
-
-        if actionID == 7:
-            # ENTER
-            self.handle_action(7)
 
     def set_settings(self):
         res = {}

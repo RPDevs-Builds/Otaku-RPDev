@@ -163,7 +163,5 @@ class Sources(BrowserBase):
                 }
                 sources.append(source)
                 control.log(f"GogoAnime: Found source from server '{server}'")
-                # Early exit - we found a working source, no need to check more servers
-                break
 
         return sources

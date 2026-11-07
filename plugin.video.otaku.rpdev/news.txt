@@ -1,4 +1,24 @@
 ================================================================================
+              OTAKU RPDEV v6.0.5 - ARCHITECTURE & SUBSYSTEM HARDENING
+================================================================================
+
+[ Memory Safeguards • WindowXML Single Dispatch • Scraper & Debrid Resilience ]
+• 64KB Window Property Guard & SQLite Review Cache: Enforced a strict 64KB ceiling on
+  Kodi C++ window properties to prevent low-RAM heap fragmentation, and offloaded
+  multi-entry user review caches to SQLite WAL cache.db.
+• WindowXML Single Event Dispatch & Focus Stability: Eliminated duplicate Action ID 7/100
+  routing from onAction() across 11 dialogs and implemented in-place ListItem updates
+  in DownloadManager so list focus is never evicted.
+• Native Kodi 22 Demuxer Chapter Priority: Prioritized direct Player.GetChapters JSON-RPC
+  queries on playback start ahead of external AniSkip waits, decoupled from ffprobe.
+• Scraper Genericity & Mirror Retention: Dynamized embed API origins in WatchNixtoons2
+  and retained all candidate stream mirrors in GogoAnime for multi-server failover.
+• Debrid Transport, 429 Jitter & Proactive OAuth: Added float timeout precision, jittered
+  429 Retry-After backoff with immediate abort exit across all debrid clients, proactive
+  300s OAuth token refresh checks, and SQLite read-only URI pooling for mappings.db.
+
+
+================================================================================
                     OTAKU RPDEV v6.0.4 - UPSTREAM PARITY & ACCURACY
 ================================================================================
 

@@ -48,7 +48,7 @@ class PlayingNext(BaseWindow):
         self.close()
 
     def doModal(self):
-        super(PlayingNext, self).doModal()
+        super().doModal()
 
     def close(self):
         if getattr(self, 'closed', False):
@@ -62,7 +62,7 @@ class PlayingNext(BaseWindow):
                 control.log(f"playing_next pause error: {e}", 'debug')
         self.closed = True
         self.player = None
-        super(PlayingNext, self).close()
+        super().close()
 
     def onClick(self, controlID):
         self.handle_action(controlID)
@@ -93,7 +93,3 @@ class PlayingNext(BaseWindow):
         if actionID in [9, 10, 92, 216]:
             # BACK / BACKSPACE / ESCAPE (including Android TV remote back action 9)
             self.close()
-
-        if actionID in (7, 100):
-            # ENTER / SELECT
-            self.handle_action(self.getFocusId())

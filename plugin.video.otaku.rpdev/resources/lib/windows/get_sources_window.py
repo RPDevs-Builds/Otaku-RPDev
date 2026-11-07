@@ -36,7 +36,7 @@ class GetSources(BaseWindow):
         if self.silent:
             self.getSources(self.args)
         else:
-            super(GetSources, self).doModal()
+            super().doModal()
         return self.return_data
 
     def getSources(self, args):

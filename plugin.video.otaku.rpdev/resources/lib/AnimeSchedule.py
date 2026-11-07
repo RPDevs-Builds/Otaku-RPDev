@@ -38,7 +38,7 @@ class AnimeScheduleCalendar:
         calendar_ttl = control.getInt('cache.calendar.ttl') or 24
         self.cache_duration = calendar_ttl * 3600
 
-    def get_calendar_data(self, days=7, types=['sub', 'dub', 'raw'], force_refresh=False):
+    def get_calendar_data(self, days=7, types=None, force_refresh=False):
         """
         Fetch calendar data using optimized two-step strategy with caching:
         1. Check cache first (if not forcing refresh)
@@ -56,6 +56,8 @@ class AnimeScheduleCalendar:
         Returns:
             list: List of anime airing data with enriched information
         """
+        if types is None:
+            types = ['sub', 'dub', 'raw']
         try:
             # Check cache first (unless forced refresh)
             if not force_refresh:

@@ -296,6 +296,76 @@ class TestCPythonInvokerLifecycle(unittest.TestCase):
         self.assertGreater(score_br, score_pt)
         self.assertEqual(score_br - score_pt, 200)
 
+    def test_window_property_64kb_ceiling_guard(self):
+        """Properties exceeding 64KB (65536 bytes) must be rejected to prevent heap fragmentation."""
+        oversized_data = 'x' * 65537
+        control.setGlobalProp('test.oversized', oversized_data)
+        self.assertEqual(control.getGlobalProp('test.oversized'), '')
+
+        valid_data = 'x' * 65536
+        control.setGlobalProp('test.valid', valid_data)
+        self.assertEqual(control.getGlobalProp('test.valid'), valid_data)
+        control.homeWindow.clearProperty('test.valid')
+
+    def test_safe_json_sentinel_and_types(self):
+        """control.safe_json parses responses, str, bytes, and respects explicit default=None."""
+        # 1. Default fallback is empty dict when not specified
+        self.assertEqual(control.safe_json(None), {})
+        self.assertEqual(control.safe_json(''), {})
+        self.assertEqual(control.safe_json('invalid json {'), {})
+
+        # 2. Explicit default=None is respected
+        self.assertIsNone(control.safe_json(None, default=None))
+        self.assertIsNone(control.safe_json('invalid json', default=None))
+
+        # 3. Explicit default=[] is respected
+        self.assertEqual(control.safe_json(None, default=[]), [])
+        self.assertEqual(control.safe_json('invalid json', default=[]), [])
+
+        # 4. Valid str and bytes
+        self.assertEqual(control.safe_json('{"key": "value"}'), {"key": "value"})
+        self.assertEqual(control.safe_json(b'{"key": 123}'), {"key": 123})
+
+        # 5. Object with .json() method (e.g., Response)
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {"status": "ok"}
+        self.assertEqual(control.safe_json(mock_resp), {"status": "ok"})
+
+        mock_err_resp = MagicMock()
+        mock_err_resp.json.side_effect = ValueError("Corrupt")
+        self.assertEqual(control.safe_json(mock_err_resp, default=None), None)
+
+    def test_defensive_setting_accessors_edge_cases(self):
+        """Defensive setting accessors handle None and invalid types without throwing."""
+        # setInt with None or non-integer
+        control.setInt('edge.int', None)
+        self.assertEqual(control.getInt('edge.int'), 0)
+        control.setInt('edge.int', 'not_a_number')
+        self.assertEqual(control.getInt('edge.int'), 0)
+
+        # setNumber with None or non-float
+        control.setNumber('edge.num', None)
+        self.assertEqual(control.getNumber('edge.num'), 0.0)
+        control.setNumber('edge.num', 'invalid_float')
+        self.assertEqual(control.getNumber('edge.num'), 0.0)
+
+        # setString with None
+        control.setString('edge.str', None)
+        self.assertEqual(control.getSetting('edge.str'), '')
+
+        # setStringList / setIntList / setBoolList / setNumberList with None or bad items
+        control.setStringList('edge.slist', None)
+        self.assertEqual(control.getStringList('edge.slist'), [])
+
+        control.setIntList('edge.ilist', [1, 'bad', 3])
+        self.assertEqual(control.getIntList('edge.ilist'), [1, 0, 3])
+
+        control.setBoolList('edge.blist', [1, 0, 'yes', ''])
+        self.assertEqual(control.getBoolList('edge.blist'), [True, False, True, False])
+
+        control.setNumberList('edge.nlist', [1.5, 'bad', 3.0])
+        self.assertEqual(control.getNumberList('edge.nlist'), [1.5, 0.0, 3.0])
+
 
 if __name__ == '__main__':
     unittest.main()

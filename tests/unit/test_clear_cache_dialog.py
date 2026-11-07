@@ -104,15 +104,18 @@ class TestClearCacheDialog(unittest.TestCase):
         self.assertEqual(dialog.selected, 'cancel')
 
     def test_dialog_on_action_select_focused_cancel(self):
-        """Verify pressing Select when Cancel button is focused triggers cancellation."""
+        """Verify pressing Select when Cancel button is focused delegates to onClick to prevent double dispatch."""
         dialog = ClearCacheDialog("clear_cache.xml", control.ADDON_PATH)
         dialog.onInit()
         dialog.setFocusId(3001)
+        dialog.selected = None
 
         mock_action = MagicMock()
         mock_action.getId.return_value = 7  # ACTION_SELECT_ITEM
         dialog.onAction(mock_action)
+        self.assertIsNone(dialog.selected)
 
+        dialog.onClick(3001)
         self.assertEqual(dialog.selected, 'cancel')
 
     @patch('resources.lib.windows.clear_cache.ClearCacheDialog.doModal', side_effect=RuntimeError("Skin missing"))
