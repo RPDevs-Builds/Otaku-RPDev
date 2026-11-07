@@ -1,3 +1,6 @@
+Changelog v6.0.3 (2026-11-07):
+- Generic Stream Domain Decoding & Failover: Generalized HiAnime server hash decoding to accept all returned HTTP/HTTPS streaming domains (including zokoanime.video and future embed providers) rather than hardcoding megaplay.buzz; implemented multi-candidate fallback order per audio type; updated MegaPlay extractor to dynamically derive API origin from embed URLs.
+
 Changelog v6.0.2 (2026-11-03):
 - Hardening & Schema Integrity: Defensive _SettingsProxy getters; resilient top-level xbmcaddon.Addon() import fallbacks; EMBED_SKIP_PREFIXES unified as single source of truth; corrected debrid .enabled diagnostics settings; expanded AST schema tests for all setters and dynamic settings.
 

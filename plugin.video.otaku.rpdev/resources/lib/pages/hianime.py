@@ -101,14 +101,21 @@ class Sources(BrowserBase):
 
         lang_results = {}
         for lang in langs:
-            megaplay_url = servers.get(lang)
-            if megaplay_url:
+            candidates = servers.get(lang) or []
+            for candidate in candidates:
+                cand_url = candidate['url']
+                cand_name = candidate['name']
+                cand_domain = candidate['domain']
                 try:
-                    res = extract_megaplay_sources(megaplay_url, mirror)
+                    res = extract_megaplay_sources(cand_url, mirror)
                     if res and res.get('sources'):
                         lang_results[lang] = res
+                        control.log(f"HiAnime: Extracted stream from {cand_name} ({cand_domain}) for {lang}", 'info')
+                        break
+                    else:
+                        control.log(f"HiAnime: Server {cand_name} ({cand_domain}) returned 0 sources for {lang}", 'info')
                 except Exception as e:
-                    control.log(f"HiAnime: Megaplay extraction error for {lang}: {e}", 'warning')
+                    control.log(f"HiAnime: Extraction error for {cand_name} ({cand_domain}) [{lang}]: {e}", 'warning')
 
         tasks = []
         for lang in langs:
@@ -290,20 +297,39 @@ class Sources(BrowserBase):
             return {}
 
         soup = BeautifulSoup(resp_json['html'], 'html.parser')
-        server_map = {}
+        server_candidates = {}
         for s in soup.select('.server-item'):
             stype = (s.get('data-type') or '').lower()
-            if stype not in langs or stype in server_map:
+            if stype not in langs:
                 continue
             raw_hash = s.get('data-hash')
             if not raw_hash:
                 continue
             try:
-                decoded = base64.b64decode(raw_hash).decode('utf-8', errors='ignore')
-                if 'megaplay.buzz' in decoded:
-                    server_map[stype] = decoded
+                decoded = base64.b64decode(raw_hash).decode('utf-8', errors='ignore').strip()
+                parsed = urllib.parse.urlparse(decoded)
+                if parsed.scheme in ('http', 'https') and parsed.netloc:
+                    server_name = s.get('data-server-name') or s.get_text(strip=True) or 'Server'
+                    server_candidates.setdefault(stype, []).append({
+                        'name': server_name,
+                        'url': decoded,
+                        'domain': parsed.netloc.lower()
+                    })
             except Exception:
                 continue
+
+        def _server_priority(candidate):
+            d = candidate['domain']
+            if 'megaplay.buzz' in d:
+                return 0
+            if 'zokoanime.video' in d:
+                return 1
+            return 2
+
+        server_map = {}
+        for stype, candidates in server_candidates.items():
+            candidates.sort(key=_server_priority)
+            server_map[stype] = candidates
 
         return server_map
 

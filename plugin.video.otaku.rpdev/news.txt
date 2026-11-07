@@ -1,4 +1,19 @@
 ================================================================================
+                    OTAKU RPDEV v6.0.3 - DYNAMIC EMBED PROVIDERS
+================================================================================
+
+[ Scraper Resilience • Generic Domain Decoding • Multi-Host Failover ]
+• Generalized Server Hash Decoding: Removed hardcoded restriction to 'megaplay.buzz' in
+  HiAnime's server hash decoder. All valid streaming hosts returned in base64 hashes
+  (such as zokoanime.video and future providers) are now parsed and evaluated.
+• Multi-Candidate Server Failover: Candidate servers for both SUB and DUB streams are now
+  evaluated in priority order. If one host fails or is unreachable, Otaku automatically
+  falls back to alternate servers without returning empty source sets.
+• Dynamic Embed API Extraction: Updated the embed extractor to dynamically target the
+  origin host of the embed URL for player source endpoints rather than forcing megaplay.buzz.
+
+
+================================================================================
                     OTAKU RPDEV v6.0.2 - CODE HARDENING & INTEGRITY
 ================================================================================
 

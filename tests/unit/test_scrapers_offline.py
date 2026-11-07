@@ -125,6 +125,72 @@ class TestScrapersOffline(unittest.TestCase):
         self.assertEqual(data['outro']['end'], 1470)
         self.assertTrue(data['sources'][0]['file'].endswith('.m3u8'))
 
+    def test_hianime_resolve_servers_generic_domains(self):
+        """Verify _resolve_servers parses any valid HTTP/HTTPS domain and ranks them with fallback."""
+        html_servers = '''
+        <div class="ps_-block ps_-block-sub servers-sub">
+            <div class="ps__-title">SUB:</div>
+            <div class="ps__-list">
+                <div class="item server-item" data-type="sub" data-server-name="ZokoAnime"
+                     data-hash="aHR0cHM6Ly96b2tvYW5pbWUudmlkZW8vc3RyZWFtL21hbC8zNTg0Ny8xMC9zdWI=">ZokoAnime</div>
+                <div class="item server-item" data-type="sub" data-server-name="HD-1"
+                     data-hash="aHR0cHM6Ly9tZWdhcGxheS5idXp6L3N0cmVhbS9zLTIvMjkxMDkvc3ViP3M9dGNkbg==">HD-1</div>
+                <div class="item server-item" data-type="sub" data-server-name="StreamNew"
+                     data-hash="aHR0cHM6Ly9zdHJlYW1uZXcuZnVuL2VtYmVkLzEyMzQ1">StreamNew</div>
+            </div>
+        </div>
+        <div class="ps_-block ps_-block-sub servers-dub">
+            <div class="ps__-title">DUB:</div>
+            <div class="ps__-list">
+                <div class="item server-item" data-type="dub" data-server-name="ZokoAnime"
+                     data-hash="aHR0cHM6Ly96b2tvYW5pbWUudmlkZW8vc3RyZWFtL21hbC8zNTg0Ny8xMC9kdWI=">ZokoAnime</div>
+            </div>
+        </div>
+        '''
+        instance = HiAnimeSources()
+        with patch('resources.lib.ui.database.get', return_value={'status': True, 'html': html_servers}):
+            servers = instance._resolve_servers('https://hianime.to/', '123', ['sub', 'dub'], {})
+
+        # Sub servers should contain megaplay first, followed by zokoanime and streamnew
+        self.assertIn('sub', servers)
+        self.assertEqual(len(servers['sub']), 3)
+        self.assertEqual(servers['sub'][0]['name'], 'HD-1')
+        self.assertEqual(servers['sub'][0]['domain'], 'megaplay.buzz')
+        self.assertEqual(servers['sub'][1]['name'], 'ZokoAnime')
+        self.assertEqual(servers['sub'][1]['domain'], 'zokoanime.video')
+        self.assertEqual(servers['sub'][2]['name'], 'StreamNew')
+        self.assertEqual(servers['sub'][2]['domain'], 'streamnew.fun')
+
+        # Dub servers should contain zokoanime even though megaplay is absent
+        self.assertIn('dub', servers)
+        self.assertEqual(len(servers['dub']), 1)
+        self.assertEqual(servers['dub'][0]['name'], 'ZokoAnime')
+        self.assertEqual(servers['dub'][0]['url'], 'https://zokoanime.video/stream/mal/35847/10/dub')
+
+    def test_megaplay_extractor_dynamic_origin(self):
+        """Verify extract_megaplay_sources dynamically targets the embed URL host for getSources."""
+        from resources.lib.ui.megaplay_extractor import extract_megaplay_sources
+        mock_html = '<div id="megaplay-player" data-id="998877"></div>'
+
+        class DummyResponse:
+            text = mock_html
+            def json(self):
+                return {'sources': [{'file': 'https://stream.host.com/master.m3u8'}]}
+
+        with patch('resources.lib.ui.client.get') as mock_client_get:
+            r1 = MagicMock()
+            r1.text = mock_html
+            r2 = MagicMock()
+            r2.text = '{"sources": [{"file": "https://stream.zoko.com/master.m3u8"}]}'
+            r2.json.return_value = {'sources': [{'file': 'https://stream.zoko.com/master.m3u8'}]}
+            mock_client_get.side_effect = [r1, r2]
+            res = extract_megaplay_sources('https://zokoanime.video/stream/mal/35847/10/dub')
+            self.assertIsNotNone(res)
+            self.assertEqual(res['sources'][0]['file'], 'https://stream.zoko.com/master.m3u8')
+            # Verify the second GET call was directed to zokoanime.video
+            second_call_url = mock_client_get.call_args_list[1][0][0]
+            self.assertEqual(second_call_url, 'https://zokoanime.video/stream/getSources?id=998877')
+
 
 if __name__ == '__main__':
     unittest.main()

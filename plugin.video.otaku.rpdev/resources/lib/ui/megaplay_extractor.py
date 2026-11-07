@@ -1,7 +1,8 @@
-"""MegaPlay video source extractor for Anikoto embed URLs."""
+"""MegaPlay video source extractor for Anikoto and compatible embed URLs."""
 import base64
 import json
 import re
+import urllib.parse
 
 from resources.lib.ui import client, control, pyaes
 
@@ -50,7 +51,9 @@ def extract_megaplay_sources(embed_url, referer=None):
             return None
 
         player_id = match.group(1)
-        api_url = 'https://megaplay.buzz/stream/getSources?id={0}'.format(player_id)
+        parsed = urllib.parse.urlparse(embed_url)
+        base_origin = f"{parsed.scheme}://{parsed.netloc}" if parsed.scheme and parsed.netloc else 'https://megaplay.buzz'
+        api_url = '{0}/stream/getSources?id={1}'.format(base_origin, player_id)
         headers['X-Requested-With'] = 'XMLHttpRequest'
         api_response = client.get(api_url, headers=headers, timeout=15)
         if not api_response or not api_response.text:
@@ -58,11 +61,13 @@ def extract_megaplay_sources(embed_url, referer=None):
 
         data = api_response.json()
         sources = data.get('sources')
-        if isinstance(sources, dict):
+        if isinstance(sources, list) and sources:
+            pass
+        elif isinstance(sources, dict):
             file_url = sources.get('file')
             if file_url:
                 data['sources'] = [{'file': file_url}]
-        else:
+        elif data.get('enc'):
             file_url = decrypt_megaplay_source(data.get('enc'))
             if file_url:
                 data['sources'] = [{'file': file_url}]
