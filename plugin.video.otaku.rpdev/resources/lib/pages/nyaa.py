@@ -19,6 +19,7 @@ class Sources(BrowserBase):
 
     def get_sources(self, query, mal_id, episode, status, media_type, season=None, part=None, rescrape=False):
         query = self._clean_title(query).replace('-', ' ')
+        self.show = query
         self.media_type = media_type
         self.rescrape = rescrape
         if media_type == 'movie':
@@ -104,7 +105,7 @@ class Sources(BrowserBase):
 
         def run_search(task):
             try:
-                filtered = self._fetch_and_filter_episodes(self._BASE_URL, task['params'], mal_id, episode_zfill, season_zfill, part)
+                filtered = self._fetch_and_filter_episodes(self._BASE_URL, task['params'], mal_id, episode_zfill, season_zfill, part, show_title=show)
                 control.log(f"Nyaa: {task['name']} search returned {len(filtered)} filtered torrents")
                 return filtered
             except Exception as e:
@@ -156,7 +157,7 @@ class Sources(BrowserBase):
             'o': 'desc'
         }
 
-        nyaa_sources = self.process_nyaa_episodes(self._BASE_URL, params, mal_id, episode_zfill, season_zfill, part)
+        nyaa_sources = self.process_nyaa_episodes(self._BASE_URL, params, mal_id, episode_zfill, season_zfill, part, show_title=show)
         control.log(f"Nyaa: Show search complete - found {len(nyaa_sources)} sources")
         return nyaa_sources
 
@@ -176,7 +177,7 @@ class Sources(BrowserBase):
         self.append_cache_uncached_noduplicates()
         return {'cached': self.cached, 'uncached': self.uncached}
 
-    def _fetch_and_filter_episodes(self, url, params, mal_id, episode_zfill, season_zfill, part):
+    def _fetch_and_filter_episodes(self, url, params, mal_id, episode_zfill, season_zfill, part, show_title=None):
         response = client.get(url, params=params)
         if response:
             html = response.text
@@ -198,20 +199,34 @@ class Sources(BrowserBase):
                 hashes = re.findall(r'btih:(.*?)(?:&|$)', magnet_href)
                 if not hashes:
                     continue
+                name = title_links[1].get('title') or title_links[1].text.strip()
+                if not name:
+                    continue
                 list_.append({
                     'magnet': magnet_href,
-                    'name': title_links[1].get('title'),
+                    'name': name,
                     'size': tds[1].text.replace('i', ''),
                     'downloads': int(tds[-1].text),
                     'seeders': int(tds[-3].text),
                     'hash': hashes[0].lower()
                 })
 
+            target_show = show_title or getattr(self, 'show', None)
+            aliases = None
+            if target_show and '|' in target_show:
+                parts = [p.strip('() ') for p in target_show.split('|') if p.strip('() ')]
+                if parts:
+                    target_show = parts[0]
+                    if len(parts) > 1:
+                        aliases = parts[1:]
+
+            if target_show:
+                return source_utils.filter_sources('nyaa', list_, mal_id, int(season_zfill), int(episode_zfill), part, show_title=target_show, aliases=aliases)
             return source_utils.filter_sources('nyaa', list_, mal_id, int(season_zfill), int(episode_zfill), part)
         return []
 
-    def process_nyaa_episodes(self, url, params, mal_id, episode_zfill, season_zfill, part):
-        filtered_list = self._fetch_and_filter_episodes(url, params, mal_id, episode_zfill, season_zfill, part)
+    def process_nyaa_episodes(self, url, params, mal_id, episode_zfill, season_zfill, part, show_title=None):
+        filtered_list = self._fetch_and_filter_episodes(url, params, mal_id, episode_zfill, season_zfill, part, show_title=show_title)
         if filtered_list:
             cache_list, uncashed_list_ = Debrid().torrentCacheCheck(filtered_list, mal_id=mal_id, episode=episode_zfill, media_type=self.media_type, rescrape=self.rescrape)
             cache_list = sorted(cache_list, key=lambda k: k['downloads'], reverse=True)

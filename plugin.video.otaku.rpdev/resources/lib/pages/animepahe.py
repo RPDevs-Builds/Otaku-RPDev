@@ -179,16 +179,22 @@ class Sources(BrowserBase):
 
         all_results = []
         if sitems:
-            clean_title = self._normalize_title(title).lower()
-            if title[-1].isdigit():
-                items = [x for x in sitems if clean_title in self._normalize_title(x.get('title')).lower()]
-            else:
-                items = [x for x in sitems if (clean_title + '  ') in (self._normalize_title(x.get('title')).lower() + '  ')]
-            if not items:
-                items = sitems
-            if items:
-                slug = items[0].get('session')
+            scored_candidates = []
+            for item in sitems:
+                cand_title = item.get('title')
+                cand_year = item.get('year')
+                cand_score = source_utils.score_title_candidate(title, cand_title, year=cand_year)
+                scored_candidates.append((item, cand_score))
+
+            scored_candidates.sort(key=lambda x: x[1], reverse=True)
+
+            if scored_candidates and scored_candidates[0][1] >= 50:
+                best_item, best_score = scored_candidates[0]
+                slug = best_item.get('session')
+                control.log(f"AnimePahe: Selected '{best_item.get('title')}' (Score: {best_score})", level='info')
                 all_results = self._process_ap(slug, title=title, episode=episode)
+            else:
+                control.log(f"AnimePahe: No candidates scored >= 50 for '{title}'", level='info')
         control.log('AnimePahe: returning {0} source(s)'.format(len(all_results)), level='info')
         return all_results
 

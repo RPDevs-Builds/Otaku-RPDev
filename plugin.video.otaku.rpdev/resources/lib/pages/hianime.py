@@ -5,7 +5,7 @@ import urllib.parse
 
 from bs4 import BeautifulSoup
 from resources.lib.endpoints import malsync
-from resources.lib.ui import client, control, database, domains, utils
+from resources.lib.ui import client, control, database, domains, utils, source_utils
 from resources.lib.ui.BrowserBase import BrowserBase
 from resources.lib.ui.megaplay_extractor import extract_megaplay_sources
 
@@ -228,28 +228,42 @@ class Sources(BrowserBase):
             return int(match.group(1))
         return None
 
-    def _score_candidate(self, candidate_name, title, kodi_meta=None):
+    def _score_candidate(self, candidate_name=None, title='', current_year=None, kodi_meta=None, name=None):
+        if candidate_name is None and name is not None:
+            candidate_name = name
+        if not candidate_name or not title:
+            return 0
+
+        if isinstance(current_year, dict):
+            kodi_meta = current_year
+            current_year = kodi_meta.get('year') or kodi_meta.get('aired_year')
+
+        aliases = []
+        if kodi_meta and isinstance(kodi_meta, dict):
+            for key in ('ename', 'title_english', 'title_romaji'):
+                val_raw = kodi_meta.get(key)
+                if val_raw and val_raw not in aliases:
+                    aliases.append(val_raw)
+            if not current_year:
+                current_year = kodi_meta.get('year') or kodi_meta.get('aired_year')
+
+        score = source_utils.score_title_candidate(title, candidate_name, aliases=aliases or None, year=current_year)
+        if score <= 40:
+            return score
+
         name_clean = self._normalize_title_text(candidate_name)
         title_clean = self._normalize_title_text(title)
         name_lower = name_clean.lower()
         title_lower = title_clean.lower()
-        score = 0
-
-        if title_lower == name_lower:
-            score += 150
-        elif title_lower in name_lower or name_lower in title_lower:
-            score += 100
 
         if kodi_meta and isinstance(kodi_meta, dict):
             for key in ('ename', 'title_english', 'title_romaji'):
                 val_raw = kodi_meta.get(key)
                 if val_raw:
                     val = self._normalize_title_text(val_raw).lower()
-                    if val:
-                        if val == name_lower:
-                            score += 140
-                        elif val in name_lower:
-                            score += 90
+                    if val and val == name_lower:
+                        score += 140
+                        break
 
         title_tokens = [w for w in re.split(r'[^a-z0-9]+', title_lower) if len(w) > 2]
         name_tokens = set(re.split(r'[^a-z0-9]+', name_lower))
@@ -264,10 +278,7 @@ class Sources(BrowserBase):
         elif candidate_season != wanted_season:
             score -= 50
 
-        if 'season' in name_lower and wanted_season is None and candidate_season not in (None, 1):
-            score -= 20
-
-        return score
+        return max(0, score)
 
     def _resolve_anime_id(self, mirror, title, kodi_meta, mal_id, headers):
         keywords = self._search_keywords(title, mal_id, kodi_meta)
@@ -292,15 +303,22 @@ class Sources(BrowserBase):
             control.log(f"HiAnime: No search matches on {mirror} for '{title}'", level='info')
             return None
 
-        ranked = sorted(
-            candidates.items(),
-            key=lambda row: self._score_candidate(row[1], title, kodi_meta),
-            reverse=True,
-        )
-        if ranked:
-            best_id, best_name = ranked[0]
-            control.log(f"HiAnime: Selected '{best_name}' (ID: {best_id}) on {mirror}", level='info')
+        scored_candidates = [
+            (c_id, c_name, self._score_candidate(c_name, title, kodi_meta=kodi_meta))
+            for c_id, c_name in candidates.items()
+        ]
+        if not scored_candidates:
+            return None
+
+        max_score = max(c[2] for c in scored_candidates)
+        cutoff = max(50, max_score - 30)
+        survivors = [c for c in scored_candidates if c[2] >= cutoff]
+        if survivors:
+            survivors.sort(key=lambda c: c[2], reverse=True)
+            best_id, best_name, best_score = survivors[0]
+            control.log(f"HiAnime: Selected '{best_name}' (ID: {best_id}, Score: {best_score}) on {mirror}", level='info')
             return best_id
+        control.log(f"HiAnime: No candidates met cutoff {cutoff} for '{title}' on {mirror}", level='info')
         return None
 
     def _resolve_episode_id(self, mirror, anime_id, ep_num, headers):

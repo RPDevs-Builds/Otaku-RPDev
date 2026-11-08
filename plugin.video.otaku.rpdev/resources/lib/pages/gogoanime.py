@@ -74,50 +74,26 @@ class Sources(BrowserBase):
 
         return keywords
 
-    def _score_candidate(self, candidate_name, title, kodi_meta=None):
-        name_clean = self._normalize_title_text(candidate_name)
-        title_clean = self._normalize_title_text(title)
-        name_lower = name_clean.lower()
-        title_lower = title_clean.lower()
-        score = 0
+    def _score_candidate(self, candidate_name=None, title='', current_year=None, kodi_meta=None, name=None):
+        if candidate_name is None and name is not None:
+            candidate_name = name
+        if not candidate_name or not title:
+            return 0
 
-        # Exact title match (Sub or Dub)
-        if title_lower == name_lower:
-            score += 150
-        elif name_lower == f"{title_lower} (dub)":
-            score += 145
-        elif name_lower.startswith(title_lower):
-            # Demote spin-offs / specials with colons or distinct subtitles if original title lacked colon
-            if ':' in name_clean and ':' not in title_clean:
-                score += 30
-            else:
-                score += 100
-        elif title_lower.startswith(name_lower):
-            score += 90
-        elif title_lower in name_lower or name_lower in title_lower:
-            score += 70
+        if isinstance(current_year, dict):
+            kodi_meta = current_year
+            current_year = kodi_meta.get('year') or kodi_meta.get('aired_year')
 
+        aliases = []
         if kodi_meta and isinstance(kodi_meta, dict):
             for key in ('ename', 'title_english', 'title_romaji'):
                 val_raw = kodi_meta.get(key)
-                if val_raw:
-                    val = self._normalize_title_text(val_raw).lower()
-                    if val:
-                        if val == name_lower:
-                            score += 140
-                        elif name_lower == f"{val} (dub)":
-                            score += 135
-                        elif name_lower.startswith(val):
-                            if ':' in name_clean and ':' not in val:
-                                score += 25
-                            else:
-                                score += 95
-                        elif val.startswith(name_lower):
-                            score += 85
-                        elif val in name_lower:
-                            score += 65
+                if val_raw and val_raw not in aliases:
+                    aliases.append(val_raw)
+            if not current_year:
+                current_year = kodi_meta.get('year') or kodi_meta.get('aired_year')
 
-        return score
+        return source_utils.score_title_candidate(title, candidate_name, aliases=aliases or None, year=current_year)
 
     def get_sources(self, mal_id, episode):
         show = database.get_show(mal_id)
@@ -196,8 +172,8 @@ class Sources(BrowserBase):
             if source_pref == 2 and not is_dub:
                 continue
 
-            score = self._score_candidate(cand_name, title, kodi_meta)
-            if score >= 50 or len(candidates) == 1:
+            score = self._score_candidate(cand_name, title, kodi_meta=kodi_meta)
+            if score >= 50:
                 scored_slugs.append((slug, score))
 
         if scored_slugs:

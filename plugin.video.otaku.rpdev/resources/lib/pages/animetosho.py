@@ -23,6 +23,7 @@ class Sources(BrowserBase):
         self.rescrape = False
 
     def get_sources(self, show, mal_id, episode, status, media_type, season=None, part=None, rescrape=False):
+        self.show = show
         self.rescrape = rescrape
         control.log(f"Animetosho: Starting search for '{show}' episode {episode}")
         if media_type == "movie":
@@ -125,7 +126,8 @@ class Sources(BrowserBase):
                     mal_id,
                     episode_zfill,
                     season_zfill,
-                    part
+                    part,
+                    show=show
                 )
                 control.log(f"AnimeTosho: {task['name']} search returned {len(sources)} sources")
                 return sources
@@ -158,7 +160,7 @@ class Sources(BrowserBase):
         if self.anidb_id:
             params['aids'] = self.anidb_id
 
-        animetosho_sources = self.process_animetosho_episodes(f"{self._BASE_URL.rstrip('/')}/search", params, mal_id, episode_zfill, season_zfill, part)
+        animetosho_sources = self.process_animetosho_episodes(f"{self._BASE_URL.rstrip('/')}/search", params, mal_id, episode_zfill, season_zfill, part, show=show)
         return animetosho_sources
 
     def get_movie_sources(self, show, mal_id):
@@ -204,7 +206,7 @@ class Sources(BrowserBase):
                 control.log(f"animetosho base32 hash conversion error: {e}", 'debug')
         return ''
 
-    def process_animetosho_episodes(self, url, params, mal_id, episode, season, part):
+    def process_animetosho_episodes(self, url, params, mal_id, episode, season, part, show=None):
         response = client.get(url, params=params)
         if response:
             html = response.text
@@ -252,7 +254,25 @@ class Sources(BrowserBase):
 
                 list_.append(list_item)
 
-            filtered_list = source_utils.filter_sources('animetosho', list_, mal_id, int(season), int(episode), part, anidb_id=self.anidb_id)
+            target_show = show or getattr(self, 'show', None)
+            aliases = None
+            if target_show and '|' in target_show:
+                parts = [p.strip('() ') for p in target_show.split('|') if p.strip('() ')]
+                if parts:
+                    target_show = parts[0]
+                    if len(parts) > 1:
+                        aliases = parts[1:]
+
+            if target_show:
+                filtered_list = source_utils.filter_sources(
+                    'animetosho', list_, mal_id, int(season), int(episode), part,
+                    anidb_id=self.anidb_id, show_title=target_show, aliases=aliases
+                )
+            else:
+                filtered_list = source_utils.filter_sources(
+                    'animetosho', list_, mal_id, int(season), int(episode), part,
+                    anidb_id=self.anidb_id
+                )
 
             cache_list, uncashed_list_ = Debrid().torrentCacheCheck(filtered_list, mal_id=mal_id, episode=episode, media_type='episode', rescrape=self.rescrape)
             cache_list = sorted(cache_list, key=lambda k: k['downloads'], reverse=True)

@@ -1,0 +1,2455 @@
+[
+  {
+    "id": 1,
+    "mal_id": 5114,
+    "title": "Fullmetal Alchemist: Brotherhood",
+    "canonical_title": "Fullmetal Alchemist: Brotherhood",
+    "aliases": [
+      "Hagane no Renkinjutsushi: Fullmetal Alchemist",
+      "FMA Brotherhood",
+      "FMA:B"
+    ],
+    "year": 2009,
+    "category": "titan",
+    "genres": [
+      "action",
+      "adventure",
+      "drama",
+      "fantasy"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "Fullmetal Alchemist: The Sacred Star of Milos",
+      "Fullmetal Alchemist: Conqueror of Shamballa",
+      "Re:Fullmetal Alchemist: Brotherhood",
+      "Fullmetal Alchemist: Brotherhood Musume",
+      "Unrelated Show - 01 - The Fullmetal Alchemist: Brotherhood Within.mkv"
+    ]
+  },
+  {
+    "id": 2,
+    "mal_id": 9253,
+    "title": "Steins;Gate",
+    "canonical_title": "Steins;Gate",
+    "aliases": [
+      "Steins Gate"
+    ],
+    "year": 2011,
+    "category": "titan",
+    "genres": [
+      "sci-fi",
+      "thriller",
+      "psychological",
+      "mystery"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "Steins;Gate 0",
+      "Steins;Gate: Soumei Eichi no Cognitive Computing",
+      "Steins;Gate Movie: Load Region of Déjà Vu",
+      "Re:Steins;Gate",
+      "Steins;Gate Musume",
+      "Unrelated Show - 01 - The Steins;Gate Within.mkv"
+    ]
+  },
+  {
+    "id": 3,
+    "mal_id": 11061,
+    "title": "Hunter x Hunter (2011)",
+    "canonical_title": "Hunter x Hunter (2011)",
+    "aliases": [
+      "Hunter x Hunter 2011",
+      "HxH (2011)"
+    ],
+    "year": 2011,
+    "category": "titan",
+    "genres": [
+      "action",
+      "adventure",
+      "fantasy"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "Hunter x Hunter: Phantom Rouge",
+      "Hunter x Hunter: The Last Mission",
+      "Re:Hunter x Hunter (2011)",
+      "Hunter x Hunter (2011) Musume",
+      "Unrelated Show - 01 - The Hunter x Hunter (2011) Within.mkv"
+    ]
+  },
+  {
+    "id": 4,
+    "mal_id": 16498,
+    "title": "Attack on Titan",
+    "canonical_title": "Attack on Titan",
+    "aliases": [
+      "Shingeki no Kyojin",
+      "AoT"
+    ],
+    "year": 2013,
+    "category": "titan",
+    "genres": [
+      "action",
+      "drama",
+      "fantasy",
+      "mystery"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "Attack on Titan: Junior High",
+      "Attack on Titan: The Final Season",
+      "Re:Attack on Titan",
+      "Attack on Titan Musume",
+      "Unrelated Show - 01 - The Attack on Titan Within.mkv"
+    ]
+  },
+  {
+    "id": 5,
+    "mal_id": 1535,
+    "title": "Death Note",
+    "canonical_title": "Death Note",
+    "aliases": [
+      "Desu Noto"
+    ],
+    "year": 2006,
+    "category": "titan",
+    "genres": [
+      "supernatural",
+      "mystery",
+      "psychological",
+      "thriller"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "Death Parade",
+      "Death Note: Relight",
+      "Death Note: Rewrite",
+      "Re:Death Note",
+      "Death Note Musume",
+      "Unrelated Show - 01 - The Death Note Within.mkv"
+    ]
+  },
+  {
+    "id": 6,
+    "mal_id": 1575,
+    "title": "Code Geass: Lelouch of the Rebellion",
+    "canonical_title": "Code Geass: Lelouch of the Rebellion",
+    "aliases": [
+      "Code Geass: Hangyaku no Lelouch",
+      "Code Geass"
+    ],
+    "year": 2006,
+    "category": "titan",
+    "genres": [
+      "action",
+      "mecha",
+      "sci-fi",
+      "drama"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "Code Geass: Lelouch of the Rebellion R2",
+      "Code Geass: Akito the Exiled",
+      "Code Geass: Roze of the Recapture",
+      "Re:Code Geass: Lelouch of the Rebellion",
+      "Code Geass: Lelouch of the Rebellion Musume",
+      "Unrelated Show - 01 - The Code Geass: Lelouch of the Rebellion Within.mkv"
+    ]
+  },
+  {
+    "id": 7,
+    "mal_id": 1,
+    "title": "Cowboy Bebop",
+    "canonical_title": "Cowboy Bebop",
+    "aliases": [
+      "Kauboi Bibappu"
+    ],
+    "year": 1998,
+    "category": "classic",
+    "genres": [
+      "action",
+      "sci-fi"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "Cowboy Bebop: Knockin' on Heaven's Door",
+      "Cowboy Bebop (Live Action)",
+      "Re:Cowboy Bebop",
+      "Cowboy Bebop Musume",
+      "Unrelated Show - 01 - The Cowboy Bebop Within.mkv"
+    ]
+  },
+  {
+    "id": 8,
+    "mal_id": 30,
+    "title": "Neon Genesis Evangelion",
+    "canonical_title": "Neon Genesis Evangelion",
+    "aliases": [
+      "Shinseiki Evangelion",
+      "NGE",
+      "Evangelion"
+    ],
+    "year": 1995,
+    "category": "classic",
+    "genres": [
+      "action",
+      "mecha",
+      "psychological",
+      "sci-fi",
+      "drama"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "Evangelion: 1.0 You Are (Not) Alone",
+      "Evangelion: 2.0 You Can (Not) Advance",
+      "Evangelion: 3.0+1.0 Thrice Upon a Time",
+      "End of Evangelion",
+      "Re:Neon Genesis Evangelion",
+      "Neon Genesis Evangelion Musume",
+      "Unrelated Show - 01 - The Neon Genesis Evangelion Within.mkv"
+    ]
+  },
+  {
+    "id": 9,
+    "mal_id": 199,
+    "title": "Spirited Away",
+    "canonical_title": "Spirited Away",
+    "aliases": [
+      "Sen to Chihiro no Kamikakushi"
+    ],
+    "year": 2001,
+    "category": "movie",
+    "genres": [
+      "adventure",
+      "supernatural",
+      "fantasy"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "Spirited Away Live on Stage",
+      "Re:Spirited Away",
+      "Spirited Away Musume",
+      "Unrelated Show - 01 - The Spirited Away Within.mkv"
+    ]
+  },
+  {
+    "id": 10,
+    "mal_id": 164,
+    "title": "Princess Mononoke",
+    "canonical_title": "Princess Mononoke",
+    "aliases": [
+      "Mononoke Hime"
+    ],
+    "year": 1997,
+    "category": "movie",
+    "genres": [
+      "action",
+      "adventure",
+      "fantasy"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "Mononoke",
+      "Mononoke: Karakasa",
+      "Re:Princess Mononoke",
+      "Princess Mononoke Musume",
+      "Unrelated Show - 01 - The Princess Mononoke Within.mkv"
+    ]
+  },
+  {
+    "id": 11,
+    "mal_id": 32281,
+    "title": "Your Name.",
+    "canonical_title": "Your Name.",
+    "aliases": [
+      "Kimi no Na wa.",
+      "Kimi no Na wa"
+    ],
+    "year": 2016,
+    "category": "movie",
+    "genres": [
+      "romance",
+      "drama",
+      "supernatural"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "Weathering with You",
+      "Suzume",
+      "5 Centimeters per Second",
+      "Re:Your Name.",
+      "Your Name. Musume",
+      "Unrelated Show - 01 - The Your Name. Within.mkv"
+    ]
+  },
+  {
+    "id": 12,
+    "mal_id": 28851,
+    "title": "A Silent Voice",
+    "canonical_title": "A Silent Voice",
+    "aliases": [
+      "Koe no Katachi",
+      "The Shape of Voice"
+    ],
+    "year": 2016,
+    "category": "movie",
+    "genres": [
+      "drama",
+      "romance"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "The Shape of Voice Special",
+      "Liz and the Blue Bird",
+      "Re:A Silent Voice",
+      "A Silent Voice Musume",
+      "Unrelated Show - 01 - The A Silent Voice Within.mkv"
+    ]
+  },
+  {
+    "id": 13,
+    "mal_id": 33352,
+    "title": "Violet Evergarden",
+    "canonical_title": "Violet Evergarden",
+    "aliases": [
+      "Baioretto Ebagaden"
+    ],
+    "year": 2018,
+    "category": "titan",
+    "genres": [
+      "drama",
+      "fantasy",
+      "slice of life"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "Violet Evergarden: The Movie",
+      "Violet Evergarden: Eternity and the Auto Memory Doll",
+      "Re:Violet Evergarden",
+      "Violet Evergarden Musume",
+      "Unrelated Show - 01 - The Violet Evergarden Within.mkv"
+    ]
+  },
+  {
+    "id": 14,
+    "mal_id": 37521,
+    "title": "Vinland Saga",
+    "canonical_title": "Vinland Saga",
+    "aliases": [
+      "Binrando Saga"
+    ],
+    "year": 2019,
+    "category": "titan",
+    "genres": [
+      "action",
+      "adventure",
+      "drama"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "Re:Vinland Saga",
+      "Vinland Saga Musume",
+      "Unrelated Show - 01 - The Vinland Saga Within.mkv"
+    ]
+  },
+  {
+    "id": 15,
+    "mal_id": 32182,
+    "title": "Mob Psycho 100",
+    "canonical_title": "Mob Psycho 100",
+    "aliases": [
+      "Mob Psycho Hyaku"
+    ],
+    "year": 2016,
+    "category": "titan",
+    "genres": [
+      "action",
+      "comedy",
+      "supernatural"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "Mob Psycho 100: Reigen",
+      "Mob Psycho 100 Mini",
+      "Re:Mob Psycho 100",
+      "Mob Psycho 100 Musume",
+      "Unrelated Show - 01 - The Mob Psycho 100 Within.mkv"
+    ]
+  },
+  {
+    "id": 16,
+    "mal_id": 30276,
+    "title": "One Punch Man",
+    "canonical_title": "One Punch Man",
+    "aliases": [
+      "One-Punch Man",
+      "OPM"
+    ],
+    "year": 2015,
+    "category": "titan",
+    "genres": [
+      "action",
+      "comedy",
+      "sci-fi"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "One Punch Man: Road to Hero",
+      "Re:One Punch Man",
+      "One Punch Man Musume",
+      "Unrelated Show - 01 - The One Punch Man Within.mkv"
+    ]
+  },
+  {
+    "id": 17,
+    "mal_id": 40748,
+    "title": "Jujutsu Kaisen",
+    "canonical_title": "Jujutsu Kaisen",
+    "aliases": [
+      "JJK",
+      "Sorcery Fight"
+    ],
+    "year": 2020,
+    "category": "titan",
+    "genres": [
+      "action",
+      "fantasy",
+      "supernatural"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "Jujutsu Kaisen 0",
+      "Jujutsu Kaisen 2nd Season",
+      "Jujutsu Kaisen: Shibuya Incident Arc",
+      "Re:Jujutsu Kaisen",
+      "Jujutsu Kaisen Musume",
+      "Unrelated Show - 01 - The Jujutsu Kaisen Within.mkv"
+    ]
+  },
+  {
+    "id": 18,
+    "mal_id": 38000,
+    "title": "Demon Slayer: Kimetsu no Yaiba",
+    "canonical_title": "Demon Slayer: Kimetsu no Yaiba",
+    "aliases": [
+      "Kimetsu no Yaiba",
+      "Demon Slayer"
+    ],
+    "year": 2019,
+    "category": "titan",
+    "genres": [
+      "action",
+      "fantasy",
+      "supernatural"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "Kimetsu no Yaiba: Mugen Ressha-hen",
+      "Kimetsu no Yaiba: Yuukaku-hen",
+      "Kimetsu no Yaiba: Katanakaji no Sato-hen",
+      "Kimetsu no Yaiba: Hashira Geiko-hen",
+      "Re:Demon Slayer: Kimetsu no Yaiba",
+      "Demon Slayer: Kimetsu no Yaiba Musume",
+      "Unrelated Show - 01 - The Demon Slayer: Kimetsu no Yaiba Within.mkv"
+    ]
+  },
+  {
+    "id": 19,
+    "mal_id": 44511,
+    "title": "Chainsaw Man",
+    "canonical_title": "Chainsaw Man",
+    "aliases": [
+      "CSM"
+    ],
+    "year": 2022,
+    "category": "titan",
+    "genres": [
+      "action",
+      "supernatural",
+      "horror"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "Chainsaw Man: Reze Arc",
+      "Re:Chainsaw Man",
+      "Chainsaw Man Musume",
+      "Unrelated Show - 01 - The Chainsaw Man Within.mkv"
+    ]
+  },
+  {
+    "id": 20,
+    "mal_id": 52991,
+    "title": "Frieren: Beyond Journey's End",
+    "canonical_title": "Frieren: Beyond Journey's End",
+    "aliases": [
+      "Sousou no Frieren",
+      "Frieren"
+    ],
+    "year": 2023,
+    "category": "titan",
+    "genres": [
+      "adventure",
+      "fantasy",
+      "drama"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "Sousou no Frieren: ●● no Mahou",
+      "Re:Frieren: Beyond Journey's End",
+      "Frieren: Beyond Journey's End Musume",
+      "Unrelated Show - 01 - The Frieren: Beyond Journey's End Within.mkv"
+    ]
+  },
+  {
+    "id": 21,
+    "mal_id": 47917,
+    "title": "Bocchi the Rock!",
+    "canonical_title": "Bocchi the Rock!",
+    "aliases": [
+      "Bocchi the Rock"
+    ],
+    "year": 2022,
+    "category": "modern",
+    "genres": [
+      "comedy",
+      "music",
+      "slice of life"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "Bocchi the Rock! Re:",
+      "Bocchi the Rock! Re:Re:",
+      "Re:Bocchi the Rock!",
+      "Bocchi the Rock! Musume",
+      "Unrelated Show - 01 - The Bocchi the Rock! Within.mkv"
+    ]
+  },
+  {
+    "id": 22,
+    "mal_id": 52034,
+    "title": "Oshi no Ko",
+    "canonical_title": "Oshi no Ko",
+    "aliases": [
+      "My Star"
+    ],
+    "year": 2023,
+    "category": "modern",
+    "genres": [
+      "drama",
+      "supernatural",
+      "music"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "Re:Oshi no Ko",
+      "Oshi no Ko Musume",
+      "Unrelated Show - 01 - The Oshi no Ko Within.mkv"
+    ]
+  },
+  {
+    "id": 23,
+    "mal_id": 42310,
+    "title": "Cyberpunk: Edgerunners",
+    "canonical_title": "Cyberpunk: Edgerunners",
+    "aliases": [
+      "Edgerunners"
+    ],
+    "year": 2022,
+    "category": "modern",
+    "genres": [
+      "action",
+      "sci-fi"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "Re:Cyberpunk: Edgerunners",
+      "Cyberpunk: Edgerunners Musume",
+      "Unrelated Show - 01 - The Cyberpunk: Edgerunners Within.mkv"
+    ]
+  },
+  {
+    "id": 24,
+    "mal_id": 2001,
+    "title": "Gurren Lagann",
+    "canonical_title": "Gurren Lagann",
+    "aliases": [
+      "Tengen Toppa Gurren Lagann",
+      "TTGL"
+    ],
+    "year": 2007,
+    "category": "classic",
+    "genres": [
+      "action",
+      "mecha",
+      "sci-fi",
+      "adventure"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "Gurren Lagann Movie: Childhood's End",
+      "Gurren Lagann Movie: The Lights in the Sky Are Stars",
+      "Re:Gurren Lagann",
+      "Gurren Lagann Musume",
+      "Unrelated Show - 01 - The Gurren Lagann Within.mkv"
+    ]
+  },
+  {
+    "id": 25,
+    "mal_id": 205,
+    "title": "Samurai Champloo",
+    "canonical_title": "Samurai Champloo",
+    "aliases": [
+      "Samurai Chanpuru"
+    ],
+    "year": 2004,
+    "category": "classic",
+    "genres": [
+      "action",
+      "adventure",
+      "comedy"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "Samurai 7",
+      "Afro Samurai",
+      "Re:Samurai Champloo",
+      "Samurai Champloo Musume",
+      "Unrelated Show - 01 - The Samurai Champloo Within.mkv"
+    ]
+  },
+  {
+    "id": 26,
+    "mal_id": 13601,
+    "title": "Psycho-Pass",
+    "canonical_title": "Psycho-Pass",
+    "aliases": [
+      "Psycho Pass"
+    ],
+    "year": 2012,
+    "category": "titan",
+    "genres": [
+      "action",
+      "sci-fi",
+      "mystery",
+      "thriller",
+      "psychological"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "Psycho-Pass: Sinners of the System",
+      "Psycho-Pass Providence",
+      "Re:Psycho-Pass",
+      "Psycho-Pass Musume",
+      "Unrelated Show - 01 - The Psycho-Pass Within.mkv"
+    ]
+  },
+  {
+    "id": 27,
+    "mal_id": 22535,
+    "title": "Parasyte -the maxim-",
+    "canonical_title": "Parasyte -the maxim-",
+    "aliases": [
+      "Kiseijuu: Sei no Kakuritsu",
+      "Parasyte"
+    ],
+    "year": 2014,
+    "category": "titan",
+    "genres": [
+      "action",
+      "horror",
+      "sci-fi",
+      "psychological"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "Parasyte: The Grey",
+      "Re:Parasyte -the maxim-",
+      "Parasyte -the maxim- Musume",
+      "Unrelated Show - 01 - The Parasyte -the maxim- Within.mkv"
+    ]
+  },
+  {
+    "id": 28,
+    "mal_id": 245,
+    "title": "Great Teacher Onizuka",
+    "canonical_title": "Great Teacher Onizuka",
+    "aliases": [
+      "GTO"
+    ],
+    "year": 1999,
+    "category": "classic",
+    "genres": [
+      "comedy",
+      "drama",
+      "slice of life"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "GTO: Early Years",
+      "Shonan Junai Gumi",
+      "GTO 14 Days in Shonan",
+      "Re:Great Teacher Onizuka",
+      "Great Teacher Onizuka Musume",
+      "Unrelated Show - 01 - The Great Teacher Onizuka Within.mkv"
+    ]
+  },
+  {
+    "id": 29,
+    "mal_id": 6,
+    "title": "Trigun",
+    "canonical_title": "Trigun",
+    "aliases": [
+      "Toraigan"
+    ],
+    "year": 1998,
+    "category": "classic",
+    "genres": [
+      "action",
+      "adventure",
+      "sci-fi"
+    ],
+    "is_short_title": true,
+    "distractors": [
+      "Trigun Stampede",
+      "Trigun: Badlands Rumble",
+      "Re:Trigun",
+      "Trigun Musume",
+      "Unrelated Show - 01 - The Trigun Within.mkv"
+    ]
+  },
+  {
+    "id": 30,
+    "mal_id": 392,
+    "title": "Yu Yu Hakusho",
+    "canonical_title": "Yu Yu Hakusho",
+    "aliases": [
+      "YuYu Hakusho: Ghost Files",
+      "Yuu Yuu Hakusho"
+    ],
+    "year": 1992,
+    "category": "classic",
+    "genres": [
+      "action",
+      "adventure",
+      "supernatural"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "Yu Yu Hakusho: The Movie",
+      "Yu Yu Hakusho: Poltergeist Report",
+      "Yu Yu Hakusho (Live Action)",
+      "Re:Yu Yu Hakusho",
+      "Yu Yu Hakusho Musume",
+      "Unrelated Show - 01 - The Yu Yu Hakusho Within.mkv"
+    ]
+  },
+  {
+    "id": 31,
+    "mal_id": 45,
+    "title": "Rurouni Kenshin",
+    "canonical_title": "Rurouni Kenshin",
+    "aliases": [
+      "Samurai X",
+      "Rurouni Kenshin: Meiji Kenkaku Romantan"
+    ],
+    "year": 1996,
+    "category": "classic",
+    "genres": [
+      "action",
+      "adventure",
+      "drama"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "Rurouni Kenshin: Trust & Betrayal",
+      "Rurouni Kenshin: Reflection",
+      "Re:Rurouni Kenshin",
+      "Rurouni Kenshin Musume",
+      "Unrelated Show - 01 - The Rurouni Kenshin Within.mkv"
+    ]
+  },
+  {
+    "id": 32,
+    "mal_id": 33,
+    "title": "Berserk (1997)",
+    "canonical_title": "Berserk (1997)",
+    "aliases": [
+      "Kenpuu Denki Berserk",
+      "Berserk 1997"
+    ],
+    "year": 1997,
+    "category": "classic",
+    "genres": [
+      "action",
+      "adventure",
+      "fantasy",
+      "horror"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "Berserk: The Golden Age Arc",
+      "Re:Berserk (1997)",
+      "Berserk (1997) Musume",
+      "Unrelated Show - 01 - The Berserk (1997) Within.mkv"
+    ]
+  },
+  {
+    "id": 33,
+    "mal_id": 467,
+    "title": "Ghost in the Shell: Stand Alone Complex",
+    "canonical_title": "Ghost in the Shell: Stand Alone Complex",
+    "aliases": [
+      "Koukaku Kidoutai: Stand Alone Complex",
+      "GitS: SAC"
+    ],
+    "year": 2002,
+    "category": "classic",
+    "genres": [
+      "action",
+      "mecha",
+      "sci-fi",
+      "mystery"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "Ghost in the Shell: SAC_2045",
+      "Ghost in the Shell: Arise",
+      "Ghost in the Shell 2: Innocence",
+      "Re:Ghost in the Shell: Stand Alone Complex",
+      "Ghost in the Shell: Stand Alone Complex Musume",
+      "Unrelated Show - 01 - The Ghost in the Shell: Stand Alone Complex Within.mkv"
+    ]
+  },
+  {
+    "id": 34,
+    "mal_id": 47,
+    "title": "Akira",
+    "canonical_title": "Akira",
+    "aliases": [],
+    "year": 1988,
+    "category": "movie",
+    "genres": [
+      "action",
+      "sci-fi"
+    ],
+    "is_short_title": true,
+    "distractors": [
+      "Akira Sound Clip",
+      "Re:Akira",
+      "Akira Musume",
+      "Unrelated Show - 01 - The Akira Within.mkv"
+    ]
+  },
+  {
+    "id": 35,
+    "mal_id": 437,
+    "title": "Perfect Blue",
+    "canonical_title": "Perfect Blue",
+    "aliases": [
+      "Pafekuto Buru"
+    ],
+    "year": 1997,
+    "category": "movie",
+    "genres": [
+      "drama",
+      "horror",
+      "mystery",
+      "psychological",
+      "thriller"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "Blue Gender",
+      "Blue Period",
+      "Perfect World",
+      "Re:Perfect Blue",
+      "Perfect Blue Musume",
+      "Unrelated Show - 01 - The Perfect Blue Within.mkv"
+    ]
+  },
+  {
+    "id": 36,
+    "mal_id": 457,
+    "title": "Mushishi",
+    "canonical_title": "Mushishi",
+    "aliases": [
+      "Mushi-Shi"
+    ],
+    "year": 2005,
+    "category": "classic",
+    "genres": [
+      "adventure",
+      "fantasy",
+      "mystery",
+      "slice of life",
+      "supernatural"
+    ],
+    "is_short_title": true,
+    "distractors": [
+      "Mushishi Zoku Shou",
+      "Mushishi: Hihamukage",
+      "Mushishi Zoku Shou: Suzu no Shizuku",
+      "Re:Mushishi",
+      "Mushishi Musume",
+      "Unrelated Show - 01 - The Mushishi Within.mkv"
+    ]
+  },
+  {
+    "id": 37,
+    "mal_id": 4404,
+    "title": "Natsume's Book of Friends",
+    "canonical_title": "Natsume's Book of Friends",
+    "aliases": [
+      "Natsume Yuujinchou"
+    ],
+    "year": 2008,
+    "category": "classic",
+    "genres": [
+      "drama",
+      "slice of life",
+      "supernatural"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "Natsume Yuujinchou San",
+      "Natsume Yuujinchou Shi",
+      "Natsume Yuujinchou Roku",
+      "Natsume Yuujinchou Shichi",
+      "Re:Natsume's Book of Friends",
+      "Natsume's Book of Friends Musume",
+      "Unrelated Show - 01 - The Natsume's Book of Friends Within.mkv"
+    ]
+  },
+  {
+    "id": 38,
+    "mal_id": 20583,
+    "title": "Haikyuu!!",
+    "canonical_title": "Haikyuu!!",
+    "aliases": [
+      "Haikyu!",
+      "High Kyu!!"
+    ],
+    "year": 2014,
+    "category": "sports",
+    "genres": [
+      "comedy",
+      "drama",
+      "sports"
+    ],
+    "is_short_title": true,
+    "distractors": [
+      "Haikyuu!! Karasuno Koukou vs. Shiratorizawa Gakuen Koukou",
+      "Haikyuu!! To the Top",
+      "Re:Haikyuu!!",
+      "Haikyuu!! Musume",
+      "Unrelated Show - 01 - The Haikyuu!! Within.mkv"
+    ]
+  },
+  {
+    "id": 39,
+    "mal_id": 11771,
+    "title": "Kuroko's Basketball",
+    "canonical_title": "Kuroko's Basketball",
+    "aliases": [
+      "Kuroko no Basket",
+      "The Basketball Which Kuroko Plays"
+    ],
+    "year": 2012,
+    "category": "sports",
+    "genres": [
+      "comedy",
+      "sports"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "Kuroko no Basket 2nd Season",
+      "Kuroko no Basket 3rd Season",
+      "Kuroko no Basket: Last Game",
+      "Re:Kuroko's Basketball",
+      "Kuroko's Basketball Musume",
+      "Unrelated Show - 01 - The Kuroko's Basketball Within.mkv"
+    ]
+  },
+  {
+    "id": 40,
+    "mal_id": 170,
+    "title": "Slam Dunk",
+    "canonical_title": "Slam Dunk",
+    "aliases": [
+      "Suramu Danku"
+    ],
+    "year": 1993,
+    "category": "sports",
+    "genres": [
+      "comedy",
+      "drama",
+      "sports"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "The First Slam Dunk",
+      "Slam Dunk: Shouhoku Saidai no Kiki!",
+      "Re:Slam Dunk",
+      "Slam Dunk Musume",
+      "Unrelated Show - 01 - The Slam Dunk Within.mkv"
+    ]
+  },
+  {
+    "id": 41,
+    "mal_id": 263,
+    "title": "Hajime no Ippo",
+    "canonical_title": "Hajime no Ippo",
+    "aliases": [
+      "Fighting Spirit"
+    ],
+    "year": 2000,
+    "category": "sports",
+    "genres": [
+      "comedy",
+      "drama",
+      "sports"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "Hajime no Ippo: New Challenger",
+      "Hajime no Ippo: Rising",
+      "Hajime no Ippo: Champion Road",
+      "Re:Hajime no Ippo",
+      "Hajime no Ippo Musume",
+      "Unrelated Show - 01 - The Hajime no Ippo Within.mkv"
+    ]
+  },
+  {
+    "id": 42,
+    "mal_id": 22135,
+    "title": "Ping Pong the Animation",
+    "canonical_title": "Ping Pong the Animation",
+    "aliases": [
+      "Ping Pong"
+    ],
+    "year": 2014,
+    "category": "sports",
+    "genres": [
+      "drama",
+      "sports",
+      "psychological"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "Ping Pong Club",
+      "Ike! Ina-chuu Takkyuubu",
+      "Re:Ping Pong the Animation",
+      "Ping Pong the Animation Musume",
+      "Unrelated Show - 01 - The Ping Pong the Animation Within.mkv"
+    ]
+  },
+  {
+    "id": 43,
+    "mal_id": 7785,
+    "title": "The Tatami Galaxy",
+    "canonical_title": "The Tatami Galaxy",
+    "aliases": [
+      "Yojouhan Shinwa Taikei"
+    ],
+    "year": 2010,
+    "category": "cult",
+    "genres": [
+      "comedy",
+      "mystery",
+      "psychological",
+      "romance"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "Tatami Time Machine Blues",
+      "Night Is Short, Walk On Girl",
+      "Re:The Tatami Galaxy",
+      "The Tatami Galaxy Musume",
+      "Unrelated Show - 01 - The The Tatami Galaxy Within.mkv"
+    ]
+  },
+  {
+    "id": 44,
+    "mal_id": 9756,
+    "title": "Puella Magi Madoka Magica",
+    "canonical_title": "Puella Magi Madoka Magica",
+    "aliases": [
+      "Mahou Shoujo Madoka★Magica",
+      "Madoka Magica"
+    ],
+    "year": 2011,
+    "category": "titan",
+    "genres": [
+      "drama",
+      "fantasy",
+      "psychological",
+      "supernatural"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "Madoka Magica the Movie: Rebellion",
+      "Magia Record: Puella Magi Madoka Magica Side Story",
+      "Madoka Magica: Walpurgisnacht Rising",
+      "Re:Puella Magi Madoka Magica",
+      "Puella Magi Madoka Magica Musume",
+      "Unrelated Show - 01 - The Puella Magi Madoka Magica Within.mkv"
+    ]
+  },
+  {
+    "id": 45,
+    "mal_id": 34599,
+    "title": "Made in Abyss",
+    "canonical_title": "Made in Abyss",
+    "aliases": [],
+    "year": 2017,
+    "category": "titan",
+    "genres": [
+      "adventure",
+      "drama",
+      "fantasy",
+      "sci-fi"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "Made in Abyss: Dawn of the Deep Soul",
+      "Made in Abyss: The Golden City of the Scorching Sun",
+      "Re:Made in Abyss",
+      "Made in Abyss Musume",
+      "Unrelated Show - 01 - The Made in Abyss Within.mkv"
+    ]
+  },
+  {
+    "id": 46,
+    "mal_id": 37779,
+    "title": "The Promised Neverland",
+    "canonical_title": "The Promised Neverland",
+    "aliases": [
+      "Yakusoku no Neverland"
+    ],
+    "year": 2019,
+    "category": "titan",
+    "genres": [
+      "mystery",
+      "psychological",
+      "horror",
+      "thriller"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "Re:The Promised Neverland",
+      "The Promised Neverland Musume",
+      "Unrelated Show - 01 - The The Promised Neverland Within.mkv"
+    ]
+  },
+  {
+    "id": 47,
+    "mal_id": 38668,
+    "title": "Dorohedoro",
+    "canonical_title": "Dorohedoro",
+    "aliases": [],
+    "year": 2020,
+    "category": "modern",
+    "genres": [
+      "action",
+      "comedy",
+      "fantasy",
+      "horror"
+    ],
+    "is_short_title": true,
+    "distractors": [
+      "Dororo",
+      "Dorohedoro: Ma no Make",
+      "Re:Dorohedoro",
+      "Dorohedoro Musume",
+      "Unrelated Show - 01 - The Dorohedoro Within.mkv"
+    ]
+  },
+  {
+    "id": 48,
+    "mal_id": 13125,
+    "title": "Shinsekai yori",
+    "canonical_title": "Shinsekai yori",
+    "aliases": [
+      "From the New World"
+    ],
+    "year": 2012,
+    "category": "cult",
+    "genres": [
+      "drama",
+      "horror",
+      "mystery",
+      "psychological",
+      "sci-fi",
+      "supernatural"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "New World Animation",
+      "Re:Shinsekai yori",
+      "Shinsekai yori Musume",
+      "Unrelated Show - 01 - The Shinsekai yori Within.mkv"
+    ]
+  },
+  {
+    "id": 49,
+    "mal_id": 6746,
+    "title": "Durarara!!",
+    "canonical_title": "Durarara!!",
+    "aliases": [
+      "DRRR!!"
+    ],
+    "year": 2010,
+    "category": "titan",
+    "genres": [
+      "action",
+      "mystery",
+      "supernatural"
+    ],
+    "is_short_title": true,
+    "distractors": [
+      "Durarara!!x2 Shou",
+      "Durarara!!x2 Ten",
+      "Durarara!!x2 Ketsu",
+      "Re:Durarara!!",
+      "Durarara!! Musume",
+      "Unrelated Show - 01 - The Durarara!! Within.mkv"
+    ]
+  },
+  {
+    "id": 50,
+    "mal_id": 4224,
+    "title": "Toradora!",
+    "canonical_title": "Toradora!",
+    "aliases": [
+      "Tiger X Dragon"
+    ],
+    "year": 2008,
+    "category": "romance",
+    "genres": [
+      "comedy",
+      "drama",
+      "romance"
+    ],
+    "is_short_title": true,
+    "distractors": [
+      "Toradora! SOS!",
+      "Toradora! Bentou Battle",
+      "Re:Toradora!",
+      "Toradora! Musume",
+      "Unrelated Show - 01 - The Toradora! Within.mkv"
+    ]
+  },
+  {
+    "id": 51,
+    "mal_id": 9989,
+    "title": "Anohana: The Flower We Saw That Day",
+    "canonical_title": "Anohana: The Flower We Saw That Day",
+    "aliases": [
+      "Ano Hi Mita Hana no Namae o Bokutachi wa Mada Shiranai.",
+      "Anohana"
+    ],
+    "year": 2011,
+    "category": "drama",
+    "genres": [
+      "drama",
+      "supernatural"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "Re:Anohana: The Flower We Saw That Day",
+      "Anohana: The Flower We Saw That Day Musume",
+      "Unrelated Show - 01 - The Anohana: The Flower We Saw That Day Within.mkv"
+    ]
+  },
+  {
+    "id": 52,
+    "mal_id": 23273,
+    "title": "Your Lie in April",
+    "canonical_title": "Your Lie in April",
+    "aliases": [
+      "Shigatsu wa Kimi no Uso",
+      "Kimiuso"
+    ],
+    "year": 2014,
+    "category": "drama",
+    "genres": [
+      "drama",
+      "music",
+      "romance"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "Shigatsu wa Kimi no Uso: Moments",
+      "Re:Your Lie in April",
+      "Your Lie in April Musume",
+      "Unrelated Show - 01 - The Your Lie in April Within.mkv"
+    ]
+  },
+  {
+    "id": 53,
+    "mal_id": 31646,
+    "title": "March Comes In like a Lion",
+    "canonical_title": "March Comes In like a Lion",
+    "aliases": [
+      "3-gatsu no Lion",
+      "Sangatsu no Lion"
+    ],
+    "year": 2016,
+    "category": "drama",
+    "genres": [
+      "drama",
+      "slice of life"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "3-gatsu no Lion 2nd Season",
+      "Re:March Comes In like a Lion",
+      "March Comes In like a Lion Musume",
+      "Unrelated Show - 01 - The March Comes In like a Lion Within.mkv"
+    ]
+  },
+  {
+    "id": 54,
+    "mal_id": 28735,
+    "title": "Showa Genroku Rakugo Shinjuu",
+    "canonical_title": "Showa Genroku Rakugo Shinjuu",
+    "aliases": [
+      "Descending Stories: Showa Genroku Rakugo Shinju"
+    ],
+    "year": 2016,
+    "category": "drama",
+    "genres": [
+      "drama",
+      "music"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "Showa Genroku Rakugo Shinjuu: Sukeroku Futatabi-hen",
+      "Re:Showa Genroku Rakugo Shinjuu",
+      "Showa Genroku Rakugo Shinjuu Musume",
+      "Unrelated Show - 01 - The Showa Genroku Rakugo Shinjuu Within.mkv"
+    ]
+  },
+  {
+    "id": 55,
+    "mal_id": 10800,
+    "title": "Chihayafuru",
+    "canonical_title": "Chihayafuru",
+    "aliases": [],
+    "year": 2011,
+    "category": "sports",
+    "genres": [
+      "drama",
+      "sports"
+    ],
+    "is_short_title": true,
+    "distractors": [
+      "Re:Chihayafuru",
+      "Chihayafuru Musume",
+      "Unrelated Show - 01 - The Chihayafuru Within.mkv"
+    ]
+  },
+  {
+    "id": 56,
+    "mal_id": 46102,
+    "title": "Odd Taxi",
+    "canonical_title": "Odd Taxi",
+    "aliases": [
+      "OddTaxi"
+    ],
+    "year": 2021,
+    "category": "mystery",
+    "genres": [
+      "mystery",
+      "drama",
+      "thriller"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "Odd Taxi: In the Woods",
+      "Re:Odd Taxi",
+      "Odd Taxi Musume",
+      "Unrelated Show - 01 - The Odd Taxi Within.mkv"
+    ]
+  },
+  {
+    "id": 57,
+    "mal_id": 40834,
+    "title": "Ranking of Kings",
+    "canonical_title": "Ranking of Kings",
+    "aliases": [
+      "Ousama Ranking"
+    ],
+    "year": 2021,
+    "category": "modern",
+    "genres": [
+      "adventure",
+      "fantasy"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "Ousama Ranking: Yuuki no Takarabako",
+      "Ranking of Kings: The Treasure Chest of Courage",
+      "Re:Ranking of Kings",
+      "Ranking of Kings Musume",
+      "Unrelated Show - 01 - The Ranking of Kings Within.mkv"
+    ]
+  },
+  {
+    "id": 58,
+    "mal_id": 35737,
+    "title": "Pluto",
+    "canonical_title": "Pluto",
+    "aliases": [],
+    "year": 2023,
+    "category": "mystery",
+    "genres": [
+      "mystery",
+      "sci-fi",
+      "thriller"
+    ],
+    "is_short_title": true,
+    "distractors": [
+      "Astro Boy",
+      "Re:Pluto",
+      "Pluto Musume",
+      "Unrelated Show - 01 - The Pluto Within.mkv"
+    ]
+  },
+  {
+    "id": 59,
+    "mal_id": 52701,
+    "title": "Delicious in Dungeon",
+    "canonical_title": "Delicious in Dungeon",
+    "aliases": [
+      "Dungeon Meshi"
+    ],
+    "year": 2024,
+    "category": "modern",
+    "genres": [
+      "adventure",
+      "comedy",
+      "fantasy"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "Is It Wrong to Try to Pick Up Girls in a Dungeon?",
+      "DanMachi",
+      "Re:Delicious in Dungeon",
+      "Delicious in Dungeon Musume",
+      "Unrelated Show - 01 - The Delicious in Dungeon Within.mkv"
+    ]
+  },
+  {
+    "id": 60,
+    "mal_id": 54492,
+    "title": "The Apothecary Diaries",
+    "canonical_title": "The Apothecary Diaries",
+    "aliases": [
+      "Kusuriya no Hitorigoto"
+    ],
+    "year": 2023,
+    "category": "modern",
+    "genres": [
+      "drama",
+      "mystery"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "Kusuriya no Hitorigoto 2nd Season",
+      "Re:The Apothecary Diaries",
+      "The Apothecary Diaries Musume",
+      "Unrelated Show - 01 - The The Apothecary Diaries Within.mkv"
+    ]
+  },
+  {
+    "id": 61,
+    "mal_id": 50265,
+    "title": "Spy x Family",
+    "canonical_title": "Spy x Family",
+    "aliases": [
+      "SpyFamily"
+    ],
+    "year": 2022,
+    "category": "comedy",
+    "genres": [
+      "action",
+      "comedy"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "Spy x Family Movie: Code: White",
+      "Re:Spy x Family",
+      "Spy x Family Musume",
+      "Unrelated Show - 01 - The Spy x Family Within.mkv"
+    ]
+  },
+  {
+    "id": 62,
+    "mal_id": 37999,
+    "title": "Kaguya-sama: Love is War",
+    "canonical_title": "Kaguya-sama: Love is War",
+    "aliases": [
+      "Kaguya-sama wa Kokurasetai",
+      "Kaguya wants to be confessed to"
+    ],
+    "year": 2019,
+    "category": "comedy",
+    "genres": [
+      "comedy",
+      "psychological",
+      "romance"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "Kaguya-sama: Ultra Romantic",
+      "Kaguya-sama: The First Kiss That Never Ends",
+      "Re:Kaguya-sama: Love is War",
+      "Kaguya-sama: Love is War Musume",
+      "Unrelated Show - 01 - The Kaguya-sama: Love is War Within.mkv"
+    ]
+  },
+  {
+    "id": 63,
+    "mal_id": 35507,
+    "title": "Classroom of the Elite",
+    "canonical_title": "Classroom of the Elite",
+    "aliases": [
+      "Youkoso Jitsuryoku Shijou Shugi no Kyoushitsu e",
+      "YouZitsu"
+    ],
+    "year": 2017,
+    "category": "drama",
+    "genres": [
+      "drama",
+      "psychological"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "Re:Classroom of the Elite",
+      "Classroom of the Elite Musume",
+      "Unrelated Show - 01 - The Classroom of the Elite Within.mkv"
+    ]
+  },
+  {
+    "id": 64,
+    "mal_id": 31964,
+    "title": "My Hero Academia",
+    "canonical_title": "My Hero Academia",
+    "aliases": [
+      "Boku no Hero Academia",
+      "MHA"
+    ],
+    "year": 2016,
+    "category": "shonen",
+    "genres": [
+      "action"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "My Hero Academia: Two Heroes",
+      "My Hero Academia: Heroes Rising",
+      "My Hero Academia: World Heroes' Mission",
+      "My Hero Academia: You're Next",
+      "Re:My Hero Academia",
+      "My Hero Academia Musume",
+      "Unrelated Show - 01 - The My Hero Academia Within.mkv"
+    ]
+  },
+  {
+    "id": 65,
+    "mal_id": 34572,
+    "title": "Black Clover",
+    "canonical_title": "Black Clover",
+    "aliases": [
+      "Burakku Kuroba"
+    ],
+    "year": 2017,
+    "category": "shonen",
+    "genres": [
+      "action",
+      "fantasy"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "Black Clover: Sword of the Wizard King",
+      "Black Clover: Jump Festa 2016 Special",
+      "Re:Black Clover",
+      "Black Clover Musume",
+      "Unrelated Show - 01 - The Black Clover Within.mkv"
+    ]
+  },
+  {
+    "id": 66,
+    "mal_id": 14719,
+    "title": "JoJo's Bizarre Adventure",
+    "canonical_title": "JoJo's Bizarre Adventure",
+    "aliases": [
+      "JoJo no Kimyou na Bouken",
+      "JJBA"
+    ],
+    "year": 2012,
+    "category": "shonen",
+    "genres": [
+      "action",
+      "adventure",
+      "supernatural"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "JoJo no Kimyou na Bouken: Stardust Crusaders",
+      "Diamond is Unbreakable",
+      "Golden Wind",
+      "Stone Ocean",
+      "Re:JoJo's Bizarre Adventure",
+      "JoJo's Bizarre Adventure Musume",
+      "Unrelated Show - 01 - The JoJo's Bizarre Adventure Within.mkv"
+    ]
+  },
+  {
+    "id": 67,
+    "mal_id": 21,
+    "title": "One Piece",
+    "canonical_title": "One Piece",
+    "aliases": [
+      "Wan Pisu"
+    ],
+    "year": 1999,
+    "category": "shonen",
+    "genres": [
+      "action",
+      "adventure",
+      "fantasy"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "One Piece Film: Red",
+      "One Piece Film: Z",
+      "One Piece: Stampede",
+      "One Piece Fan Letter",
+      "Re:One Piece",
+      "One Piece Musume",
+      "Unrelated Show - 01 - The One Piece Within.mkv"
+    ]
+  },
+  {
+    "id": 68,
+    "mal_id": 20,
+    "title": "Naruto",
+    "canonical_title": "Naruto",
+    "aliases": [],
+    "year": 2002,
+    "category": "shonen",
+    "genres": [
+      "action",
+      "adventure",
+      "fantasy"
+    ],
+    "is_short_title": true,
+    "distractors": [
+      "Naruto: Shippuden",
+      "Boruto: Naruto Next Generations",
+      "Rock Lee & His Ninja Pals",
+      "Re:Naruto",
+      "Naruto Musume",
+      "Unrelated Show - 01 - The Naruto Within.mkv"
+    ]
+  },
+  {
+    "id": 69,
+    "mal_id": 1735,
+    "title": "Naruto: Shippuden",
+    "canonical_title": "Naruto: Shippuden",
+    "aliases": [
+      "Naruto Hurricane Chronicles"
+    ],
+    "year": 2007,
+    "category": "shonen",
+    "genres": [
+      "action",
+      "adventure",
+      "fantasy"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "Naruto",
+      "Boruto: Naruto Next Generations",
+      "Re:Naruto: Shippuden",
+      "Naruto: Shippuden Musume",
+      "Unrelated Show - 01 - The Naruto: Shippuden Within.mkv"
+    ]
+  },
+  {
+    "id": 70,
+    "mal_id": 813,
+    "title": "Dragon Ball Z",
+    "canonical_title": "Dragon Ball Z",
+    "aliases": [
+      "DBZ"
+    ],
+    "year": 1989,
+    "category": "shonen",
+    "genres": [
+      "action",
+      "adventure",
+      "fantasy"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "Dragon Ball",
+      "Dragon Ball Super",
+      "Dragon Ball GT",
+      "Dragon Ball Daima",
+      "Re:Dragon Ball Z",
+      "Dragon Ball Z Musume",
+      "Unrelated Show - 01 - The Dragon Ball Z Within.mkv"
+    ]
+  },
+  {
+    "id": 71,
+    "mal_id": 22319,
+    "title": "Tokyo Ghoul",
+    "canonical_title": "Tokyo Ghoul",
+    "aliases": [
+      "Toukyou Kushu"
+    ],
+    "year": 2014,
+    "category": "dark",
+    "genres": [
+      "action",
+      "horror",
+      "supernatural"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "Tokyo Ghoul √A",
+      "Tokyo Ghoul:re",
+      "Tokyo Ghoul: Pinto",
+      "Re:Tokyo Ghoul",
+      "Tokyo Ghoul Musume",
+      "Unrelated Show - 01 - The Tokyo Ghoul Within.mkv"
+    ]
+  },
+  {
+    "id": 72,
+    "mal_id": 18679,
+    "title": "Kill la Kill",
+    "canonical_title": "Kill la Kill",
+    "aliases": [
+      "Kiru ra Kiru"
+    ],
+    "year": 2013,
+    "category": "action",
+    "genres": [
+      "action",
+      "comedy",
+      "ecchi"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "Kill la Kill: Sayonara o Mou Ichido",
+      "Re:Kill la Kill",
+      "Kill la Kill Musume",
+      "Unrelated Show - 01 - The Kill la Kill Within.mkv"
+    ]
+  },
+  {
+    "id": 73,
+    "mal_id": 19815,
+    "title": "No Game No Life",
+    "canonical_title": "No Game No Life",
+    "aliases": [
+      "NGNL"
+    ],
+    "year": 2014,
+    "category": "fantasy",
+    "genres": [
+      "comedy",
+      "ecchi",
+      "fantasy"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "No Game No Life: Zero",
+      "Re:No Game No Life",
+      "No Game No Life Musume",
+      "Unrelated Show - 01 - The No Game No Life Within.mkv"
+    ]
+  },
+  {
+    "id": 74,
+    "mal_id": 29803,
+    "title": "Overlord",
+    "canonical_title": "Overlord",
+    "aliases": [
+      "Obarodo"
+    ],
+    "year": 2015,
+    "category": "fantasy",
+    "genres": [
+      "action",
+      "fantasy",
+      "supernatural"
+    ],
+    "is_short_title": true,
+    "distractors": [
+      "Overlord: The Sacred Kingdom",
+      "Re:Overlord",
+      "Overlord Musume",
+      "Unrelated Show - 01 - The Overlord Within.mkv"
+    ]
+  },
+  {
+    "id": 75,
+    "mal_id": 20507,
+    "title": "Noragami",
+    "canonical_title": "Noragami",
+    "aliases": [
+      "Stray God"
+    ],
+    "year": 2014,
+    "category": "action",
+    "genres": [
+      "action",
+      "adventure",
+      "supernatural"
+    ],
+    "is_short_title": true,
+    "distractors": [
+      "Noragami Aragoto",
+      "Re:Noragami",
+      "Noragami Musume",
+      "Unrelated Show - 01 - The Noragami Within.mkv"
+    ]
+  },
+  {
+    "id": 76,
+    "mal_id": 19,
+    "title": "Monster",
+    "canonical_title": "Monster",
+    "aliases": [
+      "Naoki Urasawa's Monster"
+    ],
+    "year": 2004,
+    "category": "short_stress",
+    "genres": [
+      "drama",
+      "mystery",
+      "psychological",
+      "thriller"
+    ],
+    "is_short_title": true,
+    "distractors": [
+      "Re:Monster",
+      "Monster Musume no Iru Nichijou",
+      "Monster Hunter Stories: Ride On",
+      "Pocket Monsters",
+      "Monster Rancher",
+      "Monster Strike",
+      "The Monster Within",
+      "Show Name - S01E05 - The Monster Within.mkv",
+      "Monster Musume",
+      "Unrelated Show - 01 - The Monster Within.mkv"
+    ]
+  },
+  {
+    "id": 77,
+    "mal_id": 877,
+    "title": "Nana",
+    "canonical_title": "Nana",
+    "aliases": [],
+    "year": 2006,
+    "category": "short_stress",
+    "genres": [
+      "drama",
+      "music",
+      "romance",
+      "shoujo"
+    ],
+    "is_short_title": true,
+    "distractors": [
+      "Munou na Nana",
+      "Talentless Nana",
+      "Nanatsu no Taizai",
+      "Nana (2005 Live Action)",
+      "Re:Nana",
+      "Nana Musume",
+      "Unrelated Show - 01 - The Nana Within.mkv"
+    ]
+  },
+  {
+    "id": 78,
+    "mal_id": 269,
+    "title": "Bleach",
+    "canonical_title": "Bleach",
+    "aliases": [
+      "Burichi"
+    ],
+    "year": 2004,
+    "category": "short_stress",
+    "genres": [
+      "action",
+      "adventure",
+      "supernatural"
+    ],
+    "is_short_title": true,
+    "distractors": [
+      "Bleach: Sennen Kessen-hen",
+      "Bleach: Thousand-Year Blood War",
+      "Burn the Witch",
+      "Bleach: Memories of Nobody",
+      "Re:Bleach",
+      "Bleach Musume",
+      "Unrelated Show - 01 - The Bleach Within.mkv"
+    ]
+  },
+  {
+    "id": 79,
+    "mal_id": 14467,
+    "title": "K",
+    "canonical_title": "K",
+    "aliases": [
+      "K-Project",
+      "K Project"
+    ],
+    "year": 2012,
+    "category": "short_stress",
+    "genres": [
+      "action",
+      "supernatural"
+    ],
+    "is_short_title": true,
+    "distractors": [
+      "K-On!",
+      "Special A",
+      "K: Return of Kings",
+      "K: Missing Kings",
+      "Kill la Kill",
+      "Re:K",
+      "K Musume",
+      "Unrelated Show - 01 - The K Within.mkv"
+    ]
+  },
+  {
+    "id": 80,
+    "mal_id": 31043,
+    "title": "Erased",
+    "canonical_title": "Erased",
+    "aliases": [
+      "Boku dake ga Inai Machi"
+    ],
+    "year": 2016,
+    "category": "short_stress",
+    "genres": [
+      "mystery",
+      "psychological",
+      "thriller",
+      "drama"
+    ],
+    "is_short_title": true,
+    "distractors": [
+      "Erased (Live Action)",
+      "Boku dake ga Inai Machi: Soumatou",
+      "Re:Erased",
+      "Erased Musume",
+      "Unrelated Show - 01 - The Erased Within.mkv"
+    ]
+  },
+  {
+    "id": 81,
+    "mal_id": 11111,
+    "title": "Another",
+    "canonical_title": "Another",
+    "aliases": [
+      "Anaza"
+    ],
+    "year": 2012,
+    "category": "short_stress",
+    "genres": [
+      "horror",
+      "mystery",
+      "supernatural",
+      "thriller"
+    ],
+    "is_short_title": true,
+    "distractors": [
+      "Another: The Other - Inga",
+      "Another World",
+      "Another Century",
+      "Re:Another",
+      "Another Musume",
+      "Unrelated Show - 01 - The Another Within.mkv"
+    ]
+  },
+  {
+    "id": 82,
+    "mal_id": 12189,
+    "title": "Hyouka",
+    "canonical_title": "Hyouka",
+    "aliases": [
+      "Hyoka"
+    ],
+    "year": 2012,
+    "category": "short_stress",
+    "genres": [
+      "mystery",
+      "slice of life"
+    ],
+    "is_short_title": true,
+    "distractors": [
+      "Hyouka: Motsubeki Mono wa",
+      "Re:Hyouka",
+      "Hyouka Musume",
+      "Unrelated Show - 01 - The Hyouka Within.mkv"
+    ]
+  },
+  {
+    "id": 83,
+    "mal_id": 2167,
+    "title": "Clannad",
+    "canonical_title": "Clannad",
+    "aliases": [
+      "Kuranado"
+    ],
+    "year": 2007,
+    "category": "short_stress",
+    "genres": [
+      "comedy",
+      "drama",
+      "romance",
+      "slice of life"
+    ],
+    "is_short_title": true,
+    "distractors": [
+      "Clannad: After Story",
+      "Re:Clannad",
+      "Clannad Musume",
+      "Unrelated Show - 01 - The Clannad Within.mkv"
+    ]
+  },
+  {
+    "id": 84,
+    "mal_id": 918,
+    "title": "Gintama",
+    "canonical_title": "Gintama",
+    "aliases": [
+      "Gin Tama",
+      "Silver Soul"
+    ],
+    "year": 2006,
+    "category": "short_stress",
+    "genres": [
+      "action",
+      "comedy",
+      "sci-fi"
+    ],
+    "is_short_title": true,
+    "distractors": [
+      "Gintama: The Final",
+      "Gintama. Porori-hen",
+      "Re:Gintama",
+      "Gintama Musume",
+      "Unrelated Show - 01 - The Gintama Within.mkv"
+    ]
+  },
+  {
+    "id": 85,
+    "mal_id": 32729,
+    "title": "Orange",
+    "canonical_title": "Orange",
+    "aliases": [
+      "Orenji"
+    ],
+    "year": 2016,
+    "category": "short_stress",
+    "genres": [
+      "drama",
+      "romance",
+      "sci-fi",
+      "shoujo"
+    ],
+    "is_short_title": true,
+    "distractors": [
+      "Orange: Mirai",
+      "Code Geass (Orange-kun references)",
+      "Re:Orange",
+      "Orange Musume",
+      "Unrelated Show - 01 - The Orange Within.mkv"
+    ]
+  },
+  {
+    "id": 86,
+    "mal_id": 101,
+    "title": "Air",
+    "canonical_title": "Air",
+    "aliases": [
+      "Ea"
+    ],
+    "year": 2005,
+    "category": "short_stress",
+    "genres": [
+      "drama",
+      "romance",
+      "supernatural"
+    ],
+    "is_short_title": true,
+    "distractors": [
+      "Fairy Tail",
+      "Air Gear",
+      "Avatar: The Last Airbender",
+      "Air Master",
+      "Re:Air",
+      "Air Musume",
+      "Unrelated Show - 01 - The Air Within.mkv"
+    ]
+  },
+  {
+    "id": 87,
+    "mal_id": 10163,
+    "title": "C",
+    "canonical_title": "C",
+    "aliases": [
+      "C: The Money of Soul and Possibility Control",
+      "Control"
+    ],
+    "year": 2011,
+    "category": "short_stress",
+    "genres": [
+      "action",
+      "mystery",
+      "sci-fi",
+      "thriller"
+    ],
+    "is_short_title": true,
+    "distractors": [
+      "Code Geass",
+      "Generic release codecs (AVC/HEVC)",
+      "Re:C",
+      "C Musume",
+      "Unrelated Show - 01 - The C Within.mkv"
+    ]
+  },
+  {
+    "id": 88,
+    "mal_id": 227,
+    "title": "FLCL",
+    "canonical_title": "FLCL",
+    "aliases": [
+      "Fooly Cooly"
+    ],
+    "year": 2000,
+    "category": "short_stress",
+    "genres": [
+      "action",
+      "comedy",
+      "sci-fi"
+    ],
+    "is_short_title": true,
+    "distractors": [
+      "FLCL Progressive",
+      "FLCL Alternative",
+      "FLCL Grunge",
+      "FLCL Shoegaze",
+      "Re:FLCL",
+      "FLCL Musume",
+      "Unrelated Show - 01 - The FLCL Within.mkv"
+    ]
+  },
+  {
+    "id": 89,
+    "mal_id": 57,
+    "title": "Beck",
+    "canonical_title": "Beck",
+    "aliases": [
+      "BECK: Mongolian Chop Squad"
+    ],
+    "year": 2004,
+    "category": "short_stress",
+    "genres": [
+      "comedy",
+      "drama",
+      "music",
+      "slice of life"
+    ],
+    "is_short_title": true,
+    "distractors": [
+      "BECK Live Action",
+      "Beck: The Movie",
+      "Re:Beck",
+      "Beck Musume",
+      "Unrelated Show - 01 - The Beck Within.mkv"
+    ]
+  },
+  {
+    "id": 90,
+    "mal_id": 384,
+    "title": "Gantz",
+    "canonical_title": "Gantz",
+    "aliases": [],
+    "year": 2004,
+    "category": "short_stress",
+    "genres": [
+      "action",
+      "horror",
+      "sci-fi",
+      "psychological",
+      "ecchi"
+    ],
+    "is_short_title": true,
+    "distractors": [
+      "Gantz:O",
+      "Gantz 2nd Stage",
+      "Gantz (Live Action)",
+      "Re:Gantz",
+      "Gantz Musume",
+      "Unrelated Show - 01 - The Gantz Within.mkv"
+    ]
+  },
+  {
+    "id": 91,
+    "mal_id": 1818,
+    "title": "Claymore",
+    "canonical_title": "Claymore",
+    "aliases": [
+      "Kureimoa"
+    ],
+    "year": 2007,
+    "category": "short_stress",
+    "genres": [
+      "action",
+      "adventure",
+      "fantasy",
+      "horror"
+    ],
+    "is_short_title": true,
+    "distractors": [
+      "Claymore: Silver-eyed Slayer",
+      "Re:Claymore",
+      "Claymore Musume",
+      "Unrelated Show - 01 - The Claymore Within.mkv"
+    ]
+  },
+  {
+    "id": 92,
+    "mal_id": 270,
+    "title": "Hellsing",
+    "canonical_title": "Hellsing",
+    "aliases": [
+      "Herushingu"
+    ],
+    "year": 2001,
+    "category": "short_stress",
+    "genres": [
+      "action",
+      "horror",
+      "supernatural"
+    ],
+    "is_short_title": true,
+    "distractors": [
+      "Hellsing Ultimate",
+      "Hellsing: The Dawn",
+      "Re:Hellsing",
+      "Hellsing Musume",
+      "Unrelated Show - 01 - The Hellsing Within.mkv"
+    ]
+  },
+  {
+    "id": 93,
+    "mal_id": 56690,
+    "title": "Re:Monster",
+    "canonical_title": "Re:Monster",
+    "aliases": [],
+    "year": 2024,
+    "category": "derivative_distractor",
+    "genres": [
+      "action",
+      "adventure",
+      "fantasy"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "Monster",
+      "Monster Musume",
+      "Re:Monster Musume",
+      "Unrelated Show - 01 - The Re:Monster Within.mkv"
+    ]
+  },
+  {
+    "id": 94,
+    "mal_id": 30307,
+    "title": "Monster Musume no Iru Nichijou",
+    "canonical_title": "Monster Musume no Iru Nichijou",
+    "aliases": [
+      "Monster Musume: Everyday Life with Monster Girls",
+      "MonMusu"
+    ],
+    "year": 2015,
+    "category": "derivative_distractor",
+    "genres": [
+      "comedy",
+      "ecchi",
+      "fantasy"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "Monster",
+      "Re:Monster",
+      "Monster Rancher",
+      "Re:Monster Musume no Iru Nichijou",
+      "Unrelated Show - 01 - The Monster Musume no Iru Nichijou Within.mkv"
+    ]
+  },
+  {
+    "id": 95,
+    "mal_id": 5081,
+    "title": "Bakemonogatari",
+    "canonical_title": "Bakemonogatari",
+    "aliases": [
+      "Ghostory"
+    ],
+    "year": 2009,
+    "category": "compound_distractor",
+    "genres": [
+      "comedy",
+      "mystery",
+      "romance",
+      "supernatural"
+    ],
+    "is_short_title": true,
+    "distractors": [
+      "Nisemonogatari",
+      "Kizumonogatari",
+      "Monogatari Series: Second Season",
+      "Nekomonogatari",
+      "Re:Bakemonogatari",
+      "Bakemonogatari Musume",
+      "Unrelated Show - 01 - The Bakemonogatari Within.mkv"
+    ]
+  },
+  {
+    "id": 96,
+    "mal_id": 31240,
+    "title": "Re:Zero kara Hajimeru Isekai Seikatsu",
+    "canonical_title": "Re:Zero kara Hajimeru Isekai Seikatsu",
+    "aliases": [
+      "Re:Zero - Starting Life in Another World",
+      "ReZero"
+    ],
+    "year": 2016,
+    "category": "derivative_distractor",
+    "genres": [
+      "drama",
+      "fantasy",
+      "psychological",
+      "thriller"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "Re:Zero: Memory Snow",
+      "Zero kara Hajimeru Isekai Seikatsu",
+      "Re:Zero kara Hajimeru Isekai Seikatsu Musume",
+      "Unrelated Show - 01 - The Re:Zero kara Hajimeru Isekai Seikatsu Within.mkv"
+    ]
+  },
+  {
+    "id": 97,
+    "mal_id": 10087,
+    "title": "Fate/Zero",
+    "canonical_title": "Fate/Zero",
+    "aliases": [
+      "Fate Zero"
+    ],
+    "year": 2011,
+    "category": "derivative_distractor",
+    "genres": [
+      "action",
+      "fantasy",
+      "supernatural"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "Fate/stay night",
+      "Fate/Zero 2nd Season",
+      "Fate/Apocrypha",
+      "Fate/Grand Order",
+      "Re:Fate/Zero",
+      "Fate/Zero Musume",
+      "Unrelated Show - 01 - The Fate/Zero Within.mkv"
+    ]
+  },
+  {
+    "id": 98,
+    "mal_id": 356,
+    "title": "Fate/stay night",
+    "canonical_title": "Fate/stay night",
+    "aliases": [
+      "Fate Stay Night"
+    ],
+    "year": 2006,
+    "category": "derivative_distractor",
+    "genres": [
+      "action",
+      "fantasy",
+      "supernatural",
+      "romance"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "Fate/stay night: Unlimited Blade Works",
+      "Fate/stay night: Heaven's Feel",
+      "Fate/Zero",
+      "Re:Fate/stay night",
+      "Fate/stay night Musume",
+      "Unrelated Show - 01 - The Fate/stay night Within.mkv"
+    ]
+  },
+  {
+    "id": 99,
+    "mal_id": 52299,
+    "title": "Solo Leveling",
+    "canonical_title": "Solo Leveling",
+    "aliases": [
+      "Ore dake Level Up na Ken"
+    ],
+    "year": 2024,
+    "category": "modern",
+    "genres": [
+      "action",
+      "adventure",
+      "fantasy"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "Solo Leveling: ReAwakening",
+      "Re:Solo Leveling",
+      "Solo Leveling Musume",
+      "Unrelated Show - 01 - The Solo Leveling Within.mkv"
+    ]
+  },
+  {
+    "id": 100,
+    "mal_id": 11757,
+    "title": "Sword Art Online",
+    "canonical_title": "Sword Art Online",
+    "aliases": [
+      "SAO"
+    ],
+    "year": 2012,
+    "category": "titan",
+    "genres": [
+      "action",
+      "adventure",
+      "fantasy",
+      "romance",
+      "sci-fi"
+    ],
+    "is_short_title": false,
+    "distractors": [
+      "Sword Art Online: Alicization",
+      "Sword Art Online Progressive",
+      "Re:Sword Art Online",
+      "Sword Art Online Musume",
+      "Unrelated Show - 01 - The Sword Art Online Within.mkv"
+    ]
+  }
+]

@@ -387,6 +387,249 @@ def get_size(size=0):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+#  Title Scoring & Isolation
+# ═══════════════════════════════════════════════════════════════════════════
+
+APPROVED_DESCRIPTORS = frozenset({
+    'dub', 'dubbed', 'sub', 'subbed', 'tv', 'movie', 'film', 'ova', 'ona',
+    'special', 'specials', 'dual', 'audio', 'multi', 'uncut', 'censored',
+    'uncensored', 'remastered', 'edition', 'bd', 'dvd', 'complete', 'series'
+})
+
+_RE_DESCRIPTOR_TAGS = re.compile(
+    r'\b(dub|dubbed|sub|subbed|tv|movie|film|ova|ona|dual\s*audio)\b',
+    re.IGNORECASE
+)
+
+
+def _has_descriptor_tags(text):
+    return bool(_RE_DESCRIPTOR_TAGS.search(str(text)))
+
+
+def isolate_show_title(raw_title):
+    """
+    Isolate the release show title from a raw filename or candidate title by
+    stripping release groups ([...]), resolutions (1080p, 720p), video/audio
+    codecs, episode numbering, and file extensions (.mkv, .mp4).
+    """
+    if not raw_title:
+        return ''
+
+    text = str(raw_title).strip()
+
+    # 1. Strip file extension
+    text = re.sub(
+        r'\.(?:mkv|mp4|avi|mov|wmv|m4v|webm|flv|ts|m2ts|mts|ogv|vob)$',
+        '',
+        text,
+        flags=re.IGNORECASE
+    )
+
+    # 2. Strip leading bracketed/parenthesized release group tags
+    text = re.sub(r'^(?:\s*\[[^\]]*\]|\s*\([^\)]*\))+', '', text).strip()
+
+    # 3. Handle dot-separated scene format: e.g. "Monster.S01E01.1080p.BluRay" -> "Monster"
+    scene_match = re.search(
+        r'^(.*?)[._ -]+(?:s\d{1,2}(?:[._ -]?e\d{1,4})?|e\d{1,4}|season[._ -]?\d{1,2})(?:[._ -]|$)',
+        text,
+        flags=re.IGNORECASE
+    )
+    if scene_match and scene_match.group(1):
+        candidate = scene_match.group(1).replace('.', ' ').replace('_', ' ').strip()
+        if candidate:
+            text = candidate
+    else:
+        # 4. Segment at episode marker separating show title from episode number / episode title
+        ep_split = re.split(
+            r'''(?ix)
+            \s+-\s+(?:ep(?:isode)?\s*|e\s*)?\d{1,4}(?:\b|v\d)
+            |
+            \s+-\s+s\d{1,2}(?:\s*-\s*\d{1,4}|\s*e\d{1,4})\b
+            |
+            \s+(?:s\d{1,2})?e\d{1,4}\b
+            |
+            \s+(?:ep(?:isode)?\s*)\d{1,4}\b
+            |
+            \s+-\s+part\s+\d+\s+-\s+\d{1,4}\b
+            ''',
+            text
+        )
+        if len(ep_split) > 1 and ep_split[0].strip():
+            text = ep_split[0].strip()
+        else:
+            # Fallback: check if ends with standalone episode number followed by brackets/parens/metadata
+            m = re.match(
+                r'^(.*?)[._\s]+\d{1,4}(?:v\d)?(?:[._\s]+|\s*\[|\s*\()(?:360p|480p|720p|1080p|2160p|4k|bdrip|bluray|web-dl|webrip|dvdrip|hdtv|x264|x265|hevc|av1)',
+                text,
+                flags=re.IGNORECASE
+            )
+            if m and m.group(1).strip():
+                cand = m.group(1).strip()
+                if '.' in cand and ' ' not in cand:
+                    cand = cand.replace('.', ' ')
+                text = cand
+
+    # 5. Remove media patterns (resolution, codecs, etc.) and bracketed text
+    text = remove_patterns(text)
+    text = _RE_BRACKETS_AND_PARENS.sub('', text)
+    text = _RE_COLLAPSE_SPACES.sub(' ', text).strip()
+    return text
+
+
+def clean_title_for_matching(title):
+    """
+    Clean title for matching:
+    Strips bracketed metadata, release groups, resolutions, codecs, file extensions,
+    and normalizes punctuation while preserving distinct words and prefix boundaries.
+    """
+    if not title:
+        return ''
+    isolated = isolate_show_title(title)
+    if not isolated:
+        isolated = str(title)
+    return cleanTitle(isolated)
+
+
+def score_title_candidate(query, candidate_title, aliases=None, year=None):
+    """
+    Clean, robust, reusable candidate scoring function for all scrapers.
+    Returns an integer score from 0 to 200.
+    - Score >= 140 for exact canonical or alias matches (case-insensitive, normalized).
+    - Score >= 110 for matches with valid release descriptor tags ((Dub), (Sub), (TV), (Movie)).
+    - Score <= 40 or 0 for derivative titles (e.g. Re:Monster when query is Monster, Monster Musume, etc.).
+    - Supports alias matching against Japanese/Romaji and English variations.
+    """
+    if not query or not candidate_title:
+        return 0
+
+    cand_isolated = isolate_show_title(candidate_title) or str(candidate_title)
+    cand_clean = cleanTitle(cand_isolated)
+    cand_tokens = cand_clean.split()
+
+    target_list = [(query, True)]
+    if aliases:
+        for a in aliases:
+            if a and str(a).strip() and str(a).strip() != query:
+                target_list.append((str(a).strip(), False))
+
+    best_score = 0
+    raw_cand_lower = str(candidate_title).lower()
+    raw_cand_isolated_lower = str(cand_isolated).lower()
+
+    cand_year_match = re.search(r'\b(19\d{2}|20\d{2})\b', str(candidate_title))
+    cand_year = cand_year_match.group(1) if cand_year_match else None
+    passed_year = str(year).strip() if year else None
+
+    cand_has_desc = _has_descriptor_tags(candidate_title)
+
+    for target, is_canonical in target_list:
+        target_year_match = re.search(r'\b(19\d{2}|20\d{2})\b', str(target))
+        target_year = passed_year or (target_year_match.group(1) if target_year_match else None)
+
+        target_clean = cleanTitle(target)
+        target_tokens = target_clean.split()
+        if not target_tokens:
+            continue
+
+        raw_target_lower = str(target).lower()
+        target_has_desc = _has_descriptor_tags(target)
+
+        # Disqualify derivative prefix mismatch (e.g. "Re:Monster" vs "Monster")
+        target_has_re = raw_target_lower.startswith(('re:', 're-', 're ')) or (target_tokens and target_tokens[0] == 're')
+        cand_has_re = (
+            raw_cand_lower.startswith(('re:', 're-', 're '))
+            or raw_cand_isolated_lower.startswith(('re:', 're-', 're '))
+            or (cand_tokens and cand_tokens[0] == 're')
+        )
+        if cand_has_re != target_has_re:
+            continue
+
+        # Disqualify other derivative prefixes
+        prefix_mismatch = False
+        for pfx in ('shin ', 'new ', 'gekijouban '):
+            if (raw_cand_isolated_lower.startswith(pfx) or raw_cand_lower.startswith(pfx)) != raw_target_lower.startswith(pfx):
+                prefix_mismatch = True
+                break
+        if prefix_mismatch:
+            continue
+
+        # Explicit year mismatch
+        if target_year and cand_year and target_year != cand_year:
+            continue
+
+        # Disqualify sequel seasons (e.g. "Piano no Mori Season 2" when target is not Season 2)
+        cand_season_match = re.search(r'\b(?:season\s*([2-9]|\d{2,})|s([2-9]|\d{2,}))\b', raw_cand_lower)
+        target_season_match = re.search(r'\b(?:season\s*([2-9]|\d{2,})|s([2-9]|\d{2,}))\b', raw_target_lower)
+        if cand_season_match and not target_season_match:
+            continue
+
+        # Disqualify live-action adaptation when query is anime
+        if ('live action' in raw_cand_lower or 'live-action' in raw_cand_lower) and ('live action' not in raw_target_lower and 'live-action' not in raw_target_lower):
+            continue
+
+        # Exact normalized match
+        target_stripped_clean = cleanTitle(re.sub(r'[\(\[]?\b(19\d{2}|20\d{2})\b[\)\]]?', '', str(target)))
+        cand_stripped_clean = cleanTitle(re.sub(r'[\(\[]?\b(19\d{2}|20\d{2})\b[\)\]]?', '', str(cand_isolated)))
+
+        target_isolated = isolate_show_title(target) or str(target)
+        target_isolated_clean = cleanTitle(target_isolated)
+
+        is_exact = (cand_clean == target_clean) or (
+            cand_clean == target_isolated_clean
+        ) or (
+            target_year and cand_year and target_year == cand_year and target_stripped_clean == cand_stripped_clean
+        ) or (
+            target_year and not cand_year and target_stripped_clean == cand_clean
+        ) or (
+            cand_year and not target_year and target_clean == cand_stripped_clean
+        )
+
+        if is_exact:
+            if (cand_has_desc and not target_has_desc) or (target_has_desc and not cand_has_desc):
+                score = 125 if is_canonical else 115
+            else:
+                score = 150 if is_canonical else 140
+            if target_year and cand_year and target_year == cand_year:
+                score += 10
+            best_score = max(best_score, score)
+            continue
+
+        # Unexpected & missing tokens check excluding approved descriptors
+        raw_unexpected = [tok for tok in cand_tokens if tok not in target_tokens]
+        raw_missing = [tok for tok in target_tokens if tok not in cand_tokens]
+        unexpected = raw_unexpected
+        missing = [tok for tok in raw_missing if tok not in ('tv', 'movie', 'film', 'dub', 'sub')]
+
+        if not unexpected and not missing:
+            # Core tokens match completely; differences are solely approved descriptors
+            if not raw_unexpected and not raw_missing:
+                score = 150 if is_canonical else 140
+            else:
+                score = 125 if is_canonical else 115
+            best_score = max(best_score, score)
+            continue
+
+        # For short queries (<= 2 tokens), check derivative expansion
+        if len(target_tokens) <= 2:
+            if set(target_tokens).issubset(set(cand_tokens)):
+                # Derivative expansion: e.g. "Monster Musume", "Monster Hunter Stories"
+                best_score = max(best_score, 10 if is_canonical else 0)
+                continue
+            else:
+                continue
+
+        # Multi-token titles (> 2 tokens):
+        # If candidate has unexpected non-descriptor tokens (e.g. Junior High) or misses key distinguishing tokens,
+        # it is a different series or spin-off.
+        if unexpected or missing:
+            has_common = bool(set(target_tokens) & set(cand_tokens))
+            best_score = max(best_score, 10 if (is_canonical and has_common) else 0)
+            continue
+
+    return min(200, max(0, best_score))
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 #  Fuzzy Matching
 # ═══════════════════════════════════════════════════════════════════════════
 
@@ -403,40 +646,103 @@ def get_fuzzy_match(query, filenames):
         return []
 
     # Normalize query for matching
-    query_clean = cleanTitle(query)
-    query_lower = query.lower()
+    query_isolated = isolate_show_title(query) or str(query)
+    query_clean = cleanTitle(query_isolated)
+    query_tokens = query_clean.split()
+    if not query_tokens:
+        query_clean = cleanTitle(query)
+        query_tokens = query_clean.split()
+        if not query_tokens:
+            return []
 
-    # Stage 1: Exact match (case-insensitive)
-    exact_matches = []
+    query_lower = query.lower()
+    query_iso_lower = query_isolated.lower()
+    is_short_query = (len(query_tokens) <= 2)
+    query_has_re = query_lower.startswith(('re:', 're-', 're ')) or (query_tokens and query_tokens[0] == 're')
+
+    query_year_match = re.search(r'\b(19\d{2}|20\d{2})\b', str(query))
+    query_year = query_year_match.group(1) if query_year_match else None
+
+    # Pre-parse candidate show titles
+    candidates = []
     for i, filename in enumerate(filenames):
-        if query_lower in filename.lower():
-            exact_matches.append((i, 1.0))  # Perfect score
+        cand_isolated = isolate_show_title(filename) or str(filename)
+        cand_clean = cleanTitle(cand_isolated)
+        cand_tokens = cand_clean.split()
+        cand_lower = str(filename).lower()
+        cand_iso_lower = cand_isolated.lower()
+
+        # Disqualify derivative prefix mismatch (e.g. Re:Monster vs Monster)
+        cand_has_re = (
+            cand_lower.startswith(('re:', 're-', 're '))
+            or cand_iso_lower.startswith(('re:', 're-', 're '))
+            or (cand_tokens and cand_tokens[0] == 're')
+        )
+        if cand_has_re != query_has_re:
+            continue
+
+        # Disqualify live-action adaptation when query is anime
+        if ('live action' in cand_lower or 'live-action' in cand_lower) and ('live action' not in query_lower and 'live-action' not in query_lower):
+            continue
+
+        # Explicit year mismatch
+        cand_year_match = re.search(r'\b(19\d{2}|20\d{2})\b', str(filename))
+        cand_year = cand_year_match.group(1) if cand_year_match else None
+        if query_year and cand_year and query_year != cand_year:
+            continue
+
+        # Disqualify other derivative prefixes
+        prefix_mismatch = False
+        for pfx in ('shin ', 'new ', 'gekijouban '):
+            if (cand_iso_lower.startswith(pfx) or cand_lower.startswith(pfx)) != query_lower.startswith(pfx):
+                prefix_mismatch = True
+                break
+        if prefix_mismatch:
+            continue
+
+        # For short queries (<= 2 tokens), disqualify unapproved derivative expansions
+        if is_short_query:
+            if not set(query_tokens).issubset(set(cand_tokens)):
+                continue
+            unexpected = [tok for tok in cand_tokens if tok not in query_tokens and tok not in APPROVED_DESCRIPTORS]
+            if unexpected:
+                # Disqualify unapproved derivative expansion (e.g. Monster Musume, Monster Hunter Stories)
+                continue
+
+        candidates.append((i, filename, cand_isolated, cand_clean, cand_tokens))
+
+    if not candidates:
+        control.log(f"Fuzzy Match: No candidates passed title pre-filtering for '{query}'")
+        return []
+
+    # Stage 1: Exact match (normalized title token equality or strict descriptor match)
+    exact_matches = []
+    for i, filename, cand_isolated, cand_clean, cand_tokens in candidates:
+        if cand_clean == query_clean:
+            exact_matches.append((i, 1.0))
+        elif set(query_tokens) == (set(cand_tokens) - APPROVED_DESCRIPTORS):
+            exact_matches.append((i, 0.98))
 
     if exact_matches:
+        exact_matches.sort(key=lambda x: x[1], reverse=True)
         control.log(f"Fuzzy Match: Found {len(exact_matches)} exact matches for '{query}'")
         return [i for i, _ in exact_matches]
 
-    # Stage 2: Token-based matching (handles reordered words)
-    query_tokens = set(query_clean.split())
+    # Stage 2: Token-based matching (operates on isolated clean show title)
+    query_tokens_set = set(query_tokens)
     token_matches = []
 
-    for i, filename in enumerate(filenames):
-        filename_clean = cleanTitle(filename)
-        filename_tokens = set(filename_clean.split())
-
-        # Calculate token overlap
-        common_tokens = query_tokens & filename_tokens
+    for i, filename, cand_isolated, cand_clean, cand_tokens in candidates:
+        cand_tokens_set = set(cand_tokens)
+        common_tokens = query_tokens_set & cand_tokens_set
         if common_tokens:
-            # Jaccard similarity: intersection / union
-            jaccard = len(common_tokens) / len(query_tokens | filename_tokens)
+            jaccard = len(common_tokens) / len(query_tokens_set | cand_tokens_set)
+            coverage = len(common_tokens) / len(query_tokens_set)
+            unexpected = [t for t in (cand_tokens_set - query_tokens_set) if t not in APPROVED_DESCRIPTORS]
+            penalty = 0.2 * len(unexpected)
+            score = (jaccard * 0.4) + (coverage * 0.6) - penalty
 
-            # Token coverage: what % of query tokens are present
-            coverage = len(common_tokens) / len(query_tokens) if query_tokens else 0
-
-            # Combined score (weighted average)
-            score = (jaccard * 0.4) + (coverage * 0.6)
-
-            if score >= 0.5:  # Threshold: at least 50% match
+            if score >= 0.5:
                 token_matches.append((i, score))
 
     if token_matches:
@@ -444,16 +750,12 @@ def get_fuzzy_match(query, filenames):
         control.log(f"Fuzzy Match: Found {len(token_matches)} token matches for '{query}' (best: {token_matches[0][1]:.2f})")
         return [i for i, _ in token_matches]
 
-    # Stage 3: Sequence matching with difflib (handles typos, partial matches)
+    # Stage 3: Sequence matching (operates on isolated clean show title)
     sequence_matches = []
     threshold = control.getInt('general.fuzzy') / 100.0 if control.getInt('general.fuzzy') > 0 else 0.6
 
-    for i, filename in enumerate(filenames):
-        filename_clean = cleanTitle(filename)
-
-        # Use SequenceMatcher for similarity ratio
-        ratio = SequenceMatcher(None, query_clean, filename_clean).ratio()
-
+    for i, filename, cand_isolated, cand_clean, cand_tokens in candidates:
+        ratio = SequenceMatcher(None, query_clean, cand_clean).ratio()
         if ratio >= threshold:
             sequence_matches.append((i, ratio))
 
@@ -462,25 +764,21 @@ def get_fuzzy_match(query, filenames):
         control.log(f"Fuzzy Match: Found {len(sequence_matches)} sequence matches for '{query}' (best: {sequence_matches[0][1]:.2f})")
         return [i for i, _ in sequence_matches]
 
-    # Stage 4: Fallback - Close matches with lower threshold
+    # Stage 4: Fallback - Close matches on isolated clean show title
     fallback_matches = []
 
-    for i, filename in enumerate(filenames):
-        filename_clean = cleanTitle(filename)
-
-        # Try both ways (query in filename, filename in query)
-        ratio1 = SequenceMatcher(None, query_clean, filename_clean).ratio()
-        ratio2 = SequenceMatcher(None, query_lower, filename.lower()).ratio()
-
+    for i, filename, cand_isolated, cand_clean, cand_tokens in candidates:
+        ratio1 = SequenceMatcher(None, query_clean, cand_clean).ratio()
+        ratio2 = SequenceMatcher(None, query_lower, cand_isolated.lower()).ratio()
         max_ratio = max(ratio1, ratio2)
 
-        if max_ratio >= 0.4:  # Lower threshold for fallback
+        if max_ratio >= 0.4:
             fallback_matches.append((i, max_ratio))
 
     if fallback_matches:
         fallback_matches.sort(key=lambda x: x[1], reverse=True)
         control.log(f"Fuzzy Match: Found {len(fallback_matches)} fallback matches for '{query}' (best: {fallback_matches[0][1]:.2f})")
-        return [i for i, _ in fallback_matches[:10]]  # Limit to top 10
+        return [i for i, _ in fallback_matches[:10]]
 
     # No matches found
     control.log(f"Fuzzy Match: No matches found for '{query}'")
@@ -547,11 +845,13 @@ _RE_FILTER_S_E = re.compile(r"s\d{1,2}e(\d{1,4})", re.IGNORECASE)
 _RE_BTIH_HASH = re.compile(r'btih:(.*?)(?:&|$)', re.IGNORECASE)
 
 
-def filter_sources(provider, torrent_list, mal_id, season=None, episode=None, part=None, anidb_id=True):
+def filter_sources(provider, torrent_list, mal_id, season=None, episode=None, part=None, anidb_id=True, show_title=None, aliases=None):
     from resources.lib.ui import database
     """
     Filter torrents based on season, episode, and part information.
     Uses improved regex patterns to handle a wider variety of media title formats.
+    When show_title or aliases are provided, validates release titles to reject
+    derivative or unrelated torrents.
     """
     # Check for Large Animes or Tvdb Animes with season 0
     if season == 1:
@@ -579,8 +879,9 @@ def filter_sources(provider, torrent_list, mal_id, season=None, episode=None, pa
             if 'hash' not in torrent:
                 continue
         elif provider == 'nyaa':
-            m = _RE_BTIH_HASH.search(torrent.get('magnet', ''))
-            torrent['hash'] = m.group(1) if m else ''
+            if not torrent.get('hash'):
+                m = _RE_BTIH_HASH.search(torrent.get('magnet', ''))
+                torrent['hash'] = m.group(1) if m else ''
         elif provider == 'realdebrid':
             torrent['hash'] = torrent.get('hash', '')
         elif provider == 'alldebrid':
@@ -601,10 +902,18 @@ def filter_sources(provider, torrent_list, mal_id, season=None, episode=None, pa
             continue
 
         # Select the title based on provider
-        if provider in ['realdebrid', 'alldebrid']:
-            title = torrent.get('filename', '').lower()
-        else:
-            title = torrent.get('name', '').lower()
+        raw_title = torrent.get('release_title') or (
+            torrent.get('filename', '') if provider in ['realdebrid', 'alldebrid'] else torrent.get('name', '')
+        )
+        title = raw_title.lower()
+
+        # Validate title against show_title or aliases when provided
+        if show_title or aliases:
+            target_query = show_title or (aliases[0] if aliases else '')
+            title_score = score_title_candidate(target_query, raw_title, aliases=aliases)
+            if title_score <= 40:
+                continue
+            torrent['relevance'] = title_score
 
         # Clean the title for extraction
         clean_title = clean_text(title)
@@ -780,7 +1089,7 @@ _RE_COMBINED_PATTERNS = re.compile(
 _RE_BRACKETS_AND_PARENS = re.compile(r"\[.*?\]|\(.*?\)")
 _RE_SPECIAL_CHARS = re.compile(r"[:/,!?()'\"\\\[\]_.]")
 _RE_COLLAPSE_SPACES = re.compile(r"\s+")
-_RE_CLEANTITLE_PUNCT = re.compile(r'[:/,!?()\'"\\\[\]\-_.]')
+_RE_CLEANTITLE_PUNCT = re.compile(r'[:/,!?();\'"\\\[\]\-_.]')
 
 
 def remove_patterns(text):

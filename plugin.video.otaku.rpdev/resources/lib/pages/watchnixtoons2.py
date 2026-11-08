@@ -6,7 +6,7 @@ import uuid
 import urllib.parse
 import json
 from bs4 import BeautifulSoup
-from resources.lib.ui import control, database, client, domains
+from resources.lib.ui import control, database, client, domains, source_utils
 from resources.lib.ui.BrowserBase import BrowserBase
 import threading
 
@@ -872,11 +872,25 @@ class Sources(BrowserBase):
     def _episode_lang_key(self, episode_data):
         return 3 if self._is_dub_episode(episode_data) else 2
 
-    def _get_series_variants(self, series_results):
+    def _get_series_variants(self, series_results, query=None):
         if not series_results:
             return []
 
+        if query:
+            scored = [
+                (series, source_utils.score_title_candidate(query, series.get('title', '')))
+                for series in series_results
+            ]
+            valid = [s for s in scored if s[1] >= 50]
+            if valid:
+                valid.sort(key=lambda x: x[1], reverse=True)
+                series_results = [s[0] for s in valid]
+            elif scored:
+                # All candidates scored < 50; reject derivative/unrelated items
+                return []
+
         anchor_base = self._normalize_series_base_title(series_results[0]['title']).lower()
+        anchor_title = series_results[0]['title']
         variants = []
         seen_urls = set()
 
@@ -884,7 +898,7 @@ class Sources(BrowserBase):
             series_base = self._normalize_series_base_title(series['title']).lower()
             same_show = (
                 series_base == anchor_base
-                or self._titles_match(series_results[0]['title'], series['title'])
+                or self._titles_match(anchor_title, series['title'])
             )
             if not same_show:
                 continue
@@ -932,7 +946,10 @@ class Sources(BrowserBase):
                 control.log(f"No series found for {version_type} search: {search_title}")
                 return []
 
-            series_to_check = self._get_series_variants(series_results)
+            series_to_check = self._get_series_variants(series_results, query=search_title)
+            if not series_to_check:
+                control.log(f"No series variant matched search_title: {search_title}")
+                return []
             for series in series_to_check:
                 control.log(f"Checking series variant: {series['title']}")
 
@@ -1269,36 +1286,27 @@ class Sources(BrowserBase):
 
     def _titles_match(self, search_title, series_title):
         """Check if two titles match"""
-        search_lower = search_title.lower()
-        series_lower = series_title.lower()
+        if not search_title or not series_title:
+            return False
 
-        # Remove common words and punctuation for better matching
-        common_words = ['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by']
+        # Reject derivative series prefixes (e.g. "Re:Monster" vs "Monster")
+        st_clean = search_title.strip().lower()
+        ser_clean = series_title.strip().lower()
+        st_is_re = st_clean.startswith(('re:', 're-', 're '))
+        ser_is_re = ser_clean.startswith(('re:', 're-', 're '))
+        if st_is_re != ser_is_re:
+            return False
 
-        def clean_for_matching(title):
-            # Remove punctuation and extra spaces
-            cleaned = re.sub(r'[^\w\s]', ' ', title)
-            words = [word for word in cleaned.split() if word.lower() not in common_words]
-            return ' '.join(words).lower()
-
-        clean_search = clean_for_matching(search_lower)
-        clean_series = clean_for_matching(series_lower)
-
-        # Check various matching strategies
-        if clean_search in clean_series or clean_series in clean_search:
+        # Centralized candidate scoring: >= 100 for canonical, alias, or approved descriptor matches
+        score = source_utils.score_title_candidate(search_title, series_title)
+        if score >= 100:
             return True
 
-        # Check if most words match
-        search_words = set(clean_search.split())
-        series_words = set(clean_series.split())
-
-        if search_words and series_words:
-            overlap = len(search_words.intersection(series_words))
-            total = len(search_words.union(series_words))
-            similarity = overlap / total if total > 0 else 0
-
-            if similarity >= 0.6:  # 60% word overlap
-                return True
+        # Handle matching two variants of the same show (e.g. "Monster (Dubbed)" vs "Monster (Subbed)")
+        iso_search = source_utils.cleanTitle(source_utils.isolate_show_title(search_title))
+        iso_series = source_utils.cleanTitle(source_utils.isolate_show_title(series_title))
+        if iso_search and iso_search == iso_series:
+            return True
 
         return False
 

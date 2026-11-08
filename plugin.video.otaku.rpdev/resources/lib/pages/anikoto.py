@@ -52,6 +52,9 @@ class Sources(BrowserBase):
         control.log(f"Anikoto: Returning {len(all_results)} source(s)", level='info')
         return all_results
 
+    def _score_candidate(self, candidate_name, title, current_year=None):
+        return source_utils.score_title_candidate(title, candidate_name, year=current_year)
+
     def _build_source(self, embed_url, title, episode, lang):
         try:
             res = extract_megaplay_sources(embed_url, self._REFERER)

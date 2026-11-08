@@ -321,7 +321,7 @@ class Sources(GetSources):
                 self.hosterSources = part_filter.filter_sources(self.hosterSources, mal_id=mal_id, episode=episode, season=season, part=part)
                 self.embedSources = part_filter.filter_sources(self.embedSources, mal_id=mal_id, episode=episode, season=season, part=part)
                 self.cloud_files = part_filter.filter_sources(self.cloud_files, mal_id=mal_id, episode=episode, season=season, part=part)
-                self.return_data = self.sortSources(self.torrentSources, self.hosterSources, self.embedSources, self.cloud_files, self.local_files, media_type, duration, mal_id=mal_id)
+                self.return_data = self.sortSources(self.torrentSources, self.hosterSources, self.embedSources, self.cloud_files, self.local_files, media_type, duration, mal_id=mal_id, show_title=query)
         except Exception as e:
             control.log(f"Error in getSources: {e}", 'error')
             self.return_data = []
@@ -473,7 +473,7 @@ class Sources(GetSources):
                 control.setInt(f'{prefix}.skipoutro.end', int(outro['end']))
 
     @staticmethod
-    def sortSources(torrent_list, hoster_list, embed_list, cloud_files, local_files, media_type, duration, mal_id=None):
+    def sortSources(torrent_list, hoster_list, embed_list, cloud_files, local_files, media_type, duration, mal_id=None, show_title=None, aliases=None):
         all_list = torrent_list + hoster_list + embed_list + cloud_files + local_files
         sortedList = [x for x in all_list if control.getInt('general.minResolution') <= x['quality'] <= control.getInt('general.maxResolution')]
 
@@ -641,8 +641,63 @@ class Sources(GetSources):
                     and not any('SUB' in str(t).upper() and 'DUB' not in str(t).upper() for t in (i.get('info') or []))
                 ]
 
+        # Resolve target show title and aliases for relevance scoring
+        target_title = show_title
+        target_aliases = list(aliases) if aliases else []
+
+        if target_title and '(' in target_title and '|' in target_title:
+            extracted = re.findall(r'\((.*?)\)', target_title)
+            if extracted:
+                if not target_aliases:
+                    target_aliases = [x.strip() for x in extracted[1:] if x.strip()]
+                target_title = extracted[0].strip()
+
+        if mal_id:
+            try:
+                show_meta = database.get_show_meta(mal_id) or database.get_show(mal_id)
+                if show_meta and isinstance(show_meta, dict):
+                    if not target_title:
+                        target_title = show_meta.get('name') or show_meta.get('ename')
+                    meta_aliases = [
+                        v for k, v in show_meta.items()
+                        if k in ('name', 'ename', 'title_english', 'title_romaji') and v and v != target_title
+                    ]
+                    for a in meta_aliases:
+                        if a not in target_aliases:
+                            target_aliases.append(a)
+            except Exception:
+                pass
+
+        if target_title:
+            for s in sortedList:
+                if 'relevance' not in s:
+                    s_title = s.get('release_title') or s.get('name') or ''
+                    if s_title:
+                        s['relevance'] = source_utils.score_title_candidate(target_title, s_title, aliases=target_aliases)
+
+        # Gate out derivative/unrelated sources (relevance <= 40) when high-confidence sources exist
+        has_high_relevance = any(x.get('relevance') is not None and x.get('relevance') >= 100 for x in sortedList)
+        if has_high_relevance:
+            sortedList = [x for x in sortedList if x.get('relevance') is None or x.get('relevance') > 40]
+
         # Sort sources (Seren-style composite keys; fresh sort_options.json)
         sortedList = sort_select.sort_sources_list(sortedList)
+
+        # Relevance tier sorting: enforce exact/canonical matches (Tier 0) and high-confidence
+        # matches (Tier 1) rank above partial/unrated/derivative matches before quality/size.
+        def _get_relevance_tier(item):
+            rel = item.get('relevance')
+            if rel is None:
+                return 2
+            if rel >= 140:
+                return 0
+            if rel >= 100:
+                return 1
+            if rel > 40:
+                return 2
+            return 3
+
+        sortedList.sort(key=_get_relevance_tier)
 
         # SmartPlay: prioritize preferred embed provider and matching quality/release if enabled
         if mal_id and control.getBool('general.smartplay', default=True):
@@ -660,8 +715,10 @@ class Sources(GetSources):
                             elif match_idx == -1:
                                 match_idx = idx
                     if match_idx > 0:
-                        matching_source = sortedList.pop(match_idx)
-                        sortedList.insert(0, matching_source)
+                        matching_source = sortedList[match_idx]
+                        if not sortedList or _get_relevance_tier(matching_source) <= _get_relevance_tier(sortedList[0]):
+                            matching_source = sortedList.pop(match_idx)
+                            sortedList.insert(0, matching_source)
                 elif control.getBool('smartplay.match_quality', default=True) and last_played_profile.get('type') not in ('embed', 'direct'):
                     last_quality = last_played_profile.get('quality')
                     last_provider = last_played_profile.get('provider')
@@ -685,8 +742,10 @@ class Sources(GetSources):
                             match_idx = idx
 
                     if match_idx > 0:
-                        matching_source = sortedList.pop(match_idx)
-                        sortedList.insert(0, matching_source)
+                        matching_source = sortedList[match_idx]
+                        if not sortedList or _get_relevance_tier(matching_source) <= _get_relevance_tier(sortedList[0]):
+                            matching_source = sortedList.pop(match_idx)
+                            sortedList.insert(0, matching_source)
 
         return sortedList
 
