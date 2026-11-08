@@ -1,0 +1,219 @@
+name: Release & Publish Otaku RPDev
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Version tag to release (e.g. v6.0.7)'
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  test-gate:
+    name: Pre-Flight Test Gate
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        python-version: ['3.11', '3.12', '3.13']
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install Test Dependencies
+        run: |
+          pip install --upgrade pip
+          pip install beautifulsoup4 pyqrcode ruff
+
+      - name: Static Analysis (ruff)
+        run: |
+          ruff check --select E9,F63,F7,F82 plugin.video.otaku.rpdev context.otaku.rpdev tests
+
+      - name: Python Bytecode Compilation
+        run: |
+          python3 -m compileall plugin.video.otaku.rpdev context.otaku.rpdev tests
+
+      - name: Execute Full Test Suite & AST Integrity Gate
+        run: |
+          python3 -m unittest discover tests
+
+  build-and-release:
+    name: Package Add-on & Publish GitHub Release
+    needs: test-gate
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version_info.outputs.version }}
+      tag_name: ${{ steps.version_info.outputs.tag_name }}
+      zip_name: ${{ steps.version_info.outputs.zip_name }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Determine Version & Extract Release Notes
+        id: version_info
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          VERSION="${TAG#v}"
+          echo "tag_name=$TAG" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "zip_name=plugin.video.otaku.rpdev-${VERSION}.zip" >> $GITHUB_OUTPUT
+
+          # Verify version matches addon.xml
+          ADDON_XML_VER=$(python3 -c "import xml.etree.ElementTree as ET; print(ET.parse('plugin.video.otaku.rpdev/addon.xml').getroot().get('version'))")
+          if [ "$VERSION" != "$ADDON_XML_VER" ]; then
+            echo "ERROR: Tag version ($VERSION) does not match plugin.video.otaku.rpdev/addon.xml ($ADDON_XML_VER)!"
+            exit 1
+          fi
+
+          # Extract release notes for this version from news.txt
+          export VERSION
+          python3 - << 'EOF'
+          import os, re
+          tag = os.environ.get("VERSION", "")
+          notes = []
+          capturing = False
+          in_header = False
+          with open("plugin.video.otaku.rpdev/news.txt", "r", encoding="utf-8") as f:
+              for line in f:
+                  if re.search(rf"OTAKU RPDEV v{re.escape(tag)}", line, re.IGNORECASE):
+                      in_header = True
+                      continue
+                  if in_header and re.search(r"^={40,}", line):
+                      in_header = False
+                      capturing = True
+                      continue
+                  if capturing and re.search(r"^={40,}", line):
+                      break
+                  if capturing:
+                      notes.append(line)
+          body = "".join(notes).strip()
+          if not body:
+              body = f"Release Otaku RPDev v{tag}"
+          with open("RELEASE_NOTES.md", "w", encoding="utf-8") as out:
+              out.write(body + "\n")
+          EOF
+
+      - name: Package Add-on Zip
+        run: |
+          VERSION="${{ steps.version_info.outputs.version }}"
+          mkdir -p dist
+          python3 - << EOF
+          import os, zipfile
+          version = "$VERSION"
+          addon_id = "plugin.video.otaku.rpdev"
+          zip_name = f"dist/{addon_id}-{version}.zip"
+          with zipfile.ZipFile(zip_name, 'w', compression=zipfile.ZIP_DEFLATED) as zf:
+              for root, dirs, files in os.walk(addon_id):
+                  dirs[:] = [d for d in dirs if d != '__pycache__' and not d.startswith('.') and d not in ('tests', 'scratch')]
+                  for f in files:
+                      if f.endswith(('.pyc', '.pyo')) or f.startswith('.'):
+                          continue
+                      full_p = os.path.join(root, f)
+                      zf.write(full_p, full_p)
+          print(f"Created {zip_name}: {os.path.getsize(zip_name):,} bytes")
+          EOF
+
+          # Checksums
+          cd dist
+          sha256sum *.zip > SHA256SUMS.txt
+          md5sum *.zip > MD5SUMS.txt
+          cd ..
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version_info.outputs.tag_name }}
+          name: Otaku RPDev ${{ steps.version_info.outputs.tag_name }}
+          body_path: RELEASE_NOTES.md
+          files: |
+            dist/*.zip
+            dist/SHA256SUMS.txt
+            dist/MD5SUMS.txt
+
+      - name: Upload Build Artifacts for CDN Sync
+        uses: actions/upload-artifact@v4
+        with:
+          name: addon-dist
+          path: dist/
+
+  sync-cdn-repo:
+    name: Sync to Kodi CDN Repository
+    needs: build-and-release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Add-on Repo (for metadata assets)
+        uses: actions/checkout@v4
+        with:
+          path: addon-source
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Checkout Kodi CDN Repository
+        uses: actions/checkout@v4
+        with:
+          repository: rpdev-cdn/kodi.repo.iamrp.dev
+          token: ${{ secrets.CDN_REPO_TOKEN }}
+          path: cdn-repo
+          ref: main
+
+      - name: Download Built Add-on Dist
+        uses: actions/download-artifact@v4
+        with:
+          name: addon-dist
+          path: dist
+
+      - name: Synchronize Add-on into CDN & Regenerate Manifests
+        run: |
+          VERSION="${{ needs.build-and-release.outputs.version }}"
+          ADDON_ID="plugin.video.otaku.rpdev"
+          TARGET_DIR="cdn-repo/$ADDON_ID"
+          mkdir -p "$TARGET_DIR"
+
+          # Copy zip
+          cp dist/${ADDON_ID}-${VERSION}.zip "$TARGET_DIR/"
+
+          # Copy metadata and assets
+          cp addon-source/$ADDON_ID/addon.xml "$TARGET_DIR/"
+          [ -f addon-source/$ADDON_ID/changelog.txt ] && cp addon-source/$ADDON_ID/changelog.txt "$TARGET_DIR/"
+          for asset in icon.png fanart.jpg fanart.png poster.png logo.png clearlogo.png info.xml; do
+            [ -f "addon-source/$ADDON_ID/$asset" ] && cp "addon-source/$ADDON_ID/$asset" "$TARGET_DIR/" || true
+          done
+
+          # Regenerate manifests
+          cd cdn-repo
+          python3 tools/generate_repo.py
+          cd ..
+
+      - name: Commit and Push to CDN Repository
+        run: |
+          cd cdn-repo
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --staged --quiet; then
+            echo "No changes to commit in CDN repo."
+          else
+            VERSION="${{ needs.build-and-release.outputs.version }}"
+            git commit -m "chore(repo): publish plugin.video.otaku.rpdev-v${VERSION}"
+            git push origin main
+          fi

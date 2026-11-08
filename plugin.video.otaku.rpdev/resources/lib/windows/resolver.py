@@ -543,28 +543,42 @@ class Resolver(BaseWindow):
             for header in headers:
                 headers[header] = urllib.parse.unquote_plus(headers[header])
 
-        # If flaresolverr is enabled, fetch cookies to bypass Cloudflare
-        if control.getBool('fs_enable'):
-            from resources.lib.ui.client import cfcookie
-            cookie_obj = cfcookie()
-            cookie, ua = cookie_obj.get(url, control.getInt('fs_timeout'))
-            if cookie:
-                headers["Cookie"] = cookie
-                headers["User-Agent"] = ua
-
-        response = None
-        try:
-            response = client.head(url, headers=headers, timeout=15)
-        except Exception as e:
-            control.log(f"Resolver: HEAD request failed for {url}: {e}", level='warning')
-
-        if not response or str(response.status_code) not in ['200', '201', '206']:
+        def _probe_stream(req_headers):
+            resp = None
             try:
-                get_headers = headers.copy()
-                get_headers['Range'] = 'bytes=0-0'
-                response = client.get(url, headers=get_headers, timeout=15)
+                resp = client.head(url, headers=req_headers, timeout=8.0)
             except Exception as e:
-                control.log(f"Resolver: GET fallback failed for {url}: {e}", level='warning')
+                control.log(f"Resolver: HEAD request failed for {url}: {e}", level='warning')
+
+            if not resp or str(resp.status_code) not in ('200', '201', '206'):
+                try:
+                    get_headers = req_headers.copy()
+                    get_headers['Range'] = 'bytes=0-0'
+                    resp = client.get(url, headers=get_headers, timeout=8.0)
+                except Exception as e:
+                    control.log(f"Resolver: GET fallback failed for {url}: {e}", level='warning')
+            return resp
+
+        response = _probe_stream(headers)
+
+        # Only invoke FlareSolverr if enabled AND initial stream probe hit an anti-bot challenge
+        if (
+            (not response or str(response.status_code) in ('403', '429', '503'))
+            and control.getBool('fs_enable')
+        ):
+            srv = (response.headers.get('Server', '') if response and response.headers else '').lower()
+            cf_mit = (response.headers.get('Cf-Mitigated', '') if response and response.headers else '').lower()
+            if 'cloudflare' in srv or 'ddos-guard' in srv or 'challenge' in cf_mit:
+                from resources.lib.ui.client import cfcookie, ddgcookie
+                parsed_u = urllib.parse.urlparse(url)
+                origin = f"{parsed_u.scheme}://{parsed_u.netloc}/"
+                solver = ddgcookie() if 'ddos-guard' in srv else cfcookie()
+                cookie, ua = solver.get(origin, control.getInt('fs_timeout'))
+                if cookie:
+                    headers["Cookie"] = cookie
+                    if ua:
+                        headers["User-Agent"] = ua
+                    response = _probe_stream(headers)
 
         if not response or str(response.status_code) not in ['200', '201', '206']:
             control.log(f"Resolver: could not verify {url}, status={response.status_code if response else 'failed'}", level='warning')

@@ -9,7 +9,12 @@
     "https://hianimetv.bz/"
   ],
   "gogoanime": "https://anitaku.so/",
-  "animepahe": "https://animepahe.ru/",
+  "animepahe": "https://animepahe.pw/",
+  "animepahe_mirrors": [
+    "https://animepahe.pw/",
+    "https://animepahe.com/",
+    "https://animepahe.org/"
+  ],
   "animekai": "https://animekai.to/",
   "anikoto": "https://anikoto.com/",
   "nyaa": "https://nyaa.si/",

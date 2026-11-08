@@ -354,7 +354,8 @@ def ANIMES_PAGE(payload, params):
     parts = [p for p in payload.strip('/').split('/') if p]
     mal_id = parts[0] if parts else ''
     anime_general, content = MetaBrowser.get_anime_init(mal_id)
-    control.draw_items(anime_general, content)
+    cache_disc = not control.getBool('interface.spoilers.hide_thumbs')
+    control.draw_items(anime_general, content, cacheToDisc=cache_disc)
 
 
 def _extract_mal_id(payload):
@@ -479,7 +480,11 @@ def AIRING_CALENDAR(payload: str, params: dict):
     if calendar_data:
         formatted_calendar = scheduler.format_for_anichart(calendar_data)
         from resources.lib.windows.anichart import Anichart
-        Anichart('anichart.xml', control.ADDON_PATH, calendar=formatted_calendar).doModal()
+        dlg = Anichart('anichart.xml', control.ADDON_PATH, calendar=formatted_calendar)
+        try:
+            dlg.doModal()
+        finally:
+            del dlg
     else:
         control.notify(control.ADDON_NAME, 'Unable to load Airing Calendar data')
     control.exit_code()
@@ -909,16 +914,18 @@ def _finalize_menu_list_items(menu_items):
             ))
         elif len(item) == 5:
             name, url, image, info, art = item
+            is_folder = url not in ('airing_calendar',)
             fanart = art.get('fanart', '') if isinstance(art, dict) else ''
             poster = art.get('poster', '') if isinstance(art, dict) else ''
             landscape = art.get('landscape', '') if isinstance(art, dict) else ''
             banner = art.get('banner', '') if isinstance(art, dict) else ''
             clearart = art.get('clearart', '') if isinstance(art, dict) else ''
             clearlogo = art.get('clearlogo', '') if isinstance(art, dict) else ''
-            processed.append(utils.allocate_item(name, url, True, False, [], image, info, fanart=fanart, poster=poster, landscape=landscape, banner=banner, clearart=clearart, clearlogo=clearlogo))
+            processed.append(utils.allocate_item(name, url, is_folder, False, [], image, info, fanart=fanart, poster=poster, landscape=landscape, banner=banner, clearart=clearart, clearlogo=clearlogo))
         else:
             name, url, image, info = item
-            processed.append(utils.allocate_item(name, url, True, False, [], image, info))
+            is_folder = url not in ('airing_calendar',)
+            processed.append(utils.allocate_item(name, url, is_folder, False, [], image, info))
     return processed
 
 

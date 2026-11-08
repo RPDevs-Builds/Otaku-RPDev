@@ -5,6 +5,32 @@ from resources.lib import endpoints
 from resources.lib.ui import database, control, utils
 
 
+def _pick_art_str(val):
+    """Unwrap artwork string from a str or non-empty list/tuple so Kodi art dicts never strip it."""
+    if isinstance(val, str) and val.strip():
+        return val
+    if isinstance(val, (list, tuple)):
+        for entry in val:
+            if isinstance(entry, str) and entry.strip():
+                return entry
+    return ''
+
+
+def _apply_spoiler_shield(parsed):
+    """Replace episode screenshot thumb/icon with show fanart or poster string."""
+    shield_mode = control.getInt('interface.spoilers.shield_mode')
+    img_dict = parsed.get('image') if isinstance(parsed.get('image'), dict) else {}
+    primary = _pick_art_str(img_dict.get('fanart')) if shield_mode == 0 else _pick_art_str(img_dict.get('poster'))
+    secondary = _pick_art_str(img_dict.get('poster')) if shield_mode == 0 else _pick_art_str(img_dict.get('fanart'))
+    shield_art = primary or secondary or getattr(control, 'OTAKU_FANART', '') or ''
+    if shield_art:
+        if isinstance(parsed.get('image'), dict):
+            parsed['image']['thumb'] = shield_art
+            parsed['image']['icon'] = shield_art
+        else:
+            parsed['image'] = shield_art
+
+
 def parse_episodes(res, eps_watched, dub_data=None):
     parsed = database.loads(res['kodi_meta'])
     if eps_watched and int(eps_watched) >= res['number']:
@@ -13,17 +39,7 @@ def parse_episodes(res, eps_watched, dub_data=None):
         parsed['info']['title'] = f'Episode {res["number"]}'
         parsed['info']['plot'] = None
     if control.getBool('interface.spoilers.hide_thumbs') and parsed['info'].get('playcount') != 1:
-        shield_mode = control.getInt('interface.spoilers.shield_mode')
-        img_dict = parsed.get('image') if isinstance(parsed.get('image'), dict) else {}
-        shield_art = img_dict.get('fanart') if shield_mode == 0 else img_dict.get('poster')
-        if not shield_art:
-            shield_art = img_dict.get('poster') or img_dict.get('fanart')
-        if shield_art:
-            if isinstance(parsed.get('image'), dict):
-                parsed['image']['thumb'] = shield_art
-                parsed['image']['icon'] = shield_art
-            else:
-                parsed['image'] = shield_art
+        _apply_spoiler_shield(parsed)
     code = endpoints.get_second_label(parsed['info'], dub_data, res['filler'])
     parsed['info']['code'] = code
     if control.getBool('interface.aired.show_countdown', default=True):
@@ -131,17 +147,7 @@ def update_database(mal_id, update_time, res, url, image, info, season, episode,
         parsed['info']['plot'] = None
 
     if control.getBool('interface.spoilers.hide_thumbs') and info.get('playcount') != 1:
-        shield_mode = control.getInt('interface.spoilers.shield_mode')
-        img_dict = parsed.get('image') if isinstance(parsed.get('image'), dict) else {}
-        shield_art = img_dict.get('fanart') if shield_mode == 0 else img_dict.get('poster')
-        if not shield_art:
-            shield_art = img_dict.get('poster') or img_dict.get('fanart')
-        if shield_art:
-            if isinstance(parsed.get('image'), dict):
-                parsed['image']['thumb'] = shield_art
-                parsed['image']['icon'] = shield_art
-            else:
-                parsed['image'] = shield_art
+        _apply_spoiler_shield(parsed)
 
     if control.getBool('interface.aired.show_countdown', default=True):
         aired_str = info.get('aired')

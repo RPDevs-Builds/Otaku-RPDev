@@ -133,6 +133,29 @@ def _find_direct_json_loads(tree, filename='<ast>'):
     return violations
 
 
+def _find_bs4_css_selectors(tree, filename='<ast>'):
+    """Detect BeautifulSoup .select(...) / .select_one(...) calls that crash when soupsieve is absent in Kodi."""
+    imports_bs4 = False
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name == 'bs4' or alias.name.startswith('bs4.'):
+                    imports_bs4 = True
+        elif isinstance(node, ast.ImportFrom) and node.module and (
+            node.module == 'bs4' or node.module.startswith('bs4.')
+        ):
+            imports_bs4 = True
+
+    violations = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+            if node.func.attr == 'select_one':
+                violations.append((filename, node.lineno, 'select_one'))
+            elif node.func.attr == 'select' and imports_bs4:
+                violations.append((filename, node.lineno, 'select'))
+    return violations
+
+
 class TestASTIntegrity(unittest.TestCase):
 
     @classmethod
@@ -311,11 +334,24 @@ class TestASTIntegrity(unittest.TestCase):
             f"Direct json.loads() calls outside control.py found (use control.loads_json / safe_json): {violations}",
         )
 
+    def test_zero_bs4_css_selectors_requiring_soupsieve(self):
+        """BeautifulSoup .select() / .select_one() require optional soupsieve not guaranteed in Kodi; use find/find_all."""
+        violations = []
+        for f, tree in self._parsed_files:
+            violations.extend(_find_bs4_css_selectors(tree, f))
+
+        self.assertEqual(
+            violations,
+            [],
+            f"BeautifulSoup .select()/.select_one() calls found (use .find()/.find_all() instead): {violations}",
+        )
+
     def test_ast_guardrail_detectors_catch_synthetic_violations(self):
         """Self-test ensuring every AGENTS.md AST detector positively flags offending code patterns."""
         sample = ast.parse(
             "import json as _j\n"
             "from json import loads as _jl\n"
+            "from bs4 import BeautifulSoup\n"
             "class Demo(Base):\n"
             "    def bad(self, a=[], b={}, *, c=set()):\n"
             "        super(Demo, self).__init__()\n"
@@ -325,12 +361,16 @@ class TestASTIntegrity(unittest.TestCase):
             "            return None\n"
             "        _j.loads('{}')\n"
             "        _jl('[]')\n"
+            "        soup = BeautifulSoup('', 'html.parser')\n"
+            "        soup.select('.item')\n"
+            "        soup.select_one('.link')\n"
         )
         self.assertEqual(len(_find_unchecked_wait_for_abort(sample)), 1)
         self.assertEqual(len(_find_mutable_default_arguments(sample)), 3)
         self.assertEqual(len(_find_legacy_super_calls(sample)), 1)
         self.assertEqual(len(_find_raw_print_calls(sample)), 1)
         self.assertEqual(len(_find_direct_json_loads(sample)), 2)
+        self.assertEqual(len(_find_bs4_css_selectors(sample)), 2)
 
     def test_all_skin_xmls_valid_etree(self):
         """Every XML template in resources/skins must parse cleanly with ElementTree."""

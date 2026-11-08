@@ -225,7 +225,9 @@ class Sources(BrowserBase):
             return None
 
         soup = BeautifulSoup(html, "html.parser")
-        episodes = soup.select('.eplist a')
+        episodes = []
+        for eplist in soup.find_all(class_='eplist'):
+            episodes.extend(eplist.find_all('a'))
 
         for ep in episodes:
             ep_num = ep.get('num', '')
@@ -259,10 +261,10 @@ class Sources(BrowserBase):
 
         soup = BeautifulSoup(html, "html.parser")
         servers = {}
-        for group in soup.select('.server-items'):
+        for group in soup.find_all(class_='server-items'):
             lang = group.get('data-id', 'unknown')
             server_list = []
-            for s in group.select('.server'):
+            for s in group.find_all(class_='server'):
                 server_list.append({
                     'name': s.get_text(strip=True),
                     'server_id': s.get('data-sid', ''),

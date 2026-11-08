@@ -131,7 +131,9 @@ class Sources(BrowserBase):
 
         soup = BeautifulSoup(r, 'html.parser')
         sources = []
-        elements = soup.select('.anime_muti_link > ul > li')
+        multi_link = soup.find(class_='anime_muti_link')
+        ul_tag = multi_link.find('ul', recursive=False) if multi_link else None
+        elements = ul_tag.find_all('li', recursive=False) if ul_tag else []
         control.log(f"GogoAnime: Found {len(elements)} servers for episode {episode}")
 
         for element in elements:

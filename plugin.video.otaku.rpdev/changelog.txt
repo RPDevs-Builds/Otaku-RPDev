@@ -1,3 +1,14 @@
+Changelog v6.0.7 (2026-11-07):
+- FlareSolverr Direct HTML, Zero-Soupsieve & Dual-Runtime Playback:
+- - Zero-soupsieve Beautiful Soup parsing across all scrapers & permanent AST lint gate
+- - FlareSolverr direct HTML return (solve_request) bypassing JA3/JA4 TLS fingerprint rejections
+- - Modern DDoS-Guard cookie support (__ddg1_ to __ddg10_)
+- - Cloudflare hard WAF IP block fail-fast (<400ms) & negative Turnstile cooldown cache
+- - WatchNixtoons2 2026 WCO player protocol handshake & Range bytes=0-0 memory protection
+- - Lazy challenge-only stream prefetch (37x speedup: 96ms vs 3575ms)
+- - NextDNS HTTPS TCP/443 connectivity probing
+- - Airing Calendar isFolder=False & modal lifecycle cleanup del dlg
+
 Changelog v6.0.6 (2026-11-07):
 - Static AST Guardrails, Universal Safe JSON & Teardown Abort Hardening:
 - - Codified AGENTS.md guardrails into test_ast_integrity.py and test_windowxml_event_dispatch.py (578 passing tests)

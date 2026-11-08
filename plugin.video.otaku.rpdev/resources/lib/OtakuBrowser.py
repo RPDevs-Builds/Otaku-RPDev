@@ -97,11 +97,12 @@ class OtakuBrowser(MalBrowser):
     @staticmethod
     def get_mal_base_res(url, params=None):
         for attempt in range(3):
-            r = client.get(url, params=params)
+            r = client.get(url, params=params, timeout=6.0)
             if r:
                 return r.json()
             if attempt < 2:
-                control.sleep(1000 * (attempt + 1))
+                if control.monitor.waitForAbort(attempt + 1):
+                    return None
         control.log(f'Jikan request failed: {url}', level='warning')
 
     get_base_res = get_mal_base_res

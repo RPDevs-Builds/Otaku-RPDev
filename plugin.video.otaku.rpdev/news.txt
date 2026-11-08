@@ -1,4 +1,32 @@
 ================================================================================
+         OTAKU RPDEV v6.0.7 - FLARESOLVERR DIRECT HTML & ZERO-SOUPSIEVE
+================================================================================
+
+[ Direct HTML (JA3/JA4 Bypass) • Zero-Soupsieve Gate • WCO 2026 Protocol • WAF Fail-Fast ]
+• Zero-soupsieve Beautiful Soup Parsing: Converted all CSS selector calls across scrapers
+  (HiAnime, Nyaa, GogoAnime, AnimeKAI) to native .find()/.find_all(), eliminating runtime
+  NotImplementedError inside Kodi. Added permanent AST lint check forbidding .select().
+• FlareSolverr Direct HTML Return (JA3/JA4 Bypass): Upgraded cfcookie/ddgcookie to return
+  solved HTML directly from headless Chromium (returnOnlyCookies: False), completely
+  bypassing Cloudflare JA3/JA4 TLS fingerprint mismatch on Python urllib. Added support for
+  modern DDoS-Guard tokens (__ddg1_ to __ddg10_).
+• Hard WAF Fast-Fail & Turnstile Cooldown: Added immediate <400ms skip for unsolvable
+  Cloudflare IP bans (Attention Required! | Cloudflare) and 600s negative caching on
+  unsolvable interactive hosts.
+• WatchNixtoons2 2026 Protocol & Memory Protection: Implemented complete 2026 WCO player
+  handshake (PHPSESSID -> pre-init.js?v2 -> ad-verify -> 5.2s waitForAbort -> video-js-old.php)
+  skipping vhs paywall iframes. Added Range: bytes=0-0 to redirect resolution to avoid
+  buffering full video files into memory. Sequentialized SUB then DUB to prevent IP session
+  invalidation (HTTP 503 Servers Busy).
+• Lazy Stream Prefetch & Connectivity Probes: Stream verification in Resolver probes CDN
+  streams directly first, speeding up stream resolution by 37x (96ms vs 3575ms). Upgraded
+  is_internet_available to probe TCP 443 across HTTPS CDNs, preventing false offline triggers
+  on NextDNS/firewalled networks.
+• Airing Calendar & Lifecycle: Set isFolder=False for airing_calendar and ensured clean
+  del dlg disposal inside try...finally after modal display.
+
+
+================================================================================
          OTAKU RPDEV v6.0.6 - AST GUARDRAIL GATES & DEFENSIVE DECODING
 ================================================================================
 

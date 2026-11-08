@@ -100,8 +100,8 @@ class TestWatchNixtoons2Scraper(unittest.TestCase):
     @patch.object(WNT2Sources, '_make_request')
     @patch('resources.lib.ui.control.monitor.waitForAbort', return_value=False)
     def test_run_wco_ad_verify_uses_dynamic_origin(self, mock_wait, mock_make_request):
-        """Verify _run_wco_ad_verify queries advertisement.js and ad-verify using dynamic origin."""
-        mock_make_request.return_value = MagicMock(text='ok')
+        """Verify _prepare_embed_player_url runs index.php + pre-init.js?v2 + advertisement.js + ad-verify using dynamic origin."""
+        mock_make_request.return_value = 'ok'
         embed_url = 'https://stream.wco-edge.org/inc/embed/index.php?pid=4321'
 
         res = self.scraper._prepare_embed_player_url(embed_url)
@@ -109,15 +109,26 @@ class TestWatchNixtoons2Scraper(unittest.TestCase):
         self.assertIsNotNone(res)
         self.assertTrue(res.startswith('https://stream.wco-edge.org/inc/embed/video-js-old.php'))
 
-        # Check call arguments to _make_request
         calls = mock_make_request.call_args_list
-        self.assertGreaterEqual(len(calls), 2)
-        # advertisement.js call
-        self.assertIn('https://stream.wco-edge.org/assets/ads/advertisement.js', calls[0][0][0])
-        # ad-verify call
-        self.assertEqual('https://stream.wco-edge.org/ad-verify', calls[1][0][0])
-        # Verify waitForAbort was called with 5 seconds
-        mock_wait.assert_called_with(5)
+        self.assertEqual(len(calls), 4)
+        self.assertEqual(embed_url, calls[0][0][0])
+        self.assertEqual('https://stream.wco-edge.org/inc/embed/pre-init.js?v2', calls[1][0][0])
+        self.assertIn('https://stream.wco-edge.org/assets/ads/advertisement.js', calls[2][0][0])
+        self.assertEqual('https://stream.wco-edge.org/ad-verify', calls[3][0][0])
+        self.assertEqual(calls[3][1]['headers'].get('Origin'), 'https://stream.wco-edge.org')
+        mock_wait.assert_called_with(5.5)
+
+    def test_find_embed_url_skips_vhs_paywall_when_free_embed_present(self):
+        """Verify _find_embed_url skips vhs.wcostream.com / pre=1 paywall iframes when free index.php embed exists."""
+        html = '''
+        <div class="episode-descp">
+            <iframe src="https://vhs.wcostream.com/?uuid=abc&pre=1"></iframe>
+            <iframe src="https://embed.wcostream.com/inc/embed/index.php?file=test.flv&pid=999"></iframe>
+        </div>
+        '''
+        url, is_vhs = self.scraper._find_embed_url(html, 'https://www.wcostream.tv/watch-anime')
+        self.assertEqual(url, 'https://embed.wcostream.com/inc/embed/index.php?file=test.flv&pid=999')
+        self.assertFalse(is_vhs)
 
     @patch.object(WNT2Sources, '_make_request')
     @patch('resources.lib.ui.control.monitor.waitForAbort', return_value=True)

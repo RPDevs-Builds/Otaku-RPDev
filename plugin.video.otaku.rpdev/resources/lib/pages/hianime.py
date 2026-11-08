@@ -175,8 +175,9 @@ class Sources(BrowserBase):
     def _parse_search_results(html):
         soup = BeautifulSoup(html, 'html.parser')
         items = []
-        for block in soup.select('.flw-item'):
-            link = block.select_one('.film-name a') or block.select_one('a.film-poster-ahref')
+        for block in soup.find_all(class_='flw-item'):
+            film_name = block.find(class_='film-name')
+            link = (film_name.find('a') if film_name else None) or block.find('a', class_='film-poster-ahref')
             if not link:
                 continue
             href = link.get('href', '').split('?')[0]
@@ -278,13 +279,14 @@ class Sources(BrowserBase):
             return None
 
         soup = BeautifulSoup(resp_json['html'], 'html.parser')
+        items = soup.find_all('a', class_='ep-item')
+        ep_str = str(ep_num)
         # 1. Direct data-number match
-        ep_item = soup.select_one(f'a.ep-item[data-number="{ep_num}"]')
-        if ep_item and ep_item.get('data-id'):
-            return ep_item.get('data-id')
+        for ep_item in items:
+            if str(ep_item.get('data-number') or '') == ep_str and ep_item.get('data-id'):
+                return ep_item.get('data-id')
 
         # 2. Sequential fallback if data-number is missing
-        items = soup.select('a.ep-item')
         if 0 < ep_num <= len(items):
             return items[ep_num - 1].get('data-id')
 
@@ -298,7 +300,7 @@ class Sources(BrowserBase):
 
         soup = BeautifulSoup(resp_json['html'], 'html.parser')
         server_candidates = {}
-        for s in soup.select('.server-item'):
+        for s in soup.find_all(class_='server-item'):
             stype = (s.get('data-type') or '').lower()
             if stype not in langs:
                 continue

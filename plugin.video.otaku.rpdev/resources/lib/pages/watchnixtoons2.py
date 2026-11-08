@@ -1,3 +1,4 @@
+import base64
 import html
 import re
 import time
@@ -86,10 +87,18 @@ class Sources(BrowserBase):
             if headers:
                 my_headers.update(headers)
 
-            with self._rate_lock:
-                time_since_last = time.time() - self._last_request_time
-                if time_since_last < self.request_delay:
-                    time.sleep(self.request_delay - time_since_last)
+            is_embed_subreq = any(
+                p in url for p in ('/inc/embed/', '/assets/ads/', '/ad-verify')
+            )
+            wait_delay = 0.0
+            if not is_embed_subreq:
+                with self._rate_lock:
+                    time_since_last = time.time() - self._last_request_time
+                    if time_since_last < self.request_delay:
+                        wait_delay = self.request_delay - time_since_last
+                if wait_delay > 0:
+                    if control.monitor.waitForAbort(wait_delay):
+                        return None
 
             wco_session = self._get_wco_session()
             verify_ssl = control.getBool('general.verify_ssl', default=True)
@@ -107,8 +116,9 @@ class Sources(BrowserBase):
                     url, headers=my_headers, timeout=timeout, verify=verify_ssl
                 )
 
-            with self._rate_lock:
-                self._last_request_time = time.time()
+            if not is_embed_subreq:
+                with self._rate_lock:
+                    self._last_request_time = time.time()
 
             if resp.status_code not in (200, 204):
                 control.log(
@@ -116,6 +126,9 @@ class Sources(BrowserBase):
                     level='warning',
                 )
                 return None
+
+            if resp.status_code == 204:
+                return ''
 
             response = resp.text if resp.content else None
             if not response:
@@ -209,49 +222,18 @@ class Sources(BrowserBase):
             dub_ep = None
         elif pref_source == 2:
             sub_ep = None
-        piped_dub = {'thread': None, 'result': None}
 
-        def start_dub_pipeline():
-            if not dub_ep or piped_dub['thread'] is not None:
-                return
-
-            def run_dub():
-                piped_dub['result'] = self._extract_episode_sources(dub_ep)
-
-            piped_dub['thread'] = threading.Thread(target=run_dub, daemon=True)
-            piped_dub['thread'].start()
-            control.log('WatchNixtoons2: started DUB extraction during SUB ad-verify wait', level='info')
-
-        if sub_ep:
-            self._on_ad_verify_complete = start_dub_pipeline
-            try:
-                sub_result = self._extract_episode_sources(sub_ep)
-                if sub_result:
-                    sources.extend(sub_result[0])
-                    control.log(
-                        f"WatchNixtoons2: Found {len(sub_result[0])} sources for lang {sub_result[1]}"
-                    )
-            finally:
-                self._on_ad_verify_complete = None
-
-            if dub_ep and piped_dub['thread'] is None:
-                start_dub_pipeline()
-        elif dub_ep:
-            dub_result = self._extract_episode_sources(dub_ep)
-            if dub_result:
-                sources.extend(dub_result[0])
+        # Execute SUB and DUB sequentially: embed.wcostream.com enforces per-IP single active AdGate sessions,
+        # so overlapping DUB's index.php/ad-verify inside SUB's 5.5s window invalidates the active session.
+        for ep_item in (sub_ep, dub_ep):
+            if not ep_item:
+                continue
+            ep_result = self._extract_episode_sources(ep_item)
+            if ep_result and ep_result[0]:
+                sources.extend(ep_result[0])
                 control.log(
-                    f"WatchNixtoons2: Found {len(dub_result[0])} sources for lang {dub_result[1]}"
+                    f"WatchNixtoons2: Found {len(ep_result[0])} sources for lang {ep_result[1]}"
                 )
-
-        if piped_dub['thread'] is not None:
-            piped_dub['thread'].join()
-
-        if piped_dub['result']:
-            dub_sources, dub_lang = piped_dub['result']
-            if dub_sources:
-                sources.extend(dub_sources)
-                control.log(f"WatchNixtoons2: Found {len(dub_sources)} sources for lang {dub_lang}")
 
         langs_found = {s.get('lang') for s in sources}
         if 2 in langs_found and 3 in langs_found:
@@ -264,6 +246,7 @@ class Sources(BrowserBase):
         """Extract playable sources for one episode link (SUB or DUB)."""
         lang = self._episode_lang_key(episode_data)
         version_type = "DUB" if lang == 3 else "SUB"
+        self._thread_local.wco_session = None
 
         try:
             control.log(
@@ -324,63 +307,134 @@ class Sources(BrowserBase):
             return f'{scheme}://{parsed.netloc}/'
         return 'https://embed.wcostream.com/'
 
-    def _find_embed_url(self, page_content, episode_url):
-        """Locate the player embed URL using the original WNT2 detection order."""
-        if '"vjs_iframe"' in page_content:
-            match = re.search(
-                r'<iframe id="(?:[a-zA-Z0-9-]+)" class="vjs_iframe" rel="nofollow" src="([^"]+)"',
-                page_content,
-                re.DOTALL
-            )
-            if match:
-                return self._ensure_full_url(episode_url, match.group(1)), True
+    @staticmethod
+    def _decode_wco_atob_iframes(page_content):
+        """Decode WCO base64 char-offset script blocks if present on the episode page."""
+        decoded_chunks = []
+        pattern = re.compile(
+            r'var\s+\w+\s*=\s*\[([^\]]+)\]\s*;.*?replace\(/\\D/g,\'\'\)\)\s*-\s*(\d+)',
+            re.DOTALL,
+        )
+        for arr_raw, offset_str in pattern.findall(page_content or ''):
+            try:
+                offset = int(offset_str)
+                chars = []
+                for token in re.findall(r'"([^"]+)"|\'([^\']+)\'', arr_raw):
+                    b64_str = token[0] or token[1]
+                    raw = base64.b64decode(b64_str).decode('utf-8', errors='ignore')
+                    digits = re.sub(r'\D', '', raw)
+                    if digits:
+                        chars.append(chr(int(digits) - offset))
+                if chars:
+                    decoded_chunks.append(''.join(chars))
+            except Exception:
+                continue
+        return '\n'.join(decoded_chunks)
 
-        if 'uploads0" src=' in page_content:
+    @staticmethod
+    def _is_premium_paywall_embed(url):
+        low = (url or '').lower()
+        return 'vhs.wcostream.com' in low or bool(re.search(r'[?&]pre=1(?:&|$)', low))
+
+    def _find_embed_url(self, page_content, episode_url):
+        """Locate the player embed URL, preferring free WCO embeds over vhs/pre=1 paywall iframes."""
+        decoded_extra = self._decode_wco_atob_iframes(page_content)
+        combined_html = (page_content or '') + ('\n' + decoded_extra if decoded_extra else '')
+
+        if '"vjs_iframe"' in combined_html:
+            for raw_src in re.findall(
+                r'<iframe id="(?:[a-zA-Z0-9-]+)" class="vjs_iframe" rel="nofollow" src="([^"]+)"',
+                combined_html,
+                re.DOTALL,
+            ):
+                full_url = self._ensure_full_url(episode_url, raw_src)
+                if not self._is_premium_paywall_embed(full_url):
+                    return full_url, True
+
+        if 'uploads0" src=' in combined_html:
             match = re.search(
                 r'<iframe\s*id="(?:[a-zA-Z]+)uploads(?:[0-9]+)"\s*src="([^"]+)"',
-                page_content,
+                combined_html,
                 re.DOTALL
             )
             if match:
-                return self._ensure_full_url(episode_url, match.group(1)), False
+                full_url = self._ensure_full_url(episode_url, match.group(1))
+                if not self._is_premium_paywall_embed(full_url):
+                    return full_url, False
 
-        if '-js-0" src=' in page_content:
+        if '-js-0" src=' in combined_html:
             match = re.search(
                 r'<iframe\s*(?:rel="nofollow")?\s*id="(?:[a-zA-Z]+)\-js\-(?:[0-9]+)"\s*src="([^"]+)"',
-                page_content,
+                combined_html,
                 re.DOTALL
             )
             if match:
-                return self._ensure_full_url(episode_url, match.group(1)), False
-
-        embed_url_index = page_content.find('onclick="myFunction')
-        if embed_url_index <= 0:
-            embed_url_index = page_content.find('class="episode-descp"')
-
-        if embed_url_index > 0:
-            match = re.search(r'src="([^"]+)', page_content[embed_url_index:])
-            if match:
-                embed_src = self._ensure_full_url(episode_url, match.group(1))
-                is_vhs = 'vhs.wcostream.com' in embed_src.lower()
-                return embed_src, is_vhs
+                full_url = self._ensure_full_url(episode_url, match.group(1))
+                if not self._is_premium_paywall_embed(full_url):
+                    return full_url, False
 
         skip_hosts = ('ads', 'analytics', 'disqus', 'facebook', 'twitter', 'check-login')
-        for iframe_url in re.findall(r'<iframe[^>]+src="([^"]+)"', page_content, re.IGNORECASE):
+        fallback_paywall = None
+
+        embed_url_index = combined_html.find('onclick="myFunction')
+        if embed_url_index <= 0:
+            embed_url_index = combined_html.find('class="episode-descp"')
+
+        if embed_url_index > 0:
+            for raw_src in re.findall(r'src="([^"]+)', combined_html[embed_url_index:]):
+                if any(skip in raw_src.lower() for skip in skip_hosts):
+                    continue
+                embed_src = self._ensure_full_url(episode_url, raw_src)
+                if self._is_premium_paywall_embed(embed_src):
+                    if fallback_paywall is None:
+                        fallback_paywall = (embed_src, 'vhs.wcostream.com' in embed_src.lower())
+                    continue
+                return embed_src, ('vhs.wcostream.com' in embed_src.lower())
+
+        for iframe_url in re.findall(r'<iframe[^>]+src="([^"]+)"', combined_html, re.IGNORECASE):
             if any(skip in iframe_url.lower() for skip in skip_hosts):
                 continue
-            return self._ensure_full_url(episode_url, iframe_url), False
+            full_url = self._ensure_full_url(episode_url, iframe_url)
+            if self._is_premium_paywall_embed(full_url):
+                if fallback_paywall is None:
+                    fallback_paywall = (full_url, 'vhs.wcostream.com' in full_url.lower())
+                continue
+            return full_url, False
 
+        if fallback_paywall is not None:
+            return fallback_paywall
         return None, False
 
-    def _prepare_embed_player_url(self, embed_url):
-        """Run WCO ad-verify and return the video-js-old.php player URL."""
+    def _prepare_embed_player_url(self, embed_url, episode_url=None):
+        """Run WCO 2026 PHPSESSID + pre-init + ad-verify gate and return video-js-old.php URL."""
         embed_url = self._unescape_html_url(embed_url)
         if 'inc/embed/index.php' not in embed_url:
             return embed_url
 
         control.log('WatchNixtoons2: running WCO ad-verify for embed', level='info')
-        flag = '__abd_' + uuid.uuid4().hex[:8]
         origin = self._embed_api_origin(embed_url).rstrip('/')
+
+        # 1. Load index.php first so wco_session receives Set-Cookie: PHPSESSID
+        self._make_request(
+            embed_url,
+            headers={
+                'Referer': episode_url or (origin + '/'),
+            },
+            use_cache=False,
+        )
+
+        # 2. Load pre-init.js?v2 expected by WCO's 2026 AdGate session check
+        self._make_request(
+            '{0}/inc/embed/pre-init.js?v2'.format(origin),
+            headers={
+                'Accept': '*/*',
+                'Referer': embed_url,
+            },
+            use_cache=False,
+        )
+
+        # 3. Load advertisement.js probe
+        flag = '__abd_' + uuid.uuid4().hex[:8]
         self._make_request(
             '{0}/assets/ads/advertisement.js?flag={1}&_={2}'.format(
                 origin, flag, int(time.time() * 1000)
@@ -397,6 +451,7 @@ class Sources(BrowserBase):
             control.log('WatchNixtoons2: embed URL missing pid for ad-verify', level='warning')
             return embed_url.replace('inc/embed/index.php', 'inc/embed/video-js-old.php')
 
+        # 4. Submit ad-verify with Origin + Referer + session cookie
         nonce = uuid.uuid4().hex
         self._make_request(
             '{0}/ad-verify'.format(origin),
@@ -404,6 +459,7 @@ class Sources(BrowserBase):
             json_data={'nonce': nonce, 'status': 'clear', 'id': pid_match.group(1)},
             headers={
                 'Content-Type': 'application/json',
+                'Origin': origin,
                 'Referer': embed_url,
             },
             use_cache=False,
@@ -419,19 +475,26 @@ class Sources(BrowserBase):
                     'WatchNixtoons2: pipelined DUB start failed: {0}'.format(exc),
                     level='warning',
                 )
-        if control.monitor.waitForAbort(5):
+        if control.monitor.waitForAbort(5.5):
             return None
         return player_url
 
     def _follow_redirect_url(self, url, referer):
-        """Follow 3xx redirects on media URLs (same as WNT2 solve_media_redirect)."""
+        """Follow 3xx redirects on media URLs without downloading full video payloads into RAM."""
+        cache_key = f"REDIR:{url}"
+        with self._cache_lock:
+            if cache_key in self._cache:
+                return self._cache[cache_key]
+
         headers = {
             'User-Agent': self._WNT2_UA,
             'Referer': referer,
             'Accept': 'video/webm,video/ogg,video/*;q=0.9,application/ogg;q=0.7,audio/*;q=0.6,*/*;q=0.5',
+            'Range': 'bytes=0-0',
         }
         current = url
         verify_ssl = control.getBool('general.verify_ssl', default=True)
+        resolved = url
         for _ in range(10):
             result = client.request(
                 current,
@@ -440,10 +503,11 @@ class Sources(BrowserBase):
                 verify=verify_ssl,
                 error=True,
                 output='extended',
-                timeout=10,
+                limit=1,
+                timeout=8.0,
             )
             if not result or not isinstance(result, tuple) or len(result) < 6:
-                return url
+                break
             _content, status_code, resp_headers, _req_headers, _cookie, resp_url = result
             location = resp_headers.get('Location')
             if str(status_code) in ('301', '302', '303', '307', '308') and location:
@@ -454,18 +518,24 @@ class Sources(BrowserBase):
                     current = location
                 else:
                     current = urllib.parse.urljoin(resp_url or current, location)
+                resolved = current
                 continue
             if str(status_code).startswith('2'):
-                return resp_url or current
+                resolved = resp_url or current
             break
-        return url
+
+        with self._cache_lock:
+            self._cache[cache_key] = resolved
+        return resolved
 
     def _fetch_player_html(self, embed_url, episode_url):
         original_embed = self._unescape_html_url(embed_url)
-        player_url = self._prepare_embed_player_url(original_embed)
+        player_url = self._prepare_embed_player_url(original_embed, episode_url=episode_url)
+        if not player_url:
+            return None, None
         headers = {
             'User-Agent': self._WNT2_UA,
-            'Referer': player_url,
+            'Referer': original_embed,
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         }
         player_html = self._make_request(player_url, headers=headers, use_cache=False)
@@ -524,15 +594,14 @@ class Sources(BrowserBase):
 
     def _api_source_candidates(self, player_html, embed_url):
         candidates = []
-        primary = self._resolve_api_url(player_html, embed_url)
-        if primary:
-            candidates.append(primary)
-
         match = re.search(r'"(/inc/embed/getvidlink[^"]+)', player_html or '', re.DOTALL)
         if match:
-            embed_fallback = self._embed_api_origin(embed_url).rstrip('/') + match.group(1)
-            if embed_fallback not in candidates:
-                candidates.append(embed_fallback)
+            embed_direct = self._embed_api_origin(embed_url).rstrip('/') + match.group(1)
+            candidates.append(embed_direct)
+
+        primary = self._resolve_api_url(player_html, embed_url)
+        if primary and primary not in candidates:
+            candidates.append(primary)
 
         return candidates
 
@@ -662,7 +731,7 @@ class Sources(BrowserBase):
             control.log('WCO player blocked free users temporarily')
             return []
 
-        if 'getvid?evid' in player_html:
+        if any(m in player_html for m in ('getvid?evid', 'getvidlink', 'getRedirectedUrl(videoUrl)')):
             sources = self._extract_api_sources_from_html(player_html, embed_url, title, version_type, lang)
             if sources:
                 return sources

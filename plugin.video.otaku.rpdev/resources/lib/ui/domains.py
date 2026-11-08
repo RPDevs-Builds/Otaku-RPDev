@@ -29,7 +29,12 @@ DEFAULT_DOMAINS = {
         "https://hianimetv.bz/",
     ],
     "gogoanime": "https://anitaku.so/",
-    "animepahe": "https://animepahe.ru/",
+    "animepahe": "https://animepahe.pw/",
+    "animepahe_mirrors": [
+        "https://animepahe.pw/",
+        "https://animepahe.com/",
+        "https://animepahe.org/",
+    ],
     "animekai": "https://animekai.to/",
     "anikoto": "https://anikoto.com/",
     "nyaa": "https://nyaa.si/",
@@ -223,13 +228,22 @@ def save_profile_domains(data):
 def is_internet_available(timeout=3):
     """
     Check if the local device has functional internet connectivity.
-    Performs quick TCP probes to reliable public DNS resolvers (1.1.1.1, 8.8.8.8)
-    without relying on local DNS, with an HTTP fallback.
+    Probes standard TCP/443 HTTPS endpoints first (so routers enforcing NextDNS/Pi-hole
+    outbound port-53 firewall rules succeed in <100ms), with DNS/HTTP fallbacks.
     """
     import socket
-    for host, port in [("1.1.1.1", 53), ("8.8.8.8", 53), ("1.1.1.1", 80)]:
+    sock_timeout = min(float(timeout), 2.0) if timeout else 2.0
+    probes = [
+        ("cloudflare-dns.com", 443),
+        ("www.gstatic.com", 443),
+        ("api.github.com", 443),
+        ("1.1.1.1", 443),
+        ("1.1.1.1", 53),
+        ("8.8.8.8", 53),
+    ]
+    for host, port in probes:
         try:
-            sock = socket.create_connection((host, port), timeout=timeout)
+            sock = socket.create_connection((host, port), timeout=sock_timeout)
             sock.close()
             return True
         except (OSError, socket.timeout):
@@ -237,8 +251,8 @@ def is_internet_available(timeout=3):
 
     try:
         from resources.lib.ui import client
-        resp = client.get("https://1.1.1.1", timeout=timeout)
-        return resp is not None and resp.status_code in (200, 301, 302, 403)
+        resp = client.get("https://cloudflare-dns.com", timeout=sock_timeout)
+        return resp is not None and resp.status_code in (200, 204, 301, 302, 403)
     except Exception:
         return False
 

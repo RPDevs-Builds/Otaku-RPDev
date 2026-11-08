@@ -386,11 +386,27 @@ def generate_diagnostics_report():
             lines.append(f"  • {db_label:<16}: ERROR ({e})")
     lines.append("")
 
-    # 5. Scrapers & Circuit Breakers
+    # 5. Scrapers, Circuit Breakers & FlareSolverr
     lines.append("[5] Scraper Circuit Breakers & Domains")
     from resources.lib.pages import circuit_breaker
-    from resources.lib.ui import domains
-    all_scrapers = ['nyaa', 'animetosho', 'bitsearch', 'piratebay', 'hianime', 'animepahe', 'anikoto', 'watchnixtoons2']
+    from resources.lib.ui import domains, client
+    fs_enabled = control.getBool('fs_enable')
+    fs_url = (control.getSetting('fs_url') or 'http://localhost:8191/v1').strip()
+    if fs_enabled:
+        try:
+            fs_base = fs_url[:-3] if fs_url.endswith('/v1') else fs_url
+            fs_resp = client.get(fs_base, timeout=2.0)
+            fs_health = f"ONLINE (HTTP {fs_resp.status_code})" if fs_resp and fs_resp.status_code else "UNREACHABLE"
+        except Exception as e:
+            fs_health = f"UNREACHABLE ({e})"
+    else:
+        fs_health = "DISABLED"
+    lines.append(f"  • {'flaresolverr':<16}: {fs_health:<16} | URL: {fs_url}")
+
+    all_scrapers = [
+        'nyaa', 'animetosho', 'torrentio', 'nekobt', 'bitsearch', 'piratebay',
+        'hianime', 'animepahe', 'anikoto', 'watchnixtoons2',
+    ]
     for sc in all_scrapers:
         tripped = circuit_breaker.is_tripped(sc)
         domain = domains.get_domain(sc) if hasattr(domains, 'get_domain') else 'default'

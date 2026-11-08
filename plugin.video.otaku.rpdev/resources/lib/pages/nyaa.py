@@ -184,7 +184,7 @@ class Sources(BrowserBase):
             soup = BeautifulSoup(html, "html.parser", parse_only=mlink)
             rex = r'(magnet:)+[^"]*'
             list_ = []
-            for i in soup.select("tr.danger,tr.default,tr.success"):
+            for i in soup.find_all('tr', class_=['danger', 'default', 'success']):
                 magnet_tag = i.find('a', {'href': re.compile(rex)})
                 if not magnet_tag:
                     continue
@@ -240,7 +240,7 @@ class Sources(BrowserBase):
                  i.find_all('td', {'class': 'text-center'})[1].text,
                  i.find_all('td', {'class': 'text-center'})[-1].text,
                  i.find_all('td', {'class': 'text-center'})[-3].text
-                 ) for i in results.select("tr.danger,tr.default,tr.success")
+                 ) for i in results.find_all('tr', class_=['danger', 'default', 'success'])
                 if i.find_all('a', {'href': re.compile(rex)})
             ]
 

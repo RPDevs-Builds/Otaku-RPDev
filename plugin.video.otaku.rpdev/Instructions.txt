@@ -16,6 +16,11 @@ MegaCloud Solver
       https://<name>.vercel.app/
 
 FlareSolverr
+- Recommended: Docker (Linux / macOS / Windows / NAS)
+    1. Run FlareSolverr v3+ via Docker:
+       docker run -d --name flaresolverr -p 8191:8191 -e LOG_LEVEL=info --restart unless-stopped ghcr.io/flaresolverr/flaresolverr:latest
+    2. In Otaku Settings -> Providers -> FlareSolverr, enable FlareSolverr and verify the URL (default: http://localhost:8191/v1, or http://<host-ip>:8191/v1 when Kodi runs on another device).
+
 - For Windows users
     1. Go to https://github.com/FlareSolverr/FlareSolverr/releases in your web browser and install the flaresolverr_windows_x64.zip 
     2. Extract the zip by right clicking and selecting "Extract All..."

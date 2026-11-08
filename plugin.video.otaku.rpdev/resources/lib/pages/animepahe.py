@@ -13,11 +13,26 @@ _ANIME_SESSION_PATH_RE = re.compile(r'/anime/([^/?#]+)', re.I)
 
 
 class Sources(BrowserBase):
-    _BASE_URL = domains.get_domain('animepahe', 'https://animepahe.ru/')
+    _BASE_URL = domains.get_domain('animepahe', 'https://animepahe.pw/')
 
     _headers = {
         'Referer': _BASE_URL,
     }
+
+    def _rewrite_origin(self, raw_url):
+        """Rewrite legacy MALSync AnimePahe URLs dynamically onto the active mirror origin."""
+        parsed_base = urllib.parse.urlparse(self._BASE_URL)
+        parsed_link = urllib.parse.urlparse(raw_url)
+        if parsed_base.scheme and parsed_base.netloc and parsed_link.path:
+            return urllib.parse.urlunparse((
+                parsed_base.scheme,
+                parsed_base.netloc,
+                parsed_link.path,
+                parsed_link.params,
+                parsed_link.query,
+                parsed_link.fragment,
+            ))
+        return raw_url
 
     def _build_source(self, item, title, episode, embed_hosts):
         raw_src = item.get('data-src') or ''
@@ -87,7 +102,7 @@ class Sources(BrowserBase):
             elif link.startswith('/'):
                 link = urllib.parse.urljoin(self._BASE_URL, link)
             final = client.request(
-                link.replace('.com/', '.pw/'),
+                self._rewrite_origin(link),
                 output='geturl',
                 headers=self._headers,
                 referer=self._BASE_URL,
