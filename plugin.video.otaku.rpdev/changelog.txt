@@ -1,3 +1,10 @@
+Changelog v6.0.8 (2026-11-07):
+- Unicode Quote Normalization & Scraper Disambiguation:
+- - Unicode quote and punctuation normalization across HiAnime (_normalize_title_text, _score_candidate, _search_keywords) and AnimePahe (_normalize_title)
+- - Normalizes curly single/double quotes (’ ‘ ‚ ‛ ´ ′ ” “ „ ‟) to ASCII (' ") and em/en dashes (— –) to hyphens (-)
+- - Fixes candidate scoring for titles with apostrophes (e.g. Frieren: Beyond Journey’s End) prioritizing the main series over chibi/mini-anime spinoffs to reliably return HD-1 MegaCloud streams
+- - Generates both raw and normalized title queries in HiAnime keyword search
+
 Changelog v6.0.7 (2026-11-07):
 - FlareSolverr Direct HTML, Zero-Soupsieve & Dual-Runtime Playback:
 - - Zero-soupsieve Beautiful Soup parsing across all scrapers & permanent AST lint gate

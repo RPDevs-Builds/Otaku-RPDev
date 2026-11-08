@@ -248,6 +248,30 @@ class TestFlareSolverrAndScraperRemediations(unittest.TestCase):
         self.assertIsNone(res)
         self.assertEqual(call_count[0], 2)
 
+    def test_hianime_and_animepahe_unicode_quote_normalization(self):
+        """Verify that Unicode quotes (’, ‘, “, ”) are normalized to ASCII so titles match accurately."""
+        hi = hianime.Sources()
+        title_with_curly = "Frieren: Beyond Journey’s End"
+        title_with_ascii = "Frieren: Beyond Journey's End"
+        kodi_meta = {'name': 'Sousou no Frieren', 'ename': title_with_curly}
+
+        cand_main = title_with_ascii
+        cand_spinoff = "Sousou no Frieren - Marumaru no Mahou (Mini Anime)"
+
+        score_main = hi._score_candidate(cand_main, title_with_curly, kodi_meta)
+        score_spinoff = hi._score_candidate(cand_spinoff, title_with_curly, kodi_meta)
+
+        self.assertGreater(score_main, 300)
+        self.assertLess(score_spinoff, 50)
+        self.assertGreater(score_main, score_spinoff)
+
+        keywords = hi._search_keywords(title_with_curly, '52991', kodi_meta)
+        self.assertIn(title_with_ascii, keywords)
+
+        ap = animepahe.Sources()
+        self.assertEqual(ap._normalize_title("Frieren: Beyond Journey’s End"), "Frieren: Beyond Journey's End")
+        self.assertEqual(ap._normalize_title("“Attack on Titan”"), '"Attack on Titan"')
+
 
 if __name__ == '__main__':
     unittest.main()

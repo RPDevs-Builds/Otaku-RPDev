@@ -139,16 +139,43 @@ class Sources(BrowserBase):
             return list(self._SERVER_NAMES)
         return enabled
 
+    @staticmethod
+    def _normalize_title_text(text):
+        if not text:
+            return ''
+        return (
+            text.replace('’', "'")
+            .replace('‘', "'")
+            .replace('‚', "'")
+            .replace('‛', "'")
+            .replace('´', "'")
+            .replace('′', "'")
+            .replace('“', '"')
+            .replace('”', '"')
+            .replace('„', '"')
+            .replace('‟', '"')
+            .replace('—', '-')
+            .replace('–', '-')
+            .strip()
+        )
+
     def _search_keywords(self, title, mal_id, kodi_meta=None):
         keywords = []
         seen = set()
 
         def add(value):
             value = (value or '').strip()
+            if not value:
+                return
             key = value.lower()
-            if value and key not in seen:
+            if key not in seen:
                 seen.add(key)
                 keywords.append(value)
+            norm_val = self._normalize_title_text(value)
+            norm_key = norm_val.lower()
+            if norm_key not in seen:
+                seen.add(norm_key)
+                keywords.append(norm_val)
 
         add(title)
         if kodi_meta and isinstance(kodi_meta, dict):
@@ -202,8 +229,10 @@ class Sources(BrowserBase):
         return None
 
     def _score_candidate(self, candidate_name, title, kodi_meta=None):
-        name_lower = candidate_name.lower()
-        title_lower = title.lower()
+        name_clean = self._normalize_title_text(candidate_name)
+        title_clean = self._normalize_title_text(title)
+        name_lower = name_clean.lower()
+        title_lower = title_clean.lower()
         score = 0
 
         if title_lower == name_lower:
@@ -213,20 +242,22 @@ class Sources(BrowserBase):
 
         if kodi_meta and isinstance(kodi_meta, dict):
             for key in ('ename', 'title_english', 'title_romaji'):
-                val = (kodi_meta.get(key) or '').lower()
-                if val:
-                    if val == name_lower:
-                        score += 140
-                    elif val in name_lower:
-                        score += 90
+                val_raw = kodi_meta.get(key)
+                if val_raw:
+                    val = self._normalize_title_text(val_raw).lower()
+                    if val:
+                        if val == name_lower:
+                            score += 140
+                        elif val in name_lower:
+                            score += 90
 
         title_tokens = [w for w in re.split(r'[^a-z0-9]+', title_lower) if len(w) > 2]
         name_tokens = set(re.split(r'[^a-z0-9]+', name_lower))
         overlap = sum(1 for token in title_tokens if token in name_tokens)
         score += overlap * 10
 
-        wanted_season = self._season_number(title)
-        candidate_season = self._season_number(candidate_name)
+        wanted_season = self._season_number(title_clean)
+        candidate_season = self._season_number(name_clean)
         if wanted_season is None:
             if candidate_season not in (None, 1):
                 score -= 40

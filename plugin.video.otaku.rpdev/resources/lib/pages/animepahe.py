@@ -19,6 +19,26 @@ class Sources(BrowserBase):
         'Referer': _BASE_URL,
     }
 
+    @staticmethod
+    def _normalize_title(text):
+        if not text:
+            return ''
+        return (
+            text.replace('’', "'")
+            .replace('‘', "'")
+            .replace('‚', "'")
+            .replace('‛', "'")
+            .replace('´', "'")
+            .replace('′', "'")
+            .replace('“', '"')
+            .replace('”', '"')
+            .replace('„', '"')
+            .replace('‟', '"')
+            .replace('—', '-')
+            .replace('–', '-')
+            .strip()
+        )
+
     def _rewrite_origin(self, raw_url):
         """Rewrite legacy MALSync AnimePahe URLs dynamically onto the active mirror origin."""
         parsed_base = urllib.parse.urlparse(self._BASE_URL)
@@ -159,10 +179,11 @@ class Sources(BrowserBase):
 
         all_results = []
         if sitems:
+            clean_title = self._normalize_title(title).lower()
             if title[-1].isdigit():
-                items = [x for x in sitems if title.lower() in x.get('title').lower()]
+                items = [x for x in sitems if clean_title in self._normalize_title(x.get('title')).lower()]
             else:
-                items = [x for x in sitems if (title.lower() + '  ') in (x.get('title').lower() + '  ')]
+                items = [x for x in sitems if (clean_title + '  ') in (self._normalize_title(x.get('title')).lower() + '  ')]
             if not items:
                 items = sitems
             if items:

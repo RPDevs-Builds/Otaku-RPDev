@@ -1,4 +1,21 @@
 ================================================================================
+         OTAKU RPDEV v6.0.8 - UNICODE QUOTE NORMALIZATION & SCRAPER MATCHING
+================================================================================
+
+[ Unicode Quote Normalization • HiAnime MegaCloud Matching • Title Disambiguation ]
+• Unicode Quote & Punctuation Normalization: Added robust normalization in HiAnime
+  (_normalize_title_text, _score_candidate, _search_keywords) and AnimePahe (_normalize_title)
+  converting curly/Unicode quotes (’ ‘ ‚ ‛ ´ ′ ” “ „ ‟) to standard ASCII (' ") and em/en
+  dashes (— –) to standard hyphens (-).
+• HiAnime Accurate Series Resolution: Eliminates string matching failures on titles with
+  apostrophes (e.g., "Frieren: Beyond Journey’s End"). Ensures the main series (ID 481)
+  scores highest (330 vs 10) instead of falling back to mini-anime or spinoffs, reliably
+  returning HD-1 (MegaCloud) stream candidates.
+• Search Keyword Diversity: HiAnime query generator now dispatches both raw metadata titles
+  and normalized ASCII variants to maximize scraper index hit rates.
+
+
+================================================================================
          OTAKU RPDEV v6.0.7 - FLARESOLVERR DIRECT HTML & ZERO-SOUPSIEVE
 ================================================================================
 
