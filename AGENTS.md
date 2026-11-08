@@ -29,10 +29,17 @@ Authoritative engineering invariants, architectural contracts, and operational m
 
 ## 3. Deployment & Addon Release Pipeline Mandate
 - **No Direct Target Updates**: Never push add-on code or assets directly onto target hardware (e.g., ONN Android TV `10.13.0.16` via ADB). Live devices must receive updates exclusively via the Kodi repository update mechanism.
-- **Automated Release Pipeline**:
-  1. Prepend human-readable release highlights to `plugin.video.otaku.rpdev/news.txt`.
-  2. Execute `python3 scripts/release_addon.py plugin.video.otaku.rpdev --bump [patch|minor|major] -m "..."`.
-  3. `release_addon.py` enforces pre-flight unit/AST tests, dual headless real-Kodi 21 & Kodi 22 Xvfb smoke boots (scanning `kodi.log` for `CSettingSection::Deserialize`, `Invalid setting type`, `SWIG director`, and segfaults), bumps `addon.xml` + `changelog.txt`, packages clean ZIPs to `/mnt/sharedroot/projects/rpdev-cdn/kodi.repo.iamrp.dev`, regenerates `addons.xml` & `addons.xml.md5`, commits with `--no-gpg-sign`, pushes both repos to GitHub, and verifies live CDN checksum & HTTP 200 ZIP reachability at `https://kodi.repo.iamrp.dev`.
+- **Modernized Tag-Based GitHub Actions Release Pipeline**:
+  All releases are driven automatically by Git version tags (`v*`) via `.github/workflows/release.yml`:
+  1. Prepend human-readable release highlights to `plugin.video.otaku.rpdev/news.txt` and `plugin.video.otaku.rpdev/changelog.txt`.
+  2. Bump `version="X.Y.Z"` in `plugin.video.otaku.rpdev/addon.xml`.
+  3. Commit: `git commit -m "chore(release): bump plugin.video.otaku.rpdev to vX.Y.Z - <Highlights>"`.
+  4. Tag and push: `git tag vX.Y.Z && git push origin main --tags`.
+  5. GitHub Actions release workflow automatically executes:
+     - **Pre-Flight Test Gate**: Matrix build across Python 3.11, 3.12, and 3.13 running `ruff`, `compileall`, and all 589+ unit and AST integrity tests.
+     - **Package & GitHub Release**: Validates version matching `addon.xml`, extracts notes from `news.txt`, packages clean `plugin.video.otaku.rpdev-<version>.zip` and SHA256/MD5 checksums, publishing release assets directly to GitHub Releases (`RPDevs-Builds/Otaku-RPDev`).
+     - **Sync to Kodi CDN Repository**: Clones `rpdev-cdn/kodi.repo.iamrp.dev` using repository secret `CDN_REPO_TOKEN`, copies ZIP and metadata, runs `tools/generate_repo.py`, and commits/pushes to `main`, triggering automated GitHub Pages deployment to `https://kodi.repo.iamrp.dev`.
+  6. **Offline / Emergency Fallback**: `scripts/release_addon.py` is preserved solely for offline or manual emergency packaging when GitHub Actions is inaccessible; standard releases must always traverse the tag-based CI/CD pipeline.
 
 ---
 
@@ -59,7 +66,8 @@ Authoritative engineering invariants, architectural contracts, and operational m
 
 ## 6. Memory Management & Low-RAM (1GB Android TV) Safeguards
 - **64KB Window Property Ceiling (UTF-8 Byte-Measured)**: Never store payloads exceeding `65,536` UTF-8 bytes in Kodi C++ window properties (`_WindowProxy.setProperty`, `control.setGlobalProp`). Always measure encoded byte length via `len(val_str.encode('utf-8', errors='replace')) > 65536` (not `len(val_str)`, which misses 3–4 byte UTF-8 characters). Store large datasets (such as multi-entry user reviews `otaku_reviews_{mal_id}`) in SQLite WAL `cache.db`.
-- **WindowXML C++ Object Disposal**: Always wrap modal dialog invocations (`doModal()`) in `try ... finally:` blocks that call `dlg.close()`, execute `del dlg`, and clear instance references (`self.dialog = None`) to prevent C++ `WindowXML` memory leaks across marathon autoplay sessions.
+- **WindowXML C++ Object Disposal & Lifecycle**: Always wrap modal dialog invocations (`doModal()`) in `try ... finally:` blocks that call `dlg.close()`, execute `del dlg`, and clear instance references (`self.dialog = None`) to prevent C++ `WindowXML` memory leaks across marathon autoplay sessions.
+- **Modal Dialog Menu Item Flagging**: Menu items that trigger modal `WindowXMLDialog` windows (such as `airing_calendar` launching `Anichart.doModal()`) must explicitly specify `isFolder=False, isPlayable=False` in `control.directoryItem()`. Declaring dialog-opening items as folders causes Kodi's navigation engine to stall or display empty directory errors upon dialog dismissal.
 
 ---
 
@@ -89,6 +97,8 @@ Authoritative engineering invariants, architectural contracts, and operational m
 ## 10. Feature Preservation, Scraper Genericity & Playback Pipeline
 - **Zero-`soupsieve` Beautiful Soup Invariant**: Kodi's `script.module.beautifulsoup4` does not bundle `soupsieve`. Calling `.select()` or `.select_one()` raises `NotImplementedError` inside Kodi runtimes. All HTML scrapers must exclusively use `find()` and `find_all()` with attributes or predicate functions. This is permanently enforced via the AST lint gate in `test_ast_integrity.py`.
 - **Domain-Agnostic Scrapers & Extractors**: Never hardcode single-domain filters (e.g., `if 'megaplay.buzz' in url`) or static embed hosts (`https://embed.wcostream.com`). Derive origins dynamically via `urllib.parse.urlparse` using `scheme = parsed.scheme or 'https'` (`f"{scheme}://{parsed.netloc}"`), normalize base URLs with `.rstrip('/')` before path concatenation (preventing `//` 301 Cloudflare triggers), and match query parameters position-agnostically (`[?&]pid=([0-9]+)`).
+- **WatchNixtoons2 2026 WCO Player Protocol**: Free stream extraction on WCO must select `inc/embed/index.php` embeds (explicitly skipping `vhs.wcostream.com` paywall iframes) and execute the full handshake: capture `PHPSESSID`, fetch `pre-init.js?v2`, issue `POST /ad-verify` (`HTTP 204` + `Origin: https://embed.wcostream.com`), wait `5.2s` via non-blocking `waitForAbort`, and query `inc/embed/video-js-old.php` with `Referer: original_embed_url`. Always follow video stream redirects with `Range: bytes=0-0` and `limit=1` to avoid memory bloat.
+- **Artwork List Unwrapping & Spoiler Masking**: Metadata and indexing routines unwrapping artwork from dictionaries or caches must unwrap `list` or `tuple` types (e.g., via `_pick_art_str(val)`) to a single string before assigning to `ListItem` artwork properties (`thumb`, `poster`, `fanart`). Passing list literals into art properties corrupts thumbnail rendering and bypasses spoiler shield masks.
 - **Streaming Video Range Headers in Redirect Probes**: When resolving redirects on video URLs in scraper workers (e.g., `_follow_redirect_url`), never execute unconstrained `urlopen()` or `client.get()`. Always supply `Range: bytes=0-0` and bound byte reads (`limit=1`) to avoid buffering stream payloads into RAM.
 - **Single-IP AdGate Concurrency Guard**: Streaming hosts with timestamped AdGate sessions (e.g. `embed.wcostream.com`) enforce a single active verification session per client IP. Scrapers must process audio variants sequentially (SUB then DUB) rather than concurrently to prevent IP-level session invalidation (`HTTP 503 Servers Busy`).
 - **Multi-Server Candidate Retention**: Collect all enabled stream servers/mirrors into prioritized candidate lists and attempt resolution sequentially (`hianime.py`, `gogoanime.py`, etc.). Never place an early `break` after the first server match.
@@ -101,6 +111,7 @@ Authoritative engineering invariants, architectural contracts, and operational m
 
 ## 11. HTTP Transport, Debrid Resilience, Watchlists & OAuth
 - **Sub-Second Float Timeouts & Streaming Downloads**: Always cast HTTP timeouts to `float(timeout)` (never `int(timeout)`, which truncates `0.5s` to `0`). Never reintroduce single-read byte caps that truncate multi-megabyte database/archive downloads in `client.py`.
+- **HTTPS TCP Port 443 Reachability Invariant**: `control.is_internet_available` must verify internet connectivity by attempting a non-blocking TCP socket connection on port 443 across major HTTPS CDN endpoints (`cloudflare-dns.com`, `www.gstatic.com`, `api.github.com`) before falling back to port 53. Port 53 plaintext DNS probes fail on secured networks, corporate firewalls, and NextDNS/DoH configurations.
 - **Universal Defensive JSON Decoding**: Never invoke bare `json.loads()` or unguarded `r.json()` on HTTP responses, FlareSolverr/DDG proxy payloads (`cfcookie`, `ddgcookie`), or SQLite `cache.db` values (`VIEW_REVIEW`). Always use `control.safe_json(resp, default=...)`, `control.loads_json(raw, default=...)`, or `r.json(default={})`, and verify `isinstance(data, dict)` before `.get()`.
 - **FlareSolverr Direct HTML Return (JA3/JA4 Bypass)**: Replaying FlareSolverr `cf_clearance` cookies over standard Python `urllib`/`urllib3` fails on Cloudflare WAF due to JA3/JA4 TLS fingerprint mismatch (returning HTTP 403). When solving Cloudflare-protected pages with FlareSolverr, always use `'returnOnlyCookies': False` (`solve_request`) to fetch and return the solved HTML directly from FlareSolverr's Chromium browser. Accept modern DDoS-Guard tokens (`__ddg1_`, `__ddg8_`, `__ddg9_`, `__ddg10_`, or any `__ddg` prefix).
 - **Hard WAF IP Block Fast-Fail & Negative Turnstile Cooldown**: FlareSolverr cannot solve Interactive Turnstile challenges or hard Cloudflare ASN/IP blocks (`Attention Required! | Cloudflare`). Scrapers and HTTP clients must inspect response bodies for hard WAF block signatures and fail fast immediately (<500ms). Maintain a negative cooldown cache (e.g., 600s) for hosts that fail interactive challenges to prevent repeated multi-minute scraping hangs.
@@ -115,6 +126,7 @@ Authoritative engineering invariants, architectural contracts, and operational m
 
 ## 12. Hermetic Testing, CI & Pre-Commit Verification Gate
 - **Hermetic Offline Test Contract**: All unit/integration tests must include the standard standalone bootstrap importing `conftest` (`tests/conftest.py`), which enforces an offline socket guard blocking live external network calls. Store scraper HTML/JSON payloads as deterministic golden fixtures under `tests/fixtures/`. Live provider diagnostics (`scripts/check_scraper_health.py`) are strictly for local/VPN execution and must never run in GitHub Actions CI.
+- **Headless Kodi 21 & 22 Smoke Test Tool (`scripts/test_kodi_installs.py`)**: For pre-release runtime validation, run `python3 scripts/test_kodi_installs.py`. This script spins up isolated Xvfb headless instances of both Kodi 21 (Omega) and Kodi 22 (Piers), dynamically extracts the current version from `addon.xml`, tests fresh add-on installation, verifies JSON-RPC ping and add-on enable status, and scans `kodi.log` for fatal C++ errors, invalid setting types, or SWIG exceptions.
 - **Mandatory 4-Step Local Verification Gate**: Run and pass all four checks from `/mnt/sharedroot/projects/RPDevs-Builds/Otaku-RPDev` before every commit or release:
   1. `python3 -m unittest discover tests` (589+ unit, integration, and adversarial tests; 0 failures/errors)
   2. `python3 -m unittest tests/lint/test_ast_integrity.py` (AST syntax, zero bare `except:`, zero `pickle`, zero `.select(` / `.select_one(`, 38 skin XMLs valid)
