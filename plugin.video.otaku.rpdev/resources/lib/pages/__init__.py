@@ -7,7 +7,7 @@ from functools import partial
 from resources.lib.pages import (
     nyaa, animetosho, nekobt, torrentio, debrid_cloudfiles, easynews,
     animepahe, anikoto, hianime, watchnixtoons2, localfiles,
-    bitsearch, piratebay
+    bitsearch, piratebay, gogoanime
 )
 from resources.lib.ui import control, database, source_utils
 from resources.lib.windows.get_sources_window import GetSources
@@ -37,6 +37,7 @@ _HOSTER_MODULES = {
 # skip prefix drives _apply_embed_skip (hianime / anikoto)
 _EMBED_MODULES = (
     ('animepahe', animepahe, 'animepahe', None, False),
+    ('gogo', gogoanime, 'gogoanime', None, False),
     # ('animix', animixplay, 'animix', None, False),
     # ('aniwave', aniwave, 'aniwave', 'aniwave', False),
     ('hianime', hianime, 'hianime', 'hianime', False),

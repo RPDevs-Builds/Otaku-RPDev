@@ -100,6 +100,74 @@ class TestGogoAnimeScraper(unittest.TestCase):
         self.assertEqual(sub_sources[0]['info'], ['VIDCDN SUB'])
         self.assertEqual(dub_sources[0]['info'], ['VIDCDN DUB'])
 
+    @patch('resources.lib.ui.database.get')
+    def test_process_gogo_maps_anime_class_to_vidcdn(self, mock_db_get):
+        """Verify modern GogoAnime 'anime' class (Vidstreaming) maps to enabled 'vidcdn'."""
+        sample_html = '''
+        <div class="anime_muti_link">
+            <ul>
+                <li class="anime"><a data-video="https://goone.pro/streaming.php?id=123">Vidstreaming</a></li>
+            </ul>
+        </div>
+        '''
+        mock_db_get.return_value = sample_html
+
+        with patch.object(self.scraper, 'embeds', return_value=['vidcdn']):
+            sources = self.scraper._process_gogo('frieren', 52991, 1)
+
+        self.assertEqual(len(sources), 1)
+        self.assertEqual(sources[0]['info'], ['VIDCDN SUB'])
+        self.assertEqual(sources[0]['hash'], 'https://goone.pro/streaming.php?id=123')
+
+    @patch('resources.lib.ui.database.get')
+    def test_process_gogo_category_episode_items_fallback(self, mock_db_get):
+        """Verify fallback to category page #episode-items when episode page 404s."""
+        def side_effect(func, timeout, url, **kwargs):
+            if 'category' in url:
+                return '''
+                <div id="episode-items">
+                    <a class="episode" href="/frieren-episode-2"> EP 2</a>
+                    <a class="episode" href="/frieren-episode-1"> EP 1</a>
+                </div>
+                '''
+            return None
+
+        mock_db_get.side_effect = side_effect
+
+        with patch.object(self.scraper, '_send_request') as mock_send:
+            mock_send.return_value = '''
+            <div class="anime_muti_link">
+                <ul>
+                    <li class="vidcdn"><a data-video="https://goone.pro/streaming.php?id=1">Vidstreaming</a></li>
+                </ul>
+            </div>
+            '''
+            with patch.object(self.scraper, 'embeds', return_value=['vidcdn']):
+                sources = self.scraper._process_gogo('frieren', 52991, 1)
+
+        self.assertEqual(len(sources), 1)
+        self.assertEqual(sources[0]['hash'], 'https://goone.pro/streaming.php?id=1')
+
+    def test_search_keywords_and_scoring(self):
+        """Verify Unicode normalization and alias matching."""
+        title = "Sousou no Frieren"
+        kodi_meta = {
+            'ename': "Frieren: Beyond Journey’s End",
+            'title_english': "Frieren: Beyond Journey's End",
+            'title_romaji': "Sousou no Frieren"
+        }
+        keywords = self.scraper._search_keywords(title, kodi_meta)
+        self.assertIn("Sousou no Frieren", keywords)
+        self.assertIn("Frieren: Beyond Journey's End", keywords)
+
+        score_exact = self.scraper._score_candidate("Sousou no Frieren", title, kodi_meta)
+        score_english = self.scraper._score_candidate("Frieren: Beyond Journey’s End", title, kodi_meta)
+        score_diff = self.scraper._score_candidate("Naruto Shippuden", title, kodi_meta)
+
+        self.assertGreater(score_exact, 100)
+        self.assertGreater(score_english, 100)
+        self.assertEqual(score_diff, 0)
+
 
 if __name__ == '__main__':
     unittest.main()

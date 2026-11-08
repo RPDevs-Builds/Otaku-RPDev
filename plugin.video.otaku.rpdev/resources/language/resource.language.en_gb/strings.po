@@ -976,7 +976,7 @@ msgid "H!Anime"
 msgstr ""
 
 msgctxt "#30236"
-msgid "Gogo"
+msgid "GogoAnime (Anitaku)"
 msgstr ""
 
 msgctxt "#30237"
@@ -1000,7 +1000,7 @@ msgid "H!Anime Proxies (Region Problem)"
 msgstr ""
 
 msgctxt "#30242"
-msgid "Gogo Proxies (Region Problem)"
+msgid "GogoAnime Alternate Mirror (Anitaku.bz)"
 msgstr ""
 
 msgctxt "#30243"

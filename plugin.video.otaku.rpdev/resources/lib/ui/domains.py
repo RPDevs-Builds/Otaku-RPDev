@@ -28,7 +28,12 @@ DEFAULT_DOMAINS = {
         "https://hianime.tr/",
         "https://hianimetv.bz/",
     ],
-    "gogoanime": "https://anitaku.so/",
+    "gogoanime": "https://gogoanime.me/",
+    "gogoanime_mirrors": [
+        "https://gogoanime.me/",
+        "https://anitaku.bz/",
+        "https://anitaku.pe/",
+    ],
     "animepahe": "https://animepahe.pw/",
     "animepahe_mirrors": [
         "https://animepahe.pw/",

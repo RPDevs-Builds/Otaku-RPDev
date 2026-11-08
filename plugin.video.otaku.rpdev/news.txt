@@ -1,4 +1,25 @@
 ================================================================================
+         OTAKU RPDEV v6.0.9 - GOGOANIME (ANITAKU) REACTIVATION & MODERNIZATION
+================================================================================
+
+[ GogoAnime Reactivation • Active Mirror Architecture • Multi-Server Embed Parsing ]
+• GogoAnime / Anitaku Scraper Modernization: Reactivated dormant GogoAnime scraper in
+  _EMBED_MODULES and updated primary canonical domain to active mirror (https://gogoanime.me/)
+  with fallback mirror rotation.
+• Native HTML Search & Zero-soupsieve: Replaced dead ajax.gogocdn.net endpoints with native
+  search.html parsing via Beautiful Soup .find()/.find_all(), with automatic MALSync fallback.
+• Multi-Server Embed Normalization: Added canonical normalization mapping modern GogoAnime
+  server classes (anime -> vidcdn, streamwish, mp4upload, doodstream, filemoon) to ensure
+  all enabled embed servers are collected without premature break.
+• Category Page Fallback: Added automatic fallback to #episode-items on category pages for
+  specials, movies, and non-standard episode URL schemes.
+• Sub & Dub Preference Precision: Integrated Unicode quote normalization, alias scoring,
+  and user source setting (general.source) filtering to isolate SUB vs DUB streams cleanly.
+• Schema & Settings Verification: Enabled provider.gogo and provider.gogoalt in settings.xml
+  with updated strings in strings.po ("GogoAnime (Anitaku)").
+
+
+================================================================================
          OTAKU RPDEV v6.0.8 - UNICODE QUOTE NORMALIZATION & SCRAPER MATCHING
 ================================================================================
 

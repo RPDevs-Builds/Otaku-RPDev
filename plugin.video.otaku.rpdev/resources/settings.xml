@@ -682,19 +682,19 @@
 						<dependency type="visible" setting="provider.animepahe">true</dependency>
 					</dependencies>
 				</setting>
-				<!-- <setting id="provider.gogo" type="boolean" label="30236" help="">
-					<level>2</level>
+				<setting id="provider.gogo" type="boolean" label="30236" help="">
+					<level>1</level>
 					<default>true</default>
-					<control type="toggle"/>
+					<control type="toggle" />
 				</setting>
 				<setting id="provider.gogoalt" type="boolean" label="30242" help="" parent="provider.gogo">
 					<level>2</level>
 					<default>false</default>
-					<control type="toggle"/>
+					<control type="toggle" />
 					<dependencies>
 						<dependency type="visible" setting="provider.gogo">true</dependency>
 					</dependencies>
-				</setting> -->
+				</setting>
 				<setting id="provider.hianime" type="boolean" label="30235" help="">
 					<level>1</level>
 					<default>true</default>
@@ -4875,16 +4875,6 @@
 					<constraints>
 						<allowempty>true</allowempty>
 					</constraints>
-				</setting>
-				<setting id="provider.gogo" type="boolean" label="" help="">
-					<level>4</level>
-					<default>true</default>
-					<control type="toggle" />
-				</setting>
-				<setting id="provider.gogoalt" type="boolean" label="" help="">
-					<level>4</level>
-					<default>true</default>
-					<control type="toggle" />
 				</setting>
 				<setting id="realdebrid.client_id" type="string" label="" help="">
 					<level>4</level>

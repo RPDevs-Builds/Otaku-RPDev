@@ -1,3 +1,12 @@
+Changelog v6.0.9 (2026-11-07):
+- GogoAnime / Anitaku Scraper Modernization & Reactivation:
+- - Reactivated gogoanime scraper in _EMBED_MODULES and updated canonical domains to active mirror (https://gogoanime.me/)
+- - Migrated search from dead ajax.gogocdn.net to native search.html with zero-soupsieve Beautiful Soup parsing
+- - Added canonical server mapping for Vidstreaming/Vidcdn, StreamWish, Mp4Upload, Doodstream, and Filemoon
+- - Implemented category page fallback to #episode-items for movies and non-standard episode slug structures
+- - Enabled provider.gogo and provider.gogoalt in settings.xml and updated strings.po
+- - Integrated user general.source preferences (Sub/Dub) and Unicode quote normalization
+
 Changelog v6.0.8 (2026-11-07):
 - Unicode Quote Normalization & Scraper Disambiguation:
 - - Unicode quote and punctuation normalization across HiAnime (_normalize_title_text, _score_candidate, _search_keywords) and AnimePahe (_normalize_title)
