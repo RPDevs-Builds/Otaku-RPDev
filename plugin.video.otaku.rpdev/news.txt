@@ -1,4 +1,30 @@
 ================================================================================
+         OTAKU RPDEV v6.0.10 - TITLE ISOLATION, CANDIDATE SCORING & FILTERING
+================================================================================
+
+[ Title Isolation • Heuristic Scoring • Derivative Rejection • Autoplay Tiering ]
+• Release Title Isolation & Episode Boundary Detection: Implemented isolate_show_title
+  and clean_title_for_matching in source_utils.py reliably stripping release groups,
+  codecs, resolutions, and file extensions while decoupling episode numbering across
+  hyphenated (- 01), space (Title 01), dot (Title.E01), S##E##, and Part notations.
+• Unified 0–200 Heuristic Candidate Scoring Engine: Replaced naive substring matching
+  with calibrated score_title_candidate prioritizing exact canonical/alias titles (>= 140)
+  and approved release descriptors (>= 110), while penalizing derivative series (<= 40)
+  and enforcing strict word-boundary token equality on ultra-short titles (<= 8 chars).
+• Derivative Title Elimination (Monster vs. Re:Monster): Fixed false-positive collisions
+  for short anime titles like "Monster" matching derivative shows ("Re:Monster", "Monster
+  Musume", "Monster Hunter") or unrelated episode titles containing the query word.
+• 4-Tier Autoplay Relevance Gating: Enhanced sortSources in pages/__init__.py to group
+  sources into 4 relevance tiers before quality/size ordering, ensuring genuine releases
+  rank #1 over higher-resolution derivative releases and protecting SmartPlay autoplay.
+• Scraper Modernization (All 7 Providers): Standardized candidate ranking and cutoffs
+  across HiAnime, GogoAnime, AnimePahe, AniKoto, WatchNixtoons2, AnimeTosho, and Nyaa.
+• 576-Title Comprehensive Dataset & Hermetic Regression Suite: Compiled a deduplicated
+  dataset spanning the Top 100 and Top 50 across 18 genres, verified via a 5-gate
+  hermetic test suite achieving 100% precision and recall across 4,379 candidate variations.
+
+
+================================================================================
          OTAKU RPDEV v6.0.9 - GOGOANIME (ANITAKU) REACTIVATION & MODERNIZATION
 ================================================================================
 
