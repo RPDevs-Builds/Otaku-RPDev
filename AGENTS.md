@@ -92,6 +92,7 @@ Authoritative engineering invariants, architectural contracts, and operational m
 - **Directory Sort Methods & Label Mask Preservation**:
   - Always register `"Default"` sorting with `xbmcplugin.SORT_METHOD_UNSORTED`, never `xbmcplugin.SORT_METHOD_NONE` (which Kodi renders as a duplicate `"Date"` entry).
   - Never pass metadata formatters (`%Y`, `%R`, `%E`, `%P`) into the 3rd argument (`labelMask`) of `xbmcplugin.addSortMethod()`, as that overwrites displayed item titles. Keep item titles in `labelMask` (`"%L"` for shows/movies/videos/seasons/fallback, `"%H. %T"` for episodes) and place secondary metadata strictly in `label2Mask`.
+  - Pin pagination and filter control rows in `control.xbmc_add_dir()` (`SpecialSort="bottom"` for `Next Page` / `next.png` rows and `SpecialSort="top"` for `multipage_filter` / `multipage_clear_filter` rows) so Kodi sorting never scatters them into content in either Ascending or Descending order.
 
 ---
 

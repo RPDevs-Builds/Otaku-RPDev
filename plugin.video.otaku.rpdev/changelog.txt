@@ -1,3 +1,10 @@
+Changelog v6.1.2 (2026-11-14):
+- Pin Next Page & Filter Control Rows Under Kodi Sorting:
+  - Set `SpecialSort="bottom"` on all `Next Page` rows (`next.png` / `Next Page (...)`) in `control.xbmc_add_dir()` so pagination items always remain anchored at the bottom of sorted lists across all sort methods and orders (Ascending and Descending).
+  - Set `SpecialSort="top"` on `[Filter List by Text...]` and `[Clear Filter]` rows (`multipage_filter` / `multipage_clear_filter`) so filter controls remain anchored at the top when Kodi sorting is active.
+  - Replaced deprecated `ssl.PROTOCOL_TLS*` constants in `client.py` with `ssl.PROTOCOL_TLS_CLIENT` + `ssl.TLSVersion` bounds, eliminating `DeprecationWarning` under Python 3.12+.
+  - Shortened section dividers in `news.txt` so headings fit cleanly inside the half-width News/Changelog textbox without wrapping.
+
 Changelog v6.1.1 (2026-11-14):
 - Kodi Native Sorting, Metadata & Simkl Paging Fixes:
   - Fixed Kodi Sort By menu showing duplicate "Date" by replacing SORT_METHOD_NONE with SORT_METHOD_UNSORTED ("Default")

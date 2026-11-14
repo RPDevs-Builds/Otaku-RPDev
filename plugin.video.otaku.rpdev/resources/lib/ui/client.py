@@ -316,15 +316,26 @@ def request(
         # TLS version override for Cloudflare bypass (like WNT2's TLS adapters)
         if tls_version:
             try:
-                if tls_version == 'TLSv1_1':
-                    ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_1)
-                elif tls_version == 'TLSv1_2':
-                    ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
+                ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+                if not verify:
+                    ssl_context.check_hostname = False
+                    ssl_context.verify_mode = ssl.CERT_NONE
                 else:
-                    ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS)
+                    try:
+                        ssl_context.load_verify_locations(cafile=CERT_FILE)
+                    except (ssl.SSLError, OSError):
+                        ssl_context.load_default_certs()
+                    ssl_context.check_hostname = True
+                    ssl_context.verify_mode = ssl.CERT_REQUIRED
 
-                ssl_context.check_hostname = False if not verify else True
-                ssl_context.verify_mode = ssl.CERT_NONE if not verify else ssl.CERT_REQUIRED
+                if hasattr(ssl, 'TLSVersion'):
+                    if tls_version == 'TLSv1_1':
+                        ssl_context.minimum_version = ssl.TLSVersion.TLSv1_1
+                        ssl_context.maximum_version = ssl.TLSVersion.TLSv1_1
+                    elif tls_version == 'TLSv1_2':
+                        ssl_context.minimum_version = ssl.TLSVersion.TLSv1_2
+                        ssl_context.maximum_version = ssl.TLSVersion.TLSv1_2
+
                 ssl_context.set_alpn_protocols(['http/1.1'])
                 handlers += [urllib.request.HTTPSHandler(context=ssl_context)]
                 ssl_context_created = True

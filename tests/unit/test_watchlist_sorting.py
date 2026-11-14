@@ -348,6 +348,33 @@ class TestWatchlistSorting(unittest.TestCase):
             res_mal = mb.base_mal_view(sample_mal)
         self.assertEqual(res_mal['info'].get('episodes'), 12)
 
+    def test_special_sort_pinning_next_page_and_filter(self):
+        """Ensure Next Page rows pin to bottom and Filter rows pin to top via SpecialSort."""
+        next_item = utils.allocate_item(
+            'Next Page (2)', 'watchlist_status_type_pages/simkl/watching/50?page=2',
+            True, False, [], 'next.png', {'plot': 'Next Page (2)'}, fanart='next.png'
+        )
+        filter_item = utils.allocate_item(
+            '[Filter List by Text...]', 'multipage_filter?base_url=top_100%2F%25d',
+            False, False, [], 'search.png', {'plot': 'Filter'}
+        )
+        clear_item = utils.allocate_item(
+            '[COLOR deepskyblue][Clear Filter: test][/COLOR]', 'multipage_clear_filter?base_url=top_100%2F1',
+            False, False, [], 'search.png', {'plot': 'Clear'}
+        )
+        show_item = utils.allocate_item(
+            'Normal Show', 'animes/1/', True, False, [], 'poster.jpg', {'title': 'Normal Show'}
+        )
+
+        conftest.mock_xbmcplugin.reset()
+        control.draw_items([filter_item, clear_item, show_item, next_item], 'tvshows')
+        added = conftest.mock_xbmcplugin.directory_items
+        self.assertEqual(len(added), 4)
+        self.assertEqual(added[0][2].getProperty('SpecialSort'), 'top')
+        self.assertEqual(added[1][2].getProperty('SpecialSort'), 'top')
+        self.assertEqual(added[2][2].getProperty('SpecialSort'), '')
+        self.assertEqual(added[3][2].getProperty('SpecialSort'), 'bottom')
+
 
 if __name__ == '__main__':
     unittest.main()

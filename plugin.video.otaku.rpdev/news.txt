@@ -1,6 +1,19 @@
-================================================================================
-         OTAKU RPDEV v6.1.1 - SORTING, EPISODE METADATA & SIMKL PAGING FIXES
-================================================================================
+================================
+[B]OTAKU RPDEV v6.1.2[/B]
+Pin Next Page & Filter Rows
+================================
+
+v6.1.2 Highlights:
+  * Pinned "Next Page" rows to the bottom (SpecialSort=bottom) so active Kodi
+    sort methods no longer sort Next Page into the top or middle of watchlists
+    and browse directories
+  * Pinned [Filter List by Text...] / [Clear Filter] controls to the top
+    (SpecialSort=top) across all sort methods and orders
+
+--------------------------------
+[B]OTAKU RPDEV v6.1.1[/B]
+Sorting, Metadata & Simkl Paging
+--------------------------------
 
 v6.1.1 Highlights:
   * Fixed Sort By dialog showing "Date" twice ("Default" now uses UNSORTED)
@@ -9,9 +22,10 @@ v6.1.1 Highlights:
   * Populated episode counts across browsers and watchlists for Episode sort
   * Fixed OtakuBrowser paged menu compatibility and Simkl Page 2+ resilience
 
---------------------------------------------------------------------------------
-         OTAKU RPDEV v6.1.0 - MULTIPAGE SORTING, FILTERING & BACKGROUND CACHING
-================================================================================
+--------------------------------
+[B]OTAKU RPDEV v6.1.0[/B]
+Multipage Sorting & Filtering
+--------------------------------
 
 [ Multipage Pre-Caching • Cross-Page Sorting • Text Filter • Kodi Native Sync ]
 • Background API Pre-Caching: Persistent MultipageWorker in service.py fetches up to 20
@@ -28,9 +42,9 @@ v6.1.1 Highlights:
 • Hardened Metadata & VideoInfoTags: setRating handles scalar scores and dictionaries;
   setEpisode supports episode, episodes, and total_episodes counts.
 
-================================================================================
+================================
          OTAKU RPDEV v6.0.10 - TITLE ISOLATION, CANDIDATE SCORING & FILTERING
-================================================================================
+================================
 
 [ Title Isolation • Heuristic Scoring • Derivative Rejection • Autoplay Tiering ]
 • Release Title Isolation & Episode Boundary Detection: Implemented isolate_show_title
@@ -54,9 +68,9 @@ v6.1.1 Highlights:
   hermetic test suite achieving 100% precision and recall across 4,379 candidate variations.
 
 
-================================================================================
+================================
          OTAKU RPDEV v6.0.9 - GOGOANIME (ANITAKU) REACTIVATION & MODERNIZATION
-================================================================================
+================================
 
 [ GogoAnime Reactivation • Active Mirror Architecture • Multi-Server Embed Parsing ]
 • GogoAnime / Anitaku Scraper Modernization: Reactivated dormant GogoAnime scraper in
@@ -75,9 +89,9 @@ v6.1.1 Highlights:
   with updated strings in strings.po ("GogoAnime (Anitaku)").
 
 
-================================================================================
+================================
          OTAKU RPDEV v6.0.8 - UNICODE QUOTE NORMALIZATION & SCRAPER MATCHING
-================================================================================
+================================
 
 [ Unicode Quote Normalization • HiAnime MegaCloud Matching • Title Disambiguation ]
 • Unicode Quote & Punctuation Normalization: Added robust normalization in HiAnime
@@ -92,9 +106,9 @@ v6.1.1 Highlights:
   and normalized ASCII variants to maximize scraper index hit rates.
 
 
-================================================================================
+================================
          OTAKU RPDEV v6.0.7 - FLARESOLVERR DIRECT HTML & ZERO-SOUPSIEVE
-================================================================================
+================================
 
 [ Direct HTML (JA3/JA4 Bypass) • Zero-Soupsieve Gate • WCO 2026 Protocol • WAF Fail-Fast ]
 • Zero-soupsieve Beautiful Soup Parsing: Converted all CSS selector calls across scrapers
@@ -120,9 +134,9 @@ v6.1.1 Highlights:
   del dlg disposal inside try...finally after modal display.
 
 
-================================================================================
+================================
          OTAKU RPDEV v6.0.6 - AST GUARDRAIL GATES & DEFENSIVE DECODING
-================================================================================
+================================
 
 [ Static CI AST Gates • Universal Safe JSON • Immediate Teardown Abort Exits ]
 • Universal Defensive JSON Decoding: Migrated all 23 residual direct json.loads() call
@@ -140,9 +154,9 @@ v6.1.1 Highlights:
   WindowXML double event dispatch.
 
 
-================================================================================
+================================
               OTAKU RPDEV v6.0.5 - ARCHITECTURE & SUBSYSTEM HARDENING
-================================================================================
+================================
 
 [ Memory Safeguards • WindowXML Single Dispatch • Scraper & Debrid Resilience ]
 • 64KB Window Property Guard & SQLite Review Cache: Enforced a strict 64KB ceiling on
@@ -160,9 +174,9 @@ v6.1.1 Highlights:
   300s OAuth token refresh checks, and SQLite read-only URI pooling for mappings.db.
 
 
-================================================================================
+================================
                     OTAKU RPDEV v6.0.4 - UPSTREAM PARITY & ACCURACY
-================================================================================
+================================
 
 [ TMDbHelper Integration • Season & Episode Mapping • Project Governance ]
 • TMDbHelper Season/Episode Mapping Match: Integrated upstream PR #500 innovation.
@@ -173,9 +187,9 @@ v6.1.1 Highlights:
   repository to enforce non-degradation invariants and domain-agnostic scraper design.
 
 
-================================================================================
+================================
                     OTAKU RPDEV v6.0.3 - DYNAMIC EMBED PROVIDERS
-================================================================================
+================================
 
 [ Scraper Resilience • Generic Domain Decoding • Multi-Host Failover ]
 • Generalized Server Hash Decoding: Removed hardcoded restriction to 'megaplay.buzz' in
@@ -188,9 +202,9 @@ v6.1.1 Highlights:
   origin host of the embed URL for player source endpoints rather than forcing megaplay.buzz.
 
 
-================================================================================
+================================
                     OTAKU RPDEV v6.0.2 - CODE HARDENING & INTEGRITY
-================================================================================
+================================
 
 [ Architecture Hardening • Single Source of Truth • Schema Integrity ]
 • _SettingsProxy Defensive Getters: Hardened all SettingsProxy getter methods (getInt,
@@ -205,9 +219,9 @@ v6.1.1 Highlights:
   and added explicit dynamic schema verification for skip times, debrid, and watchlists.
 
 
-================================================================================
+================================
                     OTAKU RPDEV v6.0.1 - EMERGENCY HOTFIX
-================================================================================
+================================
 
 [ Hotfix: Scraper Initialization Freeze & Kodi 22 Setting Hardening ]
 • Scraper Initialization Fix: Removed legacy defunct 'aniwave' prefix from the embed
@@ -217,9 +231,9 @@ v6.1.1 Highlights:
   background scraper worker thread crashes and UI lockups on Kodi 22.
 
 
-================================================================================
+================================
                     OTAKU RPDEV v6.0.0 - MAJOR MILESTONE RELEASE
-================================================================================
+================================
 
 [ Milestone v6.0.0 • Complete Codebase Maturity • Performance & Resilience ]
 
@@ -228,9 +242,9 @@ of comprehensive subsystem hardening, universal customization, and architectural
 modernization since forking from Goldenfreddy0703/Otaku v5.3.4 (with over 1,170 file
 changes and +39,000 additions cataloged in the root CHANGEREPORT.md).
 
---------------------------------------------------------------------------------
+--------------------------------
 New in v6.0.0: Architecture Hardening & Code Maturity
---------------------------------------------------------------------------------
+--------------------------------
 • Responsive Abort Loops in Playback: Replaced synchronous sleeps in playback
   monitoring and skip-intro countdowns with non-blocking waitForAbort() loops.
   Kodi shutdown, stream transitions, and manual aborts now respond instantaneously
@@ -258,18 +272,18 @@ New in v6.0.0: Architecture Hardening & Code Maturity
   protections preventing unwatched playlist runaway.
 
 
-================================================================================
+================================
                     OTAKU RPDEV v5.8.1 - WHAT'S NEW & MILESTONES
-================================================================================
+================================
 
 [ Changelog Reliability & Comprehensive Settings Engine Optimization ]
 
 Otaku RPDev v5.8.1 resolves the changelog update trigger and comprehensively
 wires and enforces all settings across Scraping, Cache, Playback, and Network:
 
---------------------------------------------------------------------------------
+--------------------------------
 New in v5.8.1: Changelog Reliability & Comprehensive Settings Wiring
---------------------------------------------------------------------------------
+--------------------------------
 • Reliable Changelog Display: Fixed root route detection and decoupled UI
   version tracking from background service migrations, ensuring the changelog
   reliably displays whenever the addon updates.
@@ -288,18 +302,18 @@ New in v5.8.1: Changelog Reliability & Comprehensive Settings Wiring
 • Source Badges & Widget Delays: Respects colored badge suppression in source
   selection and configurable widget load delays to prevent API rate limiting.
 
-================================================================================
+================================
                     OTAKU RPDEV v5.7.2 - WHAT'S NEW & MILESTONES
-================================================================================
+================================
 
 [ Universal Watchlist & Debrid Auth Hardening • Zero-Failure Stability ]
 
 Otaku RPDev v5.7.2 delivers comprehensive hardening across all 4 watchlist flavors
 and 7 Debrid & Cloud providers, guaranteeing flawless setup and authentication:
 
---------------------------------------------------------------------------------
+--------------------------------
 New in v5.7.2: Universal Watchlist & Debrid Auth Resilience
---------------------------------------------------------------------------------
+--------------------------------
 • Full Watchlist Flavor Hardening: Validated and hardened AniList, MyAnimeList,
   Kitsu, and Simkl with defensive parameter handling, empty-credential guards,
   and graceful fallback for all API response types.
@@ -315,9 +329,9 @@ New in v5.7.2: Universal Watchlist & Debrid Auth Resilience
   immediately activates that service in Kodi settings without requiring manual toggling.
 
 
-================================================================================
+================================
                     OTAKU RPDEV v5.7.0 - WHAT'S NEW & MILESTONES
-================================================================================
+================================
 
 [ Kodi 22 (Piers RC) Ready • Universal Backwards Compatibility • Milestone v5.7.0 ]
 
@@ -326,9 +340,9 @@ and architecture modernizations inspired by Umbrella: zero-wait direct stream pr
 resolution, an interactive "Still Watching?" binge safeguard, concurrency-safe request
 coalescing, provider-specific color palette branding, and an orphaned settings pruner.
 
---------------------------------------------------------------------------------
+--------------------------------
 New in v5.7.0: Umbrella Architectural Adoptions & Playback Modernization
---------------------------------------------------------------------------------
+--------------------------------
 • Zero-Wait Pre-Resolved Stream Handoff: During episode playback at 70% progress,
   Otaku pre-scrapes the next episode and silently resolves the direct stream URL in the
   background (resolve_silent). When the current episode finishes, playback of the next
@@ -347,9 +361,9 @@ New in v5.7.0: Umbrella Architectural Adoptions & Playback Modernization
   settings.xml upon version upgrades and provides a manual action button under
   Settings -> Cache & Database to remove deprecated tags and eliminate Kodi 22 C++ warnings.
 
-================================================================================
+================================
                     OTAKU RPDEV v5.6.4 - WHAT'S NEW & MILESTONES
-================================================================================
+================================
 
 [ Kodi 22 (Piers RC) Ready • Universal Backwards Compatibility • Milestone v5.6.3 ]
 
@@ -357,9 +371,9 @@ Welcome to Otaku RPDev v5.6.3! This release delivers scraper resilience fixes ac
 torrent and embed providers, adds dictionary yield counting and provider expansion
 to the automated health monitor, and certifies 263 unit tests.
 
---------------------------------------------------------------------------------
+--------------------------------
 New in v5.6.3: Scraper Resilience & Multi-Provider Health Monitor
---------------------------------------------------------------------------------
+--------------------------------
 • Scraper Resilience Hardening: Guarded AnimeTosho and WatchNixtoons2 against
   NoneType exceptions when shows or episodes lack pre-cached metadata in local SQLite.
 • Automated Scraper Health Monitor: Expanded check_scraper_health.py to monitor all
@@ -369,18 +383,18 @@ New in v5.6.3: Scraper Resilience & Multi-Provider Health Monitor
   with multi-language subtitles and intro/outro skips, alongside Premiumize debrid
   torrent cache. 263/263 unit tests passing.
 
---------------------------------------------------------------------------------
+--------------------------------
 New in v5.6.2: Scraper Hardening & Kodi 22 Feature Certification
---------------------------------------------------------------------------------
+--------------------------------
 • Nyaa Batch Search Hardening: Guarded show metadata extraction during batch
   and complete series searches against NoneType when shows are queried directly.
 • Certified 38/38 Subsystem Audits on Kodi 22: Passed 100% of route dispatches,
   strict settings queries, SQLite WAL checks, and live Premiumize debrid stream
   resolution (58 torrents / 39 cached streams).
 
---------------------------------------------------------------------------------
+--------------------------------
 New in v5.6.1: Premiumize OAuth 2.0 & Device Enrollment
---------------------------------------------------------------------------------
+--------------------------------
 • Progress Dialog Resilience: Guarded pyqrcode import and render routines so
   missing modules or initial data directory states never prevent the authorization
   progress dialog from rendering.
@@ -393,9 +407,9 @@ New in v5.6.1: Premiumize OAuth 2.0 & Device Enrollment
 • Account Expiration Hardening: Handled null and non-numeric premium_until
   timestamps safely to avoid comparison errors during account status checks.
 
---------------------------------------------------------------------------------
+--------------------------------
 Original Project Credit & Heartfelt Acknowledgement
---------------------------------------------------------------------------------
+--------------------------------
 Otaku RPDev is built upon the incredible foundational work of Goldenfreddy0703
 and the original Team Otaku developers:
   • Original Project: https://github.com/Goldenfreddy0703/Otaku
@@ -404,9 +418,9 @@ We extend our deepest appreciation to Goldenfreddy0703 for creating the original
 Otaku add-on and architecture. All original licenses and contributor credits are
 proudly preserved.
 
---------------------------------------------------------------------------------
+--------------------------------
 Major Highlights & Upgrades in v5.6.0
---------------------------------------------------------------------------------
+--------------------------------
 
 1. Zero-Wait Fast-Path Background Pre-Caching
    • Background pre-scraping at 70% playback progress now persists whole-episode
@@ -467,6 +481,6 @@ Major Highlights & Upgrades in v5.6.0
    • Comprehensive automated test suite in CI testing every subsystem: mock Kodi
      environment, debrid resolvers, scrapers, indexers, windows, and lifecycles.
 
-================================================================================
+================================
 Thank you for using Otaku RPDev! Enjoy seamless, zero-wait living-room streaming.
-================================================================================
+================================
