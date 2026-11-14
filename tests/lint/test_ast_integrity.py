@@ -37,7 +37,7 @@ def _iter_addon_py_files(include_context=True):
     seen = set()
     for root in roots:
         for path in sorted(glob.glob(f"{root}/**/*.py", recursive=True)):
-            if '__pycache__' in path:
+            if '__pycache__' in path or '/scripts/' in path:
                 continue
             norm = os.path.normpath(path)
             if norm not in seen:

@@ -104,7 +104,7 @@ def add_last_watched(items):
         artwork_meta['last_watched_episode'] = last_ep
 
         # Return tuple with special marker for last_watched items
-        items.append(('LAST_WATCHED_ITEM', last_watched, url, artwork_meta.get('poster', ''), info, artwork_meta))
+        items.append(('LAST_WATCHED_ITEM', last_watched, url, artwork_meta.get('poster') or 'currently_watching.png', info, artwork_meta))
 
     except Exception as e:
         control.log(f"Error adding last watched: {e}", level='warning')

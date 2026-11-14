@@ -456,7 +456,7 @@ msgid "Per Page General View"
 msgstr ""
 
 msgctxt "#30106"
-msgid "Per Page Watchlist View (does not work on Anilist or Simkl)"
+msgid "Watchlist Items Per Page (MAL & Kitsu)"
 msgstr ""
 
 msgctxt "#30107"
@@ -800,7 +800,7 @@ msgid "Real-Debrid"
 msgstr ""
 
 msgctxt "#30192"
-msgid "Enable Real-Debrid..."
+msgid "Enable Real-Debrid"
 msgstr ""
 
 msgctxt "#30193"
@@ -824,7 +824,7 @@ msgid "AllDebrid"
 msgstr ""
 
 msgctxt "#30198"
-msgid "Enable AllDebrid..."
+msgid "Enable AllDebrid"
 msgstr ""
 
 msgctxt "#30199"
@@ -848,7 +848,7 @@ msgid "Debrid-Link"
 msgstr ""
 
 msgctxt "#30204"
-msgid "Enable Debrid-Link..."
+msgid "Enable Debrid-Link"
 msgstr ""
 
 msgctxt "#30205"
@@ -872,7 +872,7 @@ msgid "Premiumize"
 msgstr ""
 
 msgctxt "#30210"
-msgid "Enable Premiumize..."
+msgid "Enable Premiumize"
 msgstr ""
 
 msgctxt "#30211"

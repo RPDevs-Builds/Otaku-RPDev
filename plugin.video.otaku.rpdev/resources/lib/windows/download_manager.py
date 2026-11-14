@@ -20,12 +20,20 @@ class DownloadManager(BaseWindow):
         super().__init__(xml_file, location)
         self.abort = False
         self.downloads = []
+        self.mock_downloads = []
         self.display_list = None
 
     def onInit(self):
         self.display_list = self.getControl(1000)
-        self.setFocusId(3100)
-        threading.Thread(target=self.background_info_updater, daemon=True).start()
+        tasks = manager.get_all_tasks_info()
+        self.downloads = tasks if tasks else list(self.mock_downloads)
+        if self.downloads:
+            self.populate_menu_items()
+            self.setFocusId(1000)
+        else:
+            self.setFocusId(3100)
+        if not self.mock_downloads:
+            threading.Thread(target=self.background_info_updater, daemon=True).start()
         super().onInit()
 
     def onAction(self, action):
@@ -66,7 +74,8 @@ class DownloadManager(BaseWindow):
     def background_info_updater(self):
         monitor = xbmc.Monitor()
         while not self.abort and not monitor.waitForAbort(0.25):
-            self.downloads = manager.get_all_tasks_info()
+            tasks = manager.get_all_tasks_info()
+            self.downloads = tasks if tasks else list(self.mock_downloads)
             self.populate_menu_items()
         del monitor
 

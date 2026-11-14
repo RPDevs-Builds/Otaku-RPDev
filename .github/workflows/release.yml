@@ -195,9 +195,14 @@ jobs:
           # Copy metadata and assets
           cp addon-source/$ADDON_ID/addon.xml "$TARGET_DIR/"
           [ -f addon-source/$ADDON_ID/changelog.txt ] && cp addon-source/$ADDON_ID/changelog.txt "$TARGET_DIR/"
+          [ -f addon-source/$ADDON_ID/news.txt ] && cp addon-source/$ADDON_ID/news.txt "$TARGET_DIR/"
           for asset in icon.png fanart.jpg fanart.png poster.png logo.png clearlogo.png info.xml; do
             [ -f "addon-source/$ADDON_ID/$asset" ] && cp "addon-source/$ADDON_ID/$asset" "$TARGET_DIR/" || true
           done
+          if [ -d "addon-source/$ADDON_ID/resources/screenshots" ]; then
+            mkdir -p "$TARGET_DIR/resources/screenshots"
+            cp -r addon-source/$ADDON_ID/resources/screenshots/* "$TARGET_DIR/resources/screenshots/" || true
+          fi
 
           # Regenerate manifests
           cd cdn-repo

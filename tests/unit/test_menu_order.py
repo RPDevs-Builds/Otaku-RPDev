@@ -288,8 +288,9 @@ class TestMenuOrder(unittest.TestCase):
             self.assertIsNotNone(li)
             badge = li.getProperty('status_badge')
             is_en = target_id in dlg.enabled_set
-            expected_badge = '[COLOR deepskyblue][✓][/COLOR]' if is_en else '[COLOR grey][  ][/COLOR]'
+            expected_badge = '[COLOR deepskyblue][B]ON[/B][/COLOR]' if is_en else '[COLOR grey][B]OFF[/B][/COLOR]'
             self.assertEqual(badge, expected_badge)
+            self.assertEqual(li.getProperty('is_enabled'), 'true' if is_en else 'false')
 
     def test_toggle_all_in_place_no_reset(self):
         """Verify toggle_all flips all items and mutates ListItems in-place without calling reset()."""
@@ -308,7 +309,8 @@ class TestMenuOrder(unittest.TestCase):
             # Check all items have enabled badge
             for i in range(len(dlg.ordered_ids)):
                 li = dlg.list_control.getListItem(i)
-                self.assertEqual(li.getProperty('status_badge'), '[COLOR deepskyblue][✓][/COLOR]')
+                self.assertEqual(li.getProperty('status_badge'), '[COLOR deepskyblue][B]ON[/B][/COLOR]')
+                self.assertEqual(li.getProperty('is_enabled'), 'true')
 
             # 2. Turn all OFF from all ON
             dlg.toggle_all()
@@ -319,7 +321,8 @@ class TestMenuOrder(unittest.TestCase):
             # Check all items have disabled badge
             for i in range(len(dlg.ordered_ids)):
                 li = dlg.list_control.getListItem(i)
-                self.assertEqual(li.getProperty('status_badge'), '[COLOR grey][  ][/COLOR]')
+                self.assertEqual(li.getProperty('status_badge'), '[COLOR grey][B]OFF[/B][/COLOR]')
+                self.assertEqual(li.getProperty('is_enabled'), 'false')
 
     def test_clicking_list_item_only_toggles_and_never_moves(self):
         """Verify clicking on a list item (Control ID 1000) only toggles visibility and NEVER moves the item."""
@@ -498,6 +501,72 @@ class TestMenuOrder(unittest.TestCase):
         was_en = first_id in dlg.enabled_set
         dlg.onClick(1000)
         self.assertEqual(first_id in dlg.enabled_set, not was_en)
+
+    def test_menu_order_icons_and_xml_layout_integrity(self):
+        """Verify all menu_order icons exist on disk, zero unsupported Unicode glyphs exist, and XML labels do not overlap/clip."""
+        import xml.etree.ElementTree as ET
+        import re
+
+        # 1. Verify every icon referenced in menu_order exists on disk
+        project_root = os.path.dirname(_REPO_ROOT) if os.path.basename(_REPO_ROOT) == 'tests' else _REPO_ROOT
+        all_tuples = (
+            list(menu_order.DEFAULT_MENU_ITEMS)
+            + list(menu_order._SUBCAT_MAINMENU_ITEMS)
+            + list(menu_order._SUBMENU_ITEMS)
+            + list(menu_order._GENRE_ITEMS)
+        )
+        icons_dir = os.path.join(project_root, 'context.otaku.rpdev', 'resources', 'images', 'icons', 'white')
+        genres_dir = os.path.join(project_root, 'context.otaku.rpdev', 'resources', 'images', 'genres')
+        for item_id, _lid, _def_en, icon_name in all_tuples:
+            icon_exists = (
+                os.path.exists(os.path.join(icons_dir, icon_name))
+                or os.path.exists(os.path.join(genres_dir, icon_name))
+            )
+            self.assertTrue(icon_exists, f"Missing artwork icon '{icon_name}' for menu item '{item_id}'")
+
+        # 2. Verify zero unsupported Unicode glyphs (e.g. ✓, ✔, ✗, emoji) in menu_order.py and menu_order.xml
+        forbidden_glyphs = set('✓✔✗✘⬆⬇👁🔄💾✖')
+        py_path = os.path.join(project_root, 'plugin.video.otaku.rpdev', 'resources', 'lib', 'windows', 'menu_order.py')
+        xml_path = os.path.join(project_root, 'plugin.video.otaku.rpdev', 'resources', 'skins', 'Default', '1080i', 'menu_order.xml')
+        for path in (py_path, xml_path):
+            with open(path, encoding='utf-8') as f:
+                content = f.read()
+            found = [ch for ch in forbidden_glyphs if ch in content]
+            self.assertEqual(found, [], f"Forbidden unsupported Unicode glyph(s) {found} in {os.path.basename(path)}")
+
+        # 3. Verify XML layout geometry: no horizontal+vertical bounding box overlaps among labels in itemlayout/focusedlayout
+        tree = ET.parse(xml_path)
+        root = tree.getroot()
+        for layout_tag in ('itemlayout', 'focusedlayout'):
+            for layout in root.iter(layout_tag):
+                labels = []
+                for ctrl in layout.findall('control'):
+                    if ctrl.get('type') == 'label':
+                        left = int(ctrl.findtext('left', '0'))
+                        top = int(ctrl.findtext('top', '0'))
+                        width = int(ctrl.findtext('width', '0'))
+                        height = int(ctrl.findtext('height', '0'))
+                        labels.append((left, top, left + width, top + height, ctrl.findtext('label', '')))
+                for i in range(len(labels)):
+                    for j in range(i + 1, len(labels)):
+                        l1, t1, r1, b1, lbl1 = labels[i]
+                        l2, t2, r2, b2, lbl2 = labels[j]
+                        horiz_overlap = max(l1, l2) < min(r1, r2)
+                        vert_overlap = max(t1, t2) < min(b1, b2)
+                        self.assertFalse(
+                            horiz_overlap and vert_overlap,
+                            f"Overlapping label controls in {layout_tag}: {lbl1} ({l1},{t1}-{r1},{b1}) vs {lbl2} ({l2},{t2}-{r2},{b2})",
+                        )
+
+        # 4. Verify right-panel action button labels are concise (<= 26 visible characters) so they never clip with '...'
+        for btn in root.iter('control'):
+            if btn.get('type') == 'button':
+                raw_label = btn.findtext('label', '')
+                clean_label = re.sub(r'\[/?[^\]]+\]', '', raw_label).strip()
+                self.assertLessEqual(
+                    len(clean_label), 26,
+                    f"Button {btn.get('id')} label '{clean_label}' exceeds 26 chars and risks horizontal clipping",
+                )
 
 
 if __name__ == '__main__':

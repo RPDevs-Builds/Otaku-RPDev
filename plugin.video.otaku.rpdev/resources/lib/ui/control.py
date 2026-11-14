@@ -494,6 +494,7 @@ OTAKU_LOGO2_PATH = os.path.join(ADDON_PATH, 'resources', 'images', 'trans-goku-s
 OTAKU_LOGO3_PATH = os.path.join(ADDON_PATH, 'resources', 'images', 'trans-goku-large.png')
 OTAKU_ICONS_PATH = os.path.join(CONTEXT_ADDON_PATH, 'resources', 'images', 'icons', ADDON.getSetting("interface.icons"))
 OTAKU_GENRE_PATH = os.path.join(CONTEXT_ADDON_PATH, 'resources', 'images', 'genres')
+OTAKU_STUDIOS_PATH = os.path.join(CONTEXT_ADDON_PATH, 'resources', 'images', 'studios')
 
 # — Kodi GUI objects —
 dialogWindow = xbmcgui.WindowDialog
@@ -524,6 +525,42 @@ _RE_AUTH_BEARER = re.compile(r'(?i)(bearer\s+)([a-zA-Z0-9_\-\.]{8,})')
 _RE_URL_PARAMS = re.compile(r'(?i)([\?&][a-zA-Z0-9_\-\.]*?(?:key|token|auth|secret|password)[a-zA-Z0-9_\-\.]*?=)([^&\s]+)')
 _RE_JSON_FIELDS = re.compile(r'(?i)(["\']?[a-zA-Z0-9_\-\.]*?(?:key|token|auth|secret|password)[a-zA-Z0-9_\-\.]*?["\']?\s*[:=]\s*["\'])([^"\']{6,})(["\'])')
 _RE_BASIC_AUTH = re.compile(r'(?i)(https?://[^:\s@]+:)([^@\s]+)(@)')
+
+_studio_logo_index_cache = {}
+
+
+def get_studio_logo_path(studio_name: str, style: str = 'coloured') -> str:
+    """Resolve high-resolution anime studio logo path in context.otaku.rpdev with normalization."""
+    if not studio_name or style in (None, '', 'none'):
+        return ''
+    style_dir = 'white' if str(style).lower() == 'white' else 'coloured'
+    studios_root = os.path.join(CONTEXT_ADDON_PATH, 'resources', 'images', 'studios', style_dir)
+
+    # 1. Exact file match
+    exact_path = os.path.join(studios_root, f"{studio_name}.png")
+    if os.path.exists(exact_path):
+        return exact_path
+
+    # 2. Normalized alphanumeric match via cached directory index
+    if style_dir not in _studio_logo_index_cache:
+        try:
+            if os.path.exists(studios_root):
+                _studio_logo_index_cache[style_dir] = {
+                    re.sub(r'[^a-z0-9]+', '', os.path.splitext(f)[0].lower()): os.path.join(studios_root, f)
+                    for f in os.listdir(studios_root) if f.lower().endswith('.png')
+                }
+            else:
+                _studio_logo_index_cache[style_dir] = {}
+        except Exception:
+            _studio_logo_index_cache[style_dir] = {}
+
+    norm_target = re.sub(r'[^a-z0-9]+', '', str(studio_name).lower())
+    match = _studio_logo_index_cache[style_dir].get(norm_target)
+    if match and os.path.exists(match):
+        return match
+
+    return exact_path
+
 
 _SENSITIVE_SETTING_KEYS = (
     'realdebrid.token', 'alldebrid.token', 'premiumize.token', 'torbox.token',
@@ -1191,9 +1228,88 @@ def get_webpdb_port(port=None) -> int:
     return target_port
 
 
+def is_webpdb_port_in_use(port=None) -> bool:
+    """Return True if a local TCP listener (such as an active Web-PDB session) is already bound to port."""
+    import socket
+    target_port = get_webpdb_port(port)
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            sock.settimeout(0.15)
+            return sock.connect_ex(('127.0.0.1', target_port)) == 0
+        finally:
+            sock.close()
+    except Exception:
+        return False
+
+
+def stop_webpdb_trace(port=None) -> bool:
+    """Stop an active Web-PDB debugging server by closing in-process instances and sending 'c' over ws://127.0.0.1:<port>/ws."""
+    import socket
+    target_port = get_webpdb_port(port)
+    stopped = False
+
+    # 1. If WebPdb.active_instance exists in the current interpreter, release it
+    try:
+        if 'web_pdb' in sys.modules:
+            web_pdb = sys.modules['web_pdb']
+            active = getattr(getattr(web_pdb, 'WebPdb', None), 'active_instance', None)
+            if active is not None:
+                try:
+                    active.set_continue()
+                except Exception:
+                    pass
+                try:
+                    if hasattr(active, 'console') and active.console is not None:
+                        active.console.close()
+                except Exception:
+                    pass
+                stopped = True
+    except Exception:
+        pass
+
+    # 2. If port is bound (e.g. in another CPythonInvoker sub-interpreter), send 'c\n' via RFC 6455 WebSocket to /ws
+    if is_webpdb_port_in_use(target_port):
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            try:
+                sock.settimeout(1.0)
+                sock.connect(('127.0.0.1', target_port))
+                handshake = (
+                    f"GET /ws HTTP/1.1\r\n"
+                    f"Host: 127.0.0.1:{target_port}\r\n"
+                    f"Upgrade: websocket\r\n"
+                    f"Connection: Upgrade\r\n"
+                    f"Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n"
+                    f"Sec-WebSocket-Version: 13\r\n\r\n"
+                ).encode('ascii')
+                sock.sendall(handshake)
+                resp = sock.recv(1024)
+                if b"101" in resp:
+                    # Masked RFC 6455 text frame (opcode 0x81) with payload b"c\n" (len 2, mask 0x12345678)
+                    mask = b"\x12\x34\x56\x78"
+                    payload = b"c\n"
+                    masked_payload = bytes(b ^ mask[i % 4] for i, b in enumerate(payload))
+                    frame = b"\x81\x82" + mask + masked_payload
+                    # Follow with masked close frame (opcode 0x88, len 0)
+                    close_frame = b"\x88\x80" + mask
+                    sock.sendall(frame + close_frame)
+                    stopped = True
+                    log(f"Stopped active Web-PDB server on port {target_port}", 'info')
+            finally:
+                sock.close()
+        except Exception as e:
+            log(f"Web-PDB stop probe on port {target_port}: {e}", 'debug')
+
+    return stopped
+
+
 def start_webpdb_trace(port=None) -> bool:
     """Start an interactive Web-PDB debugging session on the configured port (default 5566)."""
     target_port = get_webpdb_port(port)
+    if is_webpdb_port_in_use(target_port):
+        log(f"Web-PDB port {target_port} is already active; skipping duplicate set_trace.", 'info')
+        return True
     try:
         web_pdb = _load_webpdb()
         log(f"Starting Web-PDB trace on port {target_port}", 'info')
@@ -1672,7 +1788,7 @@ def xbmc_add_dir(name, url, art, info, draw_cm, bulk_add, isfolder, isplayable, 
     # If clearlogo is already a string (pre-selected), use it directly
     # No need for random.choice() since get_meta.py pre-selects it
 
-    # Resolve anime studio logo from resource.images.animestudio packages
+    # Resolve anime studio logo from context.otaku.rpdev studio resources
     if artwork_studios_style and artwork_studios_style != 'none' and info:
         studio_val = info.get('studio')
         primary_studio_name = None
@@ -1684,18 +1800,19 @@ def xbmc_add_dir(name, url, art, info, draw_cm, bulk_add, isfolder, isplayable, 
                 primary_studio_name = parts[0]
 
         if primary_studio_name:
-            studio_art = f"resource://resource.images.animestudio.{artwork_studios_style}/{primary_studio_name}.png"
-            art['studio'] = studio_art
-            art['tvshow.studio'] = studio_art
-            liz.setProperty('StudioIcon', studio_art)
-            liz.setProperty('StudioLogo', studio_art)
-            liz.setProperty('Studio.Icon', studio_art)
-            liz.setProperty('Studio.Logo', studio_art)
-            liz.setProperty('Studio.1.Icon', studio_art)
-            liz.setProperty('Studio.1.Logo', studio_art)
-            liz.setProperty('Studio.1.Art', studio_art)
-            liz.setProperty('tvshow.studio', studio_art)
-            liz.setProperty('Studio', primary_studio_name)
+            studio_art = get_studio_logo_path(primary_studio_name, artwork_studios_style)
+            if studio_art:
+                art['studio'] = studio_art
+                art['tvshow.studio'] = studio_art
+                liz.setProperty('StudioIcon', studio_art)
+                liz.setProperty('StudioLogo', studio_art)
+                liz.setProperty('Studio.Icon', studio_art)
+                liz.setProperty('Studio.Logo', studio_art)
+                liz.setProperty('Studio.1.Icon', studio_art)
+                liz.setProperty('Studio.1.Logo', studio_art)
+                liz.setProperty('Studio.1.Art', studio_art)
+                liz.setProperty('tvshow.studio', studio_art)
+                liz.setProperty('Studio', primary_studio_name)
 
     if isplayable:
         if 'poster' in art and art['poster']:

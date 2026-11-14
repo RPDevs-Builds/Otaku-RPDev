@@ -10,8 +10,8 @@ from resources.lib.ui import control, utils
 
 # All 24 Home screen items with default order, string label ID, default enabled state, and icon
 DEFAULT_MENU_ITEMS = [
-    ('watchlist', 30162, True, 'watchlist.png'),
-    ('last_watched', 30000, True, 'last_watched.png'),
+    ('watchlist', 30162, True, 'my_anime.png'),
+    ('last_watched', 30000, True, 'currently_watching.png'),
     ('watch_history', 30068, True, 'watch_history.png'),
     ('next_up', 30451, True, 'next_up.png'),
     ('my_cloud', 30555, True, 'tools.png'),
@@ -54,7 +54,7 @@ CATEGORIES = (
 
 # Sub-category main menu stems (13 items)
 _SUBCAT_MAINMENU_ITEMS = (
-    ('last_watched', 30000, True, 'last_watched.png'),
+    ('last_watched', 30000, True, 'currently_watching.png'),
     ('watch_history', 30068, True, 'watch_history.png'),
     ('next_up', 30451, True, 'next_up.png'),
     ('airing_last_season', 30002, True, 'airing_anime.png'),
@@ -296,6 +296,27 @@ class MenuOrderDialog(xbmcgui.WindowXMLDialog):
                 pass
         return getattr(self, 'selected_index', 0)
 
+    def _format_status_badge(self, is_enabled):
+        return '[COLOR deepskyblue][B]ON[/B][/COLOR]' if is_enabled else '[COLOR grey][B]OFF[/B][/COLOR]'
+
+    def _apply_listitem_props(self, li, item_id, meta_dict, is_main):
+        title = get_item_label(item_id, meta_dict)
+        is_enabled = item_id in self.enabled_set
+        meta = meta_dict.get(item_id)
+        icon_file = meta[1] if meta else 'tools.png'
+        icon_path = utils._get_artwork_path(icon_file)
+        li.setLabel(title)
+        li.setArt({'icon': icon_path, 'thumb': icon_path})
+        status_badge = self._format_status_badge(is_enabled)
+        if is_main:
+            status_text = control.lang(30690) if is_enabled else control.lang(30691)
+        else:
+            status_text = control.lang(30695) if is_enabled else control.lang(30696)
+        li.setProperty('status_badge', status_badge)
+        li.setProperty('status_text', status_text)
+        li.setProperty('is_enabled', 'true' if is_enabled else 'false')
+        li.setProperty('item_id', item_id)
+
     def _populate_list(self, selected_idx=0):
         if self.list_control is None:
             return
@@ -306,30 +327,25 @@ class MenuOrderDialog(xbmcgui.WindowXMLDialog):
         except Exception:
             pass
 
-        self.list_control.reset()
         meta_dict = self.menu_config['metadata']
         is_main = self.menu_config['is_main_home']
+        existing_size = 0
+        try:
+            existing_size = self.list_control.size()
+        except Exception:
+            existing_size = 0
 
-        for item_id in self.ordered_ids:
-            title = get_item_label(item_id, meta_dict)
-            is_enabled = item_id in self.enabled_set
-
-            item = xbmcgui.ListItem(label=title)
-            meta = meta_dict.get(item_id)
-            icon_file = meta[1] if meta else 'tools.png'
-            icon_path = utils._get_artwork_path(icon_file)
-            item.setArt({'icon': icon_path, 'thumb': icon_path})
-
-            status_badge = '[COLOR deepskyblue][✓][/COLOR]' if is_enabled else '[COLOR grey][  ][/COLOR]'
-            if is_main:
-                status_text = control.lang(30690) if is_enabled else control.lang(30691)
-            else:
-                status_text = control.lang(30695) if is_enabled else control.lang(30696)
-
-            item.setProperty('status_badge', status_badge)
-            item.setProperty('status_text', status_text)
-            item.setProperty('item_id', item_id)
-            self.list_control.addItem(item)
+        if existing_size == len(self.ordered_ids) and existing_size > 0:
+            for idx, item_id in enumerate(self.ordered_ids):
+                li = self.list_control.getListItem(idx)
+                if li is not None:
+                    self._apply_listitem_props(li, item_id, meta_dict, is_main)
+        else:
+            self.list_control.reset()
+            for item_id in self.ordered_ids:
+                item = xbmcgui.ListItem(label=get_item_label(item_id, meta_dict))
+                self._apply_listitem_props(item, item_id, meta_dict, is_main)
+                self.list_control.addItem(item)
 
         if len(self.ordered_ids) > 0:
             target_idx = max(0, min(len(self.ordered_ids) - 1, selected_idx))
@@ -399,14 +415,7 @@ class MenuOrderDialog(xbmcgui.WindowXMLDialog):
             try:
                 li = self.list_control.getListItem(idx)
                 if li is not None:
-                    is_enabled = item_id in self.enabled_set
-                    status_badge = '[COLOR deepskyblue][✓][/COLOR]' if is_enabled else '[COLOR grey][  ][/COLOR]'
-                    if self.menu_config['is_main_home']:
-                        status_text = control.lang(30690) if is_enabled else control.lang(30691)
-                    else:
-                        status_text = control.lang(30695) if is_enabled else control.lang(30696)
-                    li.setProperty('status_badge', status_badge)
-                    li.setProperty('status_text', status_text)
+                    self._apply_listitem_props(li, item_id, self.menu_config['metadata'], self.menu_config['is_main_home'])
             except Exception as e:
                 control.log(f"MenuOrderDialog: Failed in-place item update: {e}", 'warning')
 
@@ -430,18 +439,12 @@ class MenuOrderDialog(xbmcgui.WindowXMLDialog):
         # In-place widget update for all items without resetting list focus or position
         if self.list_control is not None:
             is_main = self.menu_config['is_main_home']
+            meta_dict = self.menu_config['metadata']
             for idx, item_id in enumerate(self.ordered_ids):
                 try:
                     li = self.list_control.getListItem(idx)
                     if li is not None:
-                        is_enabled = item_id in self.enabled_set
-                        status_badge = '[COLOR deepskyblue][✓][/COLOR]' if is_enabled else '[COLOR grey][  ][/COLOR]'
-                        if is_main:
-                            status_text = control.lang(30690) if is_enabled else control.lang(30691)
-                        else:
-                            status_text = control.lang(30695) if is_enabled else control.lang(30696)
-                        li.setProperty('status_badge', status_badge)
-                        li.setProperty('status_text', status_text)
+                        self._apply_listitem_props(li, item_id, meta_dict, is_main)
                 except Exception as e:
                     control.log(f"MenuOrderDialog: Failed in-place item update at index {idx}: {e}", 'warning')
 

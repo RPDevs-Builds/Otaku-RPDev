@@ -468,6 +468,7 @@ class Monitor(xbmc.Monitor):
     def __init__(self):
         super().__init__()
         self._menu_settings_snapshot = _get_menu_settings_snapshot()
+        self._webpdb_port = control.get_webpdb_port()
 
     def onSettingsChanged(self):
         control.log('Setting Changed - Updating Settings Cache')
@@ -475,6 +476,16 @@ class Monitor(xbmc.Monitor):
         if control.getBool('general.kodi.cache'):
             load_settings()
         control.process_context()
+
+        # Stop active Web-PDB server if Web-PDB was disabled or its port changed when settings were saved
+        current_webpdb_port = control.get_webpdb_port()
+        if not control.getBool('webpdb.enabled'):
+            control.stop_webpdb_trace(self._webpdb_port)
+            if current_webpdb_port != self._webpdb_port:
+                control.stop_webpdb_trace(current_webpdb_port)
+        elif current_webpdb_port != self._webpdb_port:
+            control.stop_webpdb_trace(self._webpdb_port)
+        self._webpdb_port = current_webpdb_port
 
         # Check if any menu configuration settings were changed
         new_snapshot = _get_menu_settings_snapshot()

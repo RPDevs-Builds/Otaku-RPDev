@@ -49,7 +49,7 @@
 					<left>672</left>
 					<top>114</top>
 					<width>600</width>
-					<height>830</height>
+					<height>760</height>
 					<onup>2000</onup>
 					<ondown>2000</ondown>
 					<scrolltime tween="sine">400</scrolltime>
@@ -62,7 +62,7 @@
 					<left>45</left>
 					<top>114</top>
 					<width>600</width>
-					<height>350</height>
+					<height>360</height>
 					<onup>2001</onup>
 					<ondown>2001</ondown>
 					<scrolltime tween="sine">400</scrolltime>

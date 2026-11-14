@@ -18,18 +18,18 @@
             <colordiffuse>D0000000</colordiffuse>
         </control>
 
-        <!-- Main Dialog Frame (Centered: 1200x680) -->
+        <!-- Main Dialog Frame (Centered: 1360x680) -->
         <control type="group">
-            <left>360</left>
+            <left>280</left>
             <top>200</top>
-            <width>1200</width>
+            <width>1360</width>
             <height>680</height>
 
             <!-- Card Background -->
             <control type="image">
                 <left>0</left>
                 <top>0</top>
-                <width>1200</width>
+                <width>1360</width>
                 <height>680</height>
                 <texture border="10">white.png</texture>
                 <colordiffuse>FF181C24</colordiffuse>
@@ -39,7 +39,7 @@
             <control type="image">
                 <left>0</left>
                 <top>0</top>
-                <width>1200</width>
+                <width>1360</width>
                 <height>6</height>
                 <texture>white.png</texture>
                 <colordiffuse>FF00BFFF</colordiffuse>
@@ -49,7 +49,7 @@
             <control type="label">
                 <left>50</left>
                 <top>30</top>
-                <width>1100</width>
+                <width>1260</width>
                 <height>40</height>
                 <font>font16</font>
                 <textcolor>FFFFFFFF</textcolor>
@@ -59,7 +59,7 @@
             <control type="label">
                 <left>50</left>
                 <top>75</top>
-                <width>1100</width>
+                <width>1260</width>
                 <height>25</height>
                 <font>font12</font>
                 <textcolor>88FFFFFF</textcolor>
@@ -70,7 +70,7 @@
             <control type="list" id="1000">
                 <left>50</left>
                 <top>125</top>
-                <width>500</width>
+                <width>560</width>
                 <height>440</height>
                 <onup>1000</onup>
                 <ondown>3001</ondown>
@@ -78,11 +78,11 @@
                 <pagecontrol></pagecontrol>
                 <scrolltime>200</scrolltime>
 
-                <itemlayout height="90" width="500">
+                <itemlayout height="90" width="560">
                     <control type="image">
                         <left>0</left>
                         <top>0</top>
-                        <width>500</width>
+                        <width>560</width>
                         <height>80</height>
                         <texture border="8">white.png</texture>
                         <colordiffuse>20FFFFFF</colordiffuse>
@@ -90,28 +90,28 @@
                     <control type="label">
                         <left>25</left>
                         <top>15</top>
-                        <width>450</width>
+                        <width>510</width>
                         <height>28</height>
-                        <font>font14</font>
+                        <font>font12</font>
                         <textcolor>DDFFFFFF</textcolor>
                         <label>[B]$INFO[ListItem.Label][/B]</label>
                     </control>
                     <control type="label">
                         <left>25</left>
                         <top>45</top>
-                        <width>450</width>
+                        <width>510</width>
                         <height>22</height>
-                        <font>font12</font>
+                        <font>font10</font>
                         <textcolor>88FFFFFF</textcolor>
                         <label>$INFO[ListItem.Property(subtitle)]</label>
                     </control>
                 </itemlayout>
 
-                <focusedlayout height="90" width="500">
+                <focusedlayout height="90" width="560">
                     <control type="image">
                         <left>0</left>
                         <top>0</top>
-                        <width>500</width>
+                        <width>560</width>
                         <height>80</height>
                         <texture border="8">white.png</texture>
                         <colordiffuse>FF00BFFF</colordiffuse>
@@ -119,7 +119,7 @@
                     <control type="image">
                         <left>2</left>
                         <top>2</top>
-                        <width>496</width>
+                        <width>556</width>
                         <height>76</height>
                         <texture border="8">white.png</texture>
                         <colordiffuse>FF222834</colordiffuse>
@@ -127,18 +127,18 @@
                     <control type="label">
                         <left>25</left>
                         <top>15</top>
-                        <width>450</width>
+                        <width>510</width>
                         <height>28</height>
-                        <font>font14</font>
+                        <font>font12</font>
                         <textcolor>FF00BFFF</textcolor>
                         <label>[B]$INFO[ListItem.Label][/B]</label>
                     </control>
                     <control type="label">
                         <left>25</left>
                         <top>45</top>
-                        <width>450</width>
+                        <width>510</width>
                         <height>22</height>
-                        <font>font12</font>
+                        <font>font10</font>
                         <textcolor>FFFFFFFF</textcolor>
                         <label>$INFO[ListItem.Property(subtitle)]</label>
                     </control>
@@ -147,15 +147,15 @@
 
             <!-- Right Panel: Description Card -->
             <control type="group">
-                <left>580</left>
+                <left>640</left>
                 <top>125</top>
-                <width>570</width>
+                <width>670</width>
                 <height>440</height>
 
                 <control type="image">
                     <left>0</left>
                     <top>0</top>
-                    <width>570</width>
+                    <width>670</width>
                     <height>440</height>
                     <texture border="8">white.png</texture>
                     <colordiffuse>14FFFFFF</colordiffuse>
@@ -165,9 +165,9 @@
                 <control type="label">
                     <left>30</left>
                     <top>25</top>
-                    <width>510</width>
+                    <width>610</width>
                     <height>30</height>
-                    <font>font14</font>
+                    <font>font13</font>
                     <textcolor>FF00BFFF</textcolor>
                     <visible>Control.HasFocus(1000)</visible>
                     <label>[B]$INFO[Container(1000).ListItem.Property(title)][/B]</label>
@@ -176,9 +176,9 @@
                 <control type="label">
                     <left>30</left>
                     <top>25</top>
-                    <width>510</width>
+                    <width>610</width>
                     <height>30</height>
-                    <font>font14</font>
+                    <font>font13</font>
                     <textcolor>FFFF6B6B</textcolor>
                     <visible>Control.HasFocus(3001)</visible>
                     <label>[B]Cancel Operation[/B]</label>
@@ -188,7 +188,7 @@
                 <control type="image">
                     <left>30</left>
                     <top>65</top>
-                    <width>510</width>
+                    <width>610</width>
                     <height>1</height>
                     <texture>white.png</texture>
                     <colordiffuse>25FFFFFF</colordiffuse>
@@ -198,9 +198,9 @@
                 <control type="textbox">
                     <left>30</left>
                     <top>80</top>
-                    <width>510</width>
-                    <height>330</height>
-                    <font>font13</font>
+                    <width>610</width>
+                    <height>340</height>
+                    <font>font12</font>
                     <textcolor>DDFFFFFF</textcolor>
                     <wrapmultiline>true</wrapmultiline>
                     <visible>Control.HasFocus(1000)</visible>
@@ -210,9 +210,9 @@
                 <control type="textbox">
                     <left>30</left>
                     <top>80</top>
-                    <width>510</width>
-                    <height>330</height>
-                    <font>font13</font>
+                    <width>610</width>
+                    <height>340</height>
+                    <font>font12</font>
                     <textcolor>DDFFFFFF</textcolor>
                     <wrapmultiline>true</wrapmultiline>
                     <visible>Control.HasFocus(3001)</visible>
@@ -222,7 +222,7 @@
 
             <!-- Bottom Action: Cancel Button (Control ID: 3001) -->
             <control type="button" id="3001">
-                <left>930</left>
+                <left>1090</left>
                 <top>595</top>
                 <width>220</width>
                 <height>50</height>

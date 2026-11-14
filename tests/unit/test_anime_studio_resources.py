@@ -87,7 +87,7 @@ class TestAnimeStudioResources(unittest.TestCase):
         u, liz, isfolder = control.xbmc_add_dir(
             'Test Show', 'test/url', art, info, [], True, True, False, bulk_prefs
         )
-        expected_art = 'resource://resource.images.animestudio.coloured/CloverWorks.png'
+        expected_art = control.get_studio_logo_path('CloverWorks', 'coloured')
         self.assertEqual(liz.getArt('studio'), expected_art)
         self.assertEqual(liz.getArt('tvshow.studio'), expected_art)
         self.assertEqual(liz.getProperty('Studio'), 'CloverWorks')
@@ -108,7 +108,7 @@ class TestAnimeStudioResources(unittest.TestCase):
         u, liz, isfolder = control.xbmc_add_dir(
             'Test Show', 'test/url', art, info, [], True, True, False, bulk_prefs
         )
-        expected_art = 'resource://resource.images.animestudio.white/Science SARU.png'
+        expected_art = control.get_studio_logo_path('Science SARU', 'white')
         self.assertEqual(liz.getArt('studio'), expected_art)
         self.assertEqual(liz.getArt('tvshow.studio'), expected_art)
         self.assertEqual(liz.getProperty('Studio'), 'Science SARU')

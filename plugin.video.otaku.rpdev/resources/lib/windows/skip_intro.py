@@ -8,15 +8,23 @@ class SkipIntro(BaseWindow):
     def __init__(self, xml_file, xml_location, actionArgs=None):
         super().__init__(xml_file, xml_location, actionArgs=actionArgs)
         self.player = xbmc.Player()
-        self.total_time = int(self.player.getTotalTime())
-        self.playing_file = self.player.getPlayingFile()
+        try:
+            self.total_time = int(self.player.getTotalTime())
+        except Exception:
+            self.total_time = 1440
+        try:
+            self.playing_file = self.player.getPlayingFile()
+        except Exception:
+            self.playing_file = ''
         self.current_time = 0
-        self.skipintro_end_skip_time = actionArgs['skipintro_end']
-        self.skipintro_aniskip = actionArgs['skipintro_aniskip']
+        self.skipintro_end_skip_time = actionArgs['skipintro_end'] if actionArgs else 90
+        self.skipintro_aniskip = actionArgs['skipintro_aniskip'] if actionArgs else False
         self.closed = False
         self.actioned = None
 
     def onInit(self):
+        if isinstance(self.actionArgs, dict) and self.actionArgs.get('ui_review'):
+            return
         self.background_tasks()
 
     def background_tasks(self):

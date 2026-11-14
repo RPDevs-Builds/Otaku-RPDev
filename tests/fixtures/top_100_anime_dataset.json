@@ -24,6 +24,14 @@
       "Re:Fullmetal Alchemist: Brotherhood",
       "Fullmetal Alchemist: Brotherhood Musume",
       "Unrelated Show - 01 - The Fullmetal Alchemist: Brotherhood Within.mkv"
+    ],
+    "studio": "bones",
+    "studios": [
+      "bones",
+      "Aniplex",
+      "Square Enix",
+      "Mainichi Broadcasting System",
+      "Aniplex of America"
     ]
   },
   {
@@ -46,10 +54,21 @@
     "distractors": [
       "Steins;Gate 0",
       "Steins;Gate: Soumei Eichi no Cognitive Computing",
-      "Steins;Gate Movie: Load Region of Déjà Vu",
+      "Steins;Gate Movie: Load Region of D\u00e9j\u00e0 Vu",
       "Re:Steins;Gate",
       "Steins;Gate Musume",
       "Unrelated Show - 01 - The Steins;Gate Within.mkv"
+    ],
+    "studio": "WHITE FOX",
+    "studios": [
+      "Frontier Works",
+      "Funimation",
+      "Media Factory",
+      "Movic",
+      "AT-X",
+      "WHITE FOX",
+      "Kadokawa Pictures Japan",
+      "Nitroplus"
     ]
   },
   {
@@ -75,6 +94,14 @@
       "Re:Hunter x Hunter (2011)",
       "Hunter x Hunter (2011) Musume",
       "Unrelated Show - 01 - The Hunter x Hunter (2011) Within.mkv"
+    ],
+    "studio": "MADHOUSE",
+    "studios": [
+      "MADHOUSE",
+      "VAP",
+      "Viz Media",
+      "Nippon Television Network",
+      "Studio Live"
     ]
   },
   {
@@ -101,6 +128,16 @@
       "Re:Attack on Titan",
       "Attack on Titan Musume",
       "Unrelated Show - 01 - The Attack on Titan Within.mkv"
+    ],
+    "studio": "WIT STUDIO",
+    "studios": [
+      "WIT STUDIO",
+      "Pony Canyon",
+      "Kodansha",
+      "Production I.G",
+      "Dentsu",
+      "Pony Canyon Enterprise",
+      "Mainichi Broadcasting System"
     ]
   },
   {
@@ -127,6 +164,17 @@
       "Re:Death Note",
       "Death Note Musume",
       "Unrelated Show - 01 - The Death Note Within.mkv"
+    ],
+    "studio": "MADHOUSE",
+    "studios": [
+      "MADHOUSE",
+      "VAP",
+      "Viz Media",
+      "Nippon Television Network",
+      "Konami",
+      "Ashi Productions",
+      "Shueisha",
+      "Selecta Visi\u00f3n"
     ]
   },
   {
@@ -154,6 +202,14 @@
       "Re:Code Geass: Lelouch of the Rebellion",
       "Code Geass: Lelouch of the Rebellion Musume",
       "Unrelated Show - 01 - The Code Geass: Lelouch of the Rebellion Within.mkv"
+    ],
+    "studio": "Sunrise",
+    "studios": [
+      "Sunrise",
+      "Mainichi Broadcasting System",
+      "Bandai Entertainment",
+      "Sony Music Entertainment",
+      "Funimation"
     ]
   },
   {
@@ -177,6 +233,12 @@
       "Re:Cowboy Bebop",
       "Cowboy Bebop Musume",
       "Unrelated Show - 01 - The Cowboy Bebop Within.mkv"
+    ],
+    "studio": "Sunrise",
+    "studios": [
+      "Sunrise",
+      "Bandai Visual",
+      "Bandai Entertainment"
     ]
   },
   {
@@ -207,6 +269,17 @@
       "Re:Neon Genesis Evangelion",
       "Neon Genesis Evangelion Musume",
       "Unrelated Show - 01 - The Neon Genesis Evangelion Within.mkv"
+    ],
+    "studio": "GAINAX",
+    "studios": [
+      "GAINAX",
+      "TV Tokyo",
+      "ADV Films",
+      "Kadokawa Shoten",
+      "NAS",
+      "Tatsunoko Production",
+      "GKIDS",
+      "Madman Entertainment"
     ]
   },
   {
@@ -230,6 +303,13 @@
       "Re:Spirited Away",
       "Spirited Away Musume",
       "Unrelated Show - 01 - The Spirited Away Within.mkv"
+    ],
+    "studio": "Studio Ghibli",
+    "studios": [
+      "Studio Ghibli",
+      "Studio Hibari",
+      "Walt Disney Studios",
+      "GKIDS"
     ]
   },
   {
@@ -254,6 +334,13 @@
       "Re:Princess Mononoke",
       "Princess Mononoke Musume",
       "Unrelated Show - 01 - The Princess Mononoke Within.mkv"
+    ],
+    "studio": "Studio Ghibli",
+    "studios": [
+      "Studio Ghibli",
+      "Tokuma Shoten",
+      "GKIDS",
+      "Nippon Television Network"
     ]
   },
   {
@@ -280,6 +367,16 @@
       "Re:Your Name.",
       "Your Name. Musume",
       "Unrelated Show - 01 - The Your Name. Within.mkv"
+    ],
+    "studio": "CoMix Wave",
+    "studios": [
+      "CoMix Wave",
+      "Kadokawa Pictures Japan",
+      "Funimation",
+      "NYAV Post",
+      "Toho",
+      "Madman Entertainment",
+      "Selecta Visi\u00f3n"
     ]
   },
   {
@@ -304,6 +401,12 @@
       "Re:A Silent Voice",
       "A Silent Voice Musume",
       "Unrelated Show - 01 - The A Silent Voice Within.mkv"
+    ],
+    "studio": "Kyoto Animation",
+    "studios": [
+      "Kyoto Animation",
+      "ABC Animation",
+      "Kodansha"
     ]
   },
   {
@@ -328,6 +431,15 @@
       "Re:Violet Evergarden",
       "Violet Evergarden Musume",
       "Unrelated Show - 01 - The Violet Evergarden Within.mkv"
+    ],
+    "studio": "Kyoto Animation",
+    "studios": [
+      "Kyoto Animation",
+      "Lantis",
+      "Pony Canyon",
+      "Rakuonsha",
+      "Madman Entertainment",
+      "ABC Animation"
     ]
   },
   {
@@ -350,6 +462,14 @@
       "Re:Vinland Saga",
       "Vinland Saga Musume",
       "Unrelated Show - 01 - The Vinland Saga Within.mkv"
+    ],
+    "studio": "WIT STUDIO",
+    "studios": [
+      "WIT STUDIO",
+      "Twin Engine",
+      "Kodansha",
+      "Production I.G",
+      "Dentsu"
     ]
   },
   {
@@ -374,6 +494,13 @@
       "Re:Mob Psycho 100",
       "Mob Psycho 100 Musume",
       "Unrelated Show - 01 - The Mob Psycho 100 Within.mkv"
+    ],
+    "studio": "bones",
+    "studios": [
+      "bones",
+      "BS Fuji",
+      "Shogakukan-Shueisha Productions",
+      "Warner Bros. Japan"
     ]
   },
   {
@@ -398,6 +525,18 @@
       "Re:One Punch Man",
       "One Punch Man Musume",
       "Unrelated Show - 01 - The One Punch Man Within.mkv"
+    ],
+    "studio": "MADHOUSE",
+    "studios": [
+      "MADHOUSE",
+      "TV Tokyo",
+      "Bandai Visual",
+      "Viz Media",
+      "Lantis",
+      "Shueisha",
+      "Banpresto",
+      "Asatsu DK",
+      "Good Smile Company"
     ]
   },
   {
@@ -424,6 +563,14 @@
       "Re:Jujutsu Kaisen",
       "Jujutsu Kaisen Musume",
       "Unrelated Show - 01 - The Jujutsu Kaisen Within.mkv"
+    ],
+    "studio": "MAPPA",
+    "studios": [
+      "Toho",
+      "MAPPA",
+      "Shueisha",
+      "Sumzap",
+      "Mainichi Broadcasting System"
     ]
   },
   {
@@ -451,6 +598,14 @@
       "Re:Demon Slayer: Kimetsu no Yaiba",
       "Demon Slayer: Kimetsu no Yaiba Musume",
       "Unrelated Show - 01 - The Demon Slayer: Kimetsu no Yaiba Within.mkv"
+    ],
+    "studio": "ufotable",
+    "studios": [
+      "ufotable",
+      "Aniplex",
+      "Shueisha",
+      "Aniplex of America",
+      "ufotable"
     ]
   },
   {
@@ -474,6 +629,11 @@
       "Re:Chainsaw Man",
       "Chainsaw Man Musume",
       "Unrelated Show - 01 - The Chainsaw Man Within.mkv"
+    ],
+    "studio": "MAPPA",
+    "studios": [
+      "MAPPA",
+      "Shueisha"
     ]
   },
   {
@@ -494,10 +654,20 @@
     ],
     "is_short_title": false,
     "distractors": [
-      "Sousou no Frieren: ●● no Mahou",
+      "Sousou no Frieren: \u25cf\u25cf no Mahou",
       "Re:Frieren: Beyond Journey's End",
       "Frieren: Beyond Journey's End Musume",
       "Unrelated Show - 01 - The Frieren: Beyond Journey's End Within.mkv"
+    ],
+    "studio": "MADHOUSE",
+    "studios": [
+      "Toho",
+      "MADHOUSE",
+      "Shogakukan",
+      "Nippon Television Network",
+      "Shogakukan-Shueisha Productions",
+      "Aniplex",
+      "Dentsu"
     ]
   },
   {
@@ -522,6 +692,12 @@
       "Re:Bocchi the Rock!",
       "Bocchi the Rock! Musume",
       "Unrelated Show - 01 - The Bocchi the Rock! Within.mkv"
+    ],
+    "studio": "CloverWorks",
+    "studios": [
+      "CloverWorks",
+      "Aniplex",
+      "Houbunsha"
     ]
   },
   {
@@ -544,6 +720,14 @@
       "Re:Oshi no Ko",
       "Oshi no Ko Musume",
       "Unrelated Show - 01 - The Oshi no Ko Within.mkv"
+    ],
+    "studio": "Doga Kobo",
+    "studios": [
+      "Doga Kobo",
+      "KADOKAWA",
+      "Shueisha",
+      "Doga Kobo",
+      "CyberAgent"
     ]
   },
   {
@@ -565,6 +749,12 @@
       "Re:Cyberpunk: Edgerunners",
       "Cyberpunk: Edgerunners Musume",
       "Unrelated Show - 01 - The Cyberpunk: Edgerunners Within.mkv"
+    ],
+    "studio": "TRIGGER",
+    "studios": [
+      "TRIGGER",
+      "CD PROJEKT RED",
+      "Netflix"
     ]
   },
   {
@@ -591,6 +781,16 @@
       "Re:Gurren Lagann",
       "Gurren Lagann Musume",
       "Unrelated Show - 01 - The Gurren Lagann Within.mkv"
+    ],
+    "studio": "GAINAX",
+    "studios": [
+      "GAINAX",
+      "Aniplex",
+      "Konami",
+      "Half H.P Studio",
+      "Bandai",
+      "Bandai Entertainment",
+      "Aniplex of America"
     ]
   },
   {
@@ -615,6 +815,12 @@
       "Re:Samurai Champloo",
       "Samurai Champloo Musume",
       "Unrelated Show - 01 - The Samurai Champloo Within.mkv"
+    ],
+    "studio": "Manglobe",
+    "studios": [
+      "Manglobe",
+      "Fuji TV",
+      "Geneon Entertainment"
     ]
   },
   {
@@ -641,6 +847,17 @@
       "Re:Psycho-Pass",
       "Psycho-Pass Musume",
       "Unrelated Show - 01 - The Psycho-Pass Within.mkv"
+    ],
+    "studio": "Production I.G",
+    "studios": [
+      "Production I.G",
+      "Fuji TV",
+      "Nitroplus",
+      "Sony Music Entertainment",
+      "KYORAKU",
+      "Toho",
+      "Funimation",
+      "Dentsu"
     ]
   },
   {
@@ -666,6 +883,15 @@
       "Re:Parasyte -the maxim-",
       "Parasyte -the maxim- Musume",
       "Unrelated Show - 01 - The Parasyte -the maxim- Within.mkv"
+    ],
+    "studio": "MADHOUSE",
+    "studios": [
+      "MADHOUSE",
+      "VAP",
+      "Kodansha",
+      "Nippon Television Network",
+      "Forecast Communications",
+      "Sentai Filmworks"
     ]
   },
   {
@@ -691,6 +917,12 @@
       "Re:Great Teacher Onizuka",
       "Great Teacher Onizuka Musume",
       "Unrelated Show - 01 - The Great Teacher Onizuka Within.mkv"
+    ],
+    "studio": "Studio Pierrot",
+    "studios": [
+      "Studio Pierrot",
+      "Discotek",
+      "Aniplex"
     ]
   },
   {
@@ -715,6 +947,13 @@
       "Re:Trigun",
       "Trigun Musume",
       "Unrelated Show - 01 - The Trigun Within.mkv"
+    ],
+    "studio": "MADHOUSE",
+    "studios": [
+      "MADHOUSE",
+      "Nippon Victor",
+      "Arts Pro",
+      "Funimation"
     ]
   },
   {
@@ -741,6 +980,14 @@
       "Re:Yu Yu Hakusho",
       "Yu Yu Hakusho Musume",
       "Unrelated Show - 01 - The Yu Yu Hakusho Within.mkv"
+    ],
+    "studio": "Studio Pierrot",
+    "studios": [
+      "Studio Pierrot",
+      "Funimation",
+      "Yomiko Advertising",
+      "Studio Pierrot",
+      "Fuji TV"
     ]
   },
   {
@@ -766,6 +1013,15 @@
       "Re:Rurouni Kenshin",
       "Rurouni Kenshin Musume",
       "Unrelated Show - 01 - The Rurouni Kenshin Within.mkv"
+    ],
+    "studio": "Studio Gallop",
+    "studios": [
+      "Studio Gallop",
+      "Studio DEEN",
+      "SME Visual Works",
+      "Fuji TV",
+      "Media Blasters",
+      "Aniplex of America"
     ]
   },
   {
@@ -791,6 +1047,15 @@
       "Re:Berserk (1997)",
       "Berserk (1997) Musume",
       "Unrelated Show - 01 - The Berserk (1997) Within.mkv"
+    ],
+    "studio": "OLM",
+    "studios": [
+      "OLM",
+      "VAP",
+      "Media Blasters",
+      "NYAV Post",
+      "Nippon Television Network",
+      "Hakusensha"
     ]
   },
   {
@@ -818,6 +1083,14 @@
       "Re:Ghost in the Shell: Stand Alone Complex",
       "Ghost in the Shell: Stand Alone Complex Musume",
       "Unrelated Show - 01 - The Ghost in the Shell: Stand Alone Complex Within.mkv"
+    ],
+    "studio": "Production I.G",
+    "studios": [
+      "Production I.G",
+      "Kodansha",
+      "Trilogy Future Studio",
+      "Bandai Entertainment",
+      "Tokuma Shoten"
     ]
   },
   {
@@ -838,6 +1111,16 @@
       "Re:Akira",
       "Akira Musume",
       "Unrelated Show - 01 - The Akira Within.mkv"
+    ],
+    "studio": "Tokyo Movie Shinsha",
+    "studios": [
+      "Tokyo Movie Shinsha",
+      "Funimation",
+      "Mainichi Broadcasting System",
+      "Kodansha",
+      "Bandai Entertainment",
+      "Toho",
+      "Madman Entertainment"
     ]
   },
   {
@@ -865,6 +1148,14 @@
       "Re:Perfect Blue",
       "Perfect Blue Musume",
       "Unrelated Show - 01 - The Perfect Blue Within.mkv"
+    ],
+    "studio": "MADHOUSE",
+    "studios": [
+      "MADHOUSE",
+      "Rex Entertainment ",
+      "ONIRO",
+      "Techno Sound",
+      "GKIDS"
     ]
   },
   {
@@ -892,6 +1183,13 @@
       "Re:Mushishi",
       "Mushishi Musume",
       "Unrelated Show - 01 - The Mushishi Within.mkv"
+    ],
+    "studio": "Artland",
+    "studios": [
+      "Artland",
+      "Marvelous Entertainment",
+      "Funimation",
+      "Delfi Sound"
     ]
   },
   {
@@ -918,6 +1216,10 @@
       "Re:Natsume's Book of Friends",
       "Natsume's Book of Friends Musume",
       "Unrelated Show - 01 - The Natsume's Book of Friends Within.mkv"
+    ],
+    "studio": "Brain's Base",
+    "studios": [
+      "Brain's Base"
     ]
   },
   {
@@ -943,6 +1245,11 @@
       "Re:Haikyuu!!",
       "Haikyuu!! Musume",
       "Unrelated Show - 01 - The Haikyuu!! Within.mkv"
+    ],
+    "studio": "Production I.G",
+    "studios": [
+      "Production I.G",
+      "Sentai Filmworks"
     ]
   },
   {
@@ -968,6 +1275,14 @@
       "Re:Kuroko's Basketball",
       "Kuroko's Basketball Musume",
       "Unrelated Show - 01 - The Kuroko's Basketball Within.mkv"
+    ],
+    "studio": "Production I.G",
+    "studios": [
+      "Production I.G",
+      "Bandai Visual",
+      "Lantis",
+      "NAS",
+      "Mainichi Broadcasting System"
     ]
   },
   {
@@ -992,6 +1307,13 @@
       "Re:Slam Dunk",
       "Slam Dunk Musume",
       "Unrelated Show - 01 - The Slam Dunk Within.mkv"
+    ],
+    "studio": "Toei Animation",
+    "studios": [
+      "Toei Animation",
+      "TV Asahi",
+      "Funimation",
+      "Animax"
     ]
   },
   {
@@ -1017,6 +1339,13 @@
       "Re:Hajime no Ippo",
       "Hajime no Ippo Musume",
       "Unrelated Show - 01 - The Hajime no Ippo Within.mkv"
+    ],
+    "studio": "MADHOUSE",
+    "studios": [
+      "MADHOUSE",
+      "VAP",
+      "NBCUniversal Entertainment Japan",
+      "Discotek"
     ]
   },
   {
@@ -1041,6 +1370,11 @@
       "Re:Ping Pong the Animation",
       "Ping Pong the Animation Musume",
       "Unrelated Show - 01 - The Ping Pong the Animation Within.mkv"
+    ],
+    "studio": "Tatsunoko Production",
+    "studios": [
+      "Tatsunoko Production",
+      "Aniplex"
     ]
   },
   {
@@ -1066,6 +1400,13 @@
       "Re:The Tatami Galaxy",
       "The Tatami Galaxy Musume",
       "Unrelated Show - 01 - The The Tatami Galaxy Within.mkv"
+    ],
+    "studio": "MADHOUSE",
+    "studios": [
+      "MADHOUSE",
+      "Funimation",
+      "Sony Music Entertainment",
+      "Fujipacific Music"
     ]
   },
   {
@@ -1074,7 +1415,7 @@
     "title": "Puella Magi Madoka Magica",
     "canonical_title": "Puella Magi Madoka Magica",
     "aliases": [
-      "Mahou Shoujo Madoka★Magica",
+      "Mahou Shoujo Madoka\u2605Magica",
       "Madoka Magica"
     ],
     "year": 2011,
@@ -1093,6 +1434,18 @@
       "Re:Puella Magi Madoka Magica",
       "Puella Magi Madoka Magica Musume",
       "Unrelated Show - 01 - The Puella Magi Madoka Magica Within.mkv"
+    ],
+    "studio": "Shaft",
+    "studios": [
+      "Aniplex",
+      "Shaft",
+      "Mainichi Broadcasting System",
+      "Movic",
+      "Nitroplus",
+      "Aniplex of America",
+      "Madoka Partners",
+      "Houbunsha",
+      "Manga Entertainment"
     ]
   },
   {
@@ -1116,6 +1469,15 @@
       "Re:Made in Abyss",
       "Made in Abyss Musume",
       "Unrelated Show - 01 - The Made in Abyss Within.mkv"
+    ],
+    "studio": "Kinema Citrus",
+    "studios": [
+      "Kinema Citrus",
+      "Media Factory",
+      "AT-X",
+      "Sony Music Communications",
+      "Sentai Filmworks",
+      "Cygames"
     ]
   },
   {
@@ -1139,6 +1501,15 @@
       "Re:The Promised Neverland",
       "The Promised Neverland Musume",
       "Unrelated Show - 01 - The The Promised Neverland Within.mkv"
+    ],
+    "studio": "CloverWorks",
+    "studios": [
+      "CloverWorks",
+      "Aniplex",
+      "Dentsu",
+      "Fuji TV",
+      "Shueisha",
+      "Aniplex of America"
     ]
   },
   {
@@ -1162,6 +1533,12 @@
       "Re:Dorohedoro",
       "Dorohedoro Musume",
       "Unrelated Show - 01 - The Dorohedoro Within.mkv"
+    ],
+    "studio": "MAPPA",
+    "studios": [
+      "MAPPA",
+      "Netflix",
+      "Toho"
     ]
   },
   {
@@ -1188,6 +1565,14 @@
       "Re:Shinsekai yori",
       "Shinsekai yori Musume",
       "Unrelated Show - 01 - The Shinsekai yori Within.mkv"
+    ],
+    "studio": "A-1 Pictures",
+    "studios": [
+      "Aniplex",
+      "TV Asahi",
+      "A-1 Pictures",
+      "Pony Canyon",
+      "Sentai Filmworks"
     ]
   },
   {
@@ -1213,6 +1598,16 @@
       "Re:Durarara!!",
       "Durarara!! Musume",
       "Unrelated Show - 01 - The Durarara!! Within.mkv"
+    ],
+    "studio": "Brain's Base",
+    "studios": [
+      "Aniplex",
+      "Brain's Base",
+      "Movic",
+      "Aniplex of America",
+      "ASCII Media Works",
+      "Hakuhodo DY Media Partners",
+      "Mainichi Broadcasting System"
     ]
   },
   {
@@ -1237,6 +1632,17 @@
       "Re:Toradora!",
       "Toradora! Musume",
       "Unrelated Show - 01 - The Toradora! Within.mkv"
+    ],
+    "studio": "J.C.STAFF",
+    "studios": [
+      "Genco",
+      "Starchild Records",
+      "Magic Capsule",
+      "NIS America Inc.",
+      "Yomiuri Advertising",
+      "TV Tokyo Music",
+      "J.C.STAFF",
+      "Hanabee Entertainment"
     ]
   },
   {
@@ -1259,6 +1665,16 @@
       "Re:Anohana: The Flower We Saw That Day",
       "Anohana: The Flower We Saw That Day Musume",
       "Unrelated Show - 01 - The Anohana: The Flower We Saw That Day Within.mkv"
+    ],
+    "studio": "A-1 Pictures",
+    "studios": [
+      "Aniplex",
+      "Dentsu",
+      "A-1 Pictures",
+      "Fuji TV",
+      "Fujipacific Music",
+      "Aniplex of America",
+      "Hanabee Entertainment"
     ]
   },
   {
@@ -1283,6 +1699,17 @@
       "Re:Your Lie in April",
       "Your Lie in April Musume",
       "Unrelated Show - 01 - The Your Lie in April Within.mkv"
+    ],
+    "studio": "A-1 Pictures",
+    "studios": [
+      "A-1 Pictures",
+      "Aniplex",
+      "Dentsu",
+      "Fuji TV",
+      "Kodansha",
+      "Aniplex of America",
+      "KYORAKU",
+      "Lawson Entertainment"
     ]
   },
   {
@@ -1306,6 +1733,11 @@
       "Re:March Comes In like a Lion",
       "March Comes In like a Lion Musume",
       "Unrelated Show - 01 - The March Comes In like a Lion Within.mkv"
+    ],
+    "studio": "Shaft",
+    "studios": [
+      "Shaft",
+      "Aniplex"
     ]
   },
   {
@@ -1328,6 +1760,10 @@
       "Re:Showa Genroku Rakugo Shinjuu",
       "Showa Genroku Rakugo Shinjuu Musume",
       "Unrelated Show - 01 - The Showa Genroku Rakugo Shinjuu Within.mkv"
+    ],
+    "studio": "Studio DEEN",
+    "studios": [
+      "Studio DEEN"
     ]
   },
   {
@@ -1347,6 +1783,13 @@
       "Re:Chihayafuru",
       "Chihayafuru Musume",
       "Unrelated Show - 01 - The Chihayafuru Within.mkv"
+    ],
+    "studio": "MADHOUSE",
+    "studios": [
+      "MADHOUSE",
+      "VAP",
+      "Nippon Television Network",
+      "Sentai Filmworks"
     ]
   },
   {
@@ -1370,6 +1813,18 @@
       "Re:Odd Taxi",
       "Odd Taxi Musume",
       "Unrelated Show - 01 - The Odd Taxi Within.mkv"
+    ],
+    "studio": "OLM",
+    "studios": [
+      "OLM",
+      "P.I.C.S.",
+      "Pony Canyon",
+      "Pony Canyon Enterprise",
+      "TV Tokyo",
+      "Crunchyroll",
+      "Yoshimoto Kogyo",
+      "AT-X",
+      "Dentsu"
     ]
   },
   {
@@ -1393,6 +1848,15 @@
       "Re:Ranking of Kings",
       "Ranking of Kings Musume",
       "Unrelated Show - 01 - The Ranking of Kings Within.mkv"
+    ],
+    "studio": "WIT STUDIO",
+    "studios": [
+      "WIT STUDIO",
+      "Fuji TV",
+      "Aniplex",
+      "BANDAI SPIRITS",
+      "KADOKAWA",
+      "Dentsu"
     ]
   },
   {
@@ -1414,6 +1878,12 @@
       "Re:Pluto",
       "Pluto Musume",
       "Unrelated Show - 01 - The Pluto Within.mkv"
+    ],
+    "studio": "Studio M2",
+    "studios": [
+      "Studio M2",
+      "Genco",
+      "Netflix"
     ]
   },
   {
@@ -1438,6 +1908,14 @@
       "Re:Delicious in Dungeon",
       "Delicious in Dungeon Musume",
       "Unrelated Show - 01 - The Delicious in Dungeon Within.mkv"
+    ],
+    "studio": "TRIGGER",
+    "studios": [
+      "TRIGGER",
+      "KADOKAWA",
+      "Ultra Super Pictures",
+      "Good Smile Company",
+      "Tencent"
     ]
   },
   {
@@ -1460,6 +1938,17 @@
       "Re:The Apothecary Diaries",
       "The Apothecary Diaries Musume",
       "Unrelated Show - 01 - The The Apothecary Diaries Within.mkv"
+    ],
+    "studio": "OLM",
+    "studios": [
+      "Toho",
+      "OLM",
+      "TOHO animation STUDIO",
+      "Nippon Television Network",
+      "Imagica Infos",
+      "Dentsu",
+      "Shogakukan",
+      "Square Enix"
     ]
   },
   {
@@ -1482,6 +1971,15 @@
       "Re:Spy x Family",
       "Spy x Family Musume",
       "Unrelated Show - 01 - The Spy x Family Within.mkv"
+    ],
+    "studio": "CloverWorks",
+    "studios": [
+      "CloverWorks",
+      "WIT STUDIO",
+      "Toho",
+      "Shueisha",
+      "TV Tokyo",
+      "Shogakukan-Shueisha Productions"
     ]
   },
   {
@@ -1507,6 +2005,14 @@
       "Re:Kaguya-sama: Love is War",
       "Kaguya-sama: Love is War Musume",
       "Unrelated Show - 01 - The Kaguya-sama: Love is War Within.mkv"
+    ],
+    "studio": "A-1 Pictures",
+    "studios": [
+      "A-1 Pictures",
+      "Aniplex",
+      "Shueisha",
+      "JR Higashi Nihon Kikaku",
+      "Mainichi Broadcasting System"
     ]
   },
   {
@@ -1529,6 +2035,19 @@
       "Re:Classroom of the Elite",
       "Classroom of the Elite Musume",
       "Unrelated Show - 01 - The Classroom of the Elite Within.mkv"
+    ],
+    "studio": "Lerche",
+    "studios": [
+      "Lerche",
+      "KADOKAWA",
+      "Crunchyroll",
+      "AT-X",
+      "AKABEiSOFT2",
+      "Bandai Namco Music Live",
+      "Sony Music Solutions",
+      "Toranoana",
+      "Kadokawa Media House",
+      "Lantis"
     ]
   },
   {
@@ -1554,6 +2073,14 @@
       "Re:My Hero Academia",
       "My Hero Academia Musume",
       "Unrelated Show - 01 - The My Hero Academia Within.mkv"
+    ],
+    "studio": "bones",
+    "studios": [
+      "bones",
+      "Dentsu",
+      "Mainichi Broadcasting System",
+      "Toho",
+      "Movic"
     ]
   },
   {
@@ -1577,6 +2104,14 @@
       "Re:Black Clover",
       "Black Clover Musume",
       "Unrelated Show - 01 - The Black Clover Within.mkv"
+    ],
+    "studio": "Studio Pierrot",
+    "studios": [
+      "Studio Pierrot",
+      "Funimation",
+      "TV Tokyo",
+      "Crunchyroll",
+      "Shueisha"
     ]
   },
   {
@@ -1604,6 +2139,11 @@
       "Re:JoJo's Bizarre Adventure",
       "JoJo's Bizarre Adventure Musume",
       "Unrelated Show - 01 - The JoJo's Bizarre Adventure Within.mkv"
+    ],
+    "studio": "david production",
+    "studios": [
+      "david production",
+      "Warner Bros. Japan"
     ]
   },
   {
@@ -1630,6 +2170,20 @@
       "Re:One Piece",
       "One Piece Musume",
       "Unrelated Show - 01 - The One Piece Within.mkv"
+    ],
+    "studio": "Toei Animation",
+    "studios": [
+      "Toei Animation",
+      "Funimation",
+      "Fuji TV",
+      "4Kids Entertainment",
+      "TAP",
+      "Asatsu DK",
+      "Magic Bus",
+      "Mushi Production",
+      "Studio Guts",
+      "Asahi Production",
+      "Avex Pictures"
     ]
   },
   {
@@ -1653,6 +2207,17 @@
       "Re:Naruto",
       "Naruto Musume",
       "Unrelated Show - 01 - The Naruto Within.mkv"
+    ],
+    "studio": "Studio Pierrot",
+    "studios": [
+      "Studio Pierrot",
+      "TV Tokyo",
+      "Aniplex",
+      "Viz Media",
+      "Shueisha",
+      "KSS",
+      "SME Visual Works",
+      "Rakuonsha"
     ]
   },
   {
@@ -1677,6 +2242,16 @@
       "Re:Naruto: Shippuden",
       "Naruto: Shippuden Musume",
       "Unrelated Show - 01 - The Naruto: Shippuden Within.mkv"
+    ],
+    "studio": "Studio Pierrot",
+    "studios": [
+      "Studio Pierrot",
+      "TV Tokyo",
+      "Aniplex",
+      "KSS",
+      "Viz Media",
+      "Rakuonsha",
+      "TV Tokyo Music"
     ]
   },
   {
@@ -1703,6 +2278,12 @@
       "Re:Dragon Ball Z",
       "Dragon Ball Z Musume",
       "Unrelated Show - 01 - The Dragon Ball Z Within.mkv"
+    ],
+    "studio": "Toei Animation",
+    "studios": [
+      "Toei Animation",
+      "Funimation",
+      "Fuji TV"
     ]
   },
   {
@@ -1722,12 +2303,19 @@
     ],
     "is_short_title": false,
     "distractors": [
-      "Tokyo Ghoul √A",
+      "Tokyo Ghoul \u221aA",
       "Tokyo Ghoul:re",
       "Tokyo Ghoul: Pinto",
       "Re:Tokyo Ghoul",
       "Tokyo Ghoul Musume",
       "Unrelated Show - 01 - The Tokyo Ghoul Within.mkv"
+    ],
+    "studio": "Studio Pierrot",
+    "studios": [
+      "Studio Pierrot",
+      "Marvelous",
+      "TC Entertainment",
+      "Studio Pierrot"
     ]
   },
   {
@@ -1751,6 +2339,17 @@
       "Re:Kill la Kill",
       "Kill la Kill Musume",
       "Unrelated Show - 01 - The Kill la Kill Within.mkv"
+    ],
+    "studio": "TRIGGER",
+    "studios": [
+      "Aniplex",
+      "TRIGGER",
+      "Dentsu",
+      "Kadokawa Shoten",
+      "Mainichi Broadcasting System",
+      "Ultra Super Pictures",
+      "Movic",
+      "Aniplex of America"
     ]
   },
   {
@@ -1774,6 +2373,15 @@
       "Re:No Game No Life",
       "No Game No Life Musume",
       "Unrelated Show - 01 - The No Game No Life Within.mkv"
+    ],
+    "studio": "MADHOUSE",
+    "studios": [
+      "MADHOUSE",
+      "Media Factory",
+      "Movic",
+      "Frontier Works",
+      "AT-X",
+      "Sentai Filmworks"
     ]
   },
   {
@@ -1797,6 +2405,12 @@
       "Re:Overlord",
       "Overlord Musume",
       "Unrelated Show - 01 - The Overlord Within.mkv"
+    ],
+    "studio": "MADHOUSE",
+    "studios": [
+      "MADHOUSE",
+      "Funimation",
+      "Madman Entertainment"
     ]
   },
   {
@@ -1820,6 +2434,20 @@
       "Re:Noragami",
       "Noragami Musume",
       "Unrelated Show - 01 - The Noragami Within.mkv"
+    ],
+    "studio": "bones",
+    "studios": [
+      "bones",
+      "Avex Entertainment",
+      "Dentsu",
+      "Shouchiku",
+      "Kodansha",
+      "Movic",
+      "Lawson Entertainment",
+      "A-Sketch",
+      "Ai Addiction",
+      "Funimation",
+      "Madman Entertainment"
     ]
   },
   {
@@ -1850,6 +2478,13 @@
       "Show Name - S01E05 - The Monster Within.mkv",
       "Monster Musume",
       "Unrelated Show - 01 - The Monster Within.mkv"
+    ],
+    "studio": "MADHOUSE",
+    "studios": [
+      "MADHOUSE",
+      "VAP",
+      "Viz Media",
+      "Nippon Television Network"
     ]
   },
   {
@@ -1875,6 +2510,14 @@
       "Re:Nana",
       "Nana Musume",
       "Unrelated Show - 01 - The Nana Within.mkv"
+    ],
+    "studio": "MADHOUSE",
+    "studios": [
+      "MADHOUSE",
+      "VAP",
+      "Shueisha",
+      "Nippon Television Network",
+      "Sentai Filmworks"
     ]
   },
   {
@@ -1901,6 +2544,13 @@
       "Re:Bleach",
       "Bleach Musume",
       "Unrelated Show - 01 - The Bleach Within.mkv"
+    ],
+    "studio": "Studio Pierrot",
+    "studios": [
+      "Studio Pierrot",
+      "TV Tokyo",
+      "Dentsu",
+      "Viz Media"
     ]
   },
   {
@@ -1928,6 +2578,14 @@
       "Re:K",
       "K Musume",
       "Unrelated Show - 01 - The K Within.mkv"
+    ],
+    "studio": "GoHands",
+    "studios": [
+      "Starchild Records",
+      "Viz Media",
+      "Mainichi Broadcasting System",
+      "GoHands",
+      "KLOCKWORX"
     ]
   },
   {
@@ -1953,6 +2611,18 @@
       "Re:Erased",
       "Erased Musume",
       "Unrelated Show - 01 - The Erased Within.mkv"
+    ],
+    "studio": "A-1 Pictures",
+    "studios": [
+      "A-1 Pictures",
+      "Kansai TV",
+      "Aniplex of America",
+      "Madman Entertainment",
+      "Dentsu",
+      "Lawson",
+      "Aniplex",
+      "Kadokawa Shoten",
+      "Fuji TV"
     ]
   },
   {
@@ -1979,6 +2649,17 @@
       "Re:Another",
       "Another Musume",
       "Unrelated Show - 01 - The Another Within.mkv"
+    ],
+    "studio": "P.A.WORKS",
+    "studios": [
+      "Lantis",
+      "Kadokawa Shoten",
+      "P.A.WORKS",
+      "Toho",
+      "Sentai Filmworks",
+      "KLOCKWORX",
+      "Bandai Namco Live Creative",
+      "NTT Docomo"
     ]
   },
   {
@@ -2001,6 +2682,15 @@
       "Re:Hyouka",
       "Hyouka Musume",
       "Unrelated Show - 01 - The Hyouka Within.mkv"
+    ],
+    "studio": "Kyoto Animation",
+    "studios": [
+      "Kyoto Animation",
+      "Lantis",
+      "Kadokawa Shoten",
+      "KLOCKWORX",
+      "chara-ani.com",
+      "Animation Do"
     ]
   },
   {
@@ -2025,6 +2715,16 @@
       "Re:Clannad",
       "Clannad Musume",
       "Unrelated Show - 01 - The Clannad Within.mkv"
+    ],
+    "studio": "Kyoto Animation",
+    "studios": [
+      "Sentai Filmworks",
+      "Animation Do",
+      "Kyoto Animation",
+      "Pony Canyon",
+      "TBS",
+      "Movic",
+      "Key"
     ]
   },
   {
@@ -2050,6 +2750,16 @@
       "Re:Gintama",
       "Gintama Musume",
       "Unrelated Show - 01 - The Gintama Within.mkv"
+    ],
+    "studio": "Sunrise",
+    "studios": [
+      "Sunrise",
+      "TV Tokyo",
+      "Aniplex",
+      "Dentsu",
+      "Trinity Sound",
+      "Audio Highs",
+      "Miracle Robo"
     ]
   },
   {
@@ -2075,6 +2785,18 @@
       "Re:Orange",
       "Orange Musume",
       "Unrelated Show - 01 - The Orange Within.mkv"
+    ],
+    "studio": "Telecom Animation Film",
+    "studios": [
+      "TMS Entertainment",
+      "Telecom Animation Film",
+      "Toho",
+      "ABC Animation",
+      "AT-X",
+      "Dai Nippon Printing",
+      "Futabasha",
+      "Lawson",
+      "TV Aichi"
     ]
   },
   {
@@ -2101,6 +2823,13 @@
       "Re:Air",
       "Air Musume",
       "Unrelated Show - 01 - The Air Within.mkv"
+    ],
+    "studio": "Kyoto Animation",
+    "studios": [
+      "Kyoto Animation",
+      "Pony Canyon",
+      "TBS",
+      "Key"
     ]
   },
   {
@@ -2127,6 +2856,15 @@
       "Re:C",
       "C Musume",
       "Unrelated Show - 01 - The C Within.mkv"
+    ],
+    "studio": "Tatsunoko Production",
+    "studios": [
+      "Funimation",
+      "Tatsunoko Production",
+      "Fuji TV",
+      "Jumondou",
+      "Sony Music Entertainment",
+      "Fujipacific Music"
     ]
   },
   {
@@ -2153,6 +2891,14 @@
       "Re:FLCL",
       "FLCL Musume",
       "Unrelated Show - 01 - The FLCL Within.mkv"
+    ],
+    "studio": "GAINAX",
+    "studios": [
+      "GAINAX",
+      "Production I.G",
+      "Starchild Records",
+      "Funimation",
+      "GANSIS"
     ]
   },
   {
@@ -2178,6 +2924,15 @@
       "Re:Beck",
       "Beck Musume",
       "Unrelated Show - 01 - The Beck Within.mkv"
+    ],
+    "studio": "MADHOUSE",
+    "studios": [
+      "MADHOUSE",
+      "Marvelous Entertainment",
+      "Starchild Records",
+      "Funimation",
+      "Asatsu DK",
+      "Kodansha"
     ]
   },
   {
@@ -2203,6 +2958,11 @@
       "Re:Gantz",
       "Gantz Musume",
       "Unrelated Show - 01 - The Gantz Within.mkv"
+    ],
+    "studio": "GONZO",
+    "studios": [
+      "GONZO",
+      "Funimation"
     ]
   },
   {
@@ -2227,6 +2987,14 @@
       "Re:Claymore",
       "Claymore Musume",
       "Unrelated Show - 01 - The Claymore Within.mkv"
+    ],
+    "studio": "MADHOUSE",
+    "studios": [
+      "MADHOUSE",
+      "VAP",
+      "Funimation",
+      "Avex Entertainment",
+      "Nippon Television Network"
     ]
   },
   {
@@ -2251,6 +3019,12 @@
       "Re:Hellsing",
       "Hellsing Musume",
       "Unrelated Show - 01 - The Hellsing Within.mkv"
+    ],
+    "studio": "GONZO",
+    "studios": [
+      "GONZO",
+      "Funimation",
+      "Pioneer LDC"
     ]
   },
   {
@@ -2272,6 +3046,19 @@
       "Monster Musume",
       "Re:Monster Musume",
       "Unrelated Show - 01 - The Re:Monster Within.mkv"
+    ],
+    "studio": "Studio DEEN",
+    "studios": [
+      "Studio DEEN",
+      "Genco",
+      "Pony Canyon",
+      "AlphaPolis",
+      "Crunchyroll",
+      "MUSE",
+      "HIAN",
+      "BS11",
+      "U-NEXT",
+      "capibara"
     ]
   },
   {
@@ -2297,6 +3084,13 @@
       "Monster Rancher",
       "Re:Monster Musume no Iru Nichijou",
       "Unrelated Show - 01 - The Monster Musume no Iru Nichijou Within.mkv"
+    ],
+    "studio": "Lerche",
+    "studios": [
+      "Lerche",
+      "Genco",
+      "Sentai Filmworks",
+      "Seva"
     ]
   },
   {
@@ -2324,6 +3118,14 @@
       "Re:Bakemonogatari",
       "Bakemonogatari Musume",
       "Unrelated Show - 01 - The Bakemonogatari Within.mkv"
+    ],
+    "studio": "Shaft",
+    "studios": [
+      "Aniplex",
+      "Shaft",
+      "Kodansha",
+      "Aniplex of America",
+      "Hanabee Entertainment"
     ]
   },
   {
@@ -2349,6 +3151,16 @@
       "Zero kara Hajimeru Isekai Seikatsu",
       "Re:Zero kara Hajimeru Isekai Seikatsu Musume",
       "Unrelated Show - 01 - The Re:Zero kara Hajimeru Isekai Seikatsu Within.mkv"
+    ],
+    "studio": "WHITE FOX",
+    "studios": [
+      "WHITE FOX",
+      "Funimation",
+      "Kadokawa Shoten",
+      "Media Factory",
+      "AT-X",
+      "TV Tokyo",
+      "Magic Capsule"
     ]
   },
   {
@@ -2375,6 +3187,16 @@
       "Re:Fate/Zero",
       "Fate/Zero Musume",
       "Unrelated Show - 01 - The Fate/Zero Within.mkv"
+    ],
+    "studio": "ufotable",
+    "studios": [
+      "Aniplex",
+      "ufotable",
+      "Nitroplus",
+      "Aniplex of America",
+      "Seikaisha",
+      "Notes",
+      "ufotable"
     ]
   },
   {
@@ -2401,6 +3223,16 @@
       "Re:Fate/stay night",
       "Fate/stay night Musume",
       "Unrelated Show - 01 - The Fate/stay night Within.mkv"
+    ],
+    "studio": "Studio DEEN",
+    "studios": [
+      "NBCUniversal Entertainment Japan",
+      "Studio DEEN",
+      "Frontier Works",
+      "TBS",
+      "Sentai Filmworks",
+      "Notes",
+      "CREi"
     ]
   },
   {
@@ -2424,6 +3256,15 @@
       "Re:Solo Leveling",
       "Solo Leveling Musume",
       "Unrelated Show - 01 - The Solo Leveling Within.mkv"
+    ],
+    "studio": "A-1 Pictures",
+    "studios": [
+      "A-1 Pictures",
+      "Aniplex",
+      "Netmarble",
+      "D&C MEDIA",
+      "Kakao piccoma",
+      "Crunchyroll"
     ]
   },
   {
@@ -2450,6 +3291,16 @@
       "Re:Sword Art Online",
       "Sword Art Online Musume",
       "Unrelated Show - 01 - The Sword Art Online Within.mkv"
+    ],
+    "studio": "A-1 Pictures",
+    "studios": [
+      "Aniplex",
+      "A-1 Pictures",
+      "Genco",
+      "DAX Production",
+      "Aniplex of America",
+      "ASCII Media Works",
+      "Bandai Namco Entertainment"
     ]
   }
 ]

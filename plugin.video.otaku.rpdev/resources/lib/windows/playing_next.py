@@ -8,15 +8,29 @@ class PlayingNext(BaseWindow):
     def __init__(self, xml_file, xml_location, actionArgs=None):
         super().__init__(xml_file, xml_location, actionArgs=actionArgs)
         self.player = xbmc.Player()
-        self.playing_file = self.player.getPlayingFile()
+        try:
+            self.playing_file = self.player.getPlayingFile()
+        except Exception:
+            self.playing_file = ''
         self.closed = False
         self.actioned = False
-        self.total_time = int(self.player.getTotalTime())
-        self.duration = max(1, int(self.total_time - self.player.getTime()))
+        try:
+            self.total_time = int(self.player.getTotalTime())
+            self.duration = max(1, int(self.total_time - self.player.getTime()))
+        except Exception:
+            self.total_time = 1440
+            self.duration = 25
         self.skipoutro_end = actionArgs.get('skipoutro_end') if actionArgs else None
         self.default_action = control.getInt('playingnext.defaultaction')
 
     def onInit(self):
+        if isinstance(self.actionArgs, dict) and self.actionArgs.get('ui_review'):
+            try:
+                self.progress_bar = self.getControl(3014)
+                self.progress_bar.setPercent(65)
+            except Exception:
+                pass
+            return
         self.background_tasks()
 
     def background_tasks(self):

@@ -6,6 +6,15 @@
             <left>0</left>
             <width>1920</width>
             <height>1080</height>
+            <texture>white.png</texture>
+            <colordiffuse>FF000000</colordiffuse>
+        </control>
+
+        <control type="image">
+            <top>0</top>
+            <left>0</left>
+            <width>1920</width>
+            <height>1080</height>
             <texture background="true">$INFO[Window().Property(item.art.fanart)]</texture>
         </control>
 
@@ -23,8 +32,9 @@
             <top>120</top>
             <left>1400</left>
             <control type="label">
-                <top>-10</top>
+                <top>0</top>
                 <width>400</width>
+                <height>35</height>
                 <font>font12</font>
                 <textcolor>AAFFFFFF</textcolor>
                 <align>center</align>
@@ -34,16 +44,18 @@
             </control>
             <control type="image">
                 <width>400</width>
-                <height>600</height>
-                <top>50</top>
+                <height>560</height>
+                <top>45</top>
+                <aspectratio>keep</aspectratio>
                 <texture background="true">$INFO[Window().Property(item.art.poster)]</texture>
             </control>
 
             <control type="group">
-                <top>420</top>
+                <top>620</top>
                 <control type="label">
-                    <top>250</top>
+                    <top>0</top>
                     <width>400</width>
+                    <height>35</height>
                     <font>font14</font>
                     <textcolor>AAFFFFFF</textcolor>
                     <align>center</align>
@@ -53,8 +65,9 @@
                     <label>[COLOR deepskyblue]$INFO[Window().Property(item.info.title)] [/COLOR]</label>
                 </control>
                 <control type="label">
-                    <top>320</top>
+                    <top>40</top>
                     <width>400</width>
+                    <height>30</height>
                     <font>font12</font>
                     <textcolor>AAFFFFFF</textcolor>
                     <align>center</align>
@@ -63,8 +76,9 @@
                     <label>Year: [COLOR deepskyblue]$INFO[Window().Property(item.info.year)] [/COLOR] | Rating: [COLOR deepskyblue]$INFO[Window().Property(item.info.rating)][/COLOR]</label>
                 </control>
                 <control type="label">
-                    <top>300</top>
+                    <top>40</top>
                     <width>400</width>
+                    <height>30</height>
                     <font>font12</font>
                     <textcolor>AAFFFFFF</textcolor>
                     <align>center</align>
@@ -75,10 +89,10 @@
 
                 <control type="textbox">
                     <wrapmultiline>true</wrapmultiline>
-                    <top>360</top>
+                    <top>80</top>
                     <left>-70</left>
-                    <height min="20" max="130">auto</height>
-                    <width>550</width>
+                    <height min="20" max="180">auto</height>
+                    <width>540</width>
                     <font>font12</font>
                     <textcolor>AAFFFFFF</textcolor>
                     <align>center</align>
@@ -90,9 +104,10 @@
 
         <!-- Top Logo/picture  -->
         <control type="image" id="1001">
-            <top>-935</top>
+            <top>15</top>
             <left>500</left>
             <width>300</width>
+            <height>120</height>
             <aspectratio>keep</aspectratio>
             <texture background="true">$INFO[Window().Property(item.art.clearlogo)]</texture>
         </control>
@@ -146,10 +161,10 @@
                     <colordiffuse>AA2e2d32</colordiffuse>
                 </control>
                     <control type="label">
-                        <top>15</top>
+                        <top>10</top>
                         <left>10</left>
-                        <width>1160</width>
-                        <height>5</height>
+                        <width>990</width>
+                        <height>30</height>
                         <font>font12</font>
                         <textcolor>66FFFFFF</textcolor>
                         <shadowcolor>dimgrey</shadowcolor>
@@ -158,10 +173,10 @@
                         <label>[B]$INFO[ListItem.Label][/B]</label>
                     </control>
                     <control type="label">
-                        <top>60</top>
-                        <left>400</left>
-                        <width>450</width>
-                        <height>0</height>
+                        <top>48</top>
+                        <left>340</left>
+                        <width>380</width>
+                        <height>26</height>
                         <font>font10</font>
                         <textcolor>FFFFFFFF</textcolor>
                         <align>left</align>
@@ -169,20 +184,20 @@
                         <label>Debrid: [UPPERCASE]$INFO[ListItem.Property(colored_debrid)][/UPPERCASE]</label>
                     </control>
                     <control type="label">
-                        <top>90</top>
-                        <left>400</left>
-                        <width>450</width>
-                        <height>0</height>
+                        <top>78</top>
+                        <left>490</left>
+                        <width>240</width>
+                        <height>26</height>
                         <aligny>center</aligny>
                         <textcolor>FFFFFFFF</textcolor>
                         <font>font10</font>
                         <label>Provider: [UPPERCASE]$INFO[ListItem.Property(colored_provider)][/UPPERCASE]</label>
                     </control>
                     <control type="label">
-                        <top>60</top>
+                        <top>48</top>
                         <left>10</left>
-                        <width>350</width>
-                        <height>0</height>
+                        <width>320</width>
+                        <height>26</height>
                         <aligny>center</aligny>
                         <textcolor>FFFFFFFF</textcolor>
                         <shadowcolor>dimgrey</shadowcolor>
@@ -190,10 +205,10 @@
                         <label>Type: [UPPERCASE][COLOR deepskyblue]$INFO[ListItem.Property(type)][/COLOR][/UPPERCASE]</label>
                     </control>
                     <control type="label">
-                        <top>90</top>
+                        <top>78</top>
                         <left>10</left>
-                        <width>350</width>
-                        <height>0</height>
+                        <width>470</width>
+                        <height>26</height>
                         <aligny>center</aligny>
                         <textcolor>FFFFFFFF</textcolor>
                         <shadowcolor>dimgrey</shadowcolor>
@@ -201,10 +216,10 @@
                         <label>Info: [UPPERCASE][COLOR deepskyblue]$INFO[ListItem.Property(info)][/COLOR] $INFO[ListItem.Property(colored_codec)] $INFO[ListItem.Property(colored_audio)] $INFO[ListItem.Property(colored_hdr)][/UPPERCASE]</label>
                     </control>
                     <control type="label">
-                        <top>60</top>
-                        <left>750</left>
-                        <width>350</width>
-                        <height>0</height>
+                        <top>48</top>
+                        <left>740</left>
+                        <width>260</width>
+                        <height>26</height>
                         <font>font10</font>
                         <textcolor>66FFFFFF</textcolor>
                         <align>left</align>
@@ -212,10 +227,10 @@
                         <label>Seeders: [UPPERCASE]$INFO[ListItem.Property(colored_seeders)][/UPPERCASE]</label>
                     </control>
                     <control type="label">
-                        <left>750</left>
-                        <top>90</top>
-                        <width>350</width>
-                        <height>0</height>
+                        <left>740</left>
+                        <top>78</top>
+                        <width>260</width>
+                        <height>26</height>
                         <font>font10</font>
                         <textcolor>66FFFFFF</textcolor>
                         <align>left</align>
@@ -228,41 +243,40 @@
                         <left>1010</left>
                         <width>128.8</width>
                         <height>87.2</height>
-                        <texture background="true">quality/qualityeq.png</texture>
-                        <visible>String.Contains(ListItem.Property(quality),0)</visible>
-                    </control>
-                  <control type="image">
-                        <centertop>50%</centertop>
-                        <left>1010</left>
-                        <width>128.8</width>
-                        <height>87.2</height>
-                        <texture background="true" colordiffuse="yellow">quality/qualitysd480.png</texture>
-                        <visible>String.Contains(ListItem.Property(quality),1)</visible>
-                    </control>
-
-                    <control type="image">
-                        <centertop>50%</centertop>
-                        <left>1010</left>
-                        <width>128.8</width>
-                        <height>87.2</height>
-                        <texture background="true" colordiffuse="red">quality/qualityhd720.png</texture>
-                        <visible>String.Contains(ListItem.Property(quality),2)</visible>
+                        <texture>quality/qualityeq.png</texture>
+                        <visible>String.IsEqual(ListItem.Property(quality),0)</visible>
                     </control>
                     <control type="image">
                         <centertop>50%</centertop>
                         <left>1010</left>
                         <width>128.8</width>
                         <height>87.2</height>
-                        <texture background="true" colordiffuse="green">quality/qualityhd1080.png</texture>
-                        <visible>String.Contains(ListItem.Property(quality),3)</visible>
+                        <texture colordiffuse="yellow">quality/qualitysd480.png</texture>
+                        <visible>String.IsEqual(ListItem.Property(quality),1)</visible>
                     </control>
                     <control type="image">
                         <centertop>50%</centertop>
                         <left>1010</left>
                         <width>128.8</width>
                         <height>87.2</height>
-                        <texture background="true">quality/qualityhd4k.png</texture>
-                        <visible>String.Contains(ListItem.Property(quality),4)</visible>
+                        <texture colordiffuse="red">quality/qualityhd720.png</texture>
+                        <visible>String.IsEqual(ListItem.Property(quality),2)</visible>
+                    </control>
+                    <control type="image">
+                        <centertop>50%</centertop>
+                        <left>1010</left>
+                        <width>128.8</width>
+                        <height>87.2</height>
+                        <texture colordiffuse="green">quality/qualityhd1080.png</texture>
+                        <visible>String.IsEqual(ListItem.Property(quality),3)</visible>
+                    </control>
+                    <control type="image">
+                        <centertop>50%</centertop>
+                        <left>1010</left>
+                        <width>128.8</width>
+                        <height>87.2</height>
+                        <texture>quality/qualityhd4k.png</texture>
+                        <visible>String.IsEqual(ListItem.Property(quality),4)</visible>
                     </control>
                     <control type="image">
                         <width>100%</width>
@@ -280,10 +294,10 @@
                     <colordiffuse>77d3d3d3</colordiffuse>
                 </control>
                 <control type="label">
-                    <top>15</top>
+                    <top>10</top>
                     <left>10</left>
-                    <width>1160</width>
-                    <height>5</height>
+                    <width>990</width>
+                    <height>30</height>
                     <font>font12</font>
                     <textcolor>FFFFFFFF</textcolor>
 		            <shadowcolor>dimgrey</shadowcolor>
@@ -293,10 +307,10 @@
                     <scroll>true</scroll>
                 </control>
                 <control type="label">
-                    <top>60</top>
-                    <left>400</left>
-                    <width>450</width>
-                    <height>0</height>
+                    <top>48</top>
+                    <left>340</left>
+                    <width>380</width>
+                    <height>26</height>
                     <font>font10</font>
                     <textcolor>FFFFFFFF</textcolor>
                     <align>left</align>
@@ -304,20 +318,20 @@
                     <label>Debrid: [UPPERCASE]$INFO[ListItem.Property(colored_debrid)][/UPPERCASE]</label>
                 </control>
                 <control type="label">
-                    <top>90</top>
-                    <left>400</left>
-                    <width>450</width>
-                    <height>0</height>
+                    <top>78</top>
+                    <left>490</left>
+                    <width>240</width>
+                    <height>26</height>
                     <aligny>center</aligny>
                     <textcolor>FFFFFFFF</textcolor>
                     <font>font10</font>
                     <label>Provider: [UPPERCASE]$INFO[ListItem.Property(colored_provider)][/UPPERCASE]</label>
                 </control>
                 <control type="label">
-                    <top>60</top>
+                    <top>48</top>
                     <left>10</left>
-                    <width>350</width>
-                    <height>0</height>
+                    <width>320</width>
+                    <height>26</height>
                     <aligny>center</aligny>
                     <textcolor>FFFFFFFF</textcolor>
 		            <shadowcolor>dimgrey</shadowcolor>
@@ -325,10 +339,10 @@
                     <label>Type: [UPPERCASE][COLOR deepskyblue]$INFO[ListItem.Property(type)][/COLOR][/UPPERCASE]</label>
                 </control>
                 <control type="label">
-                    <top>90</top>
+                    <top>78</top>
                     <left>10</left>
-                    <width>350</width>
-                    <height>0</height>
+                    <width>470</width>
+                    <height>26</height>
                     <aligny>center</aligny>
                     <textcolor>FFFFFFFF</textcolor>
 		            <shadowcolor>dimgrey</shadowcolor>
@@ -336,10 +350,10 @@
                     <label>Info: [UPPERCASE][COLOR deepskyblue]$INFO[ListItem.Property(info)][/COLOR] $INFO[ListItem.Property(colored_codec)] $INFO[ListItem.Property(colored_audio)] $INFO[ListItem.Property(colored_hdr)][/UPPERCASE]</label>
                 </control>
                 <control type="label">
-                    <top>60</top>
-                    <left>750</left>
-                    <width>350</width>
-                    <height>0</height>
+                    <top>48</top>
+                    <left>740</left>
+                    <width>260</width>
+                    <height>26</height>
                     <font>font10</font>
                     <textcolor>66FFFFFF</textcolor>
                     <align>left</align>
@@ -347,10 +361,10 @@
                     <label>Seeders: [UPPERCASE]$INFO[ListItem.Property(colored_seeders)][/UPPERCASE]</label>
                 </control>
                 <control type="label">
-                    <left>750</left>
-                    <top>90</top>
-                    <width>350</width>
-                    <height>0</height>
+                    <left>740</left>
+                    <top>78</top>
+                    <width>260</width>
+                    <height>26</height>
                     <font>font10</font>
                     <textcolor>66FFFFFF</textcolor>
                     <align>left</align>
@@ -363,40 +377,40 @@
                     <left>1010</left>
                     <width>128.8</width>
                     <height>87.2</height>
-                    <texture background="true">quality/qualityeq.png</texture>
-                    <visible>String.Contains(ListItem.Property(quality),0)</visible>
+                    <texture>quality/qualityeq.png</texture>
+                    <visible>String.IsEqual(ListItem.Property(quality),0)</visible>
                 </control>
                 <control type="image">
                     <centertop>50%</centertop>
                     <left>1010</left>
                     <width>128.8</width>
                     <height>87.2</height>
-                    <texture background="true" colordiffuse="yellow">quality/qualitysd480.png</texture>
-                    <visible>String.Contains(ListItem.Property(quality),1)</visible>
+                    <texture colordiffuse="yellow">quality/qualitysd480.png</texture>
+                    <visible>String.IsEqual(ListItem.Property(quality),1)</visible>
                 </control>
                 <control type="image">
                     <centertop>50%</centertop>
                     <left>1010</left>
                     <width>128.8</width>
                     <height>87.2</height>
-                    <texture background="true" colordiffuse="red">quality/qualityhd720.png</texture>
-                    <visible>String.Contains(ListItem.Property(quality),2)</visible>
+                    <texture colordiffuse="red">quality/qualityhd720.png</texture>
+                    <visible>String.IsEqual(ListItem.Property(quality),2)</visible>
                 </control>
                 <control type="image">
                     <centertop>50%</centertop>
                     <left>1010</left>
                     <width>128.8</width>
                     <height>87.2</height>
-                    <texture background="true" colordiffuse="green">quality/qualityhd1080.png</texture>
-                    <visible>String.Contains(ListItem.Property(quality),3)</visible>
+                    <texture colordiffuse="green">quality/qualityhd1080.png</texture>
+                    <visible>String.IsEqual(ListItem.Property(quality),3)</visible>
                 </control>
                 <control type="image">
                     <centertop>50%</centertop>
                     <left>1010</left>
                     <width>128.8</width>
                     <height>87.2</height>
-                    <texture background="true">quality/qualityhd4k.png</texture>
-                    <visible>String.Contains(ListItem.Property(quality),4)</visible>
+                    <texture>quality/qualityhd4k.png</texture>
+                    <visible>String.IsEqual(ListItem.Property(quality),4)</visible>
                 </control>
             </focusedlayout>
         </control>

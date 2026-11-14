@@ -71,9 +71,9 @@
         <control type="image">
             <visible>true</visible>
             <left>120</left>
-            <top>100</top>
+            <top>140</top>
             <width>1600</width>
-            <height>900</height>
+            <height>780</height>
             <border>5</border>
             <texture>white.png</texture>
             <colordiffuse>88000000</colordiffuse>
@@ -88,9 +88,9 @@
 
         <control type="panel" id="1000">
             <left>120</left>
-            <top>100</top>
+            <top>140</top>
             <width>1700</width>
-            <height>900</height>
+            <height>780</height>
             <onleft>9000</onleft>
             <onright>60</onright>
             <onup>52</onup>
@@ -553,7 +553,7 @@
                     <left>300</left>
                     <top>140</top>
                     <width>450</width>
-                    <height min="20" max="200">auto</height>
+                    <height min="20" max="185">auto</height>
                     <font>font10</font>
                     <textcolor>AAFFFFFF</textcolor>
                     <align>left</align>
@@ -570,11 +570,12 @@
                 <control type="label">
                     <left>305</left>
                     <top>350</top>
-                    <width>475</width>
-                    <height>22</height>
+                    <width>470</width>
+                    <height>30</height>
                     <font>font10</font>
                     <textcolor>AAFFFFFF</textcolor>
                     <align>center</align>
+                    <aligny>center</aligny>
                     <label>[B]$INFO[ListItem.Property(genres)][/B]</label>
                 </control>
 
@@ -1033,7 +1034,7 @@
                     <left>300</left>
                     <top>140</top>
                     <width>450</width>
-                    <height min="20" max="200">auto</height>
+                    <height min="20" max="185">auto</height>
                     <font>font10</font>
                     <textcolor>AAFFFFFF</textcolor>
                     <align>left</align>
@@ -1051,11 +1052,12 @@
                 <control type="label">
                     <left>305</left>
                     <top>350</top>
-                    <width>475</width>
-                    <height>22</height>
+                    <width>470</width>
+                    <height>30</height>
                     <font>font10</font>
                     <textcolor>AAFFFFFF</textcolor>
                     <align>center</align>
+                    <aligny>center</aligny>
                     <label>[B]$INFO[ListItem.Property(genres)][/B]</label>
                 </control>
 

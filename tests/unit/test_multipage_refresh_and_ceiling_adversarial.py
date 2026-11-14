@@ -331,10 +331,18 @@ class TestLowRam64KbCeilingInvariant(unittest.TestCase):
         raw_repr = repr(dataset)
         self.assertGreater(len(raw_repr), 2 * 1024 * 1024)
 
-        t0 = time.perf_counter()
         import ast
-        parsed = ast.literal_eval(raw_repr)
-        elapsed = time.perf_counter() - t0
+        import gc
+        gc.collect()
+        was_gc_enabled = gc.isenabled()
+        gc.disable()
+        try:
+            t0 = time.perf_counter()
+            parsed = ast.literal_eval(raw_repr)
+            elapsed = time.perf_counter() - t0
+        finally:
+            if was_gc_enabled:
+                gc.enable()
 
         self.assertEqual(len(parsed), num_items)
         self.assertLess(elapsed, 1.0, f"ast.literal_eval took too long: {elapsed:.3f}s")

@@ -54,7 +54,8 @@ def discover_source_files(repo_root=REPO_ROOT):
     for s_dir in source_dirs:
         if not os.path.exists(s_dir):
             continue
-        for root, _, filenames in os.walk(s_dir):
+        for root, dirs, filenames in os.walk(s_dir):
+            dirs[:] = [d for d in dirs if d != '__pycache__' and d != 'scripts']
             for fn in filenames:
                 if fn.endswith('.py'):
                     abs_p = os.path.normpath(os.path.join(root, fn))

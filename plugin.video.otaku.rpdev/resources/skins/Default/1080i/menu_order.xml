@@ -53,7 +53,7 @@
                 <height>38</height>
                 <font>font16</font>
                 <textcolor>FFFFFFFF</textcolor>
-                <label>[B]$INFO[Window.Property(menu_title),,Otaku - Menu Order &amp; Customization][/B]</label>
+                <label>[B]$INFO[Window.Property(menu_title)][/B]</label>
             </control>
 
             <control type="label">
@@ -63,7 +63,7 @@
                 <height>25</height>
                 <font>font12</font>
                 <textcolor>88FFFFFF</textcolor>
-                <label>$INFO[Window.Property(menu_description),,Reorder items and toggle visibility. Highlight an item on the left, then click Move Up, Move Down, Move to Top, or Move to Bottom.]</label>
+                <label>$INFO[Window.Property(menu_description)]</label>
             </control>
 
             <!-- Left Panel: Menu Items List (Control ID: 1000) -->
@@ -71,7 +71,7 @@
                 <left>45</left>
                 <top>115</top>
                 <width>980</width>
-                <height>730</height>
+                <height>720</height>
                 <onup>1000</onup>
                 <ondown>1000</ondown>
                 <onright>2000</onright>
@@ -88,36 +88,61 @@
                         <texture border="6">white.png</texture>
                         <colordiffuse>15FFFFFF</colordiffuse>
                     </control>
+                    <control type="image">
+                        <left>16</left>
+                        <top>15</top>
+                        <width>64</width>
+                        <height>36</height>
+                        <texture border="4">white.png</texture>
+                        <colordiffuse>3300BFFF</colordiffuse>
+                        <visible>String.IsEqual(ListItem.Property(is_enabled),true)</visible>
+                    </control>
+                    <control type="image">
+                        <left>16</left>
+                        <top>15</top>
+                        <width>64</width>
+                        <height>36</height>
+                        <texture border="4">white.png</texture>
+                        <colordiffuse>18FFFFFF</colordiffuse>
+                        <visible>!String.IsEqual(ListItem.Property(is_enabled),true)</visible>
+                    </control>
                     <control type="label">
-                        <left>20</left>
-                        <top>14</top>
-                        <width>50</width>
-                        <height>38</height>
-                        <font>font14</font>
+                        <left>16</left>
+                        <top>0</top>
+                        <width>64</width>
+                        <height>66</height>
+                        <align>center</align>
+                        <aligny>center</aligny>
+                        <font>font12</font>
                         <label>$INFO[ListItem.Property(status_badge)]</label>
                     </control>
                     <control type="image">
-                        <left>75</left>
+                        <left>96</left>
                         <top>13</top>
                         <width>40</width>
                         <height>40</height>
+                        <aspectratio>keep</aspectratio>
                         <texture>$INFO[ListItem.ActualIcon]</texture>
                     </control>
                     <control type="label">
-                        <left>130</left>
-                        <top>10</top>
-                        <width>830</width>
-                        <height>26</height>
-                        <font>font14</font>
+                        <left>152</left>
+                        <top>0</top>
+                        <width>510</width>
+                        <height>66</height>
+                        <align>left</align>
+                        <aligny>center</aligny>
+                        <font>font13</font>
                         <textcolor>FFFFFFFF</textcolor>
                         <label>[B]$INFO[ListItem.Label][/B]</label>
                     </control>
                     <control type="label">
-                        <left>130</left>
-                        <top>36</top>
-                        <width>830</width>
-                        <height>22</height>
-                        <font>font11</font>
+                        <left>670</left>
+                        <top>0</top>
+                        <width>286</width>
+                        <height>66</height>
+                        <align>right</align>
+                        <aligny>center</aligny>
+                        <font>font12</font>
                         <textcolor>88FFFFFF</textcolor>
                         <label>$INFO[ListItem.Property(status_text)]</label>
                     </control>
@@ -140,36 +165,61 @@
                         <texture border="6">white.png</texture>
                         <colordiffuse>FF222834</colordiffuse>
                     </control>
+                    <control type="image">
+                        <left>16</left>
+                        <top>15</top>
+                        <width>64</width>
+                        <height>36</height>
+                        <texture border="4">white.png</texture>
+                        <colordiffuse>4500BFFF</colordiffuse>
+                        <visible>String.IsEqual(ListItem.Property(is_enabled),true)</visible>
+                    </control>
+                    <control type="image">
+                        <left>16</left>
+                        <top>15</top>
+                        <width>64</width>
+                        <height>36</height>
+                        <texture border="4">white.png</texture>
+                        <colordiffuse>22FFFFFF</colordiffuse>
+                        <visible>!String.IsEqual(ListItem.Property(is_enabled),true)</visible>
+                    </control>
                     <control type="label">
-                        <left>20</left>
-                        <top>14</top>
-                        <width>50</width>
-                        <height>38</height>
-                        <font>font14</font>
+                        <left>16</left>
+                        <top>0</top>
+                        <width>64</width>
+                        <height>66</height>
+                        <align>center</align>
+                        <aligny>center</aligny>
+                        <font>font12</font>
                         <label>$INFO[ListItem.Property(status_badge)]</label>
                     </control>
                     <control type="image">
-                        <left>75</left>
+                        <left>96</left>
                         <top>13</top>
                         <width>40</width>
                         <height>40</height>
+                        <aspectratio>keep</aspectratio>
                         <texture>$INFO[ListItem.ActualIcon]</texture>
                     </control>
                     <control type="label">
-                        <left>130</left>
-                        <top>10</top>
-                        <width>830</width>
-                        <height>26</height>
-                        <font>font14</font>
+                        <left>152</left>
+                        <top>0</top>
+                        <width>510</width>
+                        <height>66</height>
+                        <align>left</align>
+                        <aligny>center</aligny>
+                        <font>font13</font>
                         <textcolor>FF00BFFF</textcolor>
                         <label>[B]$INFO[ListItem.Label][/B]</label>
                     </control>
                     <control type="label">
-                        <left>130</left>
-                        <top>36</top>
-                        <width>830</width>
-                        <height>22</height>
-                        <font>font11</font>
+                        <left>670</left>
+                        <top>0</top>
+                        <width>286</width>
+                        <height>66</height>
+                        <align>right</align>
+                        <aligny>center</aligny>
+                        <font>font12</font>
                         <textcolor>FFFFFFFF</textcolor>
                         <label>$INFO[ListItem.Property(status_text)]</label>
                     </control>
@@ -181,7 +231,7 @@
                 <left>1035</left>
                 <top>115</top>
                 <width>14</width>
-                <height>730</height>
+                <height>720</height>
                 <visible>true</visible>
                 <orientation>vertical</orientation>
                 <onleft>1000</onleft>
@@ -204,7 +254,7 @@
                     <width>485</width>
                     <align>center</align>
                     <aligny>center</aligny>
-                    <font>font14</font>
+                    <font>font13</font>
                     <label>[B]▲  Move Up[/B]</label>
                     <onleft>1000</onleft>
                     <onright>1000</onright>
@@ -218,7 +268,7 @@
                     <width>485</width>
                     <align>center</align>
                     <aligny>center</aligny>
-                    <font>font14</font>
+                    <font>font13</font>
                     <label>[B]▼  Move Down[/B]</label>
                     <onleft>1000</onleft>
                     <onright>1000</onright>
@@ -232,8 +282,8 @@
                     <width>485</width>
                     <align>center</align>
                     <aligny>center</aligny>
-                    <font>font14</font>
-                    <label>[B]⤒  Move to Top[/B]</label>
+                    <font>font13</font>
+                    <label>[B]▲▲  Move to Top[/B]</label>
                     <onleft>1000</onleft>
                     <onright>1000</onright>
                     <texturenofocus colordiffuse="30FFFFFF">white.png</texturenofocus>
@@ -246,8 +296,8 @@
                     <width>485</width>
                     <align>center</align>
                     <aligny>center</aligny>
-                    <font>font14</font>
-                    <label>[B]⤓  Move to Bottom[/B]</label>
+                    <font>font13</font>
+                    <label>[B]▼▼  Move to Bottom[/B]</label>
                     <onleft>1000</onleft>
                     <onright>1000</onright>
                     <texturenofocus colordiffuse="30FFFFFF">white.png</texturenofocus>
@@ -260,8 +310,8 @@
                     <width>485</width>
                     <align>center</align>
                     <aligny>center</aligny>
-                    <font>font14</font>
-                    <label>[B]✔  Toggle Visibility (Show / Hide)[/B]</label>
+                    <font>font13</font>
+                    <label>[B]Toggle Visibility[/B]</label>
                     <onleft>1000</onleft>
                     <onright>1000</onright>
                     <texturenofocus colordiffuse="30FFFFFF">white.png</texturenofocus>
@@ -274,8 +324,8 @@
                     <width>485</width>
                     <align>center</align>
                     <aligny>center</aligny>
-                    <font>font14</font>
-                    <label>[B]⇄  Toggle All On / Off[/B]</label>
+                    <font>font13</font>
+                    <label>[B]Toggle All On / Off[/B]</label>
                     <onleft>1000</onleft>
                     <onright>1000</onright>
                     <texturenofocus colordiffuse="30FFFFFF">white.png</texturenofocus>
@@ -288,8 +338,8 @@
                     <width>485</width>
                     <align>center</align>
                     <aligny>center</aligny>
-                    <font>font14</font>
-                    <label>[B]↺  Reset to Default Order[/B]</label>
+                    <font>font13</font>
+                    <label>[B]Reset to Default Order[/B]</label>
                     <onleft>1000</onleft>
                     <onright>1000</onright>
                     <texturenofocus colordiffuse="30FFFFFF">white.png</texturenofocus>
@@ -298,12 +348,12 @@
 
                 <!-- Save & Apply -->
                 <control type="button" id="3007">
-                    <height>70</height>
+                    <height>68</height>
                     <width>485</width>
                     <align>center</align>
                     <aligny>center</aligny>
-                    <font>font15</font>
-                    <label>[B]💾  Save &amp; Apply[/B]</label>
+                    <font>font14</font>
+                    <label>[B]Save &amp; Apply[/B]</label>
                     <onleft>1000</onleft>
                     <onright>1000</onright>
                     <texturenofocus colordiffuse="8000BFFF">white.png</texturenofocus>
@@ -317,7 +367,7 @@
                     <align>center</align>
                     <aligny>center</aligny>
                     <font>font13</font>
-                    <label>[B]✕  Cancel[/B]</label>
+                    <label>[B]Cancel[/B]</label>
                     <onleft>1000</onleft>
                     <onright>1000</onright>
                     <texturenofocus colordiffuse="20FFFFFF">white.png</texturenofocus>

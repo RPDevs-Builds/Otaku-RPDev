@@ -88,6 +88,8 @@ class Resolver(BaseWindow):
         return [mapping[k] for k, v in enabled_map.items() if v and k in mapping and mapping[k] in self.resolvers]
 
     def onInit(self):
+        if isinstance(self.actionArgs, dict) and self.actionArgs.get('ui_review'):
+            return
         self.sources = self.reorder_sources(self.sources)
         self.resolve(self.sources)
 
@@ -648,7 +650,14 @@ class Resolver(BaseWindow):
 
         return resolved_cache
 
-    def doModal(self, sources, args, pack_select):
+    def doModal(self, sources=None, args=None, pack_select=False):
+        if isinstance(self.actionArgs, dict) and self.actionArgs.get('ui_review'):
+            try:
+                super().doModal()
+            finally:
+                self.close()
+            return self.return_data
+
         if sources:
             # Reorder sources first.
             self.sources = self.reorder_sources(sources)

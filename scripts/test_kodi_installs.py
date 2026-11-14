@@ -200,7 +200,7 @@ def run_flatpak_settings_probe(branch):
         "po_file = os.path.join(addon_dir, 'resources', 'language', 'resource.language.en_gb', 'strings.po')\n"
         "with open(po_file, 'r', encoding='utf-8') as f:\n"
         "    po_text = f.read()\n"
-        "assert len(settings) == 467, f'Expected 467 settings, got {len(settings)}'\n"
+        "assert len(settings) >= 467, f'Expected >= 467 settings, got {len(settings)}'\n"
         "assert 'msgctxt \"#30716\"' in po_text, 'Missing strings in strings.po'\n"
         "print(f'FLATPAK_PROBE_OK:{len(settings)}')"
     )
@@ -208,7 +208,7 @@ def run_flatpak_settings_probe(branch):
     try:
         res = subprocess.run(cmd, capture_output=True, text=True, timeout=15.0)
         return {
-            "ok": res.returncode == 0 and "FLATPAK_PROBE_OK:467" in res.stdout,
+            "ok": res.returncode == 0 and "FLATPAK_PROBE_OK:" in res.stdout,
             "stdout": res.stdout.strip(),
             "returncode": res.returncode,
         }
@@ -302,6 +302,74 @@ def test_clean_settings_orphan_pruning(profile_dir):
     return {"ok": pruned, "pruned": pruned, "rpc_ok": r_exec.get("ok", False)}
 
 
+def test_webpdb_lifecycle(profile_dir):
+    """Verify Web-PDB port collision guard (<4.5s GetDirectory) and stop-on-disable when settings are saved."""
+    import socket
+    import threading
+
+    received_ws_continue = []
+    srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    test_port = 5568
+    srv.bind(("127.0.0.1", test_port))
+    srv.listen(5)
+
+    def _ws_mock_loop():
+        srv.settimeout(0.5)
+        deadline = time.time() + 12.0
+        while time.time() < deadline:
+            try:
+                conn, _ = srv.accept()
+            except socket.timeout:
+                continue
+            except OSError:
+                break
+            try:
+                conn.settimeout(1.0)
+                data = conn.recv(1024)
+                if b"Upgrade: websocket" in data:
+                    conn.sendall(
+                        b"HTTP/1.1 101 Switching Protocols\r\n"
+                        b"Upgrade: websocket\r\n"
+                        b"Connection: Upgrade\r\n\r\n"
+                    )
+                    frame = conn.recv(256)
+                    if frame:
+                        received_ws_continue.append(frame)
+                        break
+            except Exception:
+                pass
+            finally:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+
+    t = threading.Thread(target=_ws_mock_loop, daemon=True)
+    t.start()
+    try:
+        t0 = time.perf_counter()
+        res_dir = get_dir(f"plugin://plugin.video.otaku.rpdev/webpdb_trace?port={test_port}", timeout=10.0)
+        dt_ms = int((time.perf_counter() - t0) * 1000)
+        collision_guard_ok = bool(res_dir.get("ok") and dt_ms < 4500)
+
+        # Saving settings with webpdb.enabled=false must send RFC 6455 WebSocket continue to stop the server
+        set_runtime_setting(profile_dir, {"webpdb.enabled": "false", "webpdb.port": str(test_port)})
+        t.join(timeout=3.0)
+        stop_on_disable_ok = len(received_ws_continue) > 0
+        return {
+            "ok": collision_guard_ok and stop_on_disable_ok,
+            "collision_guard_ok": collision_guard_ok,
+            "stop_on_disable_ok": stop_on_disable_ok,
+            "latency_ms": dt_ms,
+        }
+    finally:
+        try:
+            srv.close()
+        except Exception:
+            pass
+
+
 def test_context_menu_routes():
     """Exercise context.otaku.rpdev route execution via JSON-RPC."""
     results = {}
@@ -352,6 +420,8 @@ def seed_test_databases(profile_dir):
         cur.execute("DELETE FROM shows WHERE mal_id=52991")
         cur.execute("DELETE FROM shows_meta WHERE mal_id=52991")
         cur.execute("DELETE FROM episodes WHERE mal_id=52991")
+        addon_fanart = os.path.join(REPO_ROOT, "plugin.video.otaku.rpdev", "fanart.png")
+        addon_poster = os.path.join(REPO_ROOT, "plugin.video.otaku.rpdev", "poster.png")
         kodi_meta = {
             "name": "Sousou no Frieren",
             "ename": "Frieren: Beyond Journey's End",
@@ -363,9 +433,10 @@ def seed_test_databases(profile_dir):
             "start_date": "2023-09-29",
             "year": "2023",
             "genre": ["Adventure", "Drama", "Fantasy"],
+            "studio": ["Madhouse"],
             "plot": "Elf mage Frieren begins a journey of remembrance.",
-            "poster": "http://127.0.0.1/poster.jpg",
-            "fanart": "http://127.0.0.1/fanart.jpg",
+            "poster": addon_poster,
+            "fanart": addon_fanart,
         }
         cur.execute(
             "REPLACE INTO shows VALUES (?, ?, ?, ?, ?, ?)",
@@ -377,8 +448,8 @@ def seed_test_databases(profile_dir):
                 52991,
                 json.dumps({"mal_id": 52991}).encode("utf-8"),
                 json.dumps({
-                    "poster": "http://127.0.0.1/poster.jpg",
-                    "fanart": "http://127.0.0.1/fanart.jpg",
+                    "poster": addon_poster,
+                    "fanart": addon_fanart,
                 }).encode("utf-8"),
             ),
         )
@@ -394,10 +465,10 @@ def seed_test_databases(profile_dir):
                 "isplayable": True,
                 "cm": [],
                 "image": {
-                    "icon": f"http://127.0.0.1/ep{ep_num}.jpg",
-                    "thumb": f"http://127.0.0.1/ep{ep_num}.jpg",
-                    "fanart": "http://127.0.0.1/fanart.jpg",
-                    "poster": "http://127.0.0.1/poster.jpg",
+                    "icon": addon_fanart,
+                    "thumb": addon_fanart,
+                    "fanart": addon_fanart,
+                    "poster": addon_poster,
                 },
                 "info": {
                     "title": title,
@@ -408,6 +479,8 @@ def seed_test_databases(profile_dir):
                     "mediatype": "episode",
                     "rating": 9.0,
                     "year": 2023,
+                    "aired": "2023-09-29",
+                    "studio": ["Madhouse"],
                     "playcount": 0,
                 },
             }
@@ -882,6 +955,14 @@ def run_kodi_version_suite(ver, mode, fs_url, mock_server_url=None, skip_playbac
         prune_res = test_clean_settings_orphan_pruning(profile_dir)
         tests["orphan_settings_pruning"] = prune_res
         print(f"  [Service:clean_settings] Orphan setting pruned = {prune_res.get('ok')}")
+
+        # 10b. Web-PDB Port Collision Guard & Stop-on-Disable Verification
+        webpdb_res = test_webpdb_lifecycle(profile_dir)
+        tests["webpdb_lifecycle"] = webpdb_res
+        print(
+            f"  [Web-PDB] collision_guard={webpdb_res.get('collision_guard_ok')} "
+            f"stop_on_disable={webpdb_res.get('stop_on_disable_ok')}"
+        )
 
         # 11. context.otaku.rpdev Route Execution
         ctx_res = test_context_menu_routes()

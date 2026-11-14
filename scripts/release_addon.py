@@ -167,10 +167,10 @@ def update_news_txt(news_path, new_ver, title, highlights):
 
     header_title = (title or f"Release v{new_ver}").strip()
     new_section = (
-        f"================================\n"
+        f"========================\n"
         f"[B]OTAKU RPDEV v{new_ver}[/B]\n"
         f"{header_title}\n"
-        f"================================\n\n"
+        f"========================\n\n"
         f"v{new_ver} Highlights:\n"
         + "\n".join(bullet_blocks)
         + "\n\n"

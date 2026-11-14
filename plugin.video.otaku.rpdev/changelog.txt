@@ -1,3 +1,10 @@
+Changelog v6.1.4 (2026-11-14):
+- UI/UX Polish & Studio Icons:
+  - Consolidated coloured and white anime studio logos into context.otaku.rpdev with dynamic normalization
+  - Fixed source_select, download_manager, anichart, clear_cache, sort_select, wlf_auth, get_sources, resolver, playing_next, skip_intro, skip_outro, and still_watching layouts and modal close handling
+  - Guarded empty watchlist usernames, episode poster fallbacks, title fallbacks, and ui_review rendering
+  - Hardcoded tag-based release workflow in AGENTS.md
+
 Changelog v6.1.3 (2026-11-14):
 - Settings Tooltip Expansion, SQLite Worker Connection Cleanup, Web-PDB Integration & Comprehensive Testing:
   - Populated all 344 user-visible (`level` 0–3) setting tooltips and all 12 `<category help="">` summaries in `resources/settings.xml` and `strings.po` (`#30000–#30982`).

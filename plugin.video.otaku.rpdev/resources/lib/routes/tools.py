@@ -1085,6 +1085,8 @@ def SET_SETTINGS(payload, params):
             else:
                 control.setSetting(k, v)
         control.clearSettingsCache()
+        if params.get('webpdb.enabled') == 'false':
+            control.stop_webpdb_trace(params.get('webpdb.port'))
     try:
         handle = int(sys.argv[1]) if len(sys.argv) > 1 and sys.argv[1].isdigit() else -1
         if handle >= 0:
@@ -1097,10 +1099,191 @@ def SET_SETTINGS(payload, params):
 def WEBPDB_TRACE(payload, params):
     """Trigger an interactive Web-PDB debugging session on the configured port (default 5566)."""
     port = params.get('port') if isinstance(params, dict) else None
-    ok = control.start_webpdb_trace(port=port)
+    target_port = control.get_webpdb_port(port)
+    # Complete directory transaction before blocking on Web-PDB so GetDirectory never times out
+    control.end_directory(succeeded=True, cacheToDisc=False)
+    if control.is_webpdb_port_in_use(target_port):
+        control.notify(control.ADDON_NAME, f"Web-PDB already active on port {target_port}")
+        return control.exit_code()
+    ok = control.start_webpdb_trace(port=target_port)
     if not ok:
         control.notify(control.ADDON_NAME, "Web-PDB (script.module.web-pdb) is not available.")
     return control.exit_code()
+
+
+@Route('ui_review_window/*')
+def UI_REVIEW_WINDOW(payload, params):
+    """Debug route for headless UI/UX screenshot harness to render any custom WindowXML with mock data."""
+    target = payload.strip('/')
+    control.end_directory(succeeded=True, cacheToDisc=False)
+    if target == 'wlf_auth_anilist':
+        from resources.lib.windows import wlf_auth
+        dlg = wlf_auth.WatchlistFlavorAuth('wlf_auth_anilist.xml', control.ADDON_PATH, flavor='anilist')
+        try:
+            dlg.doModal()
+        finally:
+            del dlg
+    elif target == 'wlf_auth_mal':
+        from resources.lib.windows import wlf_auth
+        dlg = wlf_auth.WatchlistFlavorAuth('wlf_auth_mal.xml', control.ADDON_PATH, flavor='mal')
+        try:
+            dlg.doModal()
+        finally:
+            del dlg
+    elif target in ('source_select', 'source_select_alt'):
+        from resources.lib.windows.source_select import SourceSelect
+        xml_name = f'{target}.xml'
+        mock_sources = [
+            {'release_title': '[SubsPlease] Sousou no Frieren - 01 (1080p) [HEVC]', 'debrid_provider': 'realdebrid', 'quality': '1080p', 'info': 'HEVC | DUAL-AUDIO | HDR', 'size': '1.42 GB', 'seeders': '84', 'source': 'torrent', 'provider': 'torrentio'},
+            {'release_title': '[Erai-raws] Sousou no Frieren - 01 [4K 2160p] [AV1]', 'debrid_provider': 'premiumize', 'quality': '4K', 'info': 'AV1 | MULTI-SUB | 10-BIT', 'size': '3.15 GB', 'seeders': '42', 'source': 'torrent', 'provider': 'nyaa'},
+            {'release_title': 'Sousou.no.Frieren.S01E01.720p.WEB-DL.AAC2.0', 'debrid_provider': 'alldebrid', 'quality': '720p', 'info': 'AVC | SUB | 2.0', 'size': '450 MB', 'seeders': '18', 'source': 'hoster', 'provider': 'gogo'},
+        ]
+        action_args = {'mal_id': '52991', 'episode': '1'}
+        dlg = SourceSelect(xml_name, control.ADDON_PATH, actionArgs=action_args, sources=mock_sources)
+        try:
+            dlg.doModal()
+        finally:
+            del dlg
+    elif target == 'download_manager':
+        from resources.lib.windows.download_manager import DownloadManager
+        dlg = DownloadManager('download_manager.xml', control.ADDON_PATH)
+        dlg.mock_downloads = [
+            {
+                'hash': 'dl-1',
+                'filename': '[SubsPlease] Sousou no Frieren - 01 (1080p) [HEVC].mkv',
+                'status': 'Downloading',
+                'progress': 68,
+                'speed': '14.2 MB/s',
+                'eta': '00:01:12',
+                'downloaded': '965.6 MB',
+                'filesize': '1.42 GB',
+            },
+            {
+                'hash': 'dl-2',
+                'filename': '[Erai-raws] Sousou no Frieren - 02 [4K 2160p] [AV1].mkv',
+                'status': 'Completed',
+                'progress': 100,
+                'speed': '0 B/s',
+                'eta': '00:00:00',
+                'downloaded': '3.15 GB',
+                'filesize': '3.15 GB',
+            },
+        ]
+        try:
+            dlg.doModal()
+        finally:
+            del dlg
+    elif target in ('get_sources', 'get_sources_alt'):
+        from resources.lib.windows.get_sources_window import GetSources
+        xml_name = f'{target}.xml'
+        action_args = {'mal_id': '52991', 'episode': '1', 'silent': False, 'ui_review': True}
+        dlg = GetSources(xml_name, control.ADDON_PATH, actionArgs=action_args)
+        dlg.setProperty('process_started', 'true')
+        dlg.setProperty('progress', '65')
+        dlg.setProperty('remaining_providers_count', '2')
+        dlg.setProperty('remaining_providers_list', 'NYAA | HIANIME')
+        dlg.setProperty('total_torrents', '14')
+        dlg.setProperty('cached_torrents', '10')
+        dlg.setProperty('uncached_torrents', '4')
+        dlg.setProperty('hoster_sources', '3')
+        dlg.setProperty('embed_sources', '6')
+        dlg.setProperty('cloud_sources', '1')
+        dlg.setProperty('local_sources', '0')
+        dlg.setProperty('total_sources', '24')
+        dlg.setProperty('4k_sources', '2')
+        dlg.setProperty('1080p_sources', '8')
+        dlg.setProperty('720p_sources', '4')
+        dlg.setProperty('sd_sources', '0')
+        dlg.setProperty('eq_sources', '0')
+        try:
+            dlg.doModal()
+        finally:
+            del dlg
+    elif target in ('resolver', 'resolver_alt'):
+        from resources.lib.windows.resolver import Resolver
+        xml_name = f'{target}.xml'
+        action_args = {'mal_id': '52991', 'episode': '1', 'ui_review': True}
+        dlg = Resolver(xml_name, control.ADDON_PATH, actionArgs=action_args, source_select=True)
+        dlg.setProperty('release_title', '[SubsPlease] Sousou no Frieren - 01 (1080p) [HEVC]')
+        dlg.setProperty('debrid_provider', 'Real-Debrid')
+        dlg.setProperty('source_provider', 'Torrentio')
+        dlg.setProperty('source_resolution', '1080p')
+        dlg.setProperty('source_info', 'HEVC | DUAL-AUDIO | HDR')
+        dlg.setProperty('source_type', 'cached_torrent')
+        dlg.setProperty('notification_text', 'Resolving source link via Real-Debrid...')
+        try:
+            dlg.doModal()
+        finally:
+            del dlg
+    elif target == 'still_watching':
+        from resources.lib.windows.still_watching import StillWatchingXML
+        dlg = StillWatchingXML('still_watching.xml', control.ADDON_PATH, actionArgs={'title': 'Sousou no Frieren', 'timeout': 30, 'ui_review': True})
+        try:
+            dlg.doModal()
+        finally:
+            del dlg
+    elif target == 'textviewer_reviews':
+        from resources.lib.windows.textviewer import TextViewerXML
+        dlg = TextViewerXML(
+            'textviewer_1.xml',
+            control.ADDON_PATH,
+            heading='Review by AnimeFan99',
+            instructions_text=(
+                "By: AnimeFan99 | Score: 10/10 | Recommended | 2024-03-22\n"
+                "Reactions - Nice: 45 | Love it: 112 | Well Written: 89\n"
+                "------------------------------------------------------------\n\n"
+                "Sousou no Frieren is a masterclass in pacing, character development, and atmospheric storytelling.\n"
+                "The emotional weight carried by Frieren's memories makes every journey deeply profound.\n"
+                "Animation by Madhouse is pristine, and the musical score by Evan Call is simply unforgettable."
+            ),
+        )
+        try:
+            dlg.run()
+        finally:
+            del dlg
+    elif target == 'playing_next_default':
+        from resources.lib.windows.playing_next import PlayingNext
+        import os
+        thumb_path = os.path.join(control.ADDON_PATH, 'fanart.png')
+        dlg = PlayingNext('playing_next_default.xml', control.ADDON_PATH, actionArgs={
+            'item_type': 'playing_next',
+            'tvshowtitle': 'Sousou no Frieren',
+            'title': "2. It Didn't Have to Be Magic...",
+            'thumb': thumb_path,
+            'skipoutro_end': 1420,
+            'ui_review': True,
+        })
+        dlg.duration = 25
+        try:
+            dlg.doModal()
+        finally:
+            del dlg
+    elif target == 'skip_intro_default':
+        from resources.lib.windows.skip_intro import SkipIntro
+        dlg = SkipIntro('skip_intro_default.xml', control.ADDON_PATH, actionArgs={'skipintro_end': 90, 'skipintro_aniskip': True, 'ui_review': True})
+        try:
+            dlg.doModal()
+        finally:
+            del dlg
+    elif target == 'skip_outro_default':
+        from resources.lib.windows.playing_next import PlayingNext
+        import os
+        thumb_path = os.path.join(control.ADDON_PATH, 'fanart.png')
+        dlg = PlayingNext('skip_outro_default.xml', control.ADDON_PATH, actionArgs={
+            'item_type': 'playing_next',
+            'tvshowtitle': 'Sousou no Frieren',
+            'title': "2. It Didn't Have to Be Magic...",
+            'thumb': thumb_path,
+            'skipoutro_end': 1420,
+            'ui_review': True,
+        })
+        dlg.duration = 25
+        try:
+            dlg.doModal()
+        finally:
+            del dlg
+    return control.exit_code()
+
 
 
 

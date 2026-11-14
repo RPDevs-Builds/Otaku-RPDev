@@ -83,6 +83,7 @@
 						<textcolor>eeffffff</textcolor>
 						<shadowcolor>00000000</shadowcolor>
 						<label>Playing in [COLOR deepskyblue]$INFO[Player.TimeRemaining,,][/COLOR]</label>
+						<visible>!String.IsEmpty(Player.TimeRemaining)</visible>
 					</control>
 					<control type="label">
 						<width>auto</width>
@@ -91,7 +92,8 @@
 						<font>font25_title</font>
 						<textcolor>eeffffff</textcolor>
 						<shadowcolor>00000000</shadowcolor>
-						<label>Watch Credits</label>
+						<label>Up Next</label>
+						<visible>String.IsEmpty(Player.TimeRemaining)</visible>
 					</control>
 					<!-- Details -->
 					<control type="grouplist">

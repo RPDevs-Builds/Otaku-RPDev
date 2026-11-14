@@ -1159,9 +1159,25 @@ class TestAllSettingsOutcomes(unittest.TestCase):
         self.assertEqual(control.get_webpdb_port(), 5577)
 
         mock_webpdb = unittest.mock.MagicMock()
-        with unittest.mock.patch('resources.lib.ui.control._load_webpdb', return_value=mock_webpdb):
+        with unittest.mock.patch('resources.lib.ui.control._load_webpdb', return_value=mock_webpdb), \
+             unittest.mock.patch('resources.lib.ui.control.is_webpdb_port_in_use', return_value=False):
             self.assertTrue(control.start_webpdb_trace())
             mock_webpdb.set_trace.assert_called_once_with(port=5577)
+
+        # When port is already in use, start_webpdb_trace skips duplicate set_trace (preventing Errno 98)
+        mock_webpdb.reset_mock()
+        with unittest.mock.patch('resources.lib.ui.control._load_webpdb', return_value=mock_webpdb), \
+             unittest.mock.patch('resources.lib.ui.control.is_webpdb_port_in_use', return_value=True):
+            self.assertTrue(control.start_webpdb_trace())
+            mock_webpdb.set_trace.assert_not_called()
+
+        # When webpdb.enabled is set to False and settings are saved, Monitor.onSettingsChanged stops the server
+        import service
+        control.setBool('webpdb.enabled', False)
+        mon = service.Monitor()
+        with unittest.mock.patch('resources.lib.ui.control.stop_webpdb_trace') as mock_stop:
+            mon.onSettingsChanged()
+            mock_stop.assert_called()
 
         # Behavioral outcome: SQLite worker thread connection pruning & cleanup
         import threading

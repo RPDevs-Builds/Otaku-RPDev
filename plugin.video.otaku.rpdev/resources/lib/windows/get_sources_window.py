@@ -30,6 +30,8 @@ class GetSources(BaseWindow):
         self.remaining_providers_list = []
 
     def onInit(self):
+        if isinstance(self.args, dict) and self.args.get('ui_review'):
+            return
         threading.Thread(target=self.getSources, args=[self.args], daemon=True).start()
 
     def doModal(self):
@@ -63,6 +65,8 @@ class GetSources(BaseWindow):
         if actionID in [9, 10, 92, 216]:
             # BACK / BACKSPACE / ESCAPE (including Android TV remote back action 9)
             self.canceled = True
+            if isinstance(self.args, dict) and self.args.get('ui_review'):
+                self.close()
 
     def update_properties(self, text):
         """Optimized property updates - batch similar operations"""

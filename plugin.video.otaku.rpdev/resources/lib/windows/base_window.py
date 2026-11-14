@@ -113,24 +113,27 @@ class BaseWindow(xbmcgui.WindowXMLDialog):
 
         # Handle clearlogo with new artwork.clearlogo setting
         artwork_clearlogo_enabled = control.getBool('artwork.clearlogo')
-        clearlogo = self.item_information.get('clearlogo', control.OTAKU_LOGO2_PATH)
+        clearlogo = self.item_information.get('clearlogo') or control.OTAKU_LOGO2_PATH
         if not artwork_clearlogo_enabled:
             clearlogo = control.OTAKU_LOGO2_PATH
         elif isinstance(clearlogo, list):
-            # This shouldn't happen with new code, but handle legacy data
-            cache_key = f"clearlogo_{self._mal_id}"
-            if cache_key in _artwork_cache:
-                clearlogo = _artwork_cache[cache_key]
+            if clearlogo:
+                # This shouldn't happen with new code, but handle legacy data
+                cache_key = f"clearlogo_{self._mal_id}"
+                if cache_key in _artwork_cache:
+                    clearlogo = _artwork_cache[cache_key]
+                else:
+                    clearlogo = random.choice(clearlogo)
+                    _artwork_cache[cache_key] = clearlogo
             else:
-                clearlogo = random.choice(clearlogo)
-                _artwork_cache[cache_key] = clearlogo
+                clearlogo = control.OTAKU_LOGO2_PATH
         # If clearlogo is already a string (pre-selected), use it directly
 
         # Set properties in batch
-        self.setProperty('item.art.fanart', fanart)
-        self.setProperty('item.art.poster', self.item_information.get('poster'))
-        self.setProperty('item.art.clearlogo', clearlogo)
-        self.setProperty('item.info.title', self.item_information.get('name'))
+        self.setProperty('item.art.fanart', str(fanart or ''))
+        self.setProperty('item.art.poster', str(self.item_information.get('poster') or ''))
+        self.setProperty('item.art.clearlogo', str(clearlogo or ''))
+        self.setProperty('item.info.title', str(self.item_information.get('name') or self.item_information.get('title_userPreferred') or self.item_information.get('title') or ''))
 
         # Movie-specific properties
         if self.item_information.get('format') in ['MOVIE', 'Movie']:

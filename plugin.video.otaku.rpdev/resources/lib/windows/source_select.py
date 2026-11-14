@@ -29,16 +29,21 @@ class SourceSelect(BaseWindow):
             try:
                 self.setProperty('item.info.season', str(anime_init[0][episode - 1]['info']['season']))
                 self.setProperty('item.info.episode', str(anime_init[0][episode - 1]['info']['episode']))
-                self.setProperty('item.info.title', anime_init[0][episode - 1]['info']['title'])
-                self.setProperty('item.info.plot', anime_init[0][episode - 1]['info']['plot'])
-                self.setProperty('item.art.thumb', anime_init[0][episode - 1]['image']['thumb'])
-                self.setProperty('item.art.poster', anime_init[0][episode - 1]['image']['poster'])
+                self.setProperty('item.info.title', str(anime_init[0][episode - 1]['info']['title'] or ''))
+                self.setProperty('item.info.plot', str(anime_init[0][episode - 1]['info']['plot'] or ''))
+                ep_thumb = anime_init[0][episode - 1]['image'].get('thumb')
+                if ep_thumb:
+                    self.setProperty('item.art.thumb', str(ep_thumb))
+                ep_poster = anime_init[0][episode - 1]['image'].get('poster') or (self.item_information.get('poster') if isinstance(self.item_information, dict) else '')
+                if ep_poster:
+                    self.setProperty('item.art.poster', str(ep_poster))
             except IndexError:
                 self.setProperty('item.info.season', '-1')
                 self.setProperty('item.info.episode', '-1')
 
             try:
-                aired = anime_init[0][episode - 1]['info'].get('aired') or '0000-00-00'
+                fallback_aired = self.item_information.get('start_date') if isinstance(self.item_information, dict) else ''
+                aired = anime_init[0][episode - 1]['info'].get('aired') or fallback_aired or '0000-00-00'
                 year, month, day = aired.split('-')
                 self.setProperty('item.info.aired', aired)
                 self.setProperty('item.info.year', year)
@@ -105,13 +110,28 @@ class SourceSelect(BaseWindow):
                 continue
             debrid_name = source.get('debrid_provider') or ''
             provider_name = source.get('provider') or ''
-            source_type = source.get('type') or ''
+            source_type = source.get('type') or source.get('source') or ''
 
             p_color = colors.get_provider_color(provider_name or source_type)
             d_color = colors.get_provider_color(debrid_name or source_type)
 
-            info_list = source.get('info', [])
-            info_str = ' '.join(info_list) if isinstance(info_list, list) else str(info_list)
+            info_raw = source.get('info', [])
+            if isinstance(info_raw, list):
+                info_list = [str(t) for t in info_raw if t]
+                info_str = ' '.join(info_list)
+            else:
+                info_str = str(info_raw or '')
+                info_list = [t.strip() for t in info_str.replace('|', ' ').split() if t.strip()]
+
+            raw_qual = str(source.get('quality', '')).strip().lower()
+            qual_map = {
+                '0': '0', 'eq': '0',
+                '1': '1', '480p': '1', 'sd': '1', '480': '1',
+                '2': '2', '720p': '2', '720': '2', 'hd': '2',
+                '3': '3', '1080p': '3', '1080': '3', 'fhd': '3',
+                '4': '4', '4k': '4', '2160p': '4', '2160': '4', 'uhd': '4',
+            }
+            norm_quality = qual_map.get(raw_qual, raw_qual)
 
             codec = next((t for t in info_list if t.upper() in ('HEVC', 'AVC', 'AV1', 'VP9', 'XVID', 'DIVX', 'MP4', 'H.264', 'H.265')), '')
             audio_channels = next((t for t in info_list if t in ('7.1', '5.1', '2.0', '1.0')), '')
@@ -145,7 +165,7 @@ class SourceSelect(BaseWindow):
                 'debrid_color': d_color,
                 'colored_debrid': colored_debrid,
                 'colored_provider': colored_provider,
-                'quality': str(source.get('quality', '')),
+                'quality': norm_quality,
                 'info': info_str,
                 'codec': codec,
                 'audio_channels': audio_channels,

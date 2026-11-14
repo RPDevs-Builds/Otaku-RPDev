@@ -202,7 +202,8 @@ def add_watchlist(items):
     flavors = WatchlistFlavor.get_enabled_watchlists()
     if flavors:
         for flavor in flavors:
-            items.append((f"{flavor.username}'s {flavor.title}", f"watchlist/{flavor.flavor_name}", flavor.image, {}))
+            label = f"{flavor.username}'s {flavor.title}" if flavor.username else f"{flavor.title} Watchlist"
+            items.append((label, f"watchlist/{flavor.flavor_name}", flavor.image, {}))
     return items
 
 

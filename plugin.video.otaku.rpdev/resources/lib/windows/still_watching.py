@@ -32,6 +32,12 @@ class StillWatchingXML(BaseWindow):
         self.setProperty('stillwatching.title', self.title)
         self.setProperty('stillwatching.prompt', f"Playback will pause in {self.timeout}s if unanswered.")
         self.setFocusId(3001)
+        if isinstance(self.actionArgs, dict) and self.actionArgs.get('ui_review'):
+            try:
+                self.getControl(3014).setPercent(75)
+            except Exception:
+                pass
+            return
         self._monitor()
 
     def onClick(self, control_id):
