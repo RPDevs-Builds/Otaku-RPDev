@@ -1,7 +1,17 @@
 ========================
+[B]OTAKU RPDEV v6.1.5[/B]
+Publish Context Menu v1.0.45
+========================
+
+v6.1.5 Highlights:
+  * Package and sync context.otaku.rpdev alongside main add-on in
+    release.yml and release_addon.py
+  * Publish context.otaku.rpdev v1.0.45 with consolidated anime studio logos
+
+--------------------------------
 [B]OTAKU RPDEV v6.1.4[/B]
 UI/UX Polish & Studio Icons
-========================
+--------------------------------
 
 v6.1.4 Highlights:
   * Consolidated coloured and white anime studio logos into

@@ -56,6 +56,7 @@ GITHUB_REPO = "RPDevs-Builds/Otaku-RPDev"
 CDN_REPO = "rpdev-cdn/kodi.repo.iamrp.dev"
 CDN_BASE_URL = "https://kodi.repo.iamrp.dev"
 ADDON_ID = "plugin.video.otaku.rpdev"
+CONTEXT_ADDON_ID = "context.otaku.rpdev"
 MAX_NEWS_DIVIDER_LEN = 32
 
 
@@ -337,8 +338,8 @@ def watch_github_release_workflow(repo_root, tag_name, timeout_sec=300):
     raise TimeoutError(f"Timed out waiting for release.yml workflow for tag {tag_name}")
 
 
-def verify_github_release_assets(repo_root, tag_name, version):
-    """Verify GitHub Release exists and has the zip, SHA256SUMS.txt, and MD5SUMS.txt assets."""
+def verify_github_release_assets(repo_root, tag_name, version, context_version=None):
+    """Verify GitHub Release exists and has both add-on zips plus SHA256SUMS.txt and MD5SUMS.txt."""
     print(f"\n📦 Step 5: Verifying GitHub Release Assets for {tag_name}...")
     res = run_cmd(
         ["gh", "release", "view", tag_name, "-R", GITHUB_REPO, "--json", "name,url,assets"],
@@ -346,8 +347,9 @@ def verify_github_release_assets(repo_root, tag_name, version):
     )
     data = json.loads(res.stdout)
     assets = {a["name"]: a["size"] for a in data.get("assets", [])}
-    expected_zip = f"{ADDON_ID}-{version}.zip"
-    required = [expected_zip, "SHA256SUMS.txt", "MD5SUMS.txt"]
+    required = [f"{ADDON_ID}-{version}.zip", "SHA256SUMS.txt", "MD5SUMS.txt"]
+    if context_version:
+        required.insert(1, f"{CONTEXT_ADDON_ID}-{context_version}.zip")
     missing = [r for r in required if r not in assets]
     if missing:
         raise RuntimeError(f"GitHub Release {tag_name} is missing required assets: {missing}")
@@ -373,15 +375,17 @@ def head_url_status(url, timeout=10):
         return resp.status, int(resp.headers.get("Content-Length", "0") or 0)
 
 
-def verify_live_cdn(version, timeout_sec=180):
-    """Poll https://kodi.repo.iamrp.dev until addons.xml, addons.xml.md5, and the release zip are live."""
+def verify_live_cdn(version, context_version=None, timeout_sec=180):
+    """Poll https://kodi.repo.iamrp.dev until addons.xml, addons.xml.md5, and release zips are live."""
     print(f"\n🌐 Step 6: Verifying Live CDN Propagation ({CDN_BASE_URL})...")
     addons_xml_url = f"{CDN_BASE_URL}/addons.xml"
     addons_md5_url = f"{CDN_BASE_URL}/addons.xml.md5"
     zip_url = f"{CDN_BASE_URL}/{ADDON_ID}/{ADDON_ID}-{version}.zip"
+    ctx_zip_url = f"{CDN_BASE_URL}/{CONTEXT_ADDON_ID}/{CONTEXT_ADDON_ID}-{context_version}.zip" if context_version else None
 
     deadline = time.time() + timeout_sec
     last_seen_ver = None
+    last_seen_ctx_ver = None
 
     while time.time() < deadline:
         try:
@@ -392,21 +396,30 @@ def verify_live_cdn(version, timeout_sec=180):
 
             root = ET.fromstring(xml_text)
             addon_node = root.find(f"./addon[@id='{ADDON_ID}']")
+            ctx_node = root.find(f"./addon[@id='{CONTEXT_ADDON_ID}']")
             last_seen_ver = addon_node.attrib.get("version") if addon_node is not None else None
+            last_seen_ctx_ver = ctx_node.attrib.get("version") if ctx_node is not None else None
 
-            if last_seen_ver == version and remote_md5 == computed_md5:
+            ctx_ok = (not context_version) or (last_seen_ctx_ver == context_version)
+            if last_seen_ver == version and ctx_ok and remote_md5 == computed_md5:
                 status_code, content_len = head_url_status(zip_url)
-                if status_code == 200 and content_len > 0:
+                ctx_status, ctx_len = head_url_status(ctx_zip_url) if ctx_zip_url else (200, 1)
+                if status_code == 200 and content_len > 0 and ctx_status == 200 and ctx_len > 0:
                     print(f"  ✓ Live CDN addons.xml version verified: v{last_seen_ver}")
+                    if context_version:
+                        print(f"  ✓ Live CDN context add-on verified:     {CONTEXT_ADDON_ID} v{last_seen_ctx_ver}")
                     print(f"  ✓ Live CDN addons.xml.md5 verified:     {remote_md5}")
                     print(f"  ✓ Live CDN archive verified (HTTP 200): {zip_url} ({content_len:,} bytes)")
+                    if ctx_zip_url:
+                        print(f"  ✓ Live CDN context zip verified (200):  {ctx_zip_url} ({ctx_len:,} bytes)")
                     return True
         except Exception:
             pass
         time.sleep(5)
 
     raise TimeoutError(
-        f"Live CDN did not propagate v{version} within {timeout_sec}s (last seen version: {last_seen_ver})."
+        f"Live CDN did not propagate v{version} (context {context_version}) within {timeout_sec}s "
+        f"(last seen: {last_seen_ver}, context: {last_seen_ctx_ver})."
     )
 
 
@@ -471,6 +484,9 @@ def main():
 
     ensure_gh_default_repo(repo_root)
 
+    ctx_addon_xml_path = os.path.join(repo_root, CONTEXT_ADDON_ID, "addon.xml")
+    context_ver, _ = get_addon_xml_version_and_news(ctx_addon_xml_path)
+
     # Mode A: Verify an existing release tag
     if args.verify_tag:
         tag_name = args.verify_tag if args.verify_tag.startswith("v") else f"v{args.verify_tag}"
@@ -483,8 +499,8 @@ def main():
             sys.exit(1)
         print(f"  ✓ Local release metadata (addon.xml, news.txt, changelog.txt) verified for v{ver}.")
         watch_github_release_workflow(repo_root, tag_name)
-        verify_github_release_assets(repo_root, tag_name, ver)
-        verify_live_cdn(ver)
+        verify_github_release_assets(repo_root, tag_name, ver, context_ver)
+        verify_live_cdn(ver, context_ver)
         print("\n═══════════════════════════════════════════════════════════════════════════")
         print(f" ✅ VERIFIED: {tag_name} is live on GitHub Releases and CDN!")
         print("═══════════════════════════════════════════════════════════════════════════")
@@ -578,8 +594,8 @@ def main():
 
     # Step 4, 5, 6: Monitor CI workflow, verify GitHub Release assets, verify Live CDN
     watch_github_release_workflow(repo_root, tag_name)
-    verify_github_release_assets(repo_root, tag_name, target_ver)
-    verify_live_cdn(target_ver)
+    verify_github_release_assets(repo_root, tag_name, target_ver, context_ver)
+    verify_live_cdn(target_ver, context_ver)
 
     print("\n═══════════════════════════════════════════════════════════════════════════")
     print(f" 🎉 RELEASE {tag_name} COMPLETE, VERIFIED ON GITHUB RELEASES & LIVE ON CDN!")

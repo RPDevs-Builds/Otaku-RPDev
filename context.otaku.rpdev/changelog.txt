@@ -1,3 +1,6 @@
+Changelog v1.0.45 (2026-11-14):
+- Consolidated 580 coloured and 580 white anime studio logos into resources/images/studios/ and aligned addon metadata with RPDev distribution
+
 Changelog v1.0.44 (2026-11-02):
 - Implement defensive subpath extraction and trailing digits resolution across all context menu actions, eliminating IndexError on third-party skin widgets
 

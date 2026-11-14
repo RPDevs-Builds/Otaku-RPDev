@@ -1,3 +1,8 @@
+Changelog v6.1.5 (2026-11-14):
+- Publish Context Menu v1.0.45:
+  - Package and sync context.otaku.rpdev alongside main add-on in release.yml and release_addon.py
+  - Publish context.otaku.rpdev v1.0.45 with consolidated anime studio logos
+
 Changelog v6.1.4 (2026-11-14):
 - UI/UX Polish & Studio Icons:
   - Consolidated coloured and white anime studio logos into context.otaku.rpdev with dynamic normalization
