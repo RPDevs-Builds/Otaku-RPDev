@@ -386,11 +386,14 @@ class MockListItem:
         self._cm = []
         self._vinfo = MockInfoTagVideo()
         self._selected = False
+        self._datetime = ''
 
     def getLabel(self): return self._label
     def setLabel(self, label): self._label = str(label)
     def getLabel2(self): return self._label2
     def setLabel2(self, label2): self._label2 = str(label2)
+    def setDateTime(self, dt): self._datetime = str(dt)
+    def getDateTime(self): return self._datetime
     def getPath(self): return self._path
     def setPath(self, path): self._path = str(path)
     def setArt(self, art): self._art.update(art or {})
@@ -643,6 +646,7 @@ class MockPlugin:
         self.SORT_METHOD_DATEADDED = 21
         self.SORT_METHOD_EPISODE = 24
         self.SORT_METHOD_PLAYCOUNT = 37
+        self.SORT_METHOD_UNSORTED = 40
 
     def addDirectoryItem(self, handle, url, listitem, isFolder=False, totalItems=0):
         self.directory_items.append((handle, url, listitem, isFolder))
@@ -664,7 +668,7 @@ class MockPlugin:
         self.content_type = content
 
     def addSortMethod(self, handle, sortMethod, *args, **kwargs):
-        self.sort_methods.append((handle, sortMethod))
+        self.sort_methods.append((handle, sortMethod) + args)
 
     def setProperty(self, handle, key, value):
         self.properties[key] = value

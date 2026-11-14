@@ -231,6 +231,36 @@ class TestWatchlistPaging(unittest.TestCase):
         control.schedule_next_page_prefetch([{}], lambda: called.append(1))
         self.assertEqual(called, [])
 
+    # 6. Simkl Currently Watching page 2+ resilience when optional fields are omitted
+    @patch('resources.lib.WatchlistFlavor.Simkl.get_meta.collect_meta')
+    @patch('resources.lib.ui.database.get_show_meta', return_value=None)
+    @patch('resources.lib.ui.database.get_show', return_value=None)
+    @patch('resources.lib.ui.database.get_unique_ids', return_value={})
+    @patch('resources.lib.ui.database.is_watchlist_cache_valid', return_value=True)
+    @patch('resources.lib.ui.database.get_watchlist_cache_count', return_value=3)
+    @patch('resources.lib.ui.database.get_watchlist_cache')
+    def test_simkl_watching_page2_resilient_to_missing_fields(
+        self, mock_cache, mock_count, mock_valid, mock_uids, mock_show, mock_meta, mock_collect
+    ):
+        from resources.lib.ui import database
+        control.setBool('interface.watchlist.paging', True)
+        control.setInt('interface.perpage.watchlist', 2)
+        # Item on page 2 missing poster, year, user_rating, added_to_watchlist_at, last_watched_at, user_rated_at
+        sparse_item = {
+            'show': {'ids': {'mal': 999, 'anilist': 888}, 'title': 'Sparse Simkl Show'},
+            'watched_episodes_count': 0,
+            'total_episodes_count': 12,
+        }
+        mock_cache.return_value = [{'data': database.dumps(sparse_item)}]
+
+        simkl = SimklWLF()
+        with patch('resources.lib.endpoints.anilist.Anilist.get_enrichment_for_mal_ids', return_value=[]):
+            res = simkl.get_watchlist_status('watching', False, '2', 2)
+
+        self.assertEqual(len(res), 1)
+        self.assertEqual(res[0]['info']['episodes'], 12)
+        self.assertIn('Sparse Simkl Show', res[0]['name'])
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -701,6 +701,9 @@ class MyAnimeListWLF(WatchlistFlavorBase):
             'country': country,       # Country
             'mediatype': 'tvshow',
         }
+        total_eps = eps or (anilist_res.get('episodes') if anilist_res else 0) or 0
+        if total_eps:
+            info['episodes'] = total_eps
         if info_rating:
             info['rating'] = info_rating
         if playcount:

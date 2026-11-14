@@ -525,6 +525,8 @@ class AniListWLF(WatchlistFlavorBase):
 
         if res['episodes'] != 0 and progress == res['episodes']:
             info['playcount'] = 1
+        if res.get('episodes'):
+            info['episodes'] = res['episodes']
 
         info['duration'] = control.safe_call(lambda: res.get('duration') * 60)
 

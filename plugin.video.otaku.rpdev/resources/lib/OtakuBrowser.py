@@ -38,7 +38,7 @@ class OtakuBrowser(MalBrowser):
                     mal_items_flat.append(merged)
         return mal_ids, mal_items_flat
 
-    def process_otaku_view(self, mal_res, base_plugin_url, page):
+    def process_otaku_view(self, mal_res, base_plugin_url, page, peek_fn=None, filter_text=None):
         mal_ids, mal_items_flat = self._flatten_mal_data_items(mal_res)
 
         anilist_res = self.get_anilist_base_res(mal_ids)
@@ -52,13 +52,18 @@ class OtakuBrowser(MalBrowser):
             return self.base_otaku_view(mal_item, anilist_item, completed=self.open_completed())
 
         all_results = [mapfunc(mal_item) for mal_item in mal_items_flat]
-        if mal_res and 'pagination' in mal_res:
-            has_next = mal_res['pagination'].get('has_next_page', False)
-            all_results += self.handle_paging(has_next, base_plugin_url, page)
-        return all_results
+        has_next = bool(mal_res and 'pagination' in mal_res and mal_res['pagination'].get('has_next_page', False))
+        return self.process_multipage_view(
+            all_results,
+            has_next,
+            base_plugin_url,
+            page,
+            peek_fn=peek_fn,
+            filter_text=filter_text,
+        )
 
-    def process_mal_view(self, mal_res, base_plugin_url, page):
-        return self.process_otaku_view(mal_res, base_plugin_url, page)
+    def process_mal_view(self, mal_res, base_plugin_url, page, peek_fn=None, filter_text=None):
+        return self.process_otaku_view(mal_res, base_plugin_url, page, peek_fn=peek_fn, filter_text=filter_text)
 
     def get_anime(self, mal_id):
         """
@@ -412,7 +417,9 @@ class OtakuBrowser(MalBrowser):
             clearlogo = kodi_meta['clearlogo']
             base['clearlogo'] = random.choice(clearlogo) if isinstance(clearlogo, list) else clearlogo
 
-        episodes = mal_res.get('episodes') or (anilist_res.get('episodes') if anilist_res else None)
+        episodes = (mal_res.get('episodes') if mal_res else None) or (anilist_res.get('episodes') if anilist_res else None)
+        if episodes:
+            base['info']['episodes'] = episodes
 
         if episodes == 1:
             base['url'] = f'play_movie/{mal_id}/'

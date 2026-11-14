@@ -709,6 +709,9 @@ class MalBrowser(BrowserBase):
             if isinstance(res.get('scored_by'), int):
                 info['rating']['votes'] = res['scored_by']
 
+        if res.get('episodes'):
+            info['episodes'] = res['episodes']
+
         if res.get('trailer') and res['trailer'].get('youtube_id'):
             info['trailer'] = f"plugin://plugin.video.youtube/play/?video_id={res['trailer']['youtube_id']}"
 

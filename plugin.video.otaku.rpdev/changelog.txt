@@ -1,3 +1,12 @@
+Changelog v6.1.1 (2026-11-14):
+- Kodi Native Sorting, Metadata & Simkl Paging Fixes:
+  - Fixed Kodi Sort By menu showing duplicate "Date" by replacing SORT_METHOD_NONE with SORT_METHOD_UNSORTED ("Default")
+  - Fixed Date and Rating sort modes overwriting displayed show/episode titles with %Y/%R in labelMask by keeping titles in labelMask ("%L" / "%H. %T") and moving metadata to label2Mask
+  - Fixed Sort by Date ordering in Kodi 20/21/22 by populating ListItem.setDateTime() alongside VideoInfoTag.setPremiered()
+  - Populated total episode counts across AniListBrowser, MalBrowser, OtakuBrowser, and all WatchlistFlavors so Sort by Episode orders shows properly
+  - Fixed OtakuBrowser.process_mal_view and process_otaku_view signatures (peek_fn, filter_text) and routed through process_multipage_view
+  - Hardened Simkl watchlist status item rendering against missing optional fields on Page 2+ so Currently Watching and other lists paginate reliably
+
 Changelog v6.1.0 (2026-11-14):
 - Multipage Sorting & Filtering, Background Pre-Caching & Kodi Native Integration:
 - - Added "Multipage Filtering" settings group under Settings -> Sort & Filter with pre-cache page slider (1–20 pages), sort-by selector (Default, Date, Episode, Rating), order spinner (Ascending/Descending), and display mode (Paged vs. All Pre-Cached Items).

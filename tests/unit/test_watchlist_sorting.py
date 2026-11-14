@@ -42,7 +42,8 @@ class TestWatchlistSorting(unittest.TestCase):
         conftest.mock_xbmcplugin.reset()
         control.draw_items(dummy_items, 'tvshows')
         methods = [sm[1] for sm in conftest.mock_xbmcplugin.sort_methods]
-        self.assertIn(conftest.mock_xbmcplugin.SORT_METHOD_NONE, methods)
+        self.assertIn(conftest.mock_xbmcplugin.SORT_METHOD_UNSORTED, methods)
+        self.assertNotIn(conftest.mock_xbmcplugin.SORT_METHOD_NONE, methods)
         self.assertIn(conftest.mock_xbmcplugin.SORT_METHOD_LABEL_IGNORE_THE, methods)
         self.assertIn(conftest.mock_xbmcplugin.SORT_METHOD_DATE, methods)
         self.assertIn(conftest.mock_xbmcplugin.SORT_METHOD_VIDEO_RATING, methods)
@@ -53,7 +54,8 @@ class TestWatchlistSorting(unittest.TestCase):
         conftest.mock_xbmcplugin.reset()
         control.draw_items(dummy_items, 'episodes')
         methods_ep = [sm[1] for sm in conftest.mock_xbmcplugin.sort_methods]
-        self.assertIn(conftest.mock_xbmcplugin.SORT_METHOD_NONE, methods_ep)
+        self.assertIn(conftest.mock_xbmcplugin.SORT_METHOD_UNSORTED, methods_ep)
+        self.assertNotIn(conftest.mock_xbmcplugin.SORT_METHOD_NONE, methods_ep)
         self.assertIn(conftest.mock_xbmcplugin.SORT_METHOD_EPISODE, methods_ep)
         self.assertIn(conftest.mock_xbmcplugin.SORT_METHOD_VIDEO_RATING, methods_ep)
         self.assertIn(conftest.mock_xbmcplugin.SORT_METHOD_DATE, methods_ep)
@@ -64,7 +66,7 @@ class TestWatchlistSorting(unittest.TestCase):
         control.draw_items(dummy_items, 'addons')
         methods_addons = [sm[1] for sm in conftest.mock_xbmcplugin.sort_methods]
         self.assertEqual(len(methods_addons), 1)
-        self.assertEqual(methods_addons[0], conftest.mock_xbmcplugin.SORT_METHOD_NONE)
+        self.assertEqual(methods_addons[0], conftest.mock_xbmcplugin.SORT_METHOD_UNSORTED)
 
     def test_v_watchlist_items_view_and_cross_service_extraction(self):
         """v_watchlist_items view normalizes title, score, episodes, and dates across all 4 services."""
@@ -285,6 +287,66 @@ class TestWatchlistSorting(unittest.TestCase):
         self.assertEqual(len(items), 1)
         self.assertEqual(items[0]['title_en'], 'Self Healing Test')
         self.assertEqual(items[0]['episodes_remaining'], 8)
+
+    def test_sort_label_masks_preserve_titles(self):
+        """Ensure addSortMethod never uses %Y, %R, %E, or %P as labelMask (which overwrites titles)."""
+        dummy_items = [utils.allocate_item('Anime Title', 'plugin://test/1', True, False, [], '', {'title': 'Anime Title'})]
+
+        for ctype, expected_mask in (('tvshows', '%L'), ('episodes', '%H. %T'), ('addons', '%L')):
+            conftest.mock_xbmcplugin.reset()
+            control.draw_items(dummy_items, ctype)
+            for sm_args in conftest.mock_xbmcplugin.sort_methods:
+                label_mask = sm_args[2] if len(sm_args) > 2 else ''
+                self.assertEqual(
+                    label_mask, expected_mask,
+                    f"Sort method {sm_args} for content_type={ctype!r} overwrote labelMask with {label_mask!r}"
+                )
+
+    def test_episode_counts_populated_for_sorting(self):
+        """Ensure tvshow browse views and set_videotags pass total episodes to VideoInfoTag.setEpisode."""
+        import xbmcgui
+        from unittest.mock import patch
+        from resources.lib.AniListBrowser import AniListBrowser
+        from resources.lib.MalBrowser import MalBrowser
+
+        # 1. control.set_videotags handles episodes, total_episodes_count, and setDateTime
+        for key in ('episode', 'episodes', 'total_episodes', 'total_episodes_count'):
+            li = xbmcgui.ListItem('Test Show')
+            control.set_videotags(li, {'title': 'Test Show', key: 24, 'premiered': '2023-04-01'})
+            self.assertEqual(li.getVideoInfoTag().getEpisode(), 24)
+            self.assertEqual(li.getDateTime(), '2023-04-01T00:00:00')
+
+        li_yr = xbmcgui.ListItem('Year Only')
+        control.set_videotags(li_yr, {'title': 'Year Only', 'year': 2021})
+        self.assertEqual(li_yr.getDateTime(), '2021-01-01T00:00:00')
+
+        # 2. AniListBrowser.base_anilist_view includes episodes
+        ab = AniListBrowser()
+        sample_al = {
+            'id': 1, 'idMal': 10, 'episodes': 24, 'averageScore': 88,
+            'title': {'romaji': 'Test AL', 'english': 'Test AL'},
+            'coverImage': {'extraLarge': 'img.jpg'}, 'genres': ['Action'],
+            'startDate': {'year': 2023, 'month': 4, 'day': 1}, 'status': 'FINISHED',
+            'characters': {'edges': []}, 'studios': {'edges': []},
+        }
+        with patch('resources.lib.ui.database.get_show_meta', return_value=None), \
+             patch('resources.lib.ui.database.get_show', return_value=None):
+            res_al = ab.base_anilist_view(sample_al)
+        self.assertEqual(res_al['info'].get('episodes'), 24)
+
+        # 3. MalBrowser.base_mal_view includes episodes
+        mb = MalBrowser()
+        sample_mal = {
+            'mal_id': 20, 'title': 'Test MAL', 'title_english': 'Test MAL',
+            'episodes': 12, 'score': 8.5, 'duration': '24 min per ep',
+            'images': {'webp': {'large_image_url': 'img.jpg'}},
+            'genres': [{'name': 'Action'}], 'aired': {'from': '2022-01-01T00:00:00+00:00'},
+        }
+        with patch('resources.lib.ui.database.get_show_meta', return_value=None), \
+             patch('resources.lib.ui.database.get_show', return_value=None), \
+             patch('resources.lib.ui.database.get_mappings', return_value={}):
+            res_mal = mb.base_mal_view(sample_mal)
+        self.assertEqual(res_mal['info'].get('episodes'), 12)
 
 
 if __name__ == '__main__':

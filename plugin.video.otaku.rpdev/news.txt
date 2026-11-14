@@ -1,4 +1,15 @@
 ================================================================================
+         OTAKU RPDEV v6.1.1 - SORTING, EPISODE METADATA & SIMKL PAGING FIXES
+================================================================================
+
+v6.1.1 Highlights:
+  * Fixed Sort By dialog showing "Date" twice ("Default" now uses UNSORTED)
+  * Fixed Date & Rating sorts overwriting list item titles with years/ratings
+  * Populated ListItem.setDateTime() so Date sort orders chronologically
+  * Populated episode counts across browsers and watchlists for Episode sort
+  * Fixed OtakuBrowser paged menu compatibility and Simkl Page 2+ resilience
+
+--------------------------------------------------------------------------------
          OTAKU RPDEV v6.1.0 - MULTIPAGE SORTING, FILTERING & BACKGROUND CACHING
 ================================================================================
 

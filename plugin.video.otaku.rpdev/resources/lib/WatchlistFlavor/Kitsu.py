@@ -698,6 +698,8 @@ class KitsuWLF(WatchlistFlavorBase):
             'duration': duration,
             'country': country,
         }
+        if ep_count:
+            info['episodes'] = ep_count
         if info_rating:
             info['rating'] = info_rating
         if playcount:

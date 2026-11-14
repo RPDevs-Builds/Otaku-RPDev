@@ -1481,6 +1481,9 @@ class AniListBrowser(BrowserBase):
         except TypeError:
             pass
 
+        if res.get('episodes'):
+            info['episodes'] = res['episodes']
+
         info['duration'] = control.safe_call(lambda: res['duration'] * 60)
 
         try:

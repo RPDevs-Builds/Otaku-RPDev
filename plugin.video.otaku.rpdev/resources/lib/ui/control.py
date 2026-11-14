@@ -1274,13 +1274,31 @@ def set_videotags(li, info):
                 vinfo.setYear(int(str(premiered)[:4]))
             except (ValueError, TypeError):
                 pass
+    dt_str = None
     if premiered := info.get('premiered'):
         vinfo.setPremiered(str(premiered))
+        dt_str = str(premiered)
+    elif aired := info.get('aired'):
+        dt_str = str(aired)
     elif year := info.get('year'):
         try:
-            vinfo.setPremiered(f"{int(year):04d}-01-01")
+            fallback_date = f"{int(year):04d}-01-01"
+            vinfo.setPremiered(fallback_date)
+            dt_str = fallback_date
         except (ValueError, TypeError):
             pass
+    if dt_str and hasattr(li, 'setDateTime'):
+        dt_clean = dt_str.strip()[:10]
+        if len(dt_clean) == 10 and dt_clean[4] == '-' and dt_clean[7] == '-':
+            try:
+                li.setDateTime(f"{dt_clean}T00:00:00")
+            except Exception:
+                pass
+        elif len(dt_clean) >= 4 and dt_clean[:4].isdigit():
+            try:
+                li.setDateTime(f"{dt_clean[:4]}-01-01T00:00:00")
+            except Exception:
+                pass
     if status := info.get('status'):
         vinfo.setTvShowStatus(str(status))
     if genre := info.get('genre'):
@@ -1303,7 +1321,7 @@ def set_videotags(li, info):
             vinfo.setSeason(int(season))
         except (ValueError, TypeError):
             pass
-    if episode := info.get('episode') or info.get('episodes') or info.get('total_episodes'):
+    if episode := info.get('episode') or info.get('episodes') or info.get('total_episodes') or info.get('total_episodes_count'):
         try:
             vinfo.setEpisode(int(episode))
         except (ValueError, TypeError):
@@ -1638,20 +1656,20 @@ def draw_items(video_data, content_type='', cacheToDisc=True):
     if content_type:
         xbmcplugin.setContent(HANDLE, content_type)
     if content_type == 'episodes':
-        xbmcplugin.addSortMethod(HANDLE, xbmcplugin.SORT_METHOD_NONE, "%H. %T", "%R | %P")
+        xbmcplugin.addSortMethod(HANDLE, xbmcplugin.SORT_METHOD_UNSORTED, "%H. %T", "%R | %P")
         xbmcplugin.addSortMethod(HANDLE, xbmcplugin.SORT_METHOD_EPISODE, "%H. %T", "%R | %P")
-        xbmcplugin.addSortMethod(HANDLE, xbmcplugin.SORT_METHOD_VIDEO_RATING, "%R", "%L")
-        xbmcplugin.addSortMethod(HANDLE, xbmcplugin.SORT_METHOD_DATE, "%Y", "%L")
-        xbmcplugin.addSortMethod(HANDLE, xbmcplugin.SORT_METHOD_PLAYCOUNT, "%P", "%L")
+        xbmcplugin.addSortMethod(HANDLE, xbmcplugin.SORT_METHOD_VIDEO_RATING, "%H. %T", "%R")
+        xbmcplugin.addSortMethod(HANDLE, xbmcplugin.SORT_METHOD_DATE, "%H. %T", "%Y")
+        xbmcplugin.addSortMethod(HANDLE, xbmcplugin.SORT_METHOD_PLAYCOUNT, "%H. %T", "%P")
     elif content_type in ('tvshows', 'movies', 'videos', 'seasons'):
-        xbmcplugin.addSortMethod(HANDLE, xbmcplugin.SORT_METHOD_NONE, "%L", "%R")
+        xbmcplugin.addSortMethod(HANDLE, xbmcplugin.SORT_METHOD_UNSORTED, "%L", "%R")
         xbmcplugin.addSortMethod(HANDLE, xbmcplugin.SORT_METHOD_LABEL_IGNORE_THE, "%L", "%R")
-        xbmcplugin.addSortMethod(HANDLE, xbmcplugin.SORT_METHOD_DATE, "%Y", "%R")
-        xbmcplugin.addSortMethod(HANDLE, xbmcplugin.SORT_METHOD_VIDEO_RATING, "%R", "%L")
-        xbmcplugin.addSortMethod(HANDLE, xbmcplugin.SORT_METHOD_EPISODE, "%E", "%L")
-        xbmcplugin.addSortMethod(HANDLE, xbmcplugin.SORT_METHOD_PLAYCOUNT, "%P", "%L")
+        xbmcplugin.addSortMethod(HANDLE, xbmcplugin.SORT_METHOD_DATE, "%L", "%Y")
+        xbmcplugin.addSortMethod(HANDLE, xbmcplugin.SORT_METHOD_VIDEO_RATING, "%L", "%R")
+        xbmcplugin.addSortMethod(HANDLE, xbmcplugin.SORT_METHOD_EPISODE, "%L", "%E")
+        xbmcplugin.addSortMethod(HANDLE, xbmcplugin.SORT_METHOD_PLAYCOUNT, "%L", "%P")
     else:
-        xbmcplugin.addSortMethod(HANDLE, xbmcplugin.SORT_METHOD_NONE, "%L", "%R")
+        xbmcplugin.addSortMethod(HANDLE, xbmcplugin.SORT_METHOD_UNSORTED, "%L", "%R")
     xbmcplugin.endOfDirectory(HANDLE, cacheToDisc=cacheToDisc)
     closeAllDialogs()
     if getBool('interface.viewtype'):

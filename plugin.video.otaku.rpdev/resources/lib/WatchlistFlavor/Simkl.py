@@ -196,7 +196,7 @@ class SimklWLF(WatchlistFlavorBase):
         items = [database.loads(item['data']) for item in cached_items]
 
         # Fetch AniList data for current page items only (fast for small batches)
-        mal_ids = [anime['show']['ids']['mal'] for anime in items if anime['show']['ids'].get('mal')]
+        mal_ids = [anime['show']['ids']['mal'] for anime in items if (anime.get('show') or {}).get('ids', {}).get('mal')]
         mal_id_dicts = [{'mal_id': mid} for mid in mal_ids]
         get_meta.collect_meta(mal_id_dicts)
 
@@ -211,9 +211,13 @@ class SimklWLF(WatchlistFlavorBase):
 
         # Pass AniList data to view functions
         def viewfunc(res):
-            mal_id = str(res['show']['ids'].get('mal'))
+            mal_id = str((res.get('show') or {}).get('ids', {}).get('mal') or '')
             anilist_item = anilist_by_mal_id.get(mal_id)
-            return self._base_watchlist_status_view(res, anilist_res=anilist_item)
+            try:
+                return self._base_watchlist_status_view(res, anilist_res=anilist_item)
+            except Exception as e:
+                control.log(f"Error building Simkl watchlist view for mal_id={mal_id}: {e}", 'warning')
+                return None
 
         all_results = list(filter(None, map(viewfunc, items)))
 
@@ -383,7 +387,8 @@ class SimklWLF(WatchlistFlavorBase):
 
     @div_flavor
     def _base_watchlist_status_view(self, res, mal_dub=None, anilist_res=None):
-        show_ids = res['show']['ids']
+        show_obj = res.get('show') or {}
+        show_ids = show_obj.get('ids') or {}
         anilist_id = show_ids.get('anilist')
         mal_id = show_ids.get('mal')
         kitsu_id = show_ids.get('kitsu')
@@ -397,7 +402,7 @@ class SimklWLF(WatchlistFlavorBase):
         kodi_meta = database.loads(show['kodi_meta']) if show else {}
 
         # Title logic: prefer AniList for title_lang support, fallback to Simkl
-        title = res['show']['title']
+        title = show_obj.get('title')
         if anilist_res:
             title = anilist_res.get('title', {}).get(self.title_lang) or anilist_res.get('title', {}).get('romaji') or title
         if title is None:
@@ -466,7 +471,9 @@ class SimklWLF(WatchlistFlavorBase):
 
         # Playcount
         playcount = None
-        if res["total_episodes_count"] != 0 and res["watched_episodes_count"] == res["total_episodes_count"]:
+        total_eps = res.get("total_episodes_count") or (anilist_res.get('episodes') if anilist_res else 0) or 0
+        watched_eps = res.get("watched_episodes_count") or 0
+        if total_eps != 0 and watched_eps == total_eps:
             playcount = 1
 
         # Premiered/year
@@ -505,7 +512,8 @@ class SimklWLF(WatchlistFlavorBase):
         }
 
         # Art/Images
-        image = f'https://wsrv.nl/?url=https://simkl.in/posters/{res["show"]["poster"]}_m.jpg'
+        poster_id = (res.get("show") or {}).get("poster")
+        image = f'https://wsrv.nl/?url=https://simkl.in/posters/{poster_id}_m.jpg' if poster_id else ''
         show_meta = database.get_show_meta(mal_id)
         kodi_meta = database.loads(show_meta.get('art')) if show_meta else {}
         poster = image
@@ -529,14 +537,16 @@ class SimklWLF(WatchlistFlavorBase):
             'duration': duration,
             'country': country,
             'mediatype': 'tvshow',
-            'year': year if year else res['show']['year'],
-            'user_rating': res['user_rating'],
-            'last_added': res['added_to_watchlist_at'],
-            'last_watched': res['last_watched_at'],
-            'last_rated': res['user_rated_at'],
-            'watched_episodes_count': res.get('watched_episodes_count'),
-            'total_episodes_count': res.get('total_episodes_count')
+            'year': year if year else (res.get('show') or {}).get('year'),
+            'user_rating': res.get('user_rating'),
+            'last_added': res.get('added_to_watchlist_at'),
+            'last_watched': res.get('last_watched_at'),
+            'last_rated': res.get('user_rated_at'),
+            'watched_episodes_count': watched_eps,
+            'total_episodes_count': total_eps
         }
+        if total_eps:
+            info['episodes'] = total_eps
         if info_rating:
             info['rating'] = info_rating
         if playcount:
@@ -548,11 +558,10 @@ class SimklWLF(WatchlistFlavorBase):
         if trailer:
             info['trailer'] = trailer
 
-        total_eps = res.get("total_episodes_count") or 0
         tot_str = str(total_eps) if total_eps > 0 else '?'
         base = {
-            "name": f"{title} - {res['watched_episodes_count']}/{tot_str}",
-            "url": f'watchlist_to_ep/{mal_id}/{res["watched_episodes_count"]}',
+            "name": f"{title} - {watched_eps}/{tot_str}",
+            "url": f'watchlist_to_ep/{mal_id}/{watched_eps}',
             "image": image,
             "poster": poster,
             'fanart': fanart,
