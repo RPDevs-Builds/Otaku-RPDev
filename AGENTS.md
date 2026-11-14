@@ -36,11 +36,12 @@ Authoritative engineering invariants, architectural contracts, and operational m
 - **Modernized Tag-Based GitHub Actions Release Pipeline**:
   All releases are driven automatically by Git version tags (`v*`) via `.github/workflows/release.yml`:
   1. Prepend human-readable release highlights to `plugin.video.otaku.rpdev/news.txt` and `plugin.video.otaku.rpdev/changelog.txt`.
+     - Keep horizontal dividers (`=` / `-`) in `news.txt` **<= 32 characters** so lines fit cleanly inside `resources/skins/Default/1080i/textviewer.xml` (`id="2001"`, `<width>600</width>`, `font14`) without multi-row wrapping. Fix text wrapping inside `news.txt` itself; never widen skin dialog XML geometry unless explicitly requested.
   2. Bump `version="X.Y.Z"` in `plugin.video.otaku.rpdev/addon.xml`.
   3. Commit: `git commit -m "chore(release): bump plugin.video.otaku.rpdev to vX.Y.Z - <Highlights>"`.
   4. Tag and push: `git tag vX.Y.Z && git push origin main --tags`.
   5. GitHub Actions release workflow automatically executes:
-     - **Pre-Flight Test Gate**: Matrix build across Python 3.11, 3.12, and 3.13 running `ruff`, `compileall`, and all 709+ unit, AST integrity, and hermetic regression tests.
+     - **Pre-Flight Test Gate**: Matrix build across Python 3.11, 3.12, and 3.13 running `ruff`, `compileall`, and all 710+ unit, AST integrity, and hermetic regression tests.
      - **Package & GitHub Release**: Validates version matching `addon.xml`, extracts notes from `news.txt`, packages clean `plugin.video.otaku.rpdev-<version>.zip` and SHA256/MD5 checksums, publishing release assets directly to GitHub Releases (`RPDevs-Builds/Otaku-RPDev`).
      - **Sync to Kodi CDN Repository**: Clones `rpdev-cdn/kodi.repo.iamrp.dev` using repository secret `CDN_REPO_TOKEN`, copies ZIP and metadata, runs `tools/generate_repo.py`, and commits/pushes to `main`, triggering automated GitHub Pages deployment to `https://kodi.repo.iamrp.dev`.
   6. **Offline / Emergency Fallback**: `scripts/release_addon.py` is preserved solely for offline or manual emergency packaging when GitHub Actions is inaccessible; standard releases must always traverse the tag-based CI/CD pipeline.
@@ -56,6 +57,7 @@ Authoritative engineering invariants, architectural contracts, and operational m
   - Populate `info['episodes']` across all `tvshows` browse views (`AniListBrowser`, `MalBrowser`, `OtakuBrowser`) and `WatchlistFlavor` status views, and map `episode`, `episodes`, `total_episodes`, and `total_episodes_count` to `vinfo.setEpisode()` so `SORT_METHOD_EPISODE` sorts reliably.
 - **Python 3.12–3.14 Clean Runtimes & Invoker Hygiene**:
   - Zero imports of PEP 594 removed stdlib modules (`cgi`, `pipes`, `imghdr`, `sunau`, `crypt`, `chunk`, `uu`, `telnetlib`, etc.).
+  - Never use deprecated `ssl.PROTOCOL_TLS*` constants (`PROTOCOL_TLSv1`, `PROTOCOL_TLSv1_1`, `PROTOCOL_TLSv1_2`, `PROTOCOL_TLS`). Always construct contexts with `ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)` + `ssl.TLSVersion` bounds (`minimum_version` / `maximum_version`), load CA certificates via `load_verify_locations` / `load_default_certs` when `verify=True`, and set `check_hostname = False` before `verify_mode = ssl.CERT_NONE` when `verify=False`.
   - Always use Python 3 cooperative `super().__init__()` / `super().method()`, never `super(ClassName, self)`.
   - Never use mutable default arguments (`def fn(items=[], data={})`); use `None` sentinels initialized inside the function body so state never leaks across persistent `reuselanguageinvoker` executions.
   - Never use raw `print()`; route diagnostics through `control.log()` / `xbmc.log()`.
@@ -142,6 +144,7 @@ Authoritative engineering invariants, architectural contracts, and operational m
 
 ## 11. HTTP Transport, Debrid Resilience, Watchlists & OAuth
 - **Sub-Second Float Timeouts & Streaming Downloads**: Always cast HTTP timeouts to `float(timeout)` (never `int(timeout)`, which truncates `0.5s` to `0`). Never reintroduce single-read byte caps that truncate multi-megabyte database/archive downloads in `client.py`.
+- **Modern TLS Contexts (`client.py`)**: Enforce `ssl.PROTOCOL_TLS_CLIENT` + `ssl.TLSVersion` bounds rather than legacy `ssl.PROTOCOL_TLSv1_*` constants so HTTP requests run warning-free on Python 3.12–3.14.
 - **HTTPS TCP Port 443 Reachability Invariant**: `control.is_internet_available` must verify internet connectivity by attempting a non-blocking TCP socket connection on port 443 across major HTTPS CDN endpoints (`cloudflare-dns.com`, `www.gstatic.com`, `api.github.com`) before falling back to port 53. Port 53 plaintext DNS probes fail on secured networks, corporate firewalls, and NextDNS/DoH configurations.
 - **Universal Defensive JSON Decoding**: Never invoke bare `json.loads()` or unguarded `r.json()` on HTTP responses, FlareSolverr/DDG proxy payloads (`cfcookie`, `ddgcookie`), or SQLite `cache.db` values (`VIEW_REVIEW`). Always use `control.safe_json(resp, default=...)`, `control.loads_json(raw, default=...)`, or `r.json(default={})`, and verify `isinstance(data, dict)` before `.get()`.
 - **FlareSolverr Direct HTML Return (JA3/JA4 Bypass)**: Replaying FlareSolverr `cf_clearance` cookies over standard Python `urllib`/`urllib3` fails on Cloudflare WAF due to JA3/JA4 TLS fingerprint mismatch (returning HTTP 403). When solving Cloudflare-protected pages with FlareSolverr, always use `'returnOnlyCookies': False` (`solve_request`) to fetch and return the solved HTML directly from FlareSolverr's Chromium browser. Accept modern DDoS-Guard tokens (`__ddg1_`, `__ddg8_`, `__ddg9_`, `__ddg10_`, or any `__ddg` prefix).
@@ -162,7 +165,7 @@ Authoritative engineering invariants, architectural contracts, and operational m
   - The authoritative offline validation dataset is `tests/fixtures/comprehensive_anime_dataset.json` (576 unique, deduplicated anime titles spanning the Top 100 and the Top 50 across 18 genres, with canonical metadata, aliases, and distractor vectors).
   - All candidate scoring, title isolation, and scraper candidate selection changes must be verified against `tests/unit/test_top100_hermetic_regression.py` across all 5 validation gates (Monster isolation, negative distractor rejection, threshold invariants, provider candidate selection, and parametric comprehensive dataset evaluation) with 100% precision and recall offline.
 - **Mandatory 4-Step Local Verification Gate**: Run and pass all four checks from `/mnt/sharedroot/projects/RPDevs-Builds/Otaku-RPDev` before every commit or release:
-  1. `python3 -m unittest discover tests` (709+ unit, integration, and hermetic regression tests; 0 failures/errors)
+  1. `python3 -W default -m unittest discover tests` (710+ unit, integration, and hermetic regression tests; 0 failures/errors, and treat any project `DeprecationWarning`/`ResourceWarning` emitted during test runs as an actionable defect to fix before release)
   2. `python3 -m unittest tests/lint/test_ast_integrity.py` (AST syntax, zero bare `except:`, zero `pickle`, zero `.select(` / `.select_one(`, 38 skin XMLs valid)
   3. `python3 -m unittest tests/unit/test_settings_schema_and_code_references.py tests/unit/test_clean_settings.py`
   4. `python3 -m compileall -q plugin.video.otaku.rpdev context.otaku.rpdev tests`
