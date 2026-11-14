@@ -108,6 +108,8 @@ def loads(blob):
 # ═══════════════════════════════════════════════════════════════════════════
 
 _thread_local = threading.local()
+_conns_lock = threading.RLock()
+_all_thread_conns = {}
 
 
 def _dict_factory(cursor, row):
@@ -116,37 +118,107 @@ def _dict_factory(cursor, row):
 
 
 def _get_thread_conns():
+    tid = threading.get_ident()
     conns = getattr(_thread_local, 'conns', None)
     if conns is None:
         conns = {}
         _thread_local.conns = conns
+    with _conns_lock:
+        _all_thread_conns[tid] = conns
     return conns
 
 
-def close_thread_connections(path=None):
-    """Close cached SQLite connections for the current thread."""
-    conns = getattr(_thread_local, 'conns', None)
-    if not conns:
-        return
-    if path is not None:
-        target = os.path.abspath(path)
-        for key in ((target, True), (target, False), (target, 'ro'), (target, 'rw'), target, f"{target}:ro"):
-            entry = conns.pop(key, None)
-            if entry:
-                try:
-                    entry[0].close()
-                except (dbapi2.Error, OSError) as e:
-                    control.log(f"database close error: {e}", 'debug')
-    else:
+def prune_dead_thread_connections():
+    """Close and remove SQLite connections belonging to worker threads that have exited."""
+    alive_tids = {t.ident for t in threading.enumerate() if t.ident is not None}
+    with _conns_lock:
+        dead_tids = [tid for tid in list(_all_thread_conns.keys()) if tid not in alive_tids]
+        dead_dicts = [_all_thread_conns.pop(tid, {}) for tid in dead_tids]
+    for conns in dead_dicts:
         for _, (conn, _) in list(conns.items()):
             try:
                 conn.close()
             except (dbapi2.Error, OSError) as e:
-                control.log(f"database pool close error: {e}", 'debug')
+                control.log(f"dead thread db close error: {e}", 'debug')
         conns.clear()
 
 
-atexit.register(close_thread_connections)
+def close_thread_connections(path=None):
+    """Close cached SQLite connections for the current thread and prune dead worker threads."""
+    tid = threading.get_ident()
+    conns = getattr(_thread_local, 'conns', None)
+    if conns:
+        if path is not None:
+            target = os.path.abspath(path)
+            for key in ((target, True), (target, False), (target, 'ro'), (target, 'rw'), target, f"{target}:ro"):
+                entry = conns.pop(key, None)
+                if entry:
+                    try:
+                        entry[0].close()
+                    except (dbapi2.Error, OSError) as e:
+                        control.log(f"database close error: {e}", 'debug')
+            if not conns:
+                with _conns_lock:
+                    _all_thread_conns.pop(tid, None)
+        else:
+            for _, (conn, _) in list(conns.items()):
+                try:
+                    conn.close()
+                except (dbapi2.Error, OSError) as e:
+                    control.log(f"database pool close error: {e}", 'debug')
+            conns.clear()
+            with _conns_lock:
+                _all_thread_conns.pop(tid, None)
+    prune_dead_thread_connections()
+
+
+def close_all_connections(path=None):
+    """Close cached SQLite connections across all threads in this interpreter."""
+    with _conns_lock:
+        all_items = list(_all_thread_conns.items())
+        if path is None:
+            _all_thread_conns.clear()
+    target = os.path.abspath(path) if path is not None else None
+    for tid, conns in all_items:
+        if target is not None:
+            for key in ((target, True), (target, False), (target, 'ro'), (target, 'rw'), target, f"{target}:ro"):
+                entry = conns.pop(key, None)
+                if entry:
+                    try:
+                        entry[0].close()
+                    except (dbapi2.Error, OSError) as e:
+                        control.log(f"database close error: {e}", 'debug')
+            if not conns:
+                with _conns_lock:
+                    _all_thread_conns.pop(tid, None)
+        else:
+            for _, (conn, _) in list(conns.items()):
+                try:
+                    conn.close()
+                except (dbapi2.Error, OSError) as e:
+                    control.log(f"database pool close error: {e}", 'debug')
+            conns.clear()
+    # Ensure current thread local dict is also closed if not yet registered
+    cur_conns = getattr(_thread_local, 'conns', None)
+    if cur_conns:
+        if target is not None:
+            for key in ((target, True), (target, False), (target, 'ro'), (target, 'rw'), target, f"{target}:ro"):
+                entry = cur_conns.pop(key, None)
+                if entry:
+                    try:
+                        entry[0].close()
+                    except (dbapi2.Error, OSError):
+                        pass
+        else:
+            for _, (conn, _) in list(cur_conns.items()):
+                try:
+                    conn.close()
+                except (dbapi2.Error, OSError):
+                    pass
+            cur_conns.clear()
+
+
+atexit.register(close_all_connections)
 
 
 def _is_db_corruption_error(exc):

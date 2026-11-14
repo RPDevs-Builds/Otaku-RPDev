@@ -14,7 +14,7 @@ Authoritative engineering invariants, architectural contracts, and operational m
   - **GUI (`resources/lib/windows/`, `resources/skins/Default/1080i/`)**: Custom `WindowXML` / `WindowXMLDialog` controllers and 38 1080i XML skin templates.
 - **`context.otaku.rpdev/`**: Standalone Kodi context menu extension. Uses defensive `_extract_subpath()` regex parsing for third-party skin widgets (Aura, Arctic Horizon, Cosmic) and accesses `info.db` strictly in read-only / `DELETE` journal mode to avoid cross-addon locks.
 - **`resource.images.animestudio.{coloured,white}/`**: Bundled studio logo packs (normalize `InfoTagVideo` studios to primary animation studio to prevent multi-studio texture 404 spam).
-- **`tests/`**: Hermetic offline test suite (`tests/conftest.py` C++ SWIG mocks + socket network guard, `tests/unit/`, `tests/integration/`, `tests/lint/`, `tests/fixtures/`).
+- **`tests/`**: Hermetic offline test suite (`tests/conftest.py` C++ SWIG mocks + socket network guard, `tests/kodi_profile.py` dual Kodi 21/22 runtime simulation harness, `tests/unit/`, `tests/integration/`, `tests/lint/`, `tests/fixtures/`).
 
 ---
 
@@ -41,7 +41,7 @@ Authoritative engineering invariants, architectural contracts, and operational m
   3. Commit: `git commit -m "chore(release): bump plugin.video.otaku.rpdev to vX.Y.Z - <Highlights>"`.
   4. Tag and push: `git tag vX.Y.Z && git push origin main --tags`.
   5. GitHub Actions release workflow automatically executes:
-     - **Pre-Flight Test Gate**: Matrix build across Python 3.11, 3.12, and 3.13 running `ruff`, `compileall`, and all 710+ unit, AST integrity, and hermetic regression tests.
+     - **Pre-Flight Test Gate**: Matrix build across Python 3.11, 3.12, and 3.13 running `ruff`, `compileall`, and all 860+ unit, AST integrity, function coverage, dual-profile, settings outcome, and hermetic regression tests under `-W default`.
      - **Package & GitHub Release**: Validates version matching `addon.xml`, extracts notes from `news.txt`, packages clean `plugin.video.otaku.rpdev-<version>.zip` and SHA256/MD5 checksums, publishing release assets directly to GitHub Releases (`RPDevs-Builds/Otaku-RPDev`).
      - **Sync to Kodi CDN Repository**: Clones `rpdev-cdn/kodi.repo.iamrp.dev` using repository secret `CDN_REPO_TOKEN`, copies ZIP and metadata, runs `tools/generate_repo.py`, and commits/pushes to `main`, triggering automated GitHub Pages deployment to `https://kodi.repo.iamrp.dev`.
   6. **Offline / Emergency Fallback**: `scripts/release_addon.py` is preserved solely for offline or manual emergency packaging when GitHub Actions is inaccessible; standard releases must always traverse the tag-based CI/CD pipeline.
@@ -160,12 +160,32 @@ Authoritative engineering invariants, architectural contracts, and operational m
 
 ## 12. Hermetic Testing, CI & Pre-Commit Verification Gate
 - **Hermetic Offline Test Contract**: All unit/integration tests must include the standard standalone bootstrap importing `conftest` (`tests/conftest.py`), which enforces an offline socket guard blocking live external network calls (`_hermetic_socket_connect`). Store scraper HTML/JSON payloads as deterministic golden fixtures under `tests/fixtures/`. Diagnostic scripts that query live provider networks (`scripts/check_scraper_health.py` or live validation scripts) must never import `conftest` or must restore the original socket before initiating network connections.
-- **Headless Kodi 21 & 22 Smoke Test Tool (`scripts/test_kodi_installs.py`)**: For pre-release runtime validation, run `python3 scripts/test_kodi_installs.py`. This script spins up isolated Xvfb headless instances of both Kodi 21 (Omega) and Kodi 22 (Piers), dynamically extracts the current version from `addon.xml`, tests fresh add-on installation, sweeps all `browser.api` modes (`otaku`, `mal`, `anilist`), verifies JSON-RPC ping and add-on enable status, and scans `kodi.log` for fatal C++ errors, invalid setting types, or SWIG exceptions. When automating JSON-RPC Kodi dialog verification, wait on explicit `Window.Property(xmlfile)` transitions rather than fixed `sleep()` intervals so dialog focus steps never double-select.
+- **Dual-Profile Mock Architecture (`tests/kodi_profile.py` & `tests/conftest.py`)**:
+  - Switchable `KodiProfile('21' | '22')` context manager and class decorator simulating target Kodi C++ major releases offline:
+    - **Kodi 21 (`21.3.0` Omega)**: `MockInfoTagVideo21` excludes Kodi 22+ exclusive methods (`setOriginalLanguage`, `setTagLine`, `setSeasonPlot`, `setAvailableFanart`, `setHdrType`) so missing `hasattr(vinfo, ...)` guards fail immediately; stream audio/subtitle language tags yield 3-letter ISO 639-2 codes (`jpn`, `eng`); `Player.GetChapters` JSON-RPC returns `{}` to verify fallback to `ffprobe` / `AniSkip`.
+    - **Kodi 22 (`22.0.0` Piers)**: `MockInfoTagVideo22` exposes Kodi 22+ typed setters and strictly enforces SWIG non-null type contracts (passing `None` raises fatal `TypeError`); stream language tags yield 2-letter BCP 47 codes (`ja`, `en`); `Player.GetChapters` returns container chapters (`result.chapters`).
+  - **Strict Settings Schema Enforcement (`strict_settings=True`)**: Validates setting access types against canonical `settings.xml` schema (`getBool`/`getInt`/`getNumber`/`getString`/`getStringList`), pre-seeding defaults from XML `<default>` tags on reset.
+  - **Real Skin XML Control Verification (`strict_skin_controls=True`)**: Parses `<control id="...">` and `<param name="id">` across all 38 templates under `resources/skins/Default/1080i/` and raises `RuntimeError` if Python code calls `getControl(missing_id)`.
+  - Exercised across dual-version matrix in `tests/unit/test_kodi_21_22_dual_compat.py`.
+- **Exhaustive Settings Toggle & Outcome Matrix (`tests/unit/test_all_settings_outcomes.py`)**:
+  - Comprehensive behavioral test matrix covering all 467 declared settings (`340` user-visible level 0–3 settings with 100% tooltip coverage + `127` internal/legacy level 4 settings), asserted equal to declared schema without omissions.
+  - Toggles every boolean (`True`/`False`), steps every enum option and numeric slider, overrides path/string/list settings, executes action routes, and asserts concrete observable outcomes (sort/filter pruning, PRAGMA adjustments, provider enablement/exclusion, subtitle scoring, debrid cloud behavior, UI menu states, SQLite WAL cache keys).
+  - Schema & localization integrity verified in `tests/unit/test_settings_schema_and_code_references.py` (100% of user-visible settings and all 12 `<category>` elements possess valid help tooltips, with zero duplicate IDs and valid `#30000–#30999` boundaries).
+- **Module & Function Coverage Auditor (`scripts/audit_function_coverage.py` & `tests/lint/test_function_coverage.py`)**:
+  - Enforces 100% module coverage (0 unreferenced or unimported source modules out of all 139 `.py` files across `plugin.video.otaku.rpdev` and `context.otaku.rpdev`).
+  - Parses AST and tracks runtime symbol coverage via Python 3.12+ `sys.monitoring` (with transparent `sys.settrace` fallback on earlier Python versions).
+  - Generates machine-readable JSON/Markdown coverage reports and enforces function coverage thresholds (`--fail-below 60`) in CI and pre-commit gates.
+- **Headless Flatpak Kodi 21 & 22 E2E Suite & Mock Server (`scripts/test_kodi_installs.py` & `scripts/kodi_e2e_mock_server.py`)**:
+  - Runs headless Flatpak instances inside `xvfb-run` for both `tv.kodi.Kodi//stable` (21.3-Omega) and `tv.kodi.Kodi//beta` (22.0~rc1-Piers).
+  - Supported execution modes: `--mode hermetic` (default offline with zero network egress), `--mode live` (with live debrid/scrapers if configured), and `--mode all` (hermetic + live).
+  - Features an ephemeral deterministic loopback HTTP mock server (`scripts/kodi_e2e_mock_server.py` on `127.0.0.1`) serving mock FlareSolverr (`/v1`), mock Megacloud (`/ms`), metadata endpoints, local video streaming with `Range` byte-serving from `tests/fixtures/media/sample_chapters.mkv` (with embedded EBML chapter markers), and external subtitles (`sample.srt`).
+  - Validates fresh installation, directory generation, setting mutation effects, WindowXML modal dialog lifecycle across all custom dialogs, context menu dispatch, `service.py` lifecycle, clean quit (<10s), and zero-tolerance `kodi.log` audits (failing on Python tracebacks, `DeprecationWarning`, `ResourceWarning`, or SWIG memory leaks).
 - **576-Title Comprehensive Dataset & 5-Gate Hermetic Regression Suite**:
   - The authoritative offline validation dataset is `tests/fixtures/comprehensive_anime_dataset.json` (576 unique, deduplicated anime titles spanning the Top 100 and the Top 50 across 18 genres, with canonical metadata, aliases, and distractor vectors).
   - All candidate scoring, title isolation, and scraper candidate selection changes must be verified against `tests/unit/test_top100_hermetic_regression.py` across all 5 validation gates (Monster isolation, negative distractor rejection, threshold invariants, provider candidate selection, and parametric comprehensive dataset evaluation) with 100% precision and recall offline.
-- **Mandatory 4-Step Local Verification Gate**: Run and pass all four checks from `/mnt/sharedroot/projects/RPDevs-Builds/Otaku-RPDev` before every commit or release:
-  1. `python3 -W default -m unittest discover tests` (710+ unit, integration, and hermetic regression tests; 0 failures/errors, and treat any project `DeprecationWarning`/`ResourceWarning` emitted during test runs as an actionable defect to fix before release)
-  2. `python3 -m unittest tests/lint/test_ast_integrity.py` (AST syntax, zero bare `except:`, zero `pickle`, zero `.select(` / `.select_one(`, 38 skin XMLs valid)
-  3. `python3 -m unittest tests/unit/test_settings_schema_and_code_references.py tests/unit/test_clean_settings.py`
-  4. `python3 -m compileall -q plugin.video.otaku.rpdev context.otaku.rpdev tests`
+- **Mandatory 5-Step Local Verification Gate**: Run and pass all five checks from `/mnt/sharedroot/projects/RPDevs-Builds/Otaku-RPDev` before every commit or release:
+  1. `python3 -W default -m unittest discover tests` (860+ unit, integration, and hermetic regression tests; 0 failures/errors, and treat any project `DeprecationWarning`/`ResourceWarning` emitted during test runs as an actionable defect to fix before release)
+  2. `python3 -W default -m unittest tests/lint/test_ast_integrity.py tests/lint/test_function_coverage.py tests/unit/test_settings_schema_and_code_references.py tests/unit/test_all_settings_outcomes.py tests/unit/test_kodi_21_22_dual_compat.py`
+  3. `python3 scripts/audit_function_coverage.py --fail-below 60`
+  4. `python3 -m compileall -q plugin.video.otaku.rpdev context.otaku.rpdev tests scripts`
+  5. `ruff check --select E9,F63,F7,F82 plugin.video.otaku.rpdev context.otaku.rpdev tests scripts`

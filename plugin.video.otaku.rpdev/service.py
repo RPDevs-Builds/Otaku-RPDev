@@ -792,13 +792,15 @@ if __name__ == "__main__":
             control.log(f"Periodic API token refresh notice: {e}", 'debug')
         try:
             from resources.lib.ui import database
+            database.close_thread_connections()
             database.checkpoint_databases(truncate=False)
         except Exception as e:
             control.log(f"Periodic WAL checkpoint notice: {e}", 'debug')
     multipage_worker.stop()
-    # Checkpoint WAL databases to 0 bytes on shutdown
+    # Checkpoint WAL databases to 0 bytes and close all SQLite connections on shutdown
     try:
         from resources.lib.ui import database
         database.checkpoint_databases(truncate=True)
+        database.close_all_connections()
     except Exception:
         pass

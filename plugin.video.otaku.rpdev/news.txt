@@ -1,7 +1,24 @@
 ================================
+[B]OTAKU RPDEV v6.1.3[/B]
+Tooltips, SQLite Cleanup & Web-PDB
+================================
+
+v6.1.3 Highlights:
+  * Expanded Settings Tooltips: Populated 100% of user-visible settings (344
+    settings) and all 12 categories with clear configuration help tooltips
+  * SQLite Thread & Worker Cleanup: Deterministically closes all thread-local
+    and worker pool SQLite connections on script exit and prunes dead threads
+    to prevent virtual memory exhaustion on 32-bit ARM Android TV devices
+  * Web-PDB Debugger Integration: Added Web-PDB section under Settings ->
+    Maintenance (default port 5566 to avoid ADB 5555) with Post-Mortem,
+    Route-Entry, and on-demand trace modes
+  * Clean Episode Titles Fix: Fixed interface.cleantitles spoiler stripping in
+    episode indexers and non-blocking Download Manager initialization
+
+--------------------------------
 [B]OTAKU RPDEV v6.1.2[/B]
 Pin Next Page & Filter Rows
-================================
+--------------------------------
 
 v6.1.2 Highlights:
   * Pinned "Next Page" rows to the bottom (SpecialSort=bottom) so active Kodi

@@ -1,3 +1,4 @@
+import threading
 import xbmc
 import xbmcgui
 import xbmcvfs
@@ -24,7 +25,7 @@ class DownloadManager(BaseWindow):
     def onInit(self):
         self.display_list = self.getControl(1000)
         self.setFocusId(3100)
-        self.background_info_updater()
+        threading.Thread(target=self.background_info_updater, daemon=True).start()
         super().onInit()
 
     def onAction(self, action):
@@ -58,9 +59,13 @@ class DownloadManager(BaseWindow):
             self.abort = True
             self.close()
 
+    def close(self):
+        self.abort = True
+        super().close()
+
     def background_info_updater(self):
         monitor = xbmc.Monitor()
-        while not monitor.waitForAbort(1) and not self.abort:
+        while not self.abort and not monitor.waitForAbort(0.25):
             self.downloads = manager.get_all_tasks_info()
             self.populate_menu_items()
         del monitor

@@ -501,7 +501,12 @@ def SORT_SELECT(payload, params):
 @Route('download_manager')
 def DOWNLOAD_MANAGER(payload, params):
     from resources.lib.windows.download_manager import DownloadManager
-    DownloadManager('download_manager.xml', control.ADDON_PATH).doModal()
+    dlg = DownloadManager('download_manager.xml', control.ADDON_PATH)
+    try:
+        dlg.doModal()
+    finally:
+        dlg.abort = True
+        del dlg
 
 
 @Route('import_settings')
@@ -959,6 +964,15 @@ def CLEAN_SETTINGS(payload, params):
             time=5000
         )
         control.log(f"Error in CLEAN_SETTINGS: {e}", level='error')
+    finally:
+        try:
+            import xbmcplugin
+            import sys
+            handle = int(sys.argv[1]) if len(sys.argv) > 1 and sys.argv[1].isdigit() else -1
+            if handle >= 0:
+                xbmcplugin.endOfDirectory(handle, succeeded=True)
+        except Exception:
+            pass
 
 
 @Route('menu_order')
@@ -967,4 +981,126 @@ def MENU_ORDER(payload, params):
     from resources.lib.windows.menu_order import open_menu_order_dialog
     menu_key = params.get('menu', 'menu.mainmenu')
     open_menu_order_dialog(menu_key)
+
+
+@Route('probe_settings')
+def PROBE_SETTINGS(payload, params):
+    """Probe and verify all declared settings and localization strings in Kodi runtime."""
+    try:
+        import json
+        import os
+        import sys
+        import xml.etree.ElementTree as ET
+        import xbmcaddon
+        import xbmcplugin
+
+        addon_dir = control.ADDON_PATH
+        settings_xml = os.path.join(addon_dir, 'resources', 'settings.xml')
+        tree = ET.parse(settings_xml)
+        settings_elements = [(e.attrib.get('id'), e.attrib.get('type')) for e in tree.findall('.//setting') if e.attrib.get('id')]
+        settings = [s[0] for s in settings_elements]
+
+        addon = xbmcaddon.Addon(control.ADDON_ID)
+        errors = []
+        success_count = 0
+        kodi_settings = None
+        if hasattr(addon, 'getSettings'):
+            try:
+                kodi_settings = addon.getSettings()
+            except Exception as e:
+                errors.append(f"getSettings() exception: {e}")
+
+        for sid, stype in settings_elements:
+            try:
+                if stype == 'action':
+                    val = True
+                elif stype == 'boolean':
+                    val = addon.getSettingBool(sid) if hasattr(addon, 'getSettingBool') else control.getBool(sid)
+                elif stype == 'integer':
+                    val = addon.getSettingInt(sid) if hasattr(addon, 'getSettingInt') else control.getInt(sid)
+                elif stype == 'number':
+                    val = addon.getSettingNumber(sid) if hasattr(addon, 'getSettingNumber') else control.getStr(sid)
+                elif stype in ('list[string]', 'list[String]'):
+                    if kodi_settings and hasattr(kodi_settings, 'getStringList'):
+                        val = kodi_settings.getStringList(sid)
+                    else:
+                        val = control.getStringList(sid)
+                else:
+                    val = addon.getSettingString(sid) if hasattr(addon, 'getSettingString') else control.getStr(sid)
+                success_count += 1
+            except Exception as e:
+                errors.append(f"getSetting({sid}, type={stype}): {e}")
+
+        # Sample localized strings across #30000-#30999
+        strings_verified = 0
+        for sid in range(30000, 31000):
+            try:
+                text = addon.getLocalizedString(sid)
+                if text:
+                    strings_verified += 1
+            except Exception as e:
+                errors.append(f"getLocalizedString({sid}): {e}")
+
+        result = {
+            "ok": len(errors) == 0,
+            "settings_count": len(settings),
+            "settings_read": success_count,
+            "strings_verified": strings_verified,
+            "has_kodi_settings_obj": kodi_settings is not None,
+            "errors": errors,
+        }
+        out_path = os.path.join(control.dataPath, 'settings_probe.json')
+        try:
+            with open(out_path, 'w', encoding='utf-8') as f:
+                json.dump(result, f, indent=2)
+        except Exception as e:
+            control.log(f"Failed to write settings probe result: {e}", level='error')
+    finally:
+        try:
+            import xbmcplugin
+            import sys
+            handle = int(sys.argv[1]) if len(sys.argv) > 1 and sys.argv[1].isdigit() else -1
+            if handle >= 0:
+                xbmcplugin.endOfDirectory(handle, succeeded=True)
+        except Exception:
+            pass
+
+
+@Route('set_settings')
+def SET_SETTINGS(payload, params):
+    """Dynamically set settings in Kodi runtime during testing."""
+    import sys
+    import xbmcplugin
+    if params:
+        for k, v in params.items():
+            if v == 'true':
+                control.setBool(k, True)
+            elif v == 'false':
+                control.setBool(k, False)
+            elif v.isdigit():
+                control.setInt(k, int(v))
+            elif ',' in v or k.endswith('.config') or k in ('fanart.all', 'fanart.mal_ids', 'fanart.selections', 'DMIndex', 'general.filters'):
+                items = [x.strip() for x in v.split(',') if x.strip()]
+                control.setStringList(k, items)
+            else:
+                control.setSetting(k, v)
+        control.clearSettingsCache()
+    try:
+        handle = int(sys.argv[1]) if len(sys.argv) > 1 and sys.argv[1].isdigit() else -1
+        if handle >= 0:
+            xbmcplugin.endOfDirectory(handle, succeeded=True)
+    except Exception:
+        pass
+
+
+@Route('webpdb_trace')
+def WEBPDB_TRACE(payload, params):
+    """Trigger an interactive Web-PDB debugging session on the configured port (default 5566)."""
+    port = params.get('port') if isinstance(params, dict) else None
+    ok = control.start_webpdb_trace(port=port)
+    if not ok:
+        control.notify(control.ADDON_NAME, "Web-PDB (script.module.web-pdb) is not available.")
+    return control.exit_code()
+
+
 

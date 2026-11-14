@@ -1,16 +1,16 @@
 <?xml version="1.0" ?>
 <settings version="1">
 	<section id="otaku">
-		<category id="general" label="30098" help="">
+		<category id="general" label="30098" help="30959">
 			<group id="1" label="30415">
-				<setting id="setup.wizard" type="action" label="30416" help="">
+				<setting id="setup.wizard" type="action" label="30416" help="30716">
 					<level>0</level>
 					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/setup_wizard?setting=true)</data>
 					<control type="button" format="action">
 						<close>true</close>
 					</control>
 				</setting>
-				<setting id="showchangelog" type="integer" label="30274" help="">
+				<setting id="showchangelog" type="integer" label="30274" help="30717">
 					<level>2</level>
 					<default>0</default>
 					<constraints>
@@ -28,7 +28,7 @@
 				</setting>
 			</group>
 			<group id="2" label="30290">
-				<setting id="titlelanguage" type="integer" label="30099" help="">
+				<setting id="titlelanguage" type="integer" label="30099" help="30718">
 					<level>0</level>
 					<default>1</default>
 					<constraints>
@@ -39,7 +39,7 @@
 					</constraints>
 					<control type="spinner" format="string" />
 				</setting>
-				<setting id="searchhistory" type="integer" label="30100" help="">
+				<setting id="searchhistory" type="integer" label="30100" help="30719">
 					<level>0</level>
 					<default>0</default>
 					<constraints>
@@ -50,12 +50,12 @@
 					</constraints>
 					<control type="spinner" format="string" />
 				</setting>
-				<setting id="general.smart.scroll.enable" type="boolean" label="30101" help="">
+				<setting id="general.smart.scroll.enable" type="boolean" label="30101" help="30720">
 					<level>2</level>
 					<default>true</default>
 					<control type="toggle" />
 				</setting>
-				<setting id="interface.cleantitles" type="boolean" label="30113" help="">
+				<setting id="interface.cleantitles" type="boolean" label="30113" help="30721">
 					<level>1</level>
 					<default>false</default>
 					<control type="toggle" />
@@ -72,7 +72,7 @@
 					</constraints>
 					<control type="spinner" format="string" />
 				</setting>
-				<setting id="interface.aired_episodes" type="boolean" label="30448" help="">
+				<setting id="interface.aired_episodes" type="boolean" label="30448" help="30722">
 					<level>2</level>
 					<default>false</default>
 					<control type="toggle" />
@@ -87,7 +87,7 @@
 					<default>false</default>
 					<control type="toggle" />
 				</setting>
-				<setting id="interface.viewtype" type="boolean" label="30282" help="">
+				<setting id="interface.viewtype" type="boolean" label="30282" help="30723">
 					<level>2</level>
 					<default>false</default>
 					<control type="toggle" />
@@ -102,7 +102,7 @@
 					</dependencies>
 					<control type="toggle" />
 				</setting>
-				<setting id="interface.addon.view" type="string" label="30259" help="" parent="interface.viewtype">
+				<setting id="interface.addon.view" type="string" label="30259" help="30724" parent="interface.viewtype">
 					<level>2</level>
 					<default>Default</default>
 					<constraints>
@@ -128,7 +128,7 @@
 					</dependencies>
 					<control type="spinner" format="string" />
 				</setting>
-				<setting id="interface.show.view" type="string" label="30260" help="" parent="interface.viewtype">
+				<setting id="interface.show.view" type="string" label="30260" help="30725" parent="interface.viewtype">
 					<level>2</level>
 					<default>Default</default>
 					<constraints>
@@ -154,7 +154,7 @@
 					</dependencies>
 					<control type="spinner" format="string" />
 				</setting>
-				<setting id="interface.episode.view" type="string" label="30261" help="" parent="interface.viewtype">
+				<setting id="interface.episode.view" type="string" label="30261" help="30726" parent="interface.viewtype">
 					<level>2</level>
 					<default>Default</default>
 					<constraints>
@@ -180,7 +180,7 @@
 					</dependencies>
 					<control type="spinner" format="string" />
 				</setting>
-				<setting id="interface.addon.view.id" type="integer" label="30262" help="" parent="interface.viewtype">
+				<setting id="interface.addon.view.id" type="integer" label="30262" help="30727" parent="interface.viewtype">
 					<level>2</level>
 					<default>0</default>
 					<dependencies>
@@ -195,7 +195,7 @@
 						<heading>30262</heading>
 					</control>
 				</setting>
-				<setting id="interface.show.view.id" type="integer" label="30263" help="" parent="interface.viewtype">
+				<setting id="interface.show.view.id" type="integer" label="30263" help="30728" parent="interface.viewtype">
 					<level>2</level>
 					<default>0</default>
 					<dependencies>
@@ -210,7 +210,7 @@
 						<heading>30263</heading>
 					</control>
 				</setting>
-				<setting id="interface.episode.view.id" type="integer" label="30264" help="" parent="interface.viewtype">
+				<setting id="interface.episode.view.id" type="integer" label="30264" help="30729" parent="interface.viewtype">
 					<level>2</level>
 					<default>0</default>
 					<dependencies>
@@ -227,7 +227,7 @@
 				</setting>
 			</group>
 			<group id="3" label="30128">
-				<setting id="browser.api" type="string" label="30129" help="">
+				<setting id="browser.api" type="string" label="30129" help="30730">
 					<level>3</level>
 					<default>otaku</default>
 					<constraints>
@@ -239,12 +239,12 @@
 					</constraints>
 					<control type="spinner" format="string" />
 				</setting>
-				<setting id="override.meta.api" type="boolean" label="30103" help="">
+				<setting id="override.meta.api" type="boolean" label="30103" help="30731">
 					<level>3</level>
 					<default>false</default>
 					<control type="toggle" />
 				</setting>
-				<setting id="meta.api" type="string" label="30103" help="" parent="override.meta.api">
+				<setting id="meta.api" type="string" label="30103" help="30732" parent="override.meta.api">
 					<level>3</level>
 					<default>simkl</default>
 					<constraints>
@@ -262,7 +262,7 @@
 						<dependency type="visible" setting="override.meta.api">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="override.meta.notify" type="boolean" label="30320" help="" parent="override.meta.api">
+				<setting id="override.meta.notify" type="boolean" label="30320" help="30733" parent="override.meta.api">
 					<level>3</level>
 					<default>false</default>
 					<control type="toggle" />
@@ -272,7 +272,7 @@
 				</setting>
 			</group>
 			<group id="4" label="30175">
-				<setting id="interface.perpage.general.anilist" type="integer" label="30105" help="">
+				<setting id="interface.perpage.general.anilist" type="integer" label="30105" help="30734">
 					<level>2</level>
 					<default>20</default>
 					<constraints>
@@ -287,7 +287,7 @@
 						<dependency type="visible" setting="browser.api">anilist</dependency>
 					</dependencies>
 				</setting>
-				<setting id="interface.perpage.general.mal" type="integer" label="30105" help="">
+				<setting id="interface.perpage.general.mal" type="integer" label="30105" help="30735">
 					<level>2</level>
 					<default>20</default>
 					<constraints>
@@ -307,12 +307,12 @@
 						</dependency>
 					</dependencies>
 				</setting>
-				<setting id="jz.dub" type="boolean" label="30118" help="">
+				<setting id="jz.dub" type="boolean" label="30118" help="30736">
 					<level>3</level>
 					<default>false</default>
 					<control type="toggle" />
 				</setting>
-				<setting id="jz.dub.api" type="integer" label="30119" help="" parent="jz.dub">
+				<setting id="jz.dub.api" type="integer" label="30119" help="30737" parent="jz.dub">
 					<level>3</level>
 					<default>1</default>
 					<constraints>
@@ -326,14 +326,14 @@
 						<dependency type="visible" setting="jz.dub">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="jz.filler" type="boolean" label="30120" help="">
+				<setting id="jz.filler" type="boolean" label="30120" help="30738">
 					<level>3</level>
 					<default>false</default>
 					<control type="toggle" />
 				</setting>
 			</group>
 			<group id="5" label="30104">
-				<setting id="interface.icons" type="string" label="30117" help="">
+				<setting id="interface.icons" type="string" label="30117" help="30739">
 					<level>2</level>
 					<default>colouredv2</default>
 					<constraints>
@@ -362,7 +362,7 @@
 					</constraints>
 					<control type="spinner" format="string" />
 				</setting>
-				<setting id="general.dialog" type="integer" label="30279" help="">
+				<setting id="general.dialog" type="integer" label="30279" help="30740">
 					<level>2</level>
 					<default>0</default>
 					<constraints>
@@ -378,7 +378,7 @@
 					</constraints>
 					<control type="spinner" format="string" />
 				</setting>
-				<setting id="general.malposters" type="boolean" label="30390" help="">
+				<setting id="general.malposters" type="boolean" label="30390" help="30741">
 					<level>2</level>
 					<default>false</default>
 					<control type="toggle" />
@@ -391,7 +391,7 @@
 					<default>false</default>
 					<control type="toggle" />
 				</setting>
-				<setting id="interface.spoilers.shield_mode" type="integer" label="30546" help="">
+				<setting id="interface.spoilers.shield_mode" type="integer" label="30546" help="30742">
 					<level>2</level>
 					<default>0</default>
 					<constraints>
@@ -405,7 +405,7 @@
 						<dependency type="enable" setting="interface.spoilers.hide_thumbs">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="artwork.preference" type="integer" label="30115" help="">
+				<setting id="artwork.preference" type="integer" label="30115" help="30743">
 					<level>2</level>
 					<default>0</default>
 					<constraints>
@@ -418,12 +418,12 @@
 					</constraints>
 					<control type="spinner" format="string" />
 				</setting>
-				<setting id="artwork.titlesearch" type="boolean" label="30452" help="">
+				<setting id="artwork.titlesearch" type="boolean" label="30452" help="30744">
 					<level>2</level>
 					<default>true</default>
 					<control type="toggle" />
 				</setting>
-				<setting id="artwork.advanced" type="boolean" label="30444" help="">
+				<setting id="artwork.advanced" type="boolean" label="30444" help="30745">
 					<level>2</level>
 					<default>false</default>
 					<control type="toggle" />
@@ -443,7 +443,7 @@
 						<dependency type="visible" setting="artwork.advanced">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="artwork.fanart" type="boolean" label="20445" help="">
+				<setting id="artwork.fanart" type="boolean" label="20445" help="30746">
 					<level>2</level>
 					<default>true</default>
 					<control type="toggle" />
@@ -451,7 +451,7 @@
 						<dependency type="visible" setting="artwork.advanced">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="artwork.landscape" type="boolean" label="30445" help="">
+				<setting id="artwork.landscape" type="boolean" label="30445" help="30747">
 					<level>2</level>
 					<default>true</default>
 					<control type="toggle" />
@@ -459,7 +459,7 @@
 						<dependency type="visible" setting="artwork.advanced">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="artwork.clearlogo" type="boolean" label="30116" help="">
+				<setting id="artwork.clearlogo" type="boolean" label="30116" help="30748">
 					<level>2</level>
 					<default>true</default>
 					<control type="toggle" />
@@ -467,7 +467,7 @@
 						<dependency type="visible" setting="artwork.advanced">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="artwork.clearart" type="boolean" label="30446" help="">
+				<setting id="artwork.clearart" type="boolean" label="30446" help="30749">
 					<level>2</level>
 					<default>true</default>
 					<control type="toggle" />
@@ -475,7 +475,7 @@
 						<dependency type="visible" setting="artwork.advanced">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="artwork.banner" type="boolean" label="20020" help="">
+				<setting id="artwork.banner" type="boolean" label="20020" help="30750">
 					<level>2</level>
 					<default>true</default>
 					<control type="toggle" />
@@ -485,7 +485,7 @@
 				</setting>
 			</group>
 			<group id="6" label="30255">
-				<setting id="widget.hide.nextpage" type="boolean" label="30256" help="">
+				<setting id="widget.hide.nextpage" type="boolean" label="30256" help="30751">
 					<level>2</level>
 					<default>false</default>
 					<control type="toggle" />
@@ -504,15 +504,15 @@
 				</setting>
 			</group>
 		</category>
-		<category id="Providers" label="30097" help="">
+		<category id="Providers" label="30097" help="30960">
 			<!-- Torrents -->
 			<group id="1" label="30130" help="">
-				<setting id="provider.nyaa" type="boolean" label="30233" help="">
+				<setting id="provider.nyaa" type="boolean" label="30233" help="30752">
 					<level>1</level>
 					<default>true</default>
 					<control type="toggle" />
 				</setting>
-				<setting id="provider.nyaaalt" type="boolean" label="30244" help="" parent="provider.nyaa">
+				<setting id="provider.nyaaalt" type="boolean" label="30244" help="30753" parent="provider.nyaa">
 					<level>2</level>
 					<default>false</default>
 					<control type="toggle" />
@@ -520,12 +520,12 @@
 						<dependency type="visible" setting="provider.nyaa">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="provider.animetosho" type="boolean" label="30234" help="">
+				<setting id="provider.animetosho" type="boolean" label="30234" help="30754">
 					<level>1</level>
 					<default>true</default>
 					<control type="toggle" />
 				</setting>
-				<setting id="provider.animetoshoalt" type="boolean" label="30456" help="" parent="provider.animetosho">
+				<setting id="provider.animetoshoalt" type="boolean" label="30456" help="30755" parent="provider.animetosho">
 					<level>2</level>
 					<default>false</default>
 					<control type="toggle" />
@@ -548,17 +548,17 @@
 						<dependency type="visible" setting="provider.animetosho">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="provider.nekobt" type="boolean" label="30457" help="">
+				<setting id="provider.nekobt" type="boolean" label="30457" help="30756">
 					<level>1</level>
 					<default>false</default>
 					<control type="toggle" />
 				</setting>
-				<setting id="provider.torrentio" type="boolean" label="30465" help="">
+				<setting id="provider.torrentio" type="boolean" label="30465" help="30757">
 					<level>1</level>
 					<default>true</default>
 					<control type="toggle" />
 				</setting>
-				<setting id="torrentio.config" type="list[string]" label="30466" help="" parent="provider.torrentio">
+				<setting id="torrentio.config" type="list[string]" label="30466" help="30758" parent="provider.torrentio">
 					<level>2</level>
 					<default>yts,eztv,rarbg,1337x,thepiratebay,kickasstorrents,torrentgalaxy,magnetdl,horriblesubs,nyaasi,tokyotosho,anidex,rutor,rutracker,comando,bludv,torrent9,mejortorrent,wolfmax4k,cinecalidad</default>
 					<constraints>
@@ -606,7 +606,7 @@
 			</group>
 			<!-- Hosters -->
 			<group id="2" label="30484" help="">
-				<setting id="provider.easynews" type="boolean" label="30473" help="">
+				<setting id="provider.easynews" type="boolean" label="30473" help="30759">
 					<level>1</level>
 					<default>true</default>
 					<control type="toggle" />
@@ -617,7 +617,7 @@
 			</group>
 			<!-- Embeds -->
 			<group id="3" label="30131" help="">
-				<setting id="embed.config" type="list[string]" label="30389" help="">
+				<setting id="embed.config" type="list[string]" label="30389" help="30760">
 					<level>2</level>
 					<default>doodstream,filelions,filemoon,hd-1,hd-2,hd-3,iga,kwik,megacloud,megaf,moonf,mp4upload,mp4u,mycloud,noads,noadsalt,swish,streamtape,streamwish,t-cloud,vidcdn,vidhide,vidplay,vidsrc,vidstream,yourupload,zto</default>
 					<constraints>
@@ -664,17 +664,17 @@
 					<default>true</default>
 					<control type="toggle"/>
 				</setting> -->
-				<setting id="provider.anikoto" type="boolean" label="30485" help="">
+				<setting id="provider.anikoto" type="boolean" label="30485" help="30761">
 					<level>1</level>
 					<default>true</default>
 					<control type="toggle" />
 				</setting>
-				<setting id="provider.animepahe" type="boolean" label="30237" help="">
+				<setting id="provider.animepahe" type="boolean" label="30237" help="30762">
 					<level>1</level>
 					<default>true</default>
 					<control type="toggle" />
 				</setting>
-				<setting id="provider.animepahealt" type="boolean" label="30486" help="" parent="provider.animepahe">
+				<setting id="provider.animepahealt" type="boolean" label="30486" help="30763" parent="provider.animepahe">
 					<level>2</level>
 					<default>false</default>
 					<control type="toggle" />
@@ -682,12 +682,12 @@
 						<dependency type="visible" setting="provider.animepahe">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="provider.gogo" type="boolean" label="30236" help="">
+				<setting id="provider.gogo" type="boolean" label="30236" help="30764">
 					<level>1</level>
 					<default>true</default>
 					<control type="toggle" />
 				</setting>
-				<setting id="provider.gogoalt" type="boolean" label="30242" help="" parent="provider.gogo">
+				<setting id="provider.gogoalt" type="boolean" label="30242" help="30765" parent="provider.gogo">
 					<level>2</level>
 					<default>false</default>
 					<control type="toggle" />
@@ -695,27 +695,27 @@
 						<dependency type="visible" setting="provider.gogo">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="provider.hianime" type="boolean" label="30235" help="">
+				<setting id="provider.hianime" type="boolean" label="30235" help="30766">
 					<level>1</level>
 					<default>true</default>
 					<control type="toggle" />
 				</setting>
-				<setting id="provider.watchnixtoons2" type="boolean" label="30379" help="">
+				<setting id="provider.watchnixtoons2" type="boolean" label="30379" help="30767">
 					<level>1</level>
 					<default>true</default>
 					<control type="toggle" />
 				</setting>
 			</group>
 		</category>
-		<category id="Scraping" label="30283" help="">
+		<category id="Scraping" label="30283" help="30961">
 			<!-- General Scraping -->
 			<group id="1" label="30284" help="">
-				<setting id="general.autotrynext" type="boolean" label="30143" help="">
+				<setting id="general.autotrynext" type="boolean" label="30143" help="30768">
 					<level>1</level>
 					<default>true</default>
 					<control type="toggle" />
 				</setting>
-				<setting id="general.timeout" type="integer" label="30185" help="">
+				<setting id="general.timeout" type="integer" label="30185" help="30769">
 					<level>1</level>
 					<default>20</default>
 					<constraints>
@@ -753,12 +753,12 @@
 						<heading>30321</heading>
 					</control>
 				</setting>
-				<setting id="general.terminate.oncloud" type="boolean" label="30144" help="">
+				<setting id="general.terminate.oncloud" type="boolean" label="30144" help="30770">
 					<level>2</level>
 					<default>false</default>
 					<control type="toggle" />
 				</setting>
-				<setting id="general.terminate.onlocal" type="boolean" label="30285" help="">
+				<setting id="general.terminate.onlocal" type="boolean" label="30285" help="30771">
 					<level>2</level>
 					<default>false</default>
 					<control type="toggle" />
@@ -771,7 +771,7 @@
 			</group>
 			<!-- Torrent Scraping -->
 			<group id="3" label="30319" help="">
-				<setting id="show.uncached" type="boolean" label="30157" help="">
+				<setting id="show.uncached" type="boolean" label="30157" help="30772">
 					<level>1</level>
 					<default>true</default>
 					<control type="toggle" />
@@ -779,7 +779,7 @@
 			</group>
 			<!-- Cloud Scraping -->
 			<group id="4" label="30286" help="">
-				<setting id="realdebrid.cloudInspection" type="boolean" label="30214" help="">
+				<setting id="realdebrid.cloudInspection" type="boolean" label="30214" help="30773">
 					<level>2</level>
 					<default>true</default>
 					<control type="toggle" />
@@ -787,7 +787,7 @@
 						<dependency type="visible" setting="realdebrid.enabled">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="premiumize.cloudInspection" type="boolean" label="30215" help="">
+				<setting id="premiumize.cloudInspection" type="boolean" label="30215" help="30774">
 					<level>2</level>
 					<default>true</default>
 					<control type="toggle" />
@@ -795,7 +795,7 @@
 						<dependency type="visible" setting="premiumize.enabled">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="alldebrid.cloudInspection" type="boolean" label="30216" help="">
+				<setting id="alldebrid.cloudInspection" type="boolean" label="30216" help="30775">
 					<level>2</level>
 					<default>true</default>
 					<control type="toggle" />
@@ -803,7 +803,7 @@
 						<dependency type="visible" setting="alldebrid.enabled">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="torbox.cloudInspection" type="boolean" label="30369" help="">
+				<setting id="torbox.cloudInspection" type="boolean" label="30369" help="30776">
 					<level>2</level>
 					<default>true</default>
 					<control type="toggle" />
@@ -814,12 +814,12 @@
 			</group>
 			<!-- Local Scraping -->
 			<group id="5" label="30287" help="">
-				<setting id="provider.localfiles" type="boolean" label="30240" help="">
+				<setting id="provider.localfiles" type="boolean" label="30240" help="30777">
 					<level>2</level>
 					<default>true</default>
 					<control type="toggle" />
 				</setting>
-				<setting id="folder.location" type="path" label="30288" help="" parent="provider.localfiles">
+				<setting id="folder.location" type="path" label="30288" help="30778" parent="provider.localfiles">
 					<level>2</level>
 					<default />
 					<constraints>
@@ -835,14 +835,14 @@
 				</setting>
 			</group>
 		</category>
-		<category id="Cache" label="30086" help="">
+		<category id="Cache" label="30086" help="30962">
 			<group id="1" label="30497">
-				<setting id="general.kodi.cache" type="boolean" label="30459" help="">
+				<setting id="general.kodi.cache" type="boolean" label="30459" help="30779">
 					<level>2</level>
 					<default>true</default>
 					<control type="toggle" />
 				</setting>
-				<setting id="cache.scrapers.ttl" type="integer" label="30487" help="">
+				<setting id="cache.scrapers.ttl" type="integer" label="30487" help="30780">
 					<level>2</level>
 					<default>8</default>
 					<constraints>
@@ -854,7 +854,7 @@
 						<popup>false</popup>
 					</control>
 				</setting>
-				<setting id="cache.torrents.ttl" type="integer" label="30488" help="">
+				<setting id="cache.torrents.ttl" type="integer" label="30488" help="30781">
 					<level>2</level>
 					<default>24</default>
 					<constraints>
@@ -866,7 +866,7 @@
 						<popup>false</popup>
 					</control>
 				</setting>
-				<setting id="cache.metadata.ttl" type="integer" label="30493" help="">
+				<setting id="cache.metadata.ttl" type="integer" label="30493" help="30782">
 					<level>2</level>
 					<default>24</default>
 					<constraints>
@@ -878,7 +878,7 @@
 						<popup>false</popup>
 					</control>
 				</setting>
-				<setting id="cache.calendar.ttl" type="integer" label="30494" help="">
+				<setting id="cache.calendar.ttl" type="integer" label="30494" help="30783">
 					<level>2</level>
 					<default>24</default>
 					<constraints>
@@ -935,28 +935,28 @@
 				</setting>
 			</group>
 			<group id="3" label="30496">
-				<setting id="clear_cache_all" type="action" label="30490" help="">
+				<setting id="clear_cache_all" type="action" label="30490" help="30784">
 					<level>0</level>
 					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/clear_cache?setting=true)</data>
 					<control type="button" format="action">
 						<close>true</close>
 					</control>
 				</setting>
-				<setting id="clear_cache_scrapers" type="action" label="30491" help="">
+				<setting id="clear_cache_scrapers" type="action" label="30491" help="30785">
 					<level>1</level>
 					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/clear_scrapers_cache?setting=true)</data>
 					<control type="button" format="action">
 						<close>true</close>
 					</control>
 				</setting>
-				<setting id="clear_cache_debrid" type="action" label="30492" help="">
+				<setting id="clear_cache_debrid" type="action" label="30492" help="30786">
 					<level>1</level>
 					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/clear_debrid_cache?setting=true)</data>
 					<control type="button" format="action">
 						<close>true</close>
 					</control>
 				</setting>
-				<setting id="clear_cache_metadata" type="action" label="30495" help="">
+				<setting id="clear_cache_metadata" type="action" label="30495" help="30787">
 					<level>1</level>
 					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/clear_metadata_cache?setting=true)</data>
 					<control type="button" format="action">
@@ -979,7 +979,7 @@
 				</setting>
 			</group>
 		</category>
-		<category id="Playback" label="30138" help="">
+		<category id="Playback" label="30138" help="30963">
 			<group id="1" label="30289">
 				<setting id="general.smartplay" type="boolean" label="30422" help="30423">
 					<level>1</level>
@@ -1026,7 +1026,7 @@
 						<dependency type="enable" setting="general.smartplay">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="general.playstyle.movie" type="integer" label="30139" help="">
+				<setting id="general.playstyle.movie" type="integer" label="30139" help="30788">
 					<level>0</level>
 					<default>0</default>
 					<constraints>
@@ -1037,7 +1037,7 @@
 					</constraints>
 					<control type="spinner" format="string" />
 				</setting>
-				<setting id="general.playstyle.episode" type="integer" label="30140" help="">
+				<setting id="general.playstyle.episode" type="integer" label="30140" help="30789">
 					<level>0</level>
 					<default>0</default>
 					<constraints>
@@ -1058,12 +1058,12 @@
 				</setting>
 			</group>
 			<group id="2" label="30275">
-				<setting id="general.kodi_language" type="boolean" label="30295" help="">
+				<setting id="general.kodi_language" type="boolean" label="30295" help="30790">
 					<level>2</level>
 					<default>false</default>
 					<control type="toggle" />
 				</setting>
-				<setting id="general.audio" type="integer" label="30296" help="">
+				<setting id="general.audio" type="integer" label="30296" help="30791">
 					<level>0</level>
 					<default>0</default>
 					<constraints>
@@ -1077,7 +1077,7 @@
 					</dependencies>
 					<control type="spinner" format="string" />
 				</setting>
-				<setting id="playlist.unaired" type="boolean" label="30391" help="">
+				<setting id="playlist.unaired" type="boolean" label="30391" help="30792">
 					<level>2</level>
 					<default>false</default>
 					<control type="toggle" />
@@ -1105,12 +1105,12 @@
 				</setting>
 			</group>
 			<group id="4" label="30148">
-				<setting id="smartplay.skipintrodialog" type="boolean" label="30149" help="">
+				<setting id="smartplay.skipintrodialog" type="boolean" label="30149" help="30793">
 					<level>1</level>
 					<default>true</default>
 					<control type="toggle" />
 				</setting>
-				<setting id="skipintro.aniskip.enable" type="boolean" label="30189" help="">
+				<setting id="skipintro.aniskip.enable" type="boolean" label="30189" help="30794">
 					<level>1</level>
 					<default>true</default>
 					<control type="toggle" />
@@ -1118,7 +1118,7 @@
 						<dependency type="visible" setting="smartplay.skipintrodialog">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="skipintro.aniskip.auto" type="boolean" label="30424" help="">
+				<setting id="skipintro.aniskip.auto" type="boolean" label="30424" help="30795">
 					<level>2</level>
 					<default>false</default>
 					<control type="toggle" />
@@ -1126,7 +1126,7 @@
 						<dependency type="visible" setting="skipintro.aniskip.enable">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="skipintro.aniskip.offset" type="integer" label="30190" help="">
+				<setting id="skipintro.aniskip.offset" type="integer" label="30190" help="30796">
 					<level>2</level>
 					<default>-3</default>
 					<constraints>
@@ -1146,7 +1146,7 @@
 						</dependency>
 					</dependencies>
 				</setting>
-				<setting id="skipintro.time" type="integer" label="30150" help="">
+				<setting id="skipintro.time" type="integer" label="30150" help="30797">
 					<level>2</level>
 					<default>80</default>
 					<constraints>
@@ -1161,7 +1161,7 @@
 						<dependency type="visible" setting="smartplay.skipintrodialog">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="skipintro.delay" type="integer" label="30184" help="">
+				<setting id="skipintro.delay" type="integer" label="30184" help="30798">
 					<level>2</level>
 					<default>2</default>
 					<constraints>
@@ -1176,7 +1176,7 @@
 						<dependency type="visible" setting="smartplay.skipintrodialog">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="skipintro.duration" type="integer" label="30188" help="">
+				<setting id="skipintro.duration" type="integer" label="30188" help="30799">
 					<level>2</level>
 					<default>2</default>
 					<constraints>
@@ -1193,7 +1193,7 @@
 				</setting>
 			</group>
 			<group id="5" label="30145">
-				<setting id="smartplay.playingnextdialog" type="boolean" label="30146" help="">
+				<setting id="smartplay.playingnextdialog" type="boolean" label="30146" help="30800">
 					<level>2</level>
 					<default>true</default>
 					<control type="toggle" />
@@ -1220,7 +1220,7 @@
 					</constraints>
 					<control type="spinner" format="string" />
 				</setting>
-				<setting id="smartplay.stillwatching_timeout" type="integer" label="30572" help="30570">
+				<setting id="smartplay.stillwatching_timeout" type="integer" label="30572" help="30971">
 					<level>2</level>
 					<default>30</default>
 					<constraints>
@@ -1235,7 +1235,7 @@
 						<dependency type="enable" setting="smartplay.stillwatching_count" operator="gt">0</dependency>
 					</dependencies>
 				</setting>
-				<setting id="skipoutro.aniskip.enable" type="boolean" label="30189" help="">
+				<setting id="skipoutro.aniskip.enable" type="boolean" label="30189" help="30801">
 					<level>2</level>
 					<default>true</default>
 					<control type="toggle" />
@@ -1243,7 +1243,7 @@
 						<dependency type="visible" setting="smartplay.playingnextdialog">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="skipoutro.aniskip.auto" type="boolean" label="30425" help="">
+				<setting id="skipoutro.aniskip.auto" type="boolean" label="30425" help="30802">
 					<level>2</level>
 					<default>false</default>
 					<control type="toggle" />
@@ -1251,7 +1251,7 @@
 						<dependency type="visible" setting="skipoutro.aniskip.enable">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="skipoutro.aniskip.offset" type="integer" label="30190" help="">
+				<setting id="skipoutro.aniskip.offset" type="integer" label="30190" help="30803">
 					<level>2</level>
 					<default>-3</default>
 					<constraints>
@@ -1271,7 +1271,7 @@
 						</dependency>
 					</dependencies>
 				</setting>
-				<setting id="playingnext.time" type="integer" label="30147" help="">
+				<setting id="playingnext.time" type="integer" label="30147" help="30804">
 					<level>2</level>
 					<default>120</default>
 					<constraints>
@@ -1286,7 +1286,7 @@
 						<dependency type="visible" setting="smartplay.playingnextdialog">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="playingnext.defaultaction" type="integer" label="30323" help="">
+				<setting id="playingnext.defaultaction" type="integer" label="30323" help="30805">
 					<level>2</level>
 					<default>0</default>
 					<constraints>
@@ -1299,7 +1299,7 @@
 				</setting>
 			</group>
 		</category>
-		<category id="Subtitles" label="30600" help="">
+		<category id="Subtitles" label="30600" help="30964">
 			<group id="1" label="30600">
 				<setting id="general.subtitles" type="integer" label="30297" help="30648">
 					<level>0</level>
@@ -1333,7 +1333,7 @@
 					</dependencies>
 					<control type="spinner" format="string" />
 				</setting>
-				<setting id="subtitles.enabled" type="boolean" label="30601" help="">
+				<setting id="subtitles.enabled" type="boolean" label="30601" help="30806">
 					<level>0</level>
 					<default>true</default>
 					<control type="toggle" />
@@ -1392,7 +1392,7 @@
 						<dependency type="visible" setting="subtitles.enabled">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="subtitles.results_limit" type="integer" label="30613" help="" parent="subtitles.enabled">
+				<setting id="subtitles.results_limit" type="integer" label="30613" help="30807" parent="subtitles.enabled">
 					<level>2</level>
 					<default>20</default>
 					<constraints>
@@ -1415,7 +1415,7 @@
 						<dependency type="enable" setting="general.kodi_language">false</dependency>
 					</dependencies>
 				</setting>
-				<setting id="subtitles.types" type="integer" label="30418" help="" parent="general.subtitles.type">
+				<setting id="subtitles.types" type="integer" label="30418" help="30808" parent="general.subtitles.type">
 					<level>2</level>
 					<default>0</default>
 					<constraints>
@@ -1438,7 +1438,7 @@
 						<dependency type="enable" setting="general.kodi_language">false</dependency>
 					</dependencies>
 				</setting>
-				<setting id="subtitles.keywords" type="integer" label="30371" help="" parent="general.subtitles.keyword">
+				<setting id="subtitles.keywords" type="integer" label="30371" help="30809" parent="general.subtitles.keyword">
 					<level>2</level>
 					<default>1</default>
 					<constraints>
@@ -1454,7 +1454,7 @@
 						<dependency type="visible" setting="general.subtitles.keyword">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="subtitles.customkeyword" type="string" label="30375" help="" parent="general.subtitles.keyword">
+				<setting id="subtitles.customkeyword" type="string" label="30375" help="30810" parent="general.subtitles.keyword">
 					<level>2</level>
 					<default />
 					<constraints>
@@ -1481,7 +1481,7 @@
 				</setting>
 			</group>
 			<group id="3" label="30614">
-				<setting id="subtitles.provider.opensubtitles" type="boolean" label="30615" help="" parent="subtitles.enabled">
+				<setting id="subtitles.provider.opensubtitles" type="boolean" label="30615" help="30811" parent="subtitles.enabled">
 					<level>1</level>
 					<default>true</default>
 					<control type="toggle" />
@@ -1489,7 +1489,7 @@
 						<dependency type="visible" setting="subtitles.enabled">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="subtitles.opensubtitles.username" type="string" label="30616" help="" parent="subtitles.provider.opensubtitles">
+				<setting id="subtitles.opensubtitles.username" type="string" label="30616" help="30812" parent="subtitles.provider.opensubtitles">
 					<level>3</level>
 					<default />
 					<constraints>
@@ -1503,7 +1503,7 @@
 						<dependency type="visible" setting="subtitles.provider.opensubtitles">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="subtitles.opensubtitles.password" type="string" label="30617" help="" parent="subtitles.provider.opensubtitles">
+				<setting id="subtitles.opensubtitles.password" type="string" label="30617" help="30813" parent="subtitles.provider.opensubtitles">
 					<level>3</level>
 					<default />
 					<constraints>
@@ -1518,7 +1518,7 @@
 						<dependency type="visible" setting="subtitles.provider.opensubtitles">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="subtitles.provider.subdl" type="boolean" label="30618" help="" parent="subtitles.enabled">
+				<setting id="subtitles.provider.subdl" type="boolean" label="30618" help="30814" parent="subtitles.enabled">
 					<level>1</level>
 					<default>true</default>
 					<control type="toggle" />
@@ -1526,7 +1526,7 @@
 						<dependency type="visible" setting="subtitles.enabled">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="subtitles.subdl.apikey" type="string" label="30619" help="" parent="subtitles.provider.subdl">
+				<setting id="subtitles.subdl.apikey" type="string" label="30619" help="30815" parent="subtitles.provider.subdl">
 					<level>3</level>
 					<default />
 					<constraints>
@@ -1540,7 +1540,7 @@
 						<dependency type="visible" setting="subtitles.provider.subdl">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="subtitles.provider.subsource" type="boolean" label="30620" help="" parent="subtitles.enabled">
+				<setting id="subtitles.provider.subsource" type="boolean" label="30620" help="30816" parent="subtitles.enabled">
 					<level>1</level>
 					<default>true</default>
 					<control type="toggle" />
@@ -1548,7 +1548,7 @@
 						<dependency type="visible" setting="subtitles.enabled">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="subtitles.subsource.apikey" type="string" label="30621" help="" parent="subtitles.provider.subsource">
+				<setting id="subtitles.subsource.apikey" type="string" label="30621" help="30817" parent="subtitles.provider.subsource">
 					<level>3</level>
 					<default />
 					<constraints>
@@ -1562,7 +1562,7 @@
 						<dependency type="visible" setting="subtitles.provider.subsource">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="subtitles.provider.podnadpisi" type="boolean" label="30622" help="" parent="subtitles.enabled">
+				<setting id="subtitles.provider.podnadpisi" type="boolean" label="30622" help="30818" parent="subtitles.enabled">
 					<level>1</level>
 					<default>true</default>
 					<control type="toggle" />
@@ -1570,7 +1570,7 @@
 						<dependency type="visible" setting="subtitles.enabled">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="subtitles.provider.bsplayer" type="boolean" label="30623" help="" parent="subtitles.enabled">
+				<setting id="subtitles.provider.bsplayer" type="boolean" label="30623" help="30819" parent="subtitles.enabled">
 					<level>1</level>
 					<default>true</default>
 					<control type="toggle" />
@@ -1578,7 +1578,7 @@
 						<dependency type="visible" setting="subtitles.enabled">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="subtitles.provider.addic7ed" type="boolean" label="30624" help="" parent="subtitles.enabled">
+				<setting id="subtitles.provider.addic7ed" type="boolean" label="30624" help="30820" parent="subtitles.enabled">
 					<level>1</level>
 					<default>true</default>
 					<control type="toggle" />
@@ -1588,14 +1588,14 @@
 				</setting>
 			</group>
 		</category>
-		<category id="Sort and Filter" label="30151" help="">
+		<category id="Sort and Filter" label="30151" help="30965">
 			<group id="1" label="30632">
 				<setting id="contentyear.bool" type="boolean" label="30352" help="30633">
 					<level>2</level>
 					<default>false</default>
 					<control type="toggle" />
 				</setting>
-				<setting id="contentyear.menu" type="integer" label="30353" help="" parent="contentyear.bool">
+				<setting id="contentyear.menu" type="integer" label="30353" help="30821" parent="contentyear.bool">
 					<level>2</level>
 					<default>0</default>
 					<dependencies>
@@ -1612,7 +1612,7 @@
 					<default>false</default>
 					<control type="toggle" />
 				</setting>
-				<setting id="contentseason.menu" type="integer" label="30355" help="" parent="contentseason.bool">
+				<setting id="contentseason.menu" type="integer" label="30355" help="30822" parent="contentseason.bool">
 					<level>2</level>
 					<default>0</default>
 					<constraints>
@@ -1635,7 +1635,7 @@
 					<default>false</default>
 					<control type="toggle" />
 				</setting>
-				<setting id="contentformat.menu" type="integer" label="30166" help="" parent="contentformat.bool">
+				<setting id="contentformat.menu" type="integer" label="30166" help="30823" parent="contentformat.bool">
 					<level>2</level>
 					<default>0</default>
 					<constraints>
@@ -1659,7 +1659,7 @@
 					<default>false</default>
 					<control type="toggle" />
 				</setting>
-				<setting id="contentstatus.menu.anilist" type="integer" label="30327" help="" parent="contentstatus.bool">
+				<setting id="contentstatus.menu.anilist" type="integer" label="30327" help="30824" parent="contentstatus.bool">
 					<level>2</level>
 					<default>0</default>
 					<constraints>
@@ -1680,7 +1680,7 @@
 						</dependency>
 					</dependencies>
 				</setting>
-				<setting id="contentstatus.menu.mal" type="integer" label="30327" help="" parent="contentstatus.bool">
+				<setting id="contentstatus.menu.mal" type="integer" label="30327" help="30825" parent="contentstatus.bool">
 					<level>2</level>
 					<default>0</default>
 					<constraints>
@@ -1716,7 +1716,7 @@
 						</dependency>
 					</dependencies>
 				</setting>
-				<setting id="contentrating.menu.mal" type="integer" label="30335" help="" parent="contentrating.bool">
+				<setting id="contentrating.menu.mal" type="integer" label="30335" help="30826" parent="contentrating.bool">
 					<level>2</level>
 					<default>0</default>
 					<constraints>
@@ -1750,7 +1750,7 @@
 						<dependency type="visible" setting="browser.api">anilist</dependency>
 					</dependencies>
 				</setting>
-				<setting id="contentorigin.menu" type="integer" label="30179" help="" parent="contentorigin.bool">
+				<setting id="contentorigin.menu" type="integer" label="30179" help="30827" parent="contentorigin.bool">
 					<level>2</level>
 					<default>0</default>
 					<constraints>
@@ -1771,7 +1771,7 @@
 						</dependency>
 					</dependencies>
 				</setting>
-				<setting id="contentgenre.bool" type="boolean" label="30360" help="">
+				<setting id="contentgenre.bool" type="boolean" label="30360" help="30828">
 					<level>2</level>
 					<default>false</default>
 					<control type="toggle" />
@@ -1791,7 +1791,7 @@
 					<default>false</default>
 					<control type="toggle" />
 				</setting>
-				<setting id="divflavors.showdub" type="boolean" label="30187" help="">
+				<setting id="divflavors.showdub" type="boolean" label="30187" help="30829">
 					<level>1</level>
 					<default>false</default>
 					<control type="toggle" />
@@ -1803,14 +1803,14 @@
 				</setting>
 			</group>
 			<group id="2" label="30152">
-				<setting id="source.filter" type="action" label="30447" help="">
+				<setting id="source.filter" type="action" label="30447" help="30830">
 					<level>2</level>
 					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/source_filter)</data>
 					<control type="button" format="action">
 						<close>true</close>
 					</control>
 				</setting>
-				<setting id="general.maxResolution" type="integer" label="30153" help="">
+				<setting id="general.maxResolution" type="integer" label="30153" help="30831">
 					<level>2</level>
 					<default>4</default>
 					<constraints>
@@ -1824,7 +1824,7 @@
 					</constraints>
 					<control type="spinner" format="string" />
 				</setting>
-				<setting id="general.minResolution" type="integer" label="30293" help="">
+				<setting id="general.minResolution" type="integer" label="30293" help="30832">
 					<level>2</level>
 					<default>0</default>
 					<constraints>
@@ -1838,7 +1838,7 @@
 					</constraints>
 					<control type="spinner" format="string" />
 				</setting>
-				<setting id="general.fileFilter" type="integer" label="30299" help="">
+				<setting id="general.fileFilter" type="integer" label="30299" help="30833">
 					<level>2</level>
 					<default>0</default>
 					<constraints>
@@ -1850,7 +1850,7 @@
 					</constraints>
 					<control type="spinner" format="string" />
 				</setting>
-				<setting id="general.webspeed" type="integer" label="30300" help="" parent="general.fileFilter">
+				<setting id="general.webspeed" type="integer" label="30300" help="30834" parent="general.fileFilter">
 					<level>2</level>
 					<default>20</default>
 					<dependencies>
@@ -1878,7 +1878,7 @@
 						<popup>false</popup>
 					</control>
 				</setting>
-				<setting id="general.movie.minGB" type="number" label="30302" help="" parent="general.fileFilter">
+				<setting id="general.movie.minGB" type="number" label="30302" help="30835" parent="general.fileFilter">
 					<level>2</level>
 					<default>0</default>
 					<constraints>
@@ -1911,7 +1911,7 @@
 						<popup>false</popup>
 					</control>
 				</setting>
-				<setting id="general.episode.minGB" type="number" label="30304" help="" parent="general.fileFilter">
+				<setting id="general.episode.minGB" type="number" label="30304" help="30836" parent="general.fileFilter">
 					<level>2</level>
 					<default>0</default>
 					<constraints>
@@ -1930,14 +1930,14 @@
 				</setting>
 			</group>
 			<group id="3" label="30156">
-				<setting id="sort_select" type="action" label="30156" help="">
+				<setting id="sort_select" type="action" label="30156" help="30837">
 					<level>2</level>
 					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/sort_select?setting=true)</data>
 					<control type="button" format="action">
 						<close>true</close>
 					</control>
 				</setting>
-				<setting id="general.source" type="integer" label="30155" help="">
+				<setting id="general.source" type="integer" label="30155" help="30838">
 					<level>1</level>
 					<default>0</default>
 					<constraints>
@@ -1951,12 +1951,12 @@
 				</setting>
 			</group>
 			<group id="4" label="30308">
-				<setting id="general.release_title_filter.enabled" type="boolean" label="30308" help="">
+				<setting id="general.release_title_filter.enabled" type="boolean" label="30308" help="30839">
 					<level>2</level>
 					<default>false</default>
 					<control type="toggle" />
 				</setting>
-				<setting id="general.release_title_filter.selection" type="integer" label="30309" help="" parent="general.release_title_filter.enabled">
+				<setting id="general.release_title_filter.selection" type="integer" label="30309" help="30840" parent="general.release_title_filter.enabled">
 					<level>2</level>
 					<default>0</default>
 					<constraints>
@@ -1975,7 +1975,7 @@
 					</dependencies>
 					<control type="spinner" format="string" />
 				</setting>
-				<setting id="general.release_title_filter.logic" type="integer" label="30315" help="" parent="general.release_title_filter.enabled">
+				<setting id="general.release_title_filter.logic" type="integer" label="30315" help="30841" parent="general.release_title_filter.enabled">
 					<level>2</level>
 					<default>0</default>
 					<constraints>
@@ -1991,7 +1991,7 @@
 					</dependencies>
 					<control type="spinner" format="string" />
 				</setting>
-				<setting id="general.release_title_filter.value1" type="string" label="30310" help="" parent="general.release_title_filter.enabled">
+				<setting id="general.release_title_filter.value1" type="string" label="30310" help="30842" parent="general.release_title_filter.enabled">
 					<level>2</level>
 					<default />
 					<constraints>
@@ -2009,7 +2009,7 @@
 						<heading>30310</heading>
 					</control>
 				</setting>
-				<setting id="general.release_title_filter.value2" type="string" label="30311" help="" parent="general.release_title_filter.enabled">
+				<setting id="general.release_title_filter.value2" type="string" label="30311" help="30843" parent="general.release_title_filter.enabled">
 					<level>2</level>
 					<default />
 					<constraints>
@@ -2027,7 +2027,7 @@
 						<heading>30311</heading>
 					</control>
 				</setting>
-				<setting id="general.release_title_filter.value3" type="string" label="30312" help="" parent="general.release_title_filter.enabled">
+				<setting id="general.release_title_filter.value3" type="string" label="30312" help="30844" parent="general.release_title_filter.enabled">
 					<level>2</level>
 					<default />
 					<constraints>
@@ -2045,7 +2045,7 @@
 						<heading>30312</heading>
 					</control>
 				</setting>
-				<setting id="general.release_title_filter.value4" type="string" label="30313" help="" parent="general.release_title_filter.enabled">
+				<setting id="general.release_title_filter.value4" type="string" label="30313" help="30845" parent="general.release_title_filter.enabled">
 					<level>2</level>
 					<default />
 					<constraints>
@@ -2063,7 +2063,7 @@
 						<heading>30313</heading>
 					</control>
 				</setting>
-				<setting id="general.release_title_filter.value5" type="string" label="30314" help="" parent="general.release_title_filter.enabled">
+				<setting id="general.release_title_filter.value5" type="string" label="30314" help="30846" parent="general.release_title_filter.enabled">
 					<level>2</level>
 					<default />
 					<constraints>
@@ -2081,7 +2081,7 @@
 						<heading>30314</heading>
 					</control>
 				</setting>
-				<setting id="general.release_title_filter.exclude1" type="boolean" label="30318" help="" parent="general.release_title_filter.enabled">
+				<setting id="general.release_title_filter.exclude1" type="boolean" label="30318" help="30847" parent="general.release_title_filter.enabled">
 					<level>2</level>
 					<default>false</default>
 					<dependencies>
@@ -2094,7 +2094,7 @@
 					</dependencies>
 					<control type="toggle" />
 				</setting>
-				<setting id="general.release_title_filter.exclude2" type="boolean" label="30318" help="" parent="general.release_title_filter.enabled">
+				<setting id="general.release_title_filter.exclude2" type="boolean" label="30318" help="30848" parent="general.release_title_filter.enabled">
 					<level>2</level>
 					<default>false</default>
 					<dependencies>
@@ -2107,7 +2107,7 @@
 					</dependencies>
 					<control type="toggle" />
 				</setting>
-				<setting id="general.release_title_filter.exclude3" type="boolean" label="30318" help="" parent="general.release_title_filter.enabled">
+				<setting id="general.release_title_filter.exclude3" type="boolean" label="30318" help="30849" parent="general.release_title_filter.enabled">
 					<level>2</level>
 					<default>false</default>
 					<dependencies>
@@ -2120,7 +2120,7 @@
 					</dependencies>
 					<control type="toggle" />
 				</setting>
-				<setting id="general.release_title_filter.exclude4" type="boolean" label="30318" help="" parent="general.release_title_filter.enabled">
+				<setting id="general.release_title_filter.exclude4" type="boolean" label="30318" help="30850" parent="general.release_title_filter.enabled">
 					<level>2</level>
 					<default>false</default>
 					<dependencies>
@@ -2133,7 +2133,7 @@
 					</dependencies>
 					<control type="toggle" />
 				</setting>
-				<setting id="general.release_title_filter.exclude5" type="boolean" label="30318" help="" parent="general.release_title_filter.enabled">
+				<setting id="general.release_title_filter.exclude5" type="boolean" label="30318" help="30851" parent="general.release_title_filter.enabled">
 					<level>2</level>
 					<default>false</default>
 					<dependencies>
@@ -2148,7 +2148,7 @@
 				</setting>
 			</group>
 			<group id="5" label="30698">
-				<setting id="multipage.precache.pages" type="integer" label="30699" help="">
+				<setting id="multipage.precache.pages" type="integer" label="30699" help="30852">
 					<level>0</level>
 					<default>20</default>
 					<constraints>
@@ -2160,7 +2160,7 @@
 						<popup>false</popup>
 					</control>
 				</setting>
-				<setting id="multipage.sort.by" type="integer" label="30700" help="">
+				<setting id="multipage.sort.by" type="integer" label="30700" help="30853">
 					<level>0</level>
 					<default>0</default>
 					<constraints>
@@ -2173,7 +2173,7 @@
 					</constraints>
 					<control type="spinner" format="string" />
 				</setting>
-				<setting id="multipage.sort.order" type="integer" label="30705" help="" parent="multipage.sort.by">
+				<setting id="multipage.sort.order" type="integer" label="30705" help="30854" parent="multipage.sort.by">
 					<level>0</level>
 					<default>0</default>
 					<constraints>
@@ -2187,7 +2187,7 @@
 					</dependencies>
 					<control type="spinner" format="string" />
 				</setting>
-				<setting id="multipage.display.mode" type="integer" label="30708" help="">
+				<setting id="multipage.display.mode" type="integer" label="30708" help="30855">
 					<level>0</level>
 					<default>0</default>
 					<constraints>
@@ -2198,22 +2198,22 @@
 					</constraints>
 					<control type="spinner" format="string" />
 				</setting>
-				<setting id="multipage.show.filter.item" type="boolean" label="30711" help="">
+				<setting id="multipage.show.filter.item" type="boolean" label="30711" help="30856">
 					<level>0</level>
 					<default>true</default>
 					<control type="toggle" />
 				</setting>
 			</group>
 		</category>
-		<category id="Accounts" label="30158" help="">
+		<category id="Accounts" label="30158" help="30966">
 			<!-- Real-Debrid -->
 			<group id="1" label="30191" help="">
-				<setting id="realdebrid.enabled" type="boolean" label="30192" help="">
+				<setting id="realdebrid.enabled" type="boolean" label="30192" help="30857">
 					<level>0</level>
 					<default>false</default>
 					<control type="toggle" />
 				</setting>
-				<setting id="realdebrid.username" type="string" label="30193" help="">
+				<setting id="realdebrid.username" type="string" label="30193" help="30858">
 					<level>2</level>
 					<default />
 					<constraints>
@@ -2225,7 +2225,7 @@
 						<dependency type="visible" setting="realdebrid.enabled">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="realdebrid.auth.status" type="string" label="30194" help="">
+				<setting id="realdebrid.auth.status" type="string" label="30194" help="30859">
 					<level>2</level>
 					<default />
 					<constraints>
@@ -2237,7 +2237,7 @@
 						<dependency type="visible" setting="realdebrid.enabled">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="realdebrid.auth_start" type="action" label="30195" help="">
+				<setting id="realdebrid.auth_start" type="action" label="30195" help="30860">
 					<level>2</level>
 					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/auth/realdebrid)</data>
 					<control type="button" format="action">
@@ -2247,7 +2247,7 @@
 						<dependency type="visible" setting="realdebrid.enabled">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="realdebrid.refresh.token" type="action" label="30196" help="">
+				<setting id="realdebrid.refresh.token" type="action" label="30196" help="30861">
 					<level>2</level>
 					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/refresh/realdebrid)</data>
 					<control type="button" format="action">
@@ -2257,7 +2257,7 @@
 						<dependency type="visible" setting="realdebrid.enabled">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="realdebrid.autodelete" type="boolean" label="30381" help="">
+				<setting id="realdebrid.autodelete" type="boolean" label="30381" help="30862">
 					<level>2</level>
 					<default>true</default>
 					<control type="toggle" />
@@ -2268,12 +2268,12 @@
 			</group>
 			<!-- Premiumize -->
 			<group id="2" label="30209" help="">
-				<setting id="premiumize.enabled" type="boolean" label="30210" help="">
+				<setting id="premiumize.enabled" type="boolean" label="30210" help="30863">
 					<level>0</level>
 					<default>false</default>
 					<control type="toggle" />
 				</setting>
-				<setting id="premiumize.username" type="string" label="30211" help="">
+				<setting id="premiumize.username" type="string" label="30211" help="30864">
 					<level>2</level>
 					<default />
 					<constraints>
@@ -2285,7 +2285,7 @@
 						<dependency type="visible" setting="premiumize.enabled">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="premiumize.auth.status" type="string" label="30212" help="">
+				<setting id="premiumize.auth.status" type="string" label="30212" help="30865">
 					<level>2</level>
 					<default />
 					<constraints>
@@ -2297,7 +2297,7 @@
 						<dependency type="visible" setting="premiumize.enabled">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="premiumize.auth_start" type="action" label="30213" help="">
+				<setting id="premiumize.auth_start" type="action" label="30213" help="30866">
 					<level>2</level>
 					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/auth/premiumize)</data>
 					<control type="button" format="action">
@@ -2317,7 +2317,7 @@
 				<!--						<dependency type="visible" setting="premiumize.enabled">true</dependency>-->
 				<!--					</dependencies>-->
 				<!--				</setting>-->
-				<setting id="premiumize.addToCloud" type="boolean" label="30382" help="" parent="">
+				<setting id="premiumize.addToCloud" type="boolean" label="30382" help="30867" parent="">
 					<level>2</level>
 					<default>false</default>
 					<control type="toggle" />
@@ -2325,7 +2325,7 @@
 						<dependency type="visible" setting="premiumize.enabled">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="premiumize.autodelete" type="boolean" label="30383" help="">
+				<setting id="premiumize.autodelete" type="boolean" label="30383" help="30868">
 					<level>2</level>
 					<default>true</default>
 					<control type="toggle" />
@@ -2333,7 +2333,7 @@
 						<dependency type="visible" setting="premiumize.enabled">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="premiumize.threshold" type="integer" label="30384" help="" parent="">
+				<setting id="premiumize.threshold" type="integer" label="30384" help="30869" parent="">
 					<level>2</level>
 					<default>750</default>
 					<constraints>
@@ -2356,12 +2356,12 @@
 			</group>
 			<!-- ALLDebrid -->
 			<group id="3" label="30197" help="">
-				<setting id="alldebrid.enabled" type="boolean" label="30198" help="">
+				<setting id="alldebrid.enabled" type="boolean" label="30198" help="30870">
 					<level>0</level>
 					<default>false</default>
 					<control type="toggle" />
 				</setting>
-				<setting id="alldebrid.username" type="string" label="30199" help="">
+				<setting id="alldebrid.username" type="string" label="30199" help="30871">
 					<level>2</level>
 					<default />
 					<constraints>
@@ -2373,7 +2373,7 @@
 						<dependency type="visible" setting="alldebrid.enabled">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="alldebrid.auth.status" type="string" label="30200" help="">
+				<setting id="alldebrid.auth.status" type="string" label="30200" help="30872">
 					<level>2</level>
 					<default />
 					<constraints>
@@ -2385,7 +2385,7 @@
 						<dependency type="visible" setting="alldebrid.enabled">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="alldebrid.auth_start" type="action" label="30201" help="">
+				<setting id="alldebrid.auth_start" type="action" label="30201" help="30873">
 					<level>2</level>
 					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/auth/alldebrid)</data>
 					<control type="button" format="action">
@@ -2405,7 +2405,7 @@
 				<!--						<dependency type="visible" setting="alldebrid.enabled">true</dependency>-->
 				<!--					</dependencies>-->
 				<!--				</setting>-->
-				<setting id="alldebrid.autodelete" type="boolean" label="30381" help="">
+				<setting id="alldebrid.autodelete" type="boolean" label="30381" help="30874">
 					<level>2</level>
 					<default>true</default>
 					<control type="toggle" />
@@ -2416,12 +2416,12 @@
 			</group>
 			<!-- Debrid-Link -->
 			<group id="4" label="30203" help="">
-				<setting id="debridlink.enabled" type="boolean" label="30204" help="">
+				<setting id="debridlink.enabled" type="boolean" label="30204" help="30875">
 					<level>0</level>
 					<default>false</default>
 					<control type="toggle" />
 				</setting>
-				<setting id="debridlink.username" type="string" label="30205" help="">
+				<setting id="debridlink.username" type="string" label="30205" help="30876">
 					<level>2</level>
 					<default />
 					<constraints>
@@ -2433,7 +2433,7 @@
 						<dependency type="visible" setting="debridlink.enabled">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="debridlink.auth.status" type="string" label="30206" help="">
+				<setting id="debridlink.auth.status" type="string" label="30206" help="30877">
 					<level>2</level>
 					<default />
 					<constraints>
@@ -2445,7 +2445,7 @@
 						<dependency type="visible" setting="debridlink.enabled">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="debridlink.auth_start" type="action" label="30207" help="">
+				<setting id="debridlink.auth_start" type="action" label="30207" help="30878">
 					<level>2</level>
 					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/auth/debridlink)</data>
 					<control type="button" format="action">
@@ -2455,7 +2455,7 @@
 						<dependency type="visible" setting="debridlink.enabled">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="dl.refresh.token" type="action" label="30208" help="">
+				<setting id="dl.refresh.token" type="action" label="30208" help="30879">
 					<level>2</level>
 					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/refresh/debridlink)</data>
 					<control type="button" format="action">
@@ -2465,7 +2465,7 @@
 						<dependency type="visible" setting="debridlink.enabled">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="debridlink.autodelete" type="boolean" label="30381" help="">
+				<setting id="debridlink.autodelete" type="boolean" label="30381" help="30880">
 					<level>2</level>
 					<default>true</default>
 					<control type="toggle" />
@@ -2476,12 +2476,12 @@
 			</group>
 			<!-- TorBox -->
 			<group id="5" label="30363" help="">
-				<setting id="torbox.enabled" type="boolean" label="30364" help="">
+				<setting id="torbox.enabled" type="boolean" label="30364" help="30881">
 					<level>0</level>
 					<default>false</default>
 					<control type="toggle" />
 				</setting>
-				<setting id="torbox.username" type="string" label="30365" help="">
+				<setting id="torbox.username" type="string" label="30365" help="30882">
 					<level>2</level>
 					<default />
 					<constraints>
@@ -2493,7 +2493,7 @@
 						<dependency type="visible" setting="torbox.enabled">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="torbox.auth.status" type="string" label="30366" help="">
+				<setting id="torbox.auth.status" type="string" label="30366" help="30883">
 					<level>2</level>
 					<default />
 					<constraints>
@@ -2505,7 +2505,7 @@
 						<dependency type="visible" setting="torbox.enabled">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="torbox.auth_start" type="action" label="30367" help="">
+				<setting id="torbox.auth_start" type="action" label="30367" help="30884">
 					<level>2</level>
 					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/auth/torbox)</data>
 					<control type="button" format="action">
@@ -2525,7 +2525,7 @@
 						<dependency type="visible" setting="torbox.enabled">true</dependency>
 					</dependencies>
 				</setting> -->
-				<setting id="torbox.autodelete" type="boolean" label="30381" help="">
+				<setting id="torbox.autodelete" type="boolean" label="30381" help="30885">
 					<level>2</level>
 					<default>true</default>
 					<control type="toggle" />
@@ -2536,12 +2536,12 @@
 			</group>
 			<!-- EasyDebrid -->
 			<group id="6" label="30398" help="">
-				<setting id="easydebrid.enabled" type="boolean" label="30399" help="">
+				<setting id="easydebrid.enabled" type="boolean" label="30399" help="30886">
 					<level>2</level>
 					<default>false</default>
 					<control type="toggle" />
 				</setting>
-				<setting id="easydebrid.username" type="string" label="30400" help="">
+				<setting id="easydebrid.username" type="string" label="30400" help="30887">
 					<level>2</level>
 					<default />
 					<constraints>
@@ -2553,7 +2553,7 @@
 						<dependency type="visible" setting="easydebrid.enabled">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="easydebrid.auth.status" type="string" label="30401" help="">
+				<setting id="easydebrid.auth.status" type="string" label="30401" help="30888">
 					<level>2</level>
 					<default />
 					<constraints>
@@ -2565,7 +2565,7 @@
 						<dependency type="visible" setting="easydebrid.enabled">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="easydebrid.auth_start" type="action" label="30402" help="">
+				<setting id="easydebrid.auth_start" type="action" label="30402" help="30889">
 					<level>2</level>
 					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/auth/easydebrid)</data>
 					<control type="button" format="action">
@@ -2596,12 +2596,12 @@
 			</group>
 			<!-- Easynews (HTTP Basic — username / password below) -->
 			<group id="8" label="30472" help="">
-				<setting id="easynews.enabled" type="boolean" label="30478" help="">
+				<setting id="easynews.enabled" type="boolean" label="30478" help="30890">
 					<level>0</level>
 					<default>false</default>
 					<control type="toggle" />
 				</setting>
-				<setting id="easynews.user" type="string" label="30474" help="">
+				<setting id="easynews.user" type="string" label="30474" help="30891">
 					<level>2</level>
 					<default />
 					<constraints>
@@ -2612,7 +2612,7 @@
 						<dependency type="visible" setting="easynews.enabled">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="easynews.password" type="string" label="30475" help="">
+				<setting id="easynews.password" type="string" label="30475" help="30892">
 					<level>2</level>
 					<default />
 					<constraints>
@@ -2623,7 +2623,7 @@
 						<dependency type="visible" setting="easynews.enabled">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="easynews.auth.status" type="string" label="30480" help="">
+				<setting id="easynews.auth.status" type="string" label="30480" help="30893">
 					<level>2</level>
 					<default />
 					<constraints>
@@ -2635,7 +2635,7 @@
 						<dependency type="visible" setting="easynews.enabled">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="easynews.auth_start" type="action" label="30481" help="">
+				<setting id="easynews.auth_start" type="action" label="30481" help="30894">
 					<level>2</level>
 					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/auth/easynews)</data>
 					<control type="button" format="action">
@@ -2645,7 +2645,7 @@
 						<dependency type="visible" setting="easynews.enabled">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="easynews.moderation" type="boolean" label="30476" help="">
+				<setting id="easynews.moderation" type="boolean" label="30476" help="30895">
 					<level>2</level>
 					<default>true</default>
 					<control type="toggle" />
@@ -2655,14 +2655,14 @@
 				</setting>
 			</group>
 		</category>
-		<category id="Watchlist" label="30162" help="">
+		<category id="Watchlist" label="30162" help="30967">
 			<group id="1" label="30653">
-				<setting id="watchlist.update.enabled" type="boolean" label="30163" help="">
+				<setting id="watchlist.update.enabled" type="boolean" label="30163" help="30896">
 					<level>2</level>
 					<default>false</default>
 					<control type="toggle" />
 				</setting>
-				<setting id="watchlist.sync.enabled" type="boolean" label="30161" help="">
+				<setting id="watchlist.sync.enabled" type="boolean" label="30161" help="30897">
 					<level>2</level>
 					<default>true</default>
 					<control type="toggle" />
@@ -2670,7 +2670,7 @@
 						<dependency type="visible" setting="watchlist.update.enabled">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="watchlist.prefetch.enabled" type="boolean" label="30450" help="">
+				<setting id="watchlist.prefetch.enabled" type="boolean" label="30450" help="30898">
 					<level>2</level>
 					<default>true</default>
 					<control type="toggle" />
@@ -2693,7 +2693,7 @@
 						<dependency type="visible" setting="watchlist.update.enabled">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="nextup.flavor" type="integer" label="30453" help="">
+				<setting id="nextup.flavor" type="integer" label="30453" help="30899">
 					<level>2</level>
 					<default>0</default>
 					<constraints>
@@ -2749,12 +2749,12 @@
 				</setting>
 			</group>
 			<group id="2" label="30220">
-				<setting id="anilist.enabled" type="boolean" label="30221" help="">
+				<setting id="anilist.enabled" type="boolean" label="30221" help="30900">
 					<level>0</level>
 					<default>false</default>
 					<control type="toggle" />
 				</setting>
-				<setting id="anilist.username" type="string" label="30229" help="">
+				<setting id="anilist.username" type="string" label="30229" help="30901">
 					<level>2</level>
 					<default />
 					<enable>false</enable>
@@ -2766,7 +2766,7 @@
 						<dependency type="visible" setting="anilist.enabled">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="anilist.login" type="action" label="30230" help="">
+				<setting id="anilist.login" type="action" label="30230" help="30902">
 					<level>2</level>
 					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/watchlist_login/anilist?auth_dialog=true)</data>
 					<control type="button" format="action">
@@ -2776,7 +2776,7 @@
 						<dependency type="visible" setting="anilist.enabled">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="anilist.sort" type="integer" label="30231" help="">
+				<setting id="anilist.sort" type="integer" label="30231" help="30903">
 					<level>2</level>
 					<default>3</default>
 					<constraints>
@@ -2795,7 +2795,7 @@
 						<dependency type="visible" setting="anilist.enabled">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="anilist.order" type="integer" label="30232" help="">
+				<setting id="anilist.order" type="integer" label="30232" help="30904">
 					<level>2</level>
 					<default>0</default>
 					<constraints>
@@ -2811,12 +2811,12 @@
 				</setting>
 			</group>
 			<group id="3" label="30222">
-				<setting id="kitsu.enabled" type="boolean" label="30223" help="">
+				<setting id="kitsu.enabled" type="boolean" label="30223" help="30905">
 					<level>0</level>
 					<default>false</default>
 					<control type="toggle" />
 				</setting>
-				<setting id="kitsu.username" type="string" label="30229" parent="kitsu.enabled" help="">
+				<setting id="kitsu.username" type="string" label="30229" parent="kitsu.enabled" help="30906">
 					<level>2</level>
 					<default />
 					<enable>false</enable>
@@ -2828,7 +2828,7 @@
 						<dependency type="visible" setting="kitsu.enabled">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="kitsu.authvar" type="string" label="30224" parent="kitsu.enabled" help="">
+				<setting id="kitsu.authvar" type="string" label="30224" parent="kitsu.enabled" help="30907">
 					<level>2</level>
 					<default />
 					<constraints>
@@ -2841,7 +2841,7 @@
 						<dependency type="visible" setting="kitsu.enabled">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="kitsu.password" type="string" label="30225" parent="kitsu.enabled" help="">
+				<setting id="kitsu.password" type="string" label="30225" parent="kitsu.enabled" help="30908">
 					<level>2</level>
 					<default />
 					<constraints>
@@ -2855,7 +2855,7 @@
 						<dependency type="visible" setting="kitsu.enabled">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="kitsu.login" type="action" label="30230" parent="kitsu.enabled" help="">
+				<setting id="kitsu.login" type="action" label="30230" parent="kitsu.enabled" help="30909">
 					<level>2</level>
 					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/watchlist_login/kitsu)</data>
 					<control type="button" format="action">
@@ -2865,7 +2865,7 @@
 						<dependency type="visible" setting="kitsu.enabled">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="kitsu.sort" type="integer" label="30231" parent="kitsu.enabled" help="">
+				<setting id="kitsu.sort" type="integer" label="30231" parent="kitsu.enabled" help="30910">
 					<level>2</level>
 					<default>3</default>
 					<constraints>
@@ -2884,7 +2884,7 @@
 						<dependency type="visible" setting="kitsu.enabled">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="kitsu.order" type="integer" label="30232" parent="kitsu.enabled" help="">
+				<setting id="kitsu.order" type="integer" label="30232" parent="kitsu.enabled" help="30911">
 					<level>2</level>
 					<default>0</default>
 					<constraints>
@@ -2900,12 +2900,12 @@
 				</setting>
 			</group>
 			<group id="4" label="30218">
-				<setting id="mal.enabled" type="boolean" label="30219" help="">
+				<setting id="mal.enabled" type="boolean" label="30219" help="30912">
 					<level>0</level>
 					<default>false</default>
 					<control type="toggle" />
 				</setting>
-				<setting id="mal.username" type="string" label="30229" help="">
+				<setting id="mal.username" type="string" label="30229" help="30913">
 					<level>2</level>
 					<default />
 					<enable>false</enable>
@@ -2917,7 +2917,7 @@
 						<dependency type="visible" setting="mal.enabled">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="mal.login" type="action" label="30230" help="">
+				<setting id="mal.login" type="action" label="30230" help="30914">
 					<level>2</level>
 					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/watchlist_login/mal?auth_dialog=true)</data>
 					<control type="button" format="action">
@@ -2927,7 +2927,7 @@
 						<dependency type="visible" setting="mal.enabled">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="mal.sort" type="integer" label="30231" help="">
+				<setting id="mal.sort" type="integer" label="30231" help="30915">
 					<level>2</level>
 					<default>3</default>
 					<constraints>
@@ -2946,7 +2946,7 @@
 						<dependency type="visible" setting="mal.enabled">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="mal.order" type="integer" label="30232" help="">
+				<setting id="mal.order" type="integer" label="30232" help="30916">
 					<level>2</level>
 					<default>0</default>
 					<constraints>
@@ -2962,12 +2962,12 @@
 				</setting>
 			</group>
 			<group id="5" label="30227">
-				<setting id="simkl.enabled" type="boolean" label="30228" help="">
+				<setting id="simkl.enabled" type="boolean" label="30228" help="30917">
 					<level>0</level>
 					<default>false</default>
 					<control type="toggle" />
 				</setting>
-				<setting id="simkl.username" type="string" label="30229" parent="simkl.enabled" help="">
+				<setting id="simkl.username" type="string" label="30229" parent="simkl.enabled" help="30918">
 					<level>2</level>
 					<default />
 					<enable>false</enable>
@@ -2980,7 +2980,7 @@
 						<dependency type="visible" setting="simkl.enabled">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="simkl.login" type="action" label="30230" parent="simkl.enabled" help="">
+				<setting id="simkl.login" type="action" label="30230" parent="simkl.enabled" help="30919">
 					<level>2</level>
 					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/watchlist_login/simkl)</data>
 					<control type="button" format="action">
@@ -2990,7 +2990,7 @@
 						<dependency type="visible" setting="simkl.enabled">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="simkl.sort" type="integer" label="30231" parent="simkl.enabled" help="">
+				<setting id="simkl.sort" type="integer" label="30231" parent="simkl.enabled" help="30920">
 					<level>2</level>
 					<default>3</default>
 					<constraints>
@@ -3009,7 +3009,7 @@
 						<dependency type="visible" setting="simkl.enabled">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="simkl.order" type="integer" label="30232" parent="simkl.enabled" help="">
+				<setting id="simkl.order" type="integer" label="30232" parent="simkl.enabled" help="30921">
 					<level>2</level>
 					<default>0</default>
 					<constraints>
@@ -3030,7 +3030,7 @@
 					<default>false</default>
 					<control type="toggle" />
 				</setting>
-				<setting id="trakt.settings" type="action" label="30395" help="" parent="trakt.enabled">
+				<setting id="trakt.settings" type="action" label="30395" help="30922" parent="trakt.enabled">
 					<level>2</level>
 					<dependencies>
 						<dependency type="visible" setting="trakt.enabled">true</dependency>
@@ -3040,7 +3040,7 @@
 						<close>true</close>
 					</control>
 				</setting>
-				<setting id="trakt.script" type="action" label="30396" help="" parent="trakt.enabled">
+				<setting id="trakt.script" type="action" label="30396" help="30923" parent="trakt.enabled">
 					<level>2</level>
 					<dependencies>
 						<dependency type="visible" setting="trakt.enabled">true</dependency>
@@ -3052,7 +3052,7 @@
 				</setting>
 			</group>
 		</category>
-		<category id="Menu Customization" label="30291" help="">
+		<category id="Menu Customization" label="30291" help="30968">
 			<!-- Main Menus -->
 			<group id="1" label="30407" help="">
 				<setting id="menu.mainmenu.order_action" type="action" label="30404" help="30674">
@@ -3062,14 +3062,14 @@
 						<close>true</close>
 					</control>
 				</setting>
-				<setting id="menu.submenu.action" type="action" label="30405" help="30674">
+				<setting id="menu.submenu.action" type="action" label="30405" help="30972">
 					<level>0</level>
 					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/menu_order?menu=menu.submenu&amp;setting=true)</data>
 					<control type="button" format="action">
 						<close>true</close>
 					</control>
 				</setting>
-				<setting id="menu.genres.action" type="action" label="30406" help="30674">
+				<setting id="menu.genres.action" type="action" label="30406" help="30973">
 					<level>0</level>
 					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/menu_order?menu=menu.genres&amp;setting=true)</data>
 					<control type="button" format="action">
@@ -3216,14 +3216,14 @@
 						<close>true</close>
 					</control>
 				</setting>
-				<setting id="movie.submenu.action" type="action" label="30405" help="30674">
+				<setting id="movie.submenu.action" type="action" label="30405" help="30972">
 					<level>0</level>
 					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/menu_order?menu=movie.submenu&amp;setting=true)</data>
 					<control type="button" format="action">
 						<close>true</close>
 					</control>
 				</setting>
-				<setting id="movie.genres.action" type="action" label="30406" help="30674">
+				<setting id="movie.genres.action" type="action" label="30406" help="30973">
 					<level>0</level>
 					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/menu_order?menu=movie.genres&amp;setting=true)</data>
 					<control type="button" format="action">
@@ -3359,14 +3359,14 @@
 						<close>true</close>
 					</control>
 				</setting>
-				<setting id="tv_show.submenu.action" type="action" label="30405" help="30674">
+				<setting id="tv_show.submenu.action" type="action" label="30405" help="30972">
 					<level>0</level>
 					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/menu_order?menu=tv_show.submenu&amp;setting=true)</data>
 					<control type="button" format="action">
 						<close>true</close>
 					</control>
 				</setting>
-				<setting id="tv_show.genres.action" type="action" label="30406" help="30674">
+				<setting id="tv_show.genres.action" type="action" label="30406" help="30973">
 					<level>0</level>
 					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/menu_order?menu=tv_show.genres&amp;setting=true)</data>
 					<control type="button" format="action">
@@ -3502,14 +3502,14 @@
 						<close>true</close>
 					</control>
 				</setting>
-				<setting id="tv_short.submenu.action" type="action" label="30405" help="30674">
+				<setting id="tv_short.submenu.action" type="action" label="30405" help="30972">
 					<level>0</level>
 					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/menu_order?menu=tv_short.submenu&amp;setting=true)</data>
 					<control type="button" format="action">
 						<close>true</close>
 					</control>
 				</setting>
-				<setting id="tv_short.genres.action" type="action" label="30406" help="30674">
+				<setting id="tv_short.genres.action" type="action" label="30406" help="30973">
 					<level>0</level>
 					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/menu_order?menu=tv_short.genres&amp;setting=true)</data>
 					<control type="button" format="action">
@@ -3645,14 +3645,14 @@
 						<close>true</close>
 					</control>
 				</setting>
-				<setting id="special.submenu.action" type="action" label="30405" help="30674">
+				<setting id="special.submenu.action" type="action" label="30405" help="30972">
 					<level>0</level>
 					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/menu_order?menu=special.submenu&amp;setting=true)</data>
 					<control type="button" format="action">
 						<close>true</close>
 					</control>
 				</setting>
-				<setting id="special.genres.action" type="action" label="30406" help="30674">
+				<setting id="special.genres.action" type="action" label="30406" help="30973">
 					<level>0</level>
 					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/menu_order?menu=special.genres&amp;setting=true)</data>
 					<control type="button" format="action">
@@ -3788,14 +3788,14 @@
 						<close>true</close>
 					</control>
 				</setting>
-				<setting id="ova.submenu.action" type="action" label="30405" help="30674">
+				<setting id="ova.submenu.action" type="action" label="30405" help="30972">
 					<level>0</level>
 					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/menu_order?menu=ova.submenu&amp;setting=true)</data>
 					<control type="button" format="action">
 						<close>true</close>
 					</control>
 				</setting>
-				<setting id="ova.genres.action" type="action" label="30406" help="30674">
+				<setting id="ova.genres.action" type="action" label="30406" help="30973">
 					<level>0</level>
 					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/menu_order?menu=ova.genres&amp;setting=true)</data>
 					<control type="button" format="action">
@@ -3931,14 +3931,14 @@
 						<close>true</close>
 					</control>
 				</setting>
-				<setting id="ona.submenu.action" type="action" label="30405" help="30674">
+				<setting id="ona.submenu.action" type="action" label="30405" help="30972">
 					<level>0</level>
 					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/menu_order?menu=ona.submenu&amp;setting=true)</data>
 					<control type="button" format="action">
 						<close>true</close>
 					</control>
 				</setting>
-				<setting id="ona.genres.action" type="action" label="30406" help="30674">
+				<setting id="ona.genres.action" type="action" label="30406" help="30973">
 					<level>0</level>
 					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/menu_order?menu=ona.genres&amp;setting=true)</data>
 					<control type="button" format="action">
@@ -4074,14 +4074,14 @@
 						<close>true</close>
 					</control>
 				</setting>
-				<setting id="music.submenu.action" type="action" label="30405" help="30674">
+				<setting id="music.submenu.action" type="action" label="30405" help="30972">
 					<level>0</level>
 					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/menu_order?menu=music.submenu&amp;setting=true)</data>
 					<control type="button" format="action">
 						<close>true</close>
 					</control>
 				</setting>
-				<setting id="music.genres.action" type="action" label="30406" help="30674">
+				<setting id="music.genres.action" type="action" label="30406" help="30973">
 					<level>0</level>
 					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/menu_order?menu=music.genres&amp;setting=true)</data>
 					<control type="button" format="action">
@@ -4209,59 +4209,59 @@
 				</setting>
 			</group>
 		</category>
-		<category id="Context Customization" label="30245" help="">
+		<category id="Context Customization" label="30245" help="30969">
 			<group id="1" label="30257" help="">
-				<setting id="context.otaku.findrecommendations" type="boolean" label="30246" help="">
+				<setting id="context.otaku.findrecommendations" type="boolean" label="30246" help="30924">
 					<level>2</level>
 					<default>true</default>
 					<control type="toggle" />
 				</setting>
-				<setting id="context.otaku.findrelations" type="boolean" label="30247" help="">
+				<setting id="context.otaku.findrelations" type="boolean" label="30247" help="30925">
 					<level>2</level>
 					<default>true</default>
 					<control type="toggle" />
 				</setting>
-				<setting id="context.otaku.getwatchorder" type="boolean" label="30351" help="">
+				<setting id="context.otaku.getwatchorder" type="boolean" label="30351" help="30926">
 					<level>2</level>
 					<default>true</default>
 					<control type="toggle" />
 				</setting>
-				<setting id="context.otaku.viewreviews" type="boolean" label="30460" help="">
+				<setting id="context.otaku.viewreviews" type="boolean" label="30460" help="30927">
 					<level>2</level>
 					<default>true</default>
 					<control type="toggle" />
 				</setting>
-				<setting id="context.otaku.viewstatistics" type="boolean" label="30462" help="">
+				<setting id="context.otaku.viewstatistics" type="boolean" label="30462" help="30928">
 					<level>2</level>
 					<default>true</default>
 					<control type="toggle" />
 				</setting>
-				<setting id="context.otaku.rescrape" type="boolean" label="30248" help="">
+				<setting id="context.otaku.rescrape" type="boolean" label="30248" help="30929">
 					<level>2</level>
 					<default>true</default>
 					<control type="toggle" />
 				</setting>
-				<setting id="context.otaku.sourceselect" type="boolean" label="30249" help="">
+				<setting id="context.otaku.sourceselect" type="boolean" label="30249" help="30930">
 					<level>2</level>
 					<default>true</default>
 					<control type="toggle" />
 				</setting>
-				<setting id="context.otaku.logout" type="boolean" label="30250" help="">
+				<setting id="context.otaku.logout" type="boolean" label="30250" help="30931">
 					<level>2</level>
 					<default>true</default>
 					<control type="toggle" />
 				</setting>
-				<setting id="context.otaku.deletefromdatabase" type="boolean" label="30251" help="">
+				<setting id="context.otaku.deletefromdatabase" type="boolean" label="30251" help="30932">
 					<level>2</level>
 					<default>false</default>
 					<control type="toggle" />
 				</setting>
-				<setting id="context.otaku.watchlist" type="boolean" label="30252" help="">
+				<setting id="context.otaku.watchlist" type="boolean" label="30252" help="30933">
 					<level>2</level>
 					<default>true</default>
 					<control type="toggle" />
 				</setting>
-				<setting id="context.otaku.markedaswatched" type="boolean" label="30253" help="">
+				<setting id="context.otaku.markedaswatched" type="boolean" label="30253" help="30934">
 					<level>2</level>
 					<default>true</default>
 					<control type="toggle" />
@@ -4271,19 +4271,19 @@
 					<default>true</default>
 					<control type="toggle" />
 				</setting>
-				<setting id="context.otaku.fanartselect" type="boolean" label="30254" help="">
+				<setting id="context.otaku.fanartselect" type="boolean" label="30254" help="30935">
 					<level>2</level>
 					<default>false</default>
 					<control type="toggle" />
 				</setting>
-				<setting id="context.otaku.clearcache" type="boolean" label="30072" help="">
+				<setting id="context.otaku.clearcache" type="boolean" label="30072" help="30936">
 					<level>2</level>
 					<default>true</default>
 					<control type="toggle" />
 				</setting>
 			</group>
 		</category>
-		<category id="Maintenance" label="30177" help="">
+		<category id="Maintenance" label="30177" help="30970">
 			<group id="1" label="30652">
 				<setting id="database_stats" type="action" label="30500" help="30517">
 					<level>2</level>
@@ -4329,42 +4329,42 @@
 				</setting>
 			</group>
 			<group id="2" label="30654">
-				<setting id="change_log" type="action" label="30070" help="">
+				<setting id="change_log" type="action" label="30070" help="30937">
 					<level>1</level>
 					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/change_log?setting=true)</data>
 					<control type="button" format="action">
 						<close>true</close>
 					</control>
 				</setting>
-				<setting id="clear_cache" type="action" label="30072" help="">
+				<setting id="clear_cache" type="action" label="30072" help="30938">
 					<level>2</level>
 					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/clear_cache?setting=true)</data>
 					<control type="button" format="action">
 						<close>true</close>
 					</control>
 				</setting>
-				<setting id="clear_search_history" type="action" label="30073" help="">
+				<setting id="clear_search_history" type="action" label="30073" help="30939">
 					<level>1</level>
 					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/clear_search_history?setting=true)</data>
 					<control type="button" format="action">
 						<close>true</close>
 					</control>
 				</setting>
-				<setting id="clear_watch_history" type="action" label="30074" help="">
+				<setting id="clear_watch_history" type="action" label="30074" help="30940">
 					<level>1</level>
 					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/clear_watch_history?setting=true)</data>
 					<control type="button" format="action">
 						<close>true</close>
 					</control>
 				</setting>
-				<setting id="clear_selected_fanart" type="action" label="30080" help="">
+				<setting id="clear_selected_fanart" type="action" label="30080" help="30941">
 					<level>2</level>
 					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/clear_selected_fanart?setting=true)</data>
 					<control type="button" format="action">
 						<close>true</close>
 					</control>
 				</setting>
-				<setting id="completed_sync" type="action" label="30077" help="">
+				<setting id="completed_sync" type="action" label="30077" help="30942">
 					<level>2</level>
 					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/completed_sync?setting=true)</data>
 					<control type="button" format="action">
@@ -4387,7 +4387,7 @@
 				</setting>
 			</group>
 			<group id="3" label="30630">
-				<setting id="download_manager" type="action" label="30078" help="">
+				<setting id="download_manager" type="action" label="30078" help="30943">
 					<level>2</level>
 					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/download_manager?setting=true)</data>
 					<control type="button" format="action">
@@ -4407,12 +4407,12 @@
 				</setting>
 			</group>
 			<group id="4" label="30342">
-				<setting id="inputstreamadaptive.enabled" type="boolean" label="30343" help="">
+				<setting id="inputstreamadaptive.enabled" type="boolean" label="30343" help="30944">
 					<level>3</level>
 					<default>true</default>
 					<control type="toggle" />
 				</setting>
-				<setting id="inputstreamadaptive.settings" type="action" label="30344" help="" parent="inputstreamadaptive.enabled">
+				<setting id="inputstreamadaptive.settings" type="action" label="30344" help="30945" parent="inputstreamadaptive.enabled">
 					<level>3</level>
 					<dependencies>
 						<dependency type="enable">
@@ -4424,7 +4424,7 @@
 						<close>true</close>
 					</control>
 				</setting>
-				<setting id="inputstreamhelper" type="action" label="30345" help="" parent="inputstreamadaptive.enabled">
+				<setting id="inputstreamhelper" type="action" label="30345" help="30946" parent="inputstreamadaptive.enabled">
 					<level>3</level>
 					<dependencies>
 						<dependency type="enable">
@@ -4445,7 +4445,7 @@
 						<close>true</close>
 					</control>
 				</setting>
-				<setting id="reuselanguageinvoker.status" type="string" label="30124" help="">
+				<setting id="reuselanguageinvoker.status" type="string" label="30124" help="30947">
 					<level>3</level>
 					<default>Disabled</default>
 					<enable>false</enable>
@@ -4453,12 +4453,12 @@
 				</setting>
 			</group>
 			<group id="6" label="30346">
-				<setting id="fs_enable" type="boolean" label="30347" help="">
+				<setting id="fs_enable" type="boolean" label="30347" help="30948">
 					<level>3</level>
 					<default>false</default>
 					<control type="toggle" />
 				</setting>
-				<setting id="fs_inst" type="action" label="30350" help="" parent="fs_enable">
+				<setting id="fs_inst" type="action" label="30350" help="30949" parent="fs_enable">
 					<level>3</level>
 					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/solver_inst)</data>
 					<constraints>
@@ -4471,7 +4471,7 @@
 					</dependencies>
 					<control type="button" format="action" />
 				</setting>
-				<setting id="fs_url" type="string" label="30348" help="" parent="fs_enable">
+				<setting id="fs_url" type="string" label="30348" help="30950" parent="fs_enable">
 					<level>3</level>
 					<default>http://localhost:8191/v1</default>
 					<dependencies>
@@ -4483,7 +4483,7 @@
 						<heading>30348</heading>
 					</control>
 				</setting>
-				<setting id="fs_timeout" type="integer" label="30349" help="" parent="fs_enable">
+				<setting id="fs_timeout" type="integer" label="30349" help="30951" parent="fs_enable">
 					<level>3</level>
 					<default>60</default>
 					<constraints>
@@ -4502,12 +4502,12 @@
 				</setting>
 			</group>
 			<group id="7" label="30376">
-				<setting id="ms_enable" type="boolean" label="30377" help="">
+				<setting id="ms_enable" type="boolean" label="30377" help="30952">
 					<level>3</level>
 					<default>false</default>
 					<control type="toggle" />
 				</setting>
-				<setting id="ms_inst" type="action" label="30350" help="" parent="ms_enable">
+				<setting id="ms_inst" type="action" label="30350" help="30953" parent="ms_enable">
 					<level>3</level>
 					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/solver_inst)</data>
 					<constraints>
@@ -4520,7 +4520,7 @@
 					</dependencies>
 					<control type="button" format="action" />
 				</setting>
-				<setting id="ms_url" type="string" label="30378" help="" parent="ms_enable">
+				<setting id="ms_url" type="string" label="30378" help="30954" parent="ms_enable">
 					<level>3</level>
 					<default>http://localhost:4000/</default>
 					<dependencies>
@@ -4546,7 +4546,7 @@
 						<close>true</close>
 					</control>
 				</setting>
-				<setting id="ipv6.status" type="string" label="30433" help="">
+				<setting id="ipv6.status" type="string" label="30433" help="30955">
 					<level>3</level>
 					<default>Enabled</default>
 					<enable>false</enable>
@@ -4559,7 +4559,7 @@
 						<close>true</close>
 					</control>
 				</setting>
-				<setting id="http2.status" type="string" label="30434" help="">
+				<setting id="http2.status" type="string" label="30434" help="30956">
 					<level>3</level>
 					<default>Enabled</default>
 					<enable>false</enable>
@@ -4567,18 +4567,65 @@
 				</setting>
 			</group>
 			<group id="9" label="30125">
-				<setting id="import_settings" type="action" label="30126" help="">
+				<setting id="import_settings" type="action" label="30126" help="30957">
 					<level>3</level>
 					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/import_settings?setting=true)</data>
 					<control type="button" format="action">
 						<close>true</close>
 					</control>
 				</setting>
-				<setting id="export_settings" type="action" label="30127" help="">
+				<setting id="export_settings" type="action" label="30127" help="30958">
 					<level>3</level>
 					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/export_settings?setting=true)</data>
 					<control type="button" format="action">
 						<close>false</close>
+					</control>
+				</setting>
+			</group>
+			<group id="11" label="30974">
+				<setting id="webpdb.enabled" type="boolean" label="30975" help="30976">
+					<level>3</level>
+					<default>false</default>
+					<control type="toggle" />
+				</setting>
+				<setting id="webpdb.port" type="integer" label="30977" help="30978" parent="webpdb.enabled">
+					<level>3</level>
+					<default>5566</default>
+					<dependencies>
+						<dependency type="visible">
+							<condition operator="is" setting="webpdb.enabled">true</condition>
+						</dependency>
+					</dependencies>
+					<control type="edit" format="integer">
+						<heading>30977</heading>
+					</control>
+				</setting>
+				<setting id="webpdb.mode" type="integer" label="30979" help="30980" parent="webpdb.enabled">
+					<level>3</level>
+					<default>0</default>
+					<constraints>
+						<options>
+							<option label="On Unhandled Exception (Post-Mortem)">0</option>
+							<option label="Break on Route Entry (set_trace)">1</option>
+						</options>
+					</constraints>
+					<dependencies>
+						<dependency type="visible">
+							<condition operator="is" setting="webpdb.enabled">true</condition>
+						</dependency>
+					</dependencies>
+					<control type="spinner" format="string" />
+				</setting>
+				<setting id="webpdb.trigger_now" type="action" label="30981" help="30982" parent="webpdb.enabled">
+					<level>3</level>
+					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/webpdb_trace?setting=true)</data>
+					<dependencies>
+						<dependency type="visible">
+							<condition operator="is" setting="webpdb.enabled">true</condition>
+						</dependency>
+					</dependencies>
+					<control type="button" format="action">
+						<close>true</close>
 					</control>
 				</setting>
 			</group>

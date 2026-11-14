@@ -36,6 +36,7 @@ def parse_episodes(res, eps_watched, dub_data=None):
     if eps_watched and int(eps_watched) >= res['number']:
         parsed['info']['playcount'] = 1
     if control.getBool('interface.cleantitles') and parsed['info'].get('playcount') != 1:
+        parsed['name'] = f'Episode {res["number"]}'
         parsed['info']['title'] = f'Episode {res["number"]}'
         parsed['info']['plot'] = None
     if control.getBool('interface.spoilers.hide_thumbs') and parsed['info'].get('playcount') != 1:

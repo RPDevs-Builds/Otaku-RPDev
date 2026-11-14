@@ -24,6 +24,7 @@ from resources.lib.ui.router import router_process
 
 if __name__ == "__main__":
     try:
+        control.init_session()
         from resources.lib import Main  # noQA
         plugin_url = control.get_plugin_url(sys.argv[0])
         plugin_params = control.get_plugin_params(sys.argv[2])
@@ -32,7 +33,16 @@ if __name__ == "__main__":
             if widget_delay > 0:
                 control.sleep(widget_delay)
         try:
-            router_process(plugin_url, plugin_params)
+            webpdb_enabled = control.getBool('webpdb.enabled')
+            if webpdb_enabled and plugin_url.strip('/') != 'webpdb_trace':
+                if control.getInt('webpdb.mode') == 1:
+                    control.start_webpdb_trace()
+                    router_process(plugin_url, plugin_params)
+                else:
+                    with control.webpdb_post_mortem_context():
+                        router_process(plugin_url, plugin_params)
+            else:
+                router_process(plugin_url, plugin_params)
         except Exception as e:
             control.log(f'Unhandled exception in router_process: {e}', 'error')
             try:

@@ -1,3 +1,12 @@
+Changelog v6.1.3 (2026-11-14):
+- Settings Tooltip Expansion, SQLite Worker Connection Cleanup, Web-PDB Integration & Comprehensive Testing:
+  - Populated all 344 user-visible (`level` 0–3) setting tooltips and all 12 `<category help="">` summaries in `resources/settings.xml` and `strings.po` (`#30000–#30982`).
+  - Added thread-safe `_all_thread_conns` registry, `prune_dead_thread_connections()`, and `close_all_connections()` in `database.py`, and wired deterministic SQLite connection teardown into `control.cleanup()` and `service.py` to prevent virtual address space exhaustion on 32-bit ARM devices.
+  - Added `control.init_session()` in `default.py` to refresh `HANDLE` and reset `_directory_ended` cleanly across script invocations.
+  - Added Web-PDB (`script.module.web-pdb`) optional dependency and Settings -> Maintenance -> Web-PDB configuration group (`webpdb.enabled`, `webpdb.port` defaulting to `5566`, `webpdb.mode`, and `webpdb.trigger_now`).
+  - Fixed `interface.cleantitles` episode spoiler title replacement in `indexers/__init__.py` and moved `DownloadManager.background_info_updater` to a daemon thread with `try...finally` modal cleanup.
+  - Expanded automated test suite to 863 unit/lint tests (`-W default`), 100% module coverage across all 139 source files, 471/471 settings outcome tests, dual Kodi 21/22 profile harness, and hermetic headless Flatpak Kodi 21/22 E2E runner.
+
 Changelog v6.1.2 (2026-11-14):
 - Pin Next Page & Filter Control Rows Under Kodi Sorting:
   - Set `SpecialSort="bottom"` on all `Next Page` rows (`next.png` / `Next Page (...)`) in `control.xbmc_add_dir()` so pagination items always remain anchored at the bottom of sorted lists across all sort methods and orders (Ascending and Descending).

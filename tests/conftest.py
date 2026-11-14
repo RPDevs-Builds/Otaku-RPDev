@@ -68,6 +68,8 @@ with sqlite3.connect(info_db_path) as conn:
     for svc in ('Simkl', 'AniDB', 'MyAnimeList', 'Kitsu', 'AniList', 'TMDB', 'TVDB', 'Fanart-TV', 'MDBList', 'AnimeSchedule', 'Real-Debrid', 'AllDebrid', 'TorBox'):
         conn.execute('INSERT OR REPLACE INTO info VALUES (?, ?, ?, ?)', (svc, 'test_id', 'test_secret', 'http://localhost'))
     conn.commit()
+# Global active KodiProfile tracker for version simulation
+_current_kodi_profile = None
 
 
 # ── xbmc Models & Classes ──────────────────────────────────────────────────
@@ -177,7 +179,7 @@ class MockPlayer:
         self._time = 0.0
         self._total_time = 0.0
         self._playing_file = ''
-        self._vinfo = MockInfoTagVideo()
+        self._vinfo = mock_xbmc.InfoTagVideo()
         self._subtitles = []
         self._subtitle_stream = 0
         self._audio_stream = 0
@@ -206,6 +208,7 @@ class MockPlayer:
     def getAvailableSubtitleStreams(self): return list(self._available_subtitles)
     def getAvailableAudioStreams(self): return list(self._available_audio)
     def getSubtitles(self): return list(self._subtitles)
+    def showSubtitles(self, visible): pass
     def onPlayBackStarted(self): pass
     def onPlayBackEnded(self): pass
     def onPlayBackStopped(self): pass
@@ -362,7 +365,83 @@ mock_xbmc.Player = MockPlayer
 mock_xbmc.Monitor = MockMonitor
 mock_xbmc.PlayList = MockPlayList
 mock_xbmc.Keyboard = MockKeyboard
-mock_xbmc.executeJSONRPC.side_effect = lambda q: '{"result": "ok"}'
+def _mock_execute_jsonrpc(query_str):
+    try:
+        import json
+        q = json.loads(query_str) if isinstance(query_str, str) else query_str
+    except Exception:
+        return '{"result": "ok"}'
+
+    if not isinstance(q, dict):
+        return '{"result": "ok"}'
+
+    method = q.get('method', '')
+    req_id = q.get('id', 1)
+    params = q.get('params', {})
+
+    active_profile = _current_kodi_profile
+    profile_ver = active_profile.version if active_profile else None
+
+    if method == 'Player.GetChapters':
+        if profile_ver == '21':
+            return json.dumps({
+                'jsonrpc': '2.0',
+                'id': req_id,
+                'error': {'code': -32601, 'message': 'Method not found'}
+            })
+        elif profile_ver == '22':
+            return json.dumps({
+                'jsonrpc': '2.0',
+                'id': req_id,
+                'result': {
+                    'chapters': [
+                        {'name': 'Prologue', 'title': 'Prologue', 'time': 0.0},
+                        {'name': 'OP / Opening', 'title': 'OP / Opening', 'time': {'hours': 0, 'minutes': 1, 'seconds': 30, 'milliseconds': 0}},
+                        {'name': 'Part A', 'title': 'Part A', 'time': 180.0},
+                        {'name': 'ED / Ending', 'title': 'ED / Ending', 'time': 1320.0},
+                        {'name': 'Preview', 'title': 'Preview', 'time': 1410.0}
+                    ]
+                }
+            })
+
+
+        return '{"result": "ok"}'
+
+    elif method == 'Player.GetProperties':
+        props = params.get('properties', [])
+        result = {}
+        if 'audiostreams' in props:
+            if profile_ver == '22':
+                result['audiostreams'] = [
+                    {'index': 0, 'language': 'ja', 'name': 'Japanese (Stereo)'},
+                    {'index': 1, 'language': 'en', 'name': 'English (5.1)'}
+                ]
+            else:
+                result['audiostreams'] = [
+                    {'index': 0, 'language': 'jpn', 'name': 'Japanese (Stereo)'},
+                    {'index': 1, 'language': 'eng', 'name': 'English (5.1)'}
+                ]
+        if 'subtitles' in props:
+            if profile_ver == '22':
+                result['subtitles'] = [
+                    {'index': 0, 'language': 'en', 'name': 'English [Full]', 'isdefault': True, 'isforced': False, 'isimpaired': False},
+                    {'index': 1, 'language': 'en-US', 'name': 'English [Signs & Songs]', 'isdefault': False, 'isforced': True, 'isimpaired': False}
+                ]
+            else:
+                result['subtitles'] = [
+                    {'index': 0, 'language': 'eng', 'name': 'English [Full]', 'isdefault': True, 'isforced': False, 'isimpaired': False},
+                    {'index': 1, 'language': 'eng', 'name': 'English [Signs & Songs]', 'isdefault': False, 'isforced': True, 'isimpaired': False}
+                ]
+        return json.dumps({'jsonrpc': '2.0', 'id': req_id, 'result': result})
+
+    elif method == 'Settings.GetSettingValue':
+        setting_id = params.get('setting', '')
+        val = _settings_store.get(setting_id, '')
+        return json.dumps({'jsonrpc': '2.0', 'id': req_id, 'result': {'value': val}})
+
+    return json.dumps({'jsonrpc': '2.0', 'id': req_id, 'result': 'ok'})
+
+mock_xbmc.executeJSONRPC.side_effect = _mock_execute_jsonrpc
 mock_xbmc.executebuiltin = MagicMock()
 mock_xbmc.getCondVisibility.side_effect = lambda c: False
 mock_xbmc.getInfoLabel.side_effect = lambda lbl: ''
@@ -384,7 +463,7 @@ class MockListItem:
         self._props = {}
         self._info = {}
         self._cm = []
-        self._vinfo = MockInfoTagVideo()
+        self._vinfo = mock_xbmc.InfoTagVideo()
         self._selected = False
         self._datetime = ''
 
@@ -494,6 +573,7 @@ class MockControlList:
         self._visible = True
         self._percent = 0.0
         self._label = ''
+        self._control_id = 0
     def addItem(self, item): self._items.append(item)
     def addItems(self, items): self._items.extend(items)
     def reset(self): self._items.clear(); self._selected = 0
@@ -503,19 +583,30 @@ class MockControlList:
     def getSelectedItem(self): return self._items[self._selected] if 0 <= self._selected < len(self._items) else None
     def selectItem(self, idx): self._selected = idx
     def setVisible(self, v): self._visible = bool(v)
+    def isVisible(self): return self._visible
     def setPercent(self, pct): self._percent = float(pct)
     def getPercent(self): return self._percent
-    def setLabel(self, lbl): self._label = str(lbl)
+    def setLabel(self, lbl): self._label = str(lbl if lbl is not None else '')
     def getLabel(self): return self._label
+    def setText(self, text): self._label = str(text if text is not None else '')
+    def getText(self): return self._label
+    def getId(self): return self._control_id
+    def setEnabled(self, e): pass
+    def getEnabled(self): return True
 
 
 class MockControlProgress:
     def __init__(self):
         self._percent = 0.0
         self._visible = True
+        self._control_id = 0
     def setPercent(self, pct): self._percent = float(pct)
     def getPercent(self): return self._percent
     def setVisible(self, v): self._visible = bool(v)
+    def isVisible(self): return self._visible
+    def getId(self): return self._control_id
+    def setEnabled(self, e): pass
+    def getEnabled(self): return True
 
 
 class MockControlButton:
@@ -523,10 +614,124 @@ class MockControlButton:
         self._label = ''
         self._enabled = True
         self._visible = True
-    def setLabel(self, lbl): self._label = str(lbl)
+        self._control_id = 0
+    def setLabel(self, lbl): self._label = str(lbl if lbl is not None else '')
     def getLabel(self): return self._label
     def setEnabled(self, e): self._enabled = bool(e)
+    def getEnabled(self): return self._enabled
     def setVisible(self, v): self._visible = bool(v)
+    def isVisible(self): return self._visible
+    def getId(self): return self._control_id
+
+
+class MockControlEdit:
+    def __init__(self, text=''):
+        self._text = str(text or '')
+        self._label = ''
+        self._enabled = True
+        self._visible = True
+        self._control_id = 0
+    def getText(self): return self._text
+    def setText(self, text): self._text = str(text if text is not None else '')
+    def setLabel(self, lbl): self._label = str(lbl if lbl is not None else '')
+    def getLabel(self): return self._label
+    def setEnabled(self, e): self._enabled = bool(e)
+    def getEnabled(self): return self._enabled
+    def setVisible(self, v): self._visible = bool(v)
+    def isVisible(self): return self._visible
+    def getId(self): return self._control_id
+
+
+class MockControlLabel:
+    def __init__(self, label=''):
+        self._label = str(label or '')
+        self._visible = True
+        self._control_id = 0
+    def setLabel(self, label): self._label = str(label if label is not None else '')
+    def getLabel(self): return self._label
+    def setVisible(self, v): self._visible = bool(v)
+    def isVisible(self): return self._visible
+    def getId(self): return self._control_id
+    def setEnabled(self, e): pass
+    def getEnabled(self): return True
+
+
+class MockControlTextBox:
+    def __init__(self):
+        self._text = ''
+        self._visible = True
+        self._control_id = 0
+    def setText(self, text): self._text = str(text if text is not None else '')
+    def getText(self): return self._text
+    def scroll(self, offset): pass
+    def reset(self): self._text = ''
+    def setVisible(self, v): self._visible = bool(v)
+    def isVisible(self): return self._visible
+    def getId(self): return self._control_id
+    def setEnabled(self, e): pass
+    def getEnabled(self): return True
+
+
+class MockControlImage:
+    def __init__(self):
+        self._image = ''
+        self._visible = True
+        self._control_id = 0
+    def setImage(self, path): self._image = str(path if path is not None else '')
+    def getImage(self): return self._image
+    def setVisible(self, v): self._visible = bool(v)
+    def isVisible(self): return self._visible
+    def getId(self): return self._control_id
+    def setEnabled(self, e): pass
+    def getEnabled(self): return True
+
+
+class MockControlScrollBar:
+    def __init__(self):
+        self._visible = True
+        self._control_id = 0
+    def setVisible(self, v): self._visible = bool(v)
+    def isVisible(self): return self._visible
+    def getId(self): return self._control_id
+    def setEnabled(self, e): pass
+    def getEnabled(self): return True
+
+
+class MockControlGroup:
+    def __init__(self):
+        self._visible = True
+        self._control_id = 0
+    def setVisible(self, v): self._visible = bool(v)
+    def isVisible(self): return self._visible
+    def getId(self): return self._control_id
+    def setEnabled(self, e): pass
+    def getEnabled(self): return True
+
+
+def create_mock_control(ctype, control_id=0):
+    ctype_lower = str(ctype or '').lower()
+    if ctype_lower in ('list', 'panel'):
+        ctrl = MockControlList()
+    elif ctype_lower == 'progress':
+        ctrl = MockControlProgress()
+    elif ctype_lower in ('button', 'togglebutton'):
+        ctrl = MockControlButton()
+    elif ctype_lower == 'edit':
+        ctrl = MockControlEdit()
+    elif ctype_lower == 'label':
+        ctrl = MockControlLabel()
+    elif ctype_lower == 'textbox':
+        ctrl = MockControlTextBox()
+    elif ctype_lower == 'image':
+        ctrl = MockControlImage()
+    elif ctype_lower == 'scrollbar':
+        ctrl = MockControlScrollBar()
+    elif ctype_lower in ('group', 'grouplist'):
+        ctrl = MockControlGroup()
+    else:
+        ctrl = MockControlList()
+    ctrl._control_id = control_id
+    return ctrl
 
 
 _window_props = {}
@@ -568,6 +773,26 @@ class MockWindowXMLDialog(metaclass=SwigClassProtectionMeta):
     def clearProperty(self, k): self._props.pop(str(k), None)
     def clearProperties(self): self._props.clear()
     def getControl(self, control_id):
+        active_profile = _current_kodi_profile
+        strict_skin = active_profile and getattr(active_profile, 'strict_skin_controls', False)
+        if strict_skin and self._xml_file:
+            from tests.kodi_profile import parse_skin_xml
+            controls = parse_skin_xml(self._xml_file)
+            cid_match = None
+            if control_id in controls:
+                cid_match = control_id
+            elif str(control_id) in controls:
+                cid_match = str(control_id)
+            elif str(control_id).isdigit() and int(control_id) in controls:
+                cid_match = int(control_id)
+            if cid_match is None:
+                raise RuntimeError(f"Control does not exist {control_id} in skin XML '{self._xml_file}'")
+
+
+            if control_id not in self._controls:
+                ctype = controls[cid_match]
+                self._controls[control_id] = create_mock_control(ctype, control_id)
+            return self._controls[control_id]
         if control_id not in self._controls:
             self._controls[control_id] = MockControlList()
         return self._controls[control_id]
@@ -622,6 +847,12 @@ mock_xbmcgui.DialogProgress = MockDialogProgress
 mock_xbmcgui.ControlList = MockControlList
 mock_xbmcgui.ControlProgress = MockControlProgress
 mock_xbmcgui.ControlButton = MockControlButton
+mock_xbmcgui.ControlEdit = MockControlEdit
+mock_xbmcgui.ControlLabel = MockControlLabel
+mock_xbmcgui.ControlTextBox = MockControlTextBox
+mock_xbmcgui.ControlImage = MockControlImage
+mock_xbmcgui.ControlScrollBar = MockControlScrollBar
+mock_xbmcgui.ControlGroup = MockControlGroup
 mock_xbmcgui.Window.return_value = mock_home_win
 mock_xbmcgui.WindowXMLDialog = MockWindowXMLDialog
 mock_xbmcgui.WindowDialog = MockWindowDialog
@@ -768,7 +999,9 @@ _settings_store = {
 def addon_side_effect(addon_id=None):
     addon_mock = MagicMock()
     if addon_id == 'xbmc.addon':
-        addon_mock.getAddonInfo.side_effect = lambda k: '21.0.0' if k == 'version' else ''
+        active_profile = _current_kodi_profile
+        ver = '22.0.0' if (active_profile and active_profile.version == '22') else '21.3.0' if (active_profile and active_profile.version == '21') else '21.0.0'
+        addon_mock.getAddonInfo.side_effect = lambda k: ver if k == 'version' else ''
     else:
         addon_mock.getAddonInfo.side_effect = lambda k: {
             'id': addon_id or 'plugin.video.otaku.rpdev',
@@ -779,28 +1012,93 @@ def addon_side_effect(addon_id=None):
             'path': os.path.join(REPO_ROOT, 'context.otaku.rpdev') if addon_id == 'context.otaku.rpdev' else ADDON_ROOT,
             'profile': TEST_PROFILE_DIR
         }.get(k, '')
+
+        def _validate_schema(k, expected_types, method_name):
+            active_profile = _current_kodi_profile
+            if active_profile and getattr(active_profile, 'strict_settings', False):
+                from tests.kodi_profile import load_settings_schema
+                schema, _ = load_settings_schema()
+                if k not in schema:
+                    raise TypeError(f"Unknown setting ID '{k}' in strict_settings mode")
+                stype = schema[k]
+                if expected_types and stype not in expected_types:
+                    raise TypeError(f"Setting '{k}' is of type '{stype}', cannot call {method_name}")
+
+        def _check_swig_none(k, v, method_name):
+            active_profile = _current_kodi_profile
+            if active_profile and active_profile.version == '22':
+                if k is None:
+                    raise TypeError(f"SWIG contract violation: {method_name} settingid cannot be None")
+                if v is None:
+                    raise TypeError(f"SWIG contract violation: {method_name} value cannot be None")
+
         mock_settings = MagicMock()
-        mock_settings.getString.side_effect = lambda k: _settings_store.get(k, '')
-        mock_settings.setString.side_effect = lambda k, v: _settings_store.__setitem__(k, str(v))
-        mock_settings.getBool.side_effect = lambda k: str(_settings_store.get(k, '')).lower() == 'true'
-        mock_settings.setBool.side_effect = lambda k, v: _settings_store.__setitem__(k, 'true' if v else 'false')
-        mock_settings.getInt.side_effect = lambda k: int(_settings_store.get(k, 0))
-        mock_settings.setInt.side_effect = lambda k, v: _settings_store.__setitem__(k, str(v))
-        mock_settings.getNumber.side_effect = lambda k: float(_settings_store.get(k, 0))
-        mock_settings.setNumber.side_effect = lambda k, v: _settings_store.__setitem__(k, str(v))
+
+        def _get_string(k):
+            _validate_schema(k, ('string', 'path'), 'getString')
+            return _settings_store.get(k, '')
+
+        def _set_string(k, v):
+            _check_swig_none(k, v, 'setString')
+            _validate_schema(k, ('string', 'path'), 'setString')
+            _settings_store[k] = str(v)
+
+        def _get_bool(k):
+            _validate_schema(k, ('boolean',), 'getBool')
+            return str(_settings_store.get(k, '')).lower() == 'true'
+
+        def _set_bool(k, v):
+            _check_swig_none(k, v, 'setBool')
+            _validate_schema(k, ('boolean',), 'setBool')
+            _settings_store[k] = 'true' if v else 'false'
+
+        def _get_int(k):
+            _validate_schema(k, ('integer',), 'getInt')
+            try:
+                return int(_settings_store.get(k, 0))
+            except (ValueError, TypeError):
+                return 0
+
+        def _set_int(k, v):
+            _check_swig_none(k, v, 'setInt')
+            _validate_schema(k, ('integer',), 'setInt')
+            _settings_store[k] = str(v)
+
+        def _get_number(k):
+            _validate_schema(k, ('number',), 'getNumber')
+            try:
+                return float(_settings_store.get(k, 0))
+            except (ValueError, TypeError):
+                return 0.0
+
+        def _set_number(k, v):
+            _check_swig_none(k, v, 'setNumber')
+            _validate_schema(k, ('number',), 'setNumber')
+            _settings_store[k] = str(v)
 
         def _get_str_list(k):
+            _validate_schema(k, ('list[string]', 'list[String]'), 'getStringList')
             val = _settings_store.get(k, '')
             if isinstance(val, list):
                 return val
             return [x.strip() for x in val.split(',') if x.strip()] if val else []
 
         def _set_str_list(k, v):
+            _check_swig_none(k, v, 'setStringList')
+            _validate_schema(k, ('list[string]', 'list[String]'), 'setStringList')
             if isinstance(v, list):
                 _settings_store[k] = ','.join(v)
             else:
                 _settings_store[k] = str(v)
 
+        mock_settings.getString.side_effect = _get_string
+        mock_settings.setString.side_effect = _set_string
+        mock_settings.getBool.side_effect = _get_bool
+        mock_settings.setBool.side_effect = _set_bool
+        mock_settings.getInt.side_effect = _get_int
+        mock_settings.setInt.side_effect = _set_int
+        mock_settings.getNumber.side_effect = _get_number
+        mock_settings.setNumber.side_effect = _set_number
         mock_settings.getStringList.side_effect = _get_str_list
         mock_settings.setStringList.side_effect = _set_str_list
         mock_settings.getIntList.side_effect = lambda k: [int(x) for x in _get_str_list(k)]
@@ -810,17 +1108,36 @@ def addon_side_effect(addon_id=None):
         mock_settings.getNumberList.side_effect = lambda k: [float(x) for x in _get_str_list(k)]
         mock_settings.setNumberList.side_effect = lambda k, v: _settings_store.__setitem__(k, ','.join([str(x) for x in v]))
 
+        def _addon_set_setting(k, v):
+            _check_swig_none(k, v, 'setSetting')
+            _validate_schema(k, None, 'setSetting')
+            _settings_store[k] = str(v)
+
+        def _addon_get_setting(k):
+            _validate_schema(k, None, 'getSetting')
+            return _settings_store.get(k, '')
+
         addon_mock.getLocalizedString.side_effect = lambda string_id: f"String_{string_id}"
         addon_mock.getSettings.return_value = mock_settings
-        addon_mock.getSetting.side_effect = lambda k: _settings_store.get(k, '')
-        addon_mock.getString.side_effect = lambda k: _settings_store.get(k, '')
+        addon_mock.getSetting.side_effect = _addon_get_setting
+        addon_mock.getString.side_effect = _get_string
         addon_mock.getStringList.side_effect = _get_str_list
-        addon_mock.getBool.side_effect = lambda k: _settings_store.get(k, '').lower() == 'true'
-        addon_mock.getInt.side_effect = lambda k: int(_settings_store.get(k, 0))
-        addon_mock.setSetting.side_effect = lambda k, v: _settings_store.__setitem__(k, str(v))
-        addon_mock.setString.side_effect = lambda k, v: _settings_store.__setitem__(k, str(v))
+        addon_mock.getBool.side_effect = _get_bool
+        addon_mock.getInt.side_effect = _get_int
+        addon_mock.setSetting.side_effect = _addon_set_setting
+        addon_mock.setString.side_effect = _set_string
         addon_mock.setStringList.side_effect = _set_str_list
     return addon_mock
+
+
+def reset_settings_to_defaults(include_test_fixtures=True):
+    from tests.kodi_profile import reset_settings_to_defaults as _reset
+    return _reset(include_test_fixtures=include_test_fixtures)
+
+
+def restore_fixture_settings():
+    from tests.kodi_profile import restore_fixture_settings as _restore
+    return _restore()
 
 mock_xbmcaddon = MagicMock()
 mock_xbmcaddon.Addon.side_effect = addon_side_effect
@@ -832,7 +1149,7 @@ sys.modules['xbmcgui'] = mock_xbmcgui
 sys.modules['xbmcvfs'] = mock_xbmcvfs
 sys.modules['xbmcplugin'] = mock_xbmcplugin
 
-# Fallback mocks for external Kodi script modules (bs4, pyqrcode) when running in bare CI
+# Fallback mocks for external Kodi script modules (bs4, pyqrcode, inputstreamhelper) when running in bare CI
 try:
     import bs4
 except ImportError:
@@ -846,6 +1163,12 @@ try:
 except ImportError:
     mock_pyqrcode = MagicMock()
     sys.modules['pyqrcode'] = mock_pyqrcode
+
+try:
+    import inputstreamhelper
+except ImportError:
+    mock_inputstreamhelper = MagicMock()
+    sys.modules['inputstreamhelper'] = mock_inputstreamhelper
 
 # Module aliasing for test harness
 this_mod = sys.modules[__name__]

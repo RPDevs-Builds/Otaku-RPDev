@@ -672,7 +672,7 @@ msgid "Set Percent to Mark as Watched"
 msgstr ""
 
 msgctxt "#30160"
-msgid "NOTE: Next up Dialog will not begin until this percentage is met"
+msgid "Minimum playback percentage required to mark an episode watched and trigger Next Up dialog prompts. Range: 50-95% (Default: 80%)."
 msgstr ""
 
 msgctxt "#30161"
@@ -1136,7 +1136,7 @@ msgid "Media Playback"
 msgstr ""
 
 msgctxt "#30276"
-msgid ""
+msgid "Dialog Layout"
 msgstr ""
 
 msgctxt "#30277"
@@ -1576,7 +1576,7 @@ msgid "Number of Pages to Scrape"
 msgstr ""
 
 msgctxt "#30386"
-msgid "Provides more sources but will increase scraping time"
+msgid "Number of result pages to query from AnimeTosho. Higher values find more sources but increase scraping duration (Default: 1)."
 msgstr ""
 
 msgctxt "#30387"
@@ -1584,7 +1584,7 @@ msgid "Use Addon Content Type for Menus"
 msgstr ""
 
 msgctxt "#30388"
-msgid "Changes Viewtypes for Main Menu. Note: This will disable plot or description."
+msgid "Switch Main Menu container content type between files and media library mode. Note: May hide plot text in some skins (Default: Disabled)."
 msgstr ""
 
 msgctxt "#30389"
@@ -1608,7 +1608,7 @@ msgid "Enable Trakt Scrobbling"
 msgstr ""
 
 msgctxt "#30394"
-msgid "Note: Will only scrobble certain animes that support trakt."
+msgid "Scrobble anime watch progress to Trakt.tv. Requires the official Trakt add-on and valid anime database ID mappings (Default: Disabled)."
 msgstr ""
 
 msgctxt "#30395"
@@ -1740,7 +1740,7 @@ msgid "Widget Load Delay (milliseconds)"
 msgstr ""
 
 msgctxt "#30427"
-msgid "Delay between widget loads to prevent API rate limiting. 1000ms = 1 second."
+msgid "Pause duration between consecutive home screen widget loads to prevent API rate limiting. Range: 0-3000ms (Default: 500ms)."
 msgstr ""
 
 msgctxt "#30428"
@@ -1760,7 +1760,7 @@ msgid "Toggle HTTP/2"
 msgstr ""
 
 msgctxt "#30432"
-msgid "Enable/disable HTTP/2 protocol. Kodi restart required for changes to take effect."
+msgid "Toggle HTTP/2 transport protocol support for network requests. Requires Kodi restart to take effect (Default: Disabled)."
 msgstr ""
 
 msgctxt "#30433"
@@ -1890,7 +1890,7 @@ msgid "Probe MKV/MP4 chapters with ffprobe before playback"
 msgstr ""
 
 msgctxt "#30468"
-msgid "Requires ffprobe (FFmpeg), auto-detected on PATH or beside Kodi. Adds a short delay while resolving. Chapter titles are used only as a fallback for skip intro and skip outro times when embeds, AniSkip, and AnimeSkip did not supply them. inputstream.ffmpegdirect handles some playback paths but does not expose chapter lists to add-ons."
+msgid "Probe stream chapters via ffprobe as fallback for skip intro/outro times when AniSkip has no data. Requires ffprobe (Default: Enabled)."
 msgstr ""
 
 msgctxt "#30469"
@@ -1898,7 +1898,7 @@ msgid "Optional path to ffprobe"
 msgstr ""
 
 msgctxt "#30470"
-msgid "Leave empty to auto-detect. Example: C:\\Program Files\\ffmpeg\\bin\\ffprobe.exe"
+msgid "Absolute file path to custom ffprobe executable. Leave empty or None to auto-detect from system PATH (Default: None)."
 msgstr ""
 
 msgctxt "#30471"
@@ -2098,7 +2098,7 @@ msgid "Scans all SQLite database files for corruption, missing pages, or indexin
 msgstr ""
 
 msgctxt "#30520"
-msgid "Downloads the latest anime cross-platform ID mappings database from GitHub."
+msgid "Download and install the latest anime cross-platform ID mappings database from GitHub for AniList, MAL, and Kitsu."
 msgstr ""
 
 msgctxt "#30521"
@@ -2130,7 +2130,7 @@ msgid "Terminate on Cached Torrents"
 msgstr ""
 
 msgctxt "#30528"
-msgid "Stop scraping immediately once cached debrid torrents are found."
+msgid "Halt scraping as soon as any cached Debrid torrent source is discovered. Speeds up scraping but may miss higher quality releases (Default: Disabled)."
 msgstr ""
 
 msgctxt "#30529"
@@ -2138,7 +2138,7 @@ msgid "Watch History Click Action"
 msgstr ""
 
 msgctxt "#30530"
-msgid "Choose action when selecting an anime from the Watch History springboard."
+msgid "Action performed when clicking an entry in Watch History: 0=Browse Episodes, 1=Resume Playback (Default: Browse Episodes)."
 msgstr ""
 
 msgctxt "#30531"
@@ -2190,7 +2190,7 @@ msgid "Scraper Health & Latency Dashboard"
 msgstr ""
 
 msgctxt "#30543"
-msgid "View average latency, response times, and success rates for all scrapers."
+msgid "Open the scraper metrics window displaying average latency, response times, and success rates across all providers."
 msgstr ""
 
 msgctxt "#30544"
@@ -2198,7 +2198,7 @@ msgid "Hide Spoiler Thumbnails"
 msgstr ""
 
 msgctxt "#30545"
-msgid "Shield episode thumbnails for unwatched episodes to prevent plot spoilers."
+msgid "Blur or replace episode thumbnail images for unwatched episodes to prevent visual spoilers in list views (Default: Disabled)."
 msgstr ""
 
 msgctxt "#30546"
@@ -2218,7 +2218,7 @@ msgid "Mark Episodes Up To Here as Watched"
 msgstr ""
 
 msgctxt "#30550"
-msgid "Show 'Mark Episodes Up To Here as Watched' in episode context menu."
+msgid "Add 'Mark Episodes Up To Here as Watched' action to episode context menu for batch watch progress updates (Default: Enabled)."
 msgstr ""
 
 msgctxt "#30551"
@@ -2226,7 +2226,7 @@ msgid "Clear Scraper Telemetry"
 msgstr ""
 
 msgctxt "#30552"
-msgid "Reset all recorded scraper response latency and success statistics."
+msgid "Purge all recorded scraper latency timings and success/failure statistics from the internal SQLite metrics database."
 msgstr ""
 
 msgctxt "#30553"
@@ -2262,7 +2262,7 @@ msgid "Anime Studio Icons"
 msgstr ""
 
 msgctxt "#30561"
-msgid "Studio Icon Pack style to display for anime studios in Kodi skins."
+msgid "Select icon pack style (white or coloured) for animation studio logos displayed in supported Kodi skin views (Default: Coloured)."
 msgstr ""
 
 msgctxt "#30562"
@@ -2282,7 +2282,7 @@ msgid "Pre-scrape Next Episode in Background"
 msgstr ""
 
 msgctxt "#30566"
-msgid "Pre-warm scraper cache at 70% playback progress for seamless transitions."
+msgid "Pre-warm scraper cache in the background at 70% playback progress for seamless next-episode playback (Default: Enabled)."
 msgstr ""
 
 msgctxt "#30567"
@@ -2290,7 +2290,7 @@ msgid "Update HiAnime Domains (hianime.pw)"
 msgstr ""
 
 msgctxt "#30568"
-msgid "Query https://hianime.pw/ and update cached HiAnime mirror domains."
+msgid "Fetch latest active mirror domains from https://hianime.pw/ and update cached HiAnime scraper endpoints immediately."
 msgstr ""
 
 msgctxt "#30569"
@@ -2298,7 +2298,7 @@ msgid "Still Watching? Safeguard"
 msgstr ""
 
 msgctxt "#30570"
-msgid "Display an interactive confirmation prompt after consecutive autoplayed episodes to prevent unattended streaming."
+msgid "Number of consecutive autoplayed episodes before showing a 'Still Watching?' prompt. Set to 0 to disable (Default: 3)."
 msgstr ""
 
 msgctxt "#30571"
@@ -2314,7 +2314,7 @@ msgid "Clean Orphaned Settings"
 msgstr ""
 
 msgctxt "#30574"
-msgid "Scan settings.xml and strip obsolete settings left behind by older versions."
+msgid "Scan settings.xml against active schema and safely purge orphaned or obsolete legacy setting values from settings.xml."
 msgstr ""
 
 msgctxt "#30575"
@@ -2358,7 +2358,7 @@ msgid "Automatically Search Subtitles"
 msgstr ""
 
 msgctxt "#30603"
-msgid "Search external subtitle providers when video lacks matching subtitles."
+msgid "Automatically query external subtitle providers when video streams have no matching subtitle tracks (Default: Enabled)."
 msgstr ""
 
 msgctxt "#30604"
@@ -2458,7 +2458,7 @@ msgid "Fanart Limit"
 msgstr ""
 
 msgctxt "#30628"
-msgid "Maximum number of fanart background images to cache and rotate per anime."
+msgid "Maximum number of extra fanart backgrounds to cache and rotate per title in supported skins. Range: 1-10 (Default: 5)."
 msgstr ""
 
 msgctxt "#30629"
@@ -2478,35 +2478,35 @@ msgid "Content Catalog Filters"
 msgstr ""
 
 msgctxt "#30633"
-msgid "Filter catalog by release year. Disable to show all years."
+msgid "Enable filtering catalog browse listings by release year. When disabled, releases from all years are displayed (Default: Disabled)."
 msgstr ""
 
 msgctxt "#30634"
-msgid "Filter catalog by broadcast season (Winter, Spring, Summer, Fall)."
+msgid "Enable filtering catalog listings by broadcast anime season (Winter, Spring, Summer, Fall). Disable to show all (Default: Disabled)."
 msgstr ""
 
 msgctxt "#30635"
-msgid "Filter catalog by media format (TV, Movie, OVA, ONA, Special)."
+msgid "Enable filtering catalog listings by media format (TV, Movie, OVA, ONA, Special). Disable to show all formats (Default: Disabled)."
 msgstr ""
 
 msgctxt "#30636"
-msgid "Filter catalog by airing status (Airing, Finished, Not Yet Aired)."
+msgid "Enable filtering catalog listings by broadcast airing status (Airing, Finished, Not Yet Aired). Disable to show all (Default: Disabled)."
 msgstr ""
 
 msgctxt "#30637"
-msgid "Filter catalog by age advisory rating (PG-13, R-17+, etc.)."
+msgid "Enable filtering catalog listings by age advisory content rating (e.g. PG-13, R-17+, R+). Disable to show all (Default: Disabled)."
 msgstr ""
 
 msgctxt "#30638"
-msgid "Filter catalog by country of origin (Japan, China, Korea)."
+msgid "Enable filtering catalog listings by country of production origin (Japan, China, Korea). Disable to show all (Default: Disabled)."
 msgstr ""
 
 msgctxt "#30639"
-msgid "Select genres to include or exclude across anime listings."
+msgid "Open the genre selection dialog to choose specific genres to include or exclude across catalog browse listings."
 msgstr ""
 
 msgctxt "#30640"
-msgid "Show only anime releases with dubbed audio tracks in listings."
+msgid "Restrict catalog browse listings exclusively to anime titles confirmed to have English dubbed audio releases (Default: Disabled)."
 msgstr ""
 
 msgctxt "#30641"
@@ -2550,7 +2550,7 @@ msgid "Keyword pattern used to match embedded subtitle tracks (e.g., 'dialogue',
 msgstr ""
 
 msgctxt "#30651"
-msgid "Automatically enable embedded subtitles even when playing dubbed audio tracks."
+msgid "Automatically enable embedded subtitle tracks even when playing English dubbed audio releases (Default: Disabled)."
 msgstr ""
 
 msgctxt "#30652"
@@ -2610,7 +2610,7 @@ msgid "Bitsearch"
 msgstr ""
 
 msgctxt "#30666"
-msgid "Search Bitsearch DHT index for anime torrents."
+msgid "Search the Bitsearch DHT index for anime torrents. Requires an active Debrid provider account to resolve torrents (Default: Enabled)."
 msgstr ""
 
 msgctxt "#30667"
@@ -2642,7 +2642,7 @@ msgid "Main Menu Items"
 msgstr ""
 
 msgctxt "#30674"
-msgid "Reorder and customize visibility of Home screen items."
+msgid "Open the interactive menu editor to reorder and toggle visibility of main menu navigation entries."
 msgstr ""
 
 msgctxt "#30675"
@@ -2809,5 +2809,1071 @@ msgctxt "#30715"
 msgid "Pre-caching completed (%d pages cached)"
 msgstr ""
 
+msgctxt "#30716"
+msgid "Launch the first-time setup wizard to configure language, default scrapers, and account integrations."
+msgstr ""
 
+msgctxt "#30717"
+msgid "Automatically display addon release changelog notes when an updated version is detected on startup."
+msgstr ""
+
+msgctxt "#30718"
+msgid "Preferred display language for anime titles across listings (0=Romaji / English, 1=Japanese / Kanji)."
+msgstr ""
+
+msgctxt "#30719"
+msgid "Number of recent search queries to retain in search history lists. Set to 0 to disable history."
+msgstr ""
+
+msgctxt "#30720"
+msgid "Automatically scroll container focus to the next unwatched episode when entering an episode directory."
+msgstr ""
+
+msgctxt "#30721"
+msgid "Remove spoilery or redundant episode title prefixes and suffixes for a cleaner listing appearance."
+msgstr ""
+
+msgctxt "#30722"
+msgid "Visually format episode titles and air dates to clearly differentiate aired from un-aired upcoming episodes."
+msgstr ""
+
+msgctxt "#30723"
+msgid "Enforce customized Kodi view modes (e.g. Wall, Poster, List) across addon directories instead of skin defaults."
+msgstr ""
+
+msgctxt "#30724"
+msgid "Name of the preferred Kodi container viewtype applied to main menu catalog directories."
+msgstr ""
+
+msgctxt "#30725"
+msgid "Name of the preferred Kodi container viewtype applied to anime series and seasons listings."
+msgstr ""
+
+msgctxt "#30726"
+msgid "Name of the preferred Kodi container viewtype applied to anime episode listings."
+msgstr ""
+
+msgctxt "#30727"
+msgid "Numeric Kodi skin control ID corresponding to the chosen viewtype for main menu directories."
+msgstr ""
+
+msgctxt "#30728"
+msgid "Numeric Kodi skin control ID corresponding to the chosen viewtype for anime series listings."
+msgstr ""
+
+msgctxt "#30729"
+msgid "Numeric Kodi skin control ID corresponding to the chosen viewtype for episode listings."
+msgstr ""
+
+msgctxt "#30730"
+msgid "Primary API service used for browsing catalogs and schedules (e.g. anilist, kitsu, mal)."
+msgstr ""
+
+msgctxt "#30731"
+msgid "Override the default metadata provider with an alternate source for episode synopsis and artwork."
+msgstr ""
+
+msgctxt "#30732"
+msgid "Primary metadata API provider used to fetch show descriptions, posters, and cast information."
+msgstr ""
+
+msgctxt "#30733"
+msgid "Show on-screen notification toasts when metadata fallback or background synchronization occurs."
+msgstr ""
+
+msgctxt "#30734"
+msgid "Maximum number of anime titles returned per page when browsing via AniList API catalogs."
+msgstr ""
+
+msgctxt "#30735"
+msgid "Maximum number of anime titles returned per page when browsing via MyAnimeList API catalogs."
+msgstr ""
+
+msgctxt "#30736"
+msgid "Query Jikan/MAL API to detect English dubbed episode availability and badge listings accordingly."
+msgstr ""
+
+msgctxt "#30737"
+msgid "Specific API endpoint version used when fetching dub availability information from Jikan."
+msgstr ""
+
+msgctxt "#30738"
+msgid "Query AnimeFillerList to identify and mark filler, canon, and mixed episodes in episode lists."
+msgstr ""
+
+msgctxt "#30739"
+msgid "Select the visual icon theme pack used for folders, status badges, and action items in directory menus."
+msgstr ""
+
+msgctxt "#30740"
+msgid "Visual theme style applied to custom WindowXML dialogs (e.g. Default, AuraMod, Arctic Horizon)."
+msgstr ""
+
+msgctxt "#30741"
+msgid "Prefer MyAnimeList poster artwork over secondary sources when fetching series promotional images."
+msgstr ""
+
+msgctxt "#30742"
+msgid "Conceal episode thumbnails and plot synopses for unwatched episodes to prevent storyline spoilers."
+msgstr ""
+
+msgctxt "#30743"
+msgid "Set preferred artwork resolution and aspect ratio balance between posters, fanart, and banners."
+msgstr ""
+
+msgctxt "#30744"
+msgid "Fall back to searching external fanart providers by show title when ID lookup yields no artwork results."
+msgstr ""
+
+msgctxt "#30745"
+msgid "Query Fanart.tv for extended artwork assets including clearlogos, landscape backgrounds, and character art."
+msgstr ""
+
+msgctxt "#30746"
+msgid "Enable downloading and caching of high-resolution fanart backgrounds for series and seasons."
+msgstr ""
+
+msgctxt "#30747"
+msgid "Enable 16:9 landscape background art for skin views that support wide fanart thumb widgets."
+msgstr ""
+
+msgctxt "#30748"
+msgid "Fetch transparent PNG clearlogos for series branding in compatible Kodi skin widgets."
+msgstr ""
+
+msgctxt "#30749"
+msgid "Fetch transparent PNG character and promotional clearart images for advanced skin displays."
+msgstr ""
+
+msgctxt "#30750"
+msgid "Fetch wide horizontal promotional banner images for series listings and home screen shelf widgets."
+msgstr ""
+
+msgctxt "#30751"
+msgid "Omit the '[Next Page]' directory item when listings are loaded within Kodi home screen skin widgets."
+msgstr ""
+
+msgctxt "#30752"
+msgid "Enable scraping the Nyaa torrent index for anime video releases. Requires an active Debrid account."
+msgstr ""
+
+msgctxt "#30753"
+msgid "Use alternate Nyaa mirror domains when primary index queries fail or experience Cloudflare rate limits."
+msgstr ""
+
+msgctxt "#30754"
+msgid "Scrape AnimeTosho for automated mirror torrents and direct debrid-cached downloads."
+msgstr ""
+
+msgctxt "#30755"
+msgid "Query alternate AnimeTosho API endpoints when primary requests time out or fail to resolve."
+msgstr ""
+
+msgctxt "#30756"
+msgid "Scrape NekoBT torrent provider for anime releases. Requires an active Debrid account."
+msgstr ""
+
+msgctxt "#30757"
+msgid "Scrape the Torrentio multi-indexer service for cached torrent streams across multiple public trackers."
+msgstr ""
+
+msgctxt "#30758"
+msgid "Configure Torrentio filters, tracker priority lists, and scraper options for customized results."
+msgstr ""
+
+msgctxt "#30759"
+msgid "Enable NNTP Usenet search and streaming via Easynews HTTP API. Requires Easynews credentials."
+msgstr ""
+
+msgctxt "#30760"
+msgid "Select active direct video embed hosters (e.g. MegaCloud, StreamWish) used for hoster playback."
+msgstr ""
+
+msgctxt "#30761"
+msgid "Scrape AniKoto for direct embed streaming links without requiring debrid account credentials."
+msgstr ""
+
+msgctxt "#30762"
+msgid "Scrape AnimePahe for compressed multi-quality H.264/H.265 streams with optional embedded subtitles."
+msgstr ""
+
+msgctxt "#30763"
+msgid "Fallback mirror domain for AnimePahe when primary site is experiencing DDoS mitigation or DNS blocks."
+msgstr ""
+
+msgctxt "#30764"
+msgid "Scrape Gogoanime for subbed and dubbed anime episodes hosted on multiple direct streaming embeds."
+msgstr ""
+
+msgctxt "#30765"
+msgid "Fallback mirror domain for Gogoanime when primary endpoints are blocked or unresponsive."
+msgstr ""
+
+msgctxt "#30766"
+msgid "Scrape HiAnime for high-bitrate streaming sources with soft and hardcoded subtitle tracks."
+msgstr ""
+
+msgctxt "#30767"
+msgid "Scrape WatchNixtoons2 direct streaming catalog, featuring extensive English dubbed anime collections."
+msgstr ""
+
+msgctxt "#30768"
+msgid "Automatically attempt playing the next available scraper source if the selected stream fails to start."
+msgstr ""
+
+msgctxt "#30769"
+msgid "Maximum duration in seconds to wait for provider scrapers to complete before displaying results."
+msgstr ""
+
+msgctxt "#30770"
+msgid "Stop searching remaining providers early once confirmed cloud-cached sources are found in your account."
+msgstr ""
+
+msgctxt "#30771"
+msgid "Terminate external scraping immediately if matching media files are discovered in local library storage."
+msgstr ""
+
+msgctxt "#30772"
+msgid "Display uncached torrents in results list. Uncached torrents require debrid downloading before playback."
+msgstr ""
+
+msgctxt "#30773"
+msgid "Inspect your personal Real-Debrid cloud torrent library for matching completed downloads during scrape."
+msgstr ""
+
+msgctxt "#30774"
+msgid "Inspect your personal Premiumize cloud storage files for matching video streams during scraping."
+msgstr ""
+
+msgctxt "#30775"
+msgid "Inspect your personal AllDebrid cloud torrent transfers for matching completed files during scraping."
+msgstr ""
+
+msgctxt "#30776"
+msgid "Inspect your personal TorBox cloud storage downloads for matching video files during scraping."
+msgstr ""
+
+msgctxt "#30777"
+msgid "Search local filesystem storage folders for pre-downloaded episodes matching the requested title."
+msgstr ""
+
+msgctxt "#30778"
+msgid "File system directory path where local anime media files are stored for local provider scraping."
+msgstr ""
+
+msgctxt "#30779"
+msgid "Enable Kodi native VFS HTTP stream read-ahead caching to smooth playback over fluctuating networks."
+msgstr ""
+
+msgctxt "#30780"
+msgid "Cache duration in hours for provider scraping results. Higher values speed up repeated lookups."
+msgstr ""
+
+msgctxt "#30781"
+msgid "Cache duration in hours for debrid torrent hash instant-availability checks in SQLite cache.db."
+msgstr ""
+
+msgctxt "#30782"
+msgid "Cache duration in days for anime synopsis, episode titles, cast, and artwork details."
+msgstr ""
+
+msgctxt "#30783"
+msgid "Cache duration in hours for airing calendar schedule data fetched from AniList or Jikan."
+msgstr ""
+
+msgctxt "#30784"
+msgid "Purge all SQLite cache tables and in-memory dictionaries across scrapers, torrents, and metadata."
+msgstr ""
+
+msgctxt "#30785"
+msgid "Delete cached provider stream search results to force fresh scraping on next episode selection."
+msgstr ""
+
+msgctxt "#30786"
+msgid "Purge cached debrid instant availability responses, re-checking torrent hashes on next scrape."
+msgstr ""
+
+msgctxt "#30787"
+msgid "Remove cached show descriptions, artwork links, and episode listings to refresh from API sources."
+msgstr ""
+
+msgctxt "#30788"
+msgid "Selection style for movies (0=Source Select dialog, 1=Auto Play best resolved source)."
+msgstr ""
+
+msgctxt "#30789"
+msgid "Selection style for episodes (0=Source Select dialog, 1=Auto Play best resolved source)."
+msgstr ""
+
+msgctxt "#30790"
+msgid "Follow Kodi system settings for default audio language instead of addon-specific preferences."
+msgstr ""
+
+msgctxt "#30791"
+msgid "Preferred default audio stream language when multiple audio tracks are present (e.g. Japanese, English)."
+msgstr ""
+
+msgctxt "#30792"
+msgid "Include upcoming un-aired episodes when queueing series playlists in the Kodi media player."
+msgstr ""
+
+msgctxt "#30793"
+msgid "Display an interactive on-screen button during opening theme playback to quickly jump over the intro."
+msgstr ""
+
+msgctxt "#30794"
+msgid "Query the AniSkip database to detect precise opening theme timestamps for the current episode."
+msgstr ""
+
+msgctxt "#30795"
+msgid "Automatically seek past detected opening theme sequences without requiring user confirmation."
+msgstr ""
+
+msgctxt "#30796"
+msgid "Fine-tuning time adjustment in seconds added to AniSkip opening timestamps to perfect jump accuracy."
+msgstr ""
+
+msgctxt "#30797"
+msgid "Duration in seconds to jump forward when manually activating the Skip Intro action during playback."
+msgstr ""
+
+msgctxt "#30798"
+msgid "Seconds into playback before showing the manual Skip Intro prompt when opening timestamps are unknown."
+msgstr ""
+
+msgctxt "#30799"
+msgid "Number of seconds the Skip Intro dialog button remains visible on screen before auto-dismissing."
+msgstr ""
+
+msgctxt "#30800"
+msgid "Display a Next Up countdown dialog near the end of an episode offering seamless progression."
+msgstr ""
+
+msgctxt "#30801"
+msgid "Query AniSkip for ending theme timestamps to show the Next Up dialog precisely when credits begin."
+msgstr ""
+
+msgctxt "#30802"
+msgid "Automatically jump past ending credits and immediately load the next episode when credits begin."
+msgstr ""
+
+msgctxt "#30803"
+msgid "Fine-tuning time adjustment in seconds added to AniSkip ending credits timestamps for accuracy."
+msgstr ""
+
+msgctxt "#30804"
+msgid "Seconds before episode conclusion to display the Next Episode popup when AniSkip outro data is unavailable."
+msgstr ""
+
+msgctxt "#30805"
+msgid "Default action taken when the Next Episode dialog countdown expires (0=Play Next, 1=Cancel)."
+msgstr ""
+
+msgctxt "#30806"
+msgid "Automatically search and download external subtitle tracks when embedded subtitles are absent."
+msgstr ""
+
+msgctxt "#30807"
+msgid "Maximum number of subtitle search results returned per provider in the subtitle selection dialog."
+msgstr ""
+
+msgctxt "#30808"
+msgid "Preferred subtitle format type (0=All formats, 1=ASS/SSA styled subtitles, 2=SRT plain text)."
+msgstr ""
+
+msgctxt "#30809"
+msgid "Keyword search strategy used to match subtitle files against release release titles and fansub groups."
+msgstr ""
+
+msgctxt "#30810"
+msgid "Custom text keyword appended to external subtitle provider search queries for specialized matching."
+msgstr ""
+
+msgctxt "#30811"
+msgid "Enable searching and downloading subtitles from OpenSubtitles.com REST API. Credentials optional."
+msgstr ""
+
+msgctxt "#30812"
+msgid "OpenSubtitles.com account username. Improves download rate limits when authenticated."
+msgstr ""
+
+msgctxt "#30813"
+msgid "OpenSubtitles.com account password for authentication."
+msgstr ""
+
+msgctxt "#30814"
+msgid "Enable searching Subdl for anime subtitle releases across multiple languages. Requires API key."
+msgstr ""
+
+msgctxt "#30815"
+msgid "Personal Subdl API key required for subtitle search and download requests via subdl.com."
+msgstr ""
+
+msgctxt "#30816"
+msgid "Enable searching SubSource.net subtitle archive for community-synced anime subtitle files."
+msgstr ""
+
+msgctxt "#30817"
+msgid "Personal SubSource API key for authenticating requests to the SubSource REST API."
+msgstr ""
+
+msgctxt "#30818"
+msgid "Search Podnadpisi.net international subtitle repository for multi-language subtitles."
+msgstr ""
+
+msgctxt "#30819"
+msgid "Query BSPlayer hash-matched subtitle database using media file hash and byte size."
+msgstr ""
+
+msgctxt "#30820"
+msgid "Search Addic7ed for fast community-translated TV anime subtitles and multi-language subs."
+msgstr ""
+
+msgctxt "#30821"
+msgid "Default year filter value applied when browsing anime catalog directories by release year."
+msgstr ""
+
+msgctxt "#30822"
+msgid "Default broadcast season filter (0=Winter, 1=Spring, 2=Summer, 3=Fall) applied to catalog lists."
+msgstr ""
+
+msgctxt "#30823"
+msgid "Default media format filter (0=TV, 1=Movie, 2=OVA, 3=ONA, 4=Special) applied to anime lists."
+msgstr ""
+
+msgctxt "#30824"
+msgid "Filter AniList anime catalogs by airing status (Airing, Finished, Not Yet Aired, Cancelled)."
+msgstr ""
+
+msgctxt "#30825"
+msgid "Filter MyAnimeList anime catalogs by airing status (Currently Airing, Finished, Upcoming)."
+msgstr ""
+
+msgctxt "#30826"
+msgid "Filter MyAnimeList listings by age advisory rating (e.g. PG-13, R-17+, Mild Nudity, Hentai)."
+msgstr ""
+
+msgctxt "#30827"
+msgid "Filter anime directory listings by production country of origin (0=Japan, 1=China, 2=Korea)."
+msgstr ""
+
+msgctxt "#30828"
+msgid "Enable applying configured genre filter inclusion/exclusion rules across anime catalog browsing."
+msgstr ""
+
+msgctxt "#30829"
+msgid "Indicate dubbed audio status directly in list item labels across catalog directories."
+msgstr ""
+
+msgctxt "#30830"
+msgid "Open the interactive filter dialog to configure resolution, audio codec, and provider gates."
+msgstr ""
+
+msgctxt "#30831"
+msgid "Highest video stream resolution allowed during scraping (e.g. 4K, 1080p, 720p). Excludes higher sources."
+msgstr ""
+
+msgctxt "#30832"
+msgid "Lowest video stream resolution acceptable in scraping results. Excludes lower quality sources."
+msgstr ""
+
+msgctxt "#30833"
+msgid "Restrict playable torrent sources based on estimated or actual file size boundaries."
+msgstr ""
+
+msgctxt "#30834"
+msgid "Estimated download bandwidth (Mbps). Used to calculate maximum streamable file sizes without buffering."
+msgstr ""
+
+msgctxt "#30835"
+msgid "Minimum acceptable video file size in gigabytes for scraped feature film anime releases."
+msgstr ""
+
+msgctxt "#30836"
+msgid "Minimum acceptable video file size in gigabytes for scraped individual anime episodes."
+msgstr ""
+
+msgctxt "#30837"
+msgid "Open interactive dialog to set source sorting priority order (Resolution, Provider, Size, Codec)."
+msgstr ""
+
+msgctxt "#30838"
+msgid "Base sorting algorithm applied to scraped source candidate lists prior to user selection."
+msgstr ""
+
+msgctxt "#30839"
+msgid "Enable keyword pattern matching to include or exclude specific release groups, codecs, or terms."
+msgstr ""
+
+msgctxt "#30840"
+msgid "Specify whether keyword rules apply to scraped torrent titles, file names, or both."
+msgstr ""
+
+msgctxt "#30841"
+msgid "Boolean logic for keyword matching (0=Match Any keyword, 1=Match All specified keywords)."
+msgstr ""
+
+msgctxt "#30842"
+msgid "First release title matching string (e.g. release group name, audio codec, or video tag)."
+msgstr ""
+
+msgctxt "#30843"
+msgid "Second release title matching string."
+msgstr ""
+
+msgctxt "#30844"
+msgid "Third release title matching string."
+msgstr ""
+
+msgctxt "#30845"
+msgid "Fourth release title matching string."
+msgstr ""
+
+msgctxt "#30846"
+msgid "Fifth release title matching string."
+msgstr ""
+
+msgctxt "#30847"
+msgid "Invert rule 1: Exclude sources matching Keyword 1 instead of requiring them."
+msgstr ""
+
+msgctxt "#30848"
+msgid "Invert rule 2: Exclude sources matching Keyword 2."
+msgstr ""
+
+msgctxt "#30849"
+msgid "Invert rule 3: Exclude sources matching Keyword 3."
+msgstr ""
+
+msgctxt "#30850"
+msgid "Invert rule 4: Exclude sources matching Keyword 4."
+msgstr ""
+
+msgctxt "#30851"
+msgid "Invert rule 5: Exclude sources matching Keyword 5."
+msgstr ""
+
+msgctxt "#30852"
+msgid "Number of API pages (1–20, default 20) to pre-cache in background into SQLite cache.db for instant scrolling."
+msgstr ""
+
+msgctxt "#30853"
+msgid "Sort pre-cached directory items across all fetched pages by Default, Air Date, Episode Count, or Rating."
+msgstr ""
+
+msgctxt "#30854"
+msgid "Direction applied to multi-page sorted lists (0=Descending, 1=Ascending). Visible when sort field is not Default."
+msgstr ""
+
+msgctxt "#30855"
+msgid "Presentation mode (0=Paged with Next Page item, 1=All Pre-Cached Items loaded into Kodi container for filtering)."
+msgstr ""
+
+msgctxt "#30856"
+msgid "Display '[Filter List by Text...]' in directory listings to quickly search pre-cached titles via keyboard."
+msgstr ""
+
+msgctxt "#30857"
+msgid "Enable Real-Debrid service integration for resolving cached torrents and premium hoster links."
+msgstr ""
+
+msgctxt "#30858"
+msgid "Real-Debrid account username associated with the currently authenticated OAuth token."
+msgstr ""
+
+msgctxt "#30859"
+msgid "Current authorization status and account subscription type for your linked Real-Debrid account."
+msgstr ""
+
+msgctxt "#30860"
+msgid "Start OAuth device authorization to pair your Real-Debrid account by entering an on-screen PIN code."
+msgstr ""
+
+msgctxt "#30861"
+msgid "Manually refresh your Real-Debrid OAuth access token to restore expired connection state."
+msgstr ""
+
+msgctxt "#30862"
+msgid "Automatically delete resolved torrents from your Real-Debrid cloud transfer list after playback ends."
+msgstr ""
+
+msgctxt "#30863"
+msgid "Enable Premiumize.me service integration for cached torrents, Usenet NZBs, and cloud streaming."
+msgstr ""
+
+msgctxt "#30864"
+msgid "Premiumize.me customer account ID linked to your current authenticated session."
+msgstr ""
+
+msgctxt "#30865"
+msgid "Current authorization status and fair-use points balance for your linked Premiumize account."
+msgstr ""
+
+msgctxt "#30866"
+msgid "Start OAuth device pairing to link your Premiumize account using a temporary on-screen verification code."
+msgstr ""
+
+msgctxt "#30867"
+msgid "Save resolved torrent links directly into your personal Premiumize cloud storage folder."
+msgstr ""
+
+msgctxt "#30868"
+msgid "Remove played items from your Premiumize cloud transfer queue when storage quota threshold is exceeded."
+msgstr ""
+
+msgctxt "#30869"
+msgid "Cloud storage used percentage threshold that triggers auto-deletion of oldest completed transfers."
+msgstr ""
+
+msgctxt "#30870"
+msgid "Enable AllDebrid service integration for debrid-cached torrent streaming and hoster link un-restricting."
+msgstr ""
+
+msgctxt "#30871"
+msgid "AllDebrid account username linked to your currently authenticated API credentials."
+msgstr ""
+
+msgctxt "#30872"
+msgid "Current subscription expiration date and active status of your linked AllDebrid account."
+msgstr ""
+
+msgctxt "#30873"
+msgid "Start device authorization flow to generate an AllDebrid verification PIN code on screen."
+msgstr ""
+
+msgctxt "#30874"
+msgid "Automatically delete torrent transfers from your AllDebrid cloud storage once streaming completes."
+msgstr ""
+
+msgctxt "#30875"
+msgid "Enable Debrid-Link service integration for streaming cached seedbox torrents and supported hosters."
+msgstr ""
+
+msgctxt "#30876"
+msgid "Debrid-Link account username associated with the authenticated OAuth token."
+msgstr ""
+
+msgctxt "#30877"
+msgid "Current active subscription status and premium expiration date for your Debrid-Link account."
+msgstr ""
+
+msgctxt "#30878"
+msgid "Launch OAuth device authorization prompt to pair your Debrid-Link account via web browser."
+msgstr ""
+
+msgctxt "#30879"
+msgid "Re-authenticate and refresh the Debrid-Link OAuth token to maintain active background API connection."
+msgstr ""
+
+msgctxt "#30880"
+msgid "Automatically prune finished torrents from your Debrid-Link seedbox cloud storage after playback."
+msgstr ""
+
+msgctxt "#30881"
+msgid "Enable TorBox debrid service integration for streaming cached torrent, Usenet, and web download links."
+msgstr ""
+
+msgctxt "#30882"
+msgid "TorBox account email or user handle linked to your active authorization token."
+msgstr ""
+
+msgctxt "#30883"
+msgid "Current account tier (Free/Pro) and server connection status for your TorBox account."
+msgstr ""
+
+msgctxt "#30884"
+msgid "Launch OAuth device pairing workflow to authorize your TorBox account using an on-screen code."
+msgstr ""
+
+msgctxt "#30885"
+msgid "Remove finished torrent items from your TorBox cloud dashboard following playback completion."
+msgstr ""
+
+msgctxt "#30886"
+msgid "Enable EasyDebrid service integration for torrent debrid resolution and fast direct streaming."
+msgstr ""
+
+msgctxt "#30887"
+msgid "EasyDebrid account identifier associated with the currently configured API token."
+msgstr ""
+
+msgctxt "#30888"
+msgid "Current authentication status and active subscription tier for your EasyDebrid account."
+msgstr ""
+
+msgctxt "#30889"
+msgid "Prompt for EasyDebrid API key entry to authenticate and bind your debrid account."
+msgstr ""
+
+msgctxt "#30890"
+msgid "Enable Easynews HTTP Usenet search and media streaming. Requires an active Easynews subscription."
+msgstr ""
+
+msgctxt "#30891"
+msgid "Your Easynews account login username for HTTP API search and video streaming authentication."
+msgstr ""
+
+msgctxt "#30892"
+msgid "Your Easynews account password. Used alongside username for HTTP Basic Authentication."
+msgstr ""
+
+msgctxt "#30893"
+msgid "Verification status of your Easynews account credentials and HTTP streaming access."
+msgstr ""
+
+msgctxt "#30894"
+msgid "Test Easynews account credentials against the API to verify authentication and subscription status."
+msgstr ""
+
+msgctxt "#30895"
+msgid "Filter out search results flagged as spam, corrupted archives, or password-protected Usenet posts."
+msgstr ""
+
+msgctxt "#30896"
+msgid "Automatically increment episode watch count and update progress on linked anime tracking services upon playback."
+msgstr ""
+
+msgctxt "#30897"
+msgid "Periodically synchronize watch history and list updates in the background via the service worker."
+msgstr ""
+
+msgctxt "#30898"
+msgid "Pre-cache watchlist metadata and artwork in SQLite database to accelerate watchlist directory rendering."
+msgstr ""
+
+msgctxt "#30899"
+msgid "Primary tracking service used to calculate your 'Next Up' anime episode queue (0=AniList, 1=Kitsu, 2=MAL)."
+msgstr ""
+
+msgctxt "#30900"
+msgid "Enable AniList tracking service integration for sync, custom lists, and rating updates."
+msgstr ""
+
+msgctxt "#30901"
+msgid "Connected AniList username associated with your authenticated OAuth access token."
+msgstr ""
+
+msgctxt "#30902"
+msgid "Launch OAuth browser login prompt to authorize Otaku-RPDev access to your AniList account."
+msgstr ""
+
+msgctxt "#30903"
+msgid "Default sorting field for your AniList watchlist (e.g. Title, Progress, Score, Last Updated)."
+msgstr ""
+
+msgctxt "#30904"
+msgid "Sort direction for your AniList watchlist items (0=Descending, 1=Ascending)."
+msgstr ""
+
+msgctxt "#30905"
+msgid "Enable Kitsu anime tracking service integration for sync and library management."
+msgstr ""
+
+msgctxt "#30906"
+msgid "Kitsu account username or email used for authentication and profile sync."
+msgstr ""
+
+msgctxt "#30907"
+msgid "Account email or username credential submitted during Kitsu authentication."
+msgstr ""
+
+msgctxt "#30908"
+msgid "Account password entered during Kitsu authentication flow."
+msgstr ""
+
+msgctxt "#30909"
+msgid "Submit your Kitsu credentials to obtain and store an active OAuth session token."
+msgstr ""
+
+msgctxt "#30910"
+msgid "Default sorting criterion for Kitsu anime library listings."
+msgstr ""
+
+msgctxt "#30911"
+msgid "Sort direction for Kitsu anime library listings (0=Descending, 1=Ascending)."
+msgstr ""
+
+msgctxt "#30912"
+msgid "Enable MyAnimeList tracking service integration for watch progress sync and personal lists."
+msgstr ""
+
+msgctxt "#30913"
+msgid "Authenticated MyAnimeList username linked to your account session."
+msgstr ""
+
+msgctxt "#30914"
+msgid "Launch OAuth PKCE authentication to sign in to your official MyAnimeList account."
+msgstr ""
+
+msgctxt "#30915"
+msgid "Default sorting criterion for MyAnimeList anime library entries."
+msgstr ""
+
+msgctxt "#30916"
+msgid "Sort direction for MyAnimeList library entries (0=Descending, 1=Ascending)."
+msgstr ""
+
+msgctxt "#30917"
+msgid "Enable Simkl tracking service integration for automated anime, TV, and movie scrobbling."
+msgstr ""
+
+msgctxt "#30918"
+msgid "Authenticated Simkl username linked to your current session."
+msgstr ""
+
+msgctxt "#30919"
+msgid "Start device authorization to pair your Simkl account using an on-screen pin code."
+msgstr ""
+
+msgctxt "#30920"
+msgid "Default sorting criterion for Simkl watchlist entries."
+msgstr ""
+
+msgctxt "#30921"
+msgid "Sort direction for Simkl watchlist entries (0=Descending, 1=Ascending)."
+msgstr ""
+
+msgctxt "#30922"
+msgid "Open settings configuration for the official Trakt add-on script if installed."
+msgstr ""
+
+msgctxt "#30923"
+msgid "Trigger manual execution of the external Trakt sync scrobbler script across watched items."
+msgstr ""
+
+msgctxt "#30924"
+msgid "Show 'Find Recommendations' option in the anime series context menu to discover similar titles."
+msgstr ""
+
+msgctxt "#30925"
+msgid "Show 'Find Relations' in context menu to view sequels, prequels, spin-offs, and related movies."
+msgstr ""
+
+msgctxt "#30926"
+msgid "Show 'View Watch Order' in context menu to display chronological franchise viewing order."
+msgstr ""
+
+msgctxt "#30927"
+msgid "Show 'View Reviews' in context menu to open an on-screen text dialog of community critic reviews."
+msgstr ""
+
+msgctxt "#30928"
+msgid "Show 'View Statistics' in context menu to display score distributions and popularity rankings."
+msgstr ""
+
+msgctxt "#30929"
+msgid "Show 'Rescrape' option in episode context menu to clear cached links and re-run all scrapers."
+msgstr ""
+
+msgctxt "#30930"
+msgid "Show 'Source Select' in context menu to manually pick a specific stream candidate even if Auto Play is active."
+msgstr ""
+
+msgctxt "#30931"
+msgid "Show logout action in watchlist context menu to disconnect the active tracking service account."
+msgstr ""
+
+msgctxt "#30932"
+msgid "Show 'Delete from Database' option in context menu to remove corrupt cached entries from local SQLite tables."
+msgstr ""
+
+msgctxt "#30933"
+msgid "Show 'Watchlist Manager' in context menu to adjust status (Watching, Completed, Dropped, Plan to Watch)."
+msgstr ""
+
+msgctxt "#30934"
+msgid "Show mark watched/unwatched toggle in context menu to manually override local and sync status."
+msgstr ""
+
+msgctxt "#30935"
+msgid "Show 'Select Artwork' in context menu to open interactive gallery and pick custom posters and fanart."
+msgstr ""
+
+msgctxt "#30936"
+msgid "Show 'Clear Cache' action in tools context menu for single-click maintenance access."
+msgstr ""
+
+msgctxt "#30937"
+msgid "Open an interactive text dialog displaying the complete version release notes and update history."
+msgstr ""
+
+msgctxt "#30938"
+msgid "Open the clear cache menu to selectively purge scrapers, debrid, metadata, or image databases."
+msgstr ""
+
+msgctxt "#30939"
+msgid "Purge all saved search query terms from local search history storage."
+msgstr ""
+
+msgctxt "#30940"
+msgid "Clear local record of recently watched episode items without altering online tracking services."
+msgstr ""
+
+msgctxt "#30941"
+msgid "Reset all user-selected custom poster and fanart overrides back to default online artwork."
+msgstr ""
+
+msgctxt "#30942"
+msgid "Force immediate full synchronization between local SQLite watch progress and linked online watchlists."
+msgstr ""
+
+msgctxt "#30943"
+msgid "Open the download manager dialog to inspect, pause, or cancel active media file downloads."
+msgstr ""
+
+msgctxt "#30944"
+msgid "Use InputStream Adaptive addon for playing dynamic multi-bitrate HLS, MPD, and DASH streams."
+msgstr ""
+
+msgctxt "#30945"
+msgid "Open the configuration dialog for the InputStream Adaptive Kodi binary add-on."
+msgstr ""
+
+msgctxt "#30946"
+msgid "Check and install required DRM and stream decryption binaries (Widevine) via InputStream Helper."
+msgstr ""
+
+msgctxt "#30947"
+msgid "Shows whether Python language invoker reuse is active. Reusing invokers dramatically speeds up navigation."
+msgstr ""
+
+msgctxt "#30948"
+msgid "Route Cloudflare-protected web requests through a local or remote FlareSolverr service instance."
+msgstr ""
+
+msgctxt "#30949"
+msgid "View setup instructions and command guidelines for deploying a Docker FlareSolverr instance."
+msgstr ""
+
+msgctxt "#30950"
+msgid "Base HTTP URL and port of your active FlareSolverr server (e.g. http://127.0.0.1:8191)."
+msgstr ""
+
+msgctxt "#30951"
+msgid "Maximum time in seconds to wait for FlareSolverr to solve anti-bot challenges before failing."
+msgstr ""
+
+msgctxt "#30952"
+msgid "Enable external API decryption solver for extracting video streams from MegaCloud direct embeds."
+msgstr ""
+
+msgctxt "#30953"
+msgid "View setup and hosting guidelines for running the MegaCloud decryption microservice."
+msgstr ""
+
+msgctxt "#30954"
+msgid "HTTP endpoint URL of your self-hosted or remote MegaCloud extraction solver server."
+msgstr ""
+
+msgctxt "#30955"
+msgid "Display network IPv6 connectivity test results. Disabling IPv6 may resolve connection hangs on some ISPs."
+msgstr ""
+
+msgctxt "#30956"
+msgid "Display HTTP/2 transport protocol support status across external metadata and scraper connections."
+msgstr ""
+
+msgctxt "#30957"
+msgid "Restore addon configuration and credentials from a previously exported settings backup file."
+msgstr ""
+
+msgctxt "#30958"
+msgid "Backup current addon settings, credentials, and custom menu configurations to a JSON file."
+msgstr ""
+
+msgctxt "#30959"
+msgid "Configure core add-on behavior, title languages, metadata providers, UI artwork, dialog styling, and home screen widget loading."
+msgstr ""
+
+msgctxt "#30960"
+msgid "Enable and configure torrent scrapers, Usenet indexers, and direct embed providers for locating anime video sources."
+msgstr ""
+
+msgctxt "#30961"
+msgid "Adjust source scraping timeouts, concurrency worker threads, debrid cloud cache inspection, and source resolution behavior."
+msgstr ""
+
+msgctxt "#30962"
+msgid "Manage SQLite database caching, memory limits, cache expiration timers, and manual cache purge operations."
+msgstr ""
+
+msgctxt "#30963"
+msgid "Configure SmartPlay autoplay, preferred audio languages, ffprobe chapters, and AniSkip intro/outro skip dialogs."
+msgstr ""
+
+msgctxt "#30964"
+msgid "Configure subtitle auto-downloading, language filtering, formatting preferences, and external subtitle provider credentials."
+msgstr ""
+
+msgctxt "#30965"
+msgid "Filter catalog listings and scraper results by resolution, file size, release title keywords, and multipage sorting."
+msgstr ""
+
+msgctxt "#30966"
+msgid "Authorize and manage premium debrid providers (Real-Debrid, Premiumize, TorBox, etc.) and Easynews account credentials."
+msgstr ""
+
+msgctxt "#30967"
+msgid "Synchronize anime watchlists, scrobble episode progress, and authenticate AniList, Kitsu, MyAnimeList, Simkl, or Trakt."
+msgstr ""
+
+msgctxt "#30968"
+msgid "Customize visibility and ordering of root navigation menus, submenus, and genre categories across all media types."
+msgstr ""
+
+msgctxt "#30969"
+msgid "Choose which shortcuts and tools appear in Kodi's context menu when right-clicking or long-pressing anime items."
+msgstr ""
+
+msgctxt "#30970"
+msgid "Access diagnostics, clear caches, purge history, configure helper solvers, test network protocols, and backup settings."
+msgstr ""
+
+msgctxt "#30971"
+msgid "Seconds to wait for confirmation on the 'Still Watching?' prompt before pausing playback. Range: 5-60 (Default: 30s)."
+msgstr ""
+
+msgctxt "#30972"
+msgid "Open the menu editor to reorder and toggle visibility of sub-menu listings (e.g., Trending, Popular, Favourites)."
+msgstr ""
+
+msgctxt "#30973"
+msgid "Open the menu editor to reorder and toggle visibility of individual anime genre category shortcuts."
+msgstr ""
+
+msgctxt "#30974"
+msgid "Web-PDB"
+msgstr ""
+
+msgctxt "#30975"
+msgid "Enable Web-PDB"
+msgstr ""
+
+msgctxt "#30976"
+msgid "Enable remote Python debugging via the Web-PDB Kodi add-on (script.module.web-pdb)."
+msgstr ""
+
+msgctxt "#30977"
+msgid "Web-PDB Port"
+msgstr ""
+
+msgctxt "#30978"
+msgid "TCP port for the Web-PDB browser interface. Defaults to 5566 to avoid conflicting with Android ADB on port 5555."
+msgstr ""
+
+msgctxt "#30979"
+msgid "Web-PDB Trigger Mode"
+msgstr ""
+
+msgctxt "#30980"
+msgid "Choose whether Web-PDB attaches only on unhandled exceptions (catch_post_mortem) or pauses immediately on every route entry (set_trace)."
+msgstr ""
+
+msgctxt "#30981"
+msgid "Start Web-PDB Trace Now..."
+msgstr ""
+
+msgctxt "#30982"
+msgid "Immediately invoke web_pdb.set_trace(port=...) so you can attach a browser to http://<kodi-ip>:<port> and inspect live addon state."
+msgstr ""
 

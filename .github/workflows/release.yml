@@ -37,15 +37,15 @@ jobs:
 
       - name: Static Analysis (ruff)
         run: |
-          ruff check --select E9,F63,F7,F82 plugin.video.otaku.rpdev context.otaku.rpdev tests
+          ruff check --select E9,F63,F7,F82 plugin.video.otaku.rpdev context.otaku.rpdev tests scripts
 
       - name: Python Bytecode Compilation
         run: |
-          python3 -m compileall plugin.video.otaku.rpdev context.otaku.rpdev tests
+          python3 -m compileall plugin.video.otaku.rpdev context.otaku.rpdev tests scripts
 
       - name: Execute Full Test Suite & AST Integrity Gate
         run: |
-          python3 -m unittest discover tests
+          python3 -W default -m unittest discover tests
 
   build-and-release:
     name: Package Add-on & Publish GitHub Release
@@ -95,11 +95,11 @@ jobs:
                   if re.search(rf"OTAKU RPDEV v{re.escape(tag)}", line, re.IGNORECASE):
                       in_header = True
                       continue
-                  if in_header and re.search(r"^={40,}", line):
+                  if in_header and re.search(r"^[=-]{20,}", line):
                       in_header = False
                       capturing = True
                       continue
-                  if capturing and re.search(r"^={40,}", line):
+                  if capturing and re.search(r"^[=-]{20,}", line):
                       break
                   if capturing:
                       notes.append(line)

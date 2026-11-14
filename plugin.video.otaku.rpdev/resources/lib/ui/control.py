@@ -1150,9 +1150,91 @@ def clean_memory():
         log(f"malloc_trim warning: {e}", 'debug')
 
 
+def init_session():
+    """Refresh session state (HANDLE, _directory_ended) on script entry for clean LanguageInvoker reuse."""
+    global HANDLE, _directory_ended
+    _directory_ended = False
+    try:
+        HANDLE = int(sys.argv[1])
+    except (IndexError, ValueError):
+        HANDLE = 0
+
+
+def _load_webpdb():
+    """Import and return web_pdb, adding script.module.web-pdb paths if needed."""
+    try:
+        import web_pdb
+        return web_pdb
+    except ImportError:
+        for rel in (
+            'special://home/addons/script.module.web-pdb/libs',
+            'special://home/addons/script.module.web-pdb/lib',
+        ):
+            try:
+                p = xbmcvfs.translatePath(rel)
+                if p and os.path.isdir(p) and p not in sys.path:
+                    sys.path.append(p)
+            except Exception:
+                pass
+        import web_pdb
+        return web_pdb
+
+
+def get_webpdb_port(port=None) -> int:
+    """Resolve configured Web-PDB port, ensuring port 5555 (ADB) is redirected to 5566."""
+    try:
+        target_port = int(port if port is not None else (getInt('webpdb.port') or 5566))
+    except (TypeError, ValueError):
+        target_port = 5566
+    if target_port <= 0 or target_port == 5555:
+        target_port = 5566
+    return target_port
+
+
+def start_webpdb_trace(port=None) -> bool:
+    """Start an interactive Web-PDB debugging session on the configured port (default 5566)."""
+    target_port = get_webpdb_port(port)
+    try:
+        web_pdb = _load_webpdb()
+        log(f"Starting Web-PDB trace on port {target_port}", 'info')
+        web_pdb.set_trace(port=target_port)
+        return True
+    except Exception as e:
+        log(f"Web-PDB set_trace failed on port {target_port}: {e}", 'warning')
+        return False
+
+
+class _NullContext:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        return False
+
+
+def webpdb_post_mortem_context(port=None):
+    """Return web_pdb.catch_post_mortem(port=...) context manager or a safe no-op context."""
+    target_port = get_webpdb_port(port)
+    try:
+        web_pdb = _load_webpdb()
+        if hasattr(web_pdb, 'catch_post_mortem'):
+            return web_pdb.catch_post_mortem(port=target_port)
+    except Exception as e:
+        log(f"Web-PDB catch_post_mortem unavailable on port {target_port}: {e}", 'debug')
+    return _NullContext()
+
+
 def cleanup():
-    """Explicitly release Kodi GUI dialogs and C++ resources on script shutdown."""
+    """Explicitly release Kodi GUI dialogs, SQLite connections, and C++ resources on script shutdown."""
+    global _directory_ended
+    end_directory(succeeded=True, cacheToDisc=False)
+    _directory_ended = False
     clearSettingsCache()
+    try:
+        from resources.lib.ui import database
+        database.close_all_connections()
+    except Exception:
+        pass
     for proxy in (progressDialog, homeWindow, playerWindow, playList, ADDON, CONTEXT_ADDON, settings, monitor):
         try:
             proxy.cleanup()
@@ -1656,7 +1738,24 @@ def bulk_draw_items(video_data):
     return xbmcplugin.addDirectoryItems(HANDLE, list_items)
 
 
+_directory_ended = False
+
+
+def end_directory(handle=None, succeeded=True, cacheToDisc=False):
+    global _directory_ended
+    if _directory_ended:
+        return
+    try:
+        h = HANDLE if handle is None else handle
+        if h is not None and h > 0:
+            xbmcplugin.endOfDirectory(h, succeeded=succeeded, cacheToDisc=cacheToDisc)
+    except Exception:
+        pass
+    _directory_ended = True
+
+
 def draw_items(video_data, content_type='', cacheToDisc=True):
+    global _directory_ended
     bulk_draw_items(video_data)
     if content_type:
         xbmcplugin.setContent(HANDLE, content_type)
@@ -1676,6 +1775,7 @@ def draw_items(video_data, content_type='', cacheToDisc=True):
     else:
         xbmcplugin.addSortMethod(HANDLE, xbmcplugin.SORT_METHOD_UNSORTED, "%L", "%R")
     xbmcplugin.endOfDirectory(HANDLE, cacheToDisc=cacheToDisc)
+    _directory_ended = True
     closeAllDialogs()
     if getBool('interface.viewtype'):
         xbmc.sleep(100)  # Delay so the directory is painted before changing view mode

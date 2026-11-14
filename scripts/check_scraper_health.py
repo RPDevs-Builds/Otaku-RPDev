@@ -119,6 +119,12 @@ def check_provider(name, func, *args, timeout=10):
     }
 
 
+def _make_error_raiser(err):
+    def _raiser():
+        raise err
+    return _raiser
+
+
 def run_health_checks(target_provider=None, timeout=20):
     _seed_test_show_metadata()
 
@@ -128,73 +134,73 @@ def run_health_checks(target_provider=None, timeout=20):
         from resources.lib.pages import nyaa
         providers['Nyaa'] = ('Torrent', lambda: nyaa.Sources().get_sources("Frieren", "52991", "1", "Ongoing", "tv"))
     except Exception as e:
-        providers['Nyaa'] = ('Torrent', lambda: (_ for _ in ()).throw(e))
+        providers['Nyaa'] = ('Torrent', _make_error_raiser(e))
 
     try:
         from resources.lib.pages import animetosho
         providers['AnimeTosho'] = ('Torrent/NZB', lambda: animetosho.Sources().get_sources("Frieren", "52991", "1", "Ongoing", "tv"))
     except Exception as e:
-        providers['AnimeTosho'] = ('Torrent/NZB', lambda: (_ for _ in ()).throw(e))
+        providers['AnimeTosho'] = ('Torrent/NZB', _make_error_raiser(e))
 
     try:
         from resources.lib.pages import hianime
         providers['HiAnime'] = ('Embed/Cloud', lambda: hianime.Sources().get_sources("52991", "1"))
     except Exception as e:
-        providers['HiAnime'] = ('Embed/Cloud', lambda: (_ for _ in ()).throw(e))
+        providers['HiAnime'] = ('Embed/Cloud', _make_error_raiser(e))
 
     try:
         from resources.lib.pages import animepahe
         providers['AnimePahe'] = ('Direct/HLS', lambda: animepahe.Sources().get_sources("52991", "1"))
     except Exception as e:
-        providers['AnimePahe'] = ('Direct/HLS', lambda: (_ for _ in ()).throw(e))
+        providers['AnimePahe'] = ('Direct/HLS', _make_error_raiser(e))
 
     try:
         from resources.lib.pages import anikoto
         providers['AniKoto'] = ('Embed/HLS', lambda: anikoto.Sources().get_sources("52991", "1"))
     except Exception as e:
-        providers['AniKoto'] = ('Embed/HLS', lambda: (_ for _ in ()).throw(e))
+        providers['AniKoto'] = ('Embed/HLS', _make_error_raiser(e))
 
     try:
         from resources.lib.pages import animekai
         providers['AnimeKai'] = ('Embed/Cloud', lambda: animekai.Sources().get_sources("52991", "1"))
     except Exception as e:
-        providers['AnimeKai'] = ('Embed/Cloud', lambda: (_ for _ in ()).throw(e))
+        providers['AnimeKai'] = ('Embed/Cloud', _make_error_raiser(e))
 
     try:
         from resources.lib.pages import gogoanime
         providers['Gogoanime'] = ('Embed/Direct', lambda: gogoanime.Sources().get_sources("52991", "1"))
     except Exception as e:
-        providers['Gogoanime'] = ('Embed/Direct', lambda: (_ for _ in ()).throw(e))
+        providers['Gogoanime'] = ('Embed/Direct', _make_error_raiser(e))
 
     try:
         from resources.lib.pages import torrentio
         providers['Torrentio'] = ('Torrent/Stremio', lambda: torrentio.Sources().get_sources("Frieren", "52991", "1", "Ongoing", "tv"))
     except Exception as e:
-        providers['Torrentio'] = ('Torrent/Stremio', lambda: (_ for _ in ()).throw(e))
+        providers['Torrentio'] = ('Torrent/Stremio', _make_error_raiser(e))
 
     try:
         from resources.lib.pages import nekobt
         providers['NekoBT'] = ('Torrent/Tracker', lambda: nekobt.Sources().get_sources("Frieren", "52991", "1", "Ongoing", "tv"))
     except Exception as e:
-        providers['NekoBT'] = ('Torrent/Tracker', lambda: (_ for _ in ()).throw(e))
+        providers['NekoBT'] = ('Torrent/Tracker', _make_error_raiser(e))
 
     try:
         from resources.lib.pages import watchnixtoons2
         providers['WatchNixtoons2'] = ('Direct/WCO', lambda: watchnixtoons2.Sources().get_sources("52991", "1", "tv"))
     except Exception as e:
-        providers['WatchNixtoons2'] = ('Direct/WCO', lambda: (_ for _ in ()).throw(e))
+        providers['WatchNixtoons2'] = ('Direct/WCO', _make_error_raiser(e))
 
     try:
         from resources.lib.pages import bitsearch
         providers['Bitsearch'] = ('Torrent/DHT', lambda: bitsearch.Sources().get_sources("Frieren", "52991", "1", "Ongoing", "tv"))
     except Exception as e:
-        providers['Bitsearch'] = ('Torrent/DHT', lambda: (_ for _ in ()).throw(e))
+        providers['Bitsearch'] = ('Torrent/DHT', _make_error_raiser(e))
 
     try:
         from resources.lib.pages import piratebay
         providers['ThePirateBay'] = ('Torrent/REST', lambda: piratebay.Sources().get_sources("Frieren", "52991", "1", "Ongoing", "tv"))
     except Exception as e:
-        providers['ThePirateBay'] = ('Torrent/REST', lambda: (_ for _ in ()).throw(e))
+        providers['ThePirateBay'] = ('Torrent/REST', _make_error_raiser(e))
 
     timeout = min(30, max(5, timeout))
     per_provider_timeout = min(10, timeout)
