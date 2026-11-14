@@ -33,18 +33,27 @@ Authoritative engineering invariants, architectural contracts, and operational m
   - Never push code, assets, or addon files directly onto target devices via ADB.
   - Never trigger repository updates (`UpdateAddonRepos`), manipulate device SQLite databases (`Addons33.db`), invoke remote management scripts (`kodi_remote_cli.py -U`), or issue JSON-RPC/input commands to live target hardware.
   - The agent's release pipeline boundary strictly terminates when the release package is published to GitHub Releases and synchronized to the Kodi repository CDN (`https://kodi.repo.iamrp.dev`). The user updates their own devices when they choose.
-- **Modernized Tag-Based GitHub Actions Release Pipeline**:
-  All releases are driven automatically by Git version tags (`v*`) via `.github/workflows/release.yml`:
-  1. Prepend human-readable release highlights to `plugin.video.otaku.rpdev/news.txt` and `plugin.video.otaku.rpdev/changelog.txt`.
-     - Keep horizontal dividers (`=` / `-`) in `news.txt` **<= 32 characters** so lines fit cleanly inside `resources/skins/Default/1080i/textviewer.xml` (`id="2001"`, `<width>600</width>`, `font14`) without multi-row wrapping. Fix text wrapping inside `news.txt` itself; never widen skin dialog XML geometry unless explicitly requested.
-  2. Bump `version="X.Y.Z"` in `plugin.video.otaku.rpdev/addon.xml`.
-  3. Commit: `git commit -m "chore(release): bump plugin.video.otaku.rpdev to vX.Y.Z - <Highlights>"`.
-  4. Tag and push: `git tag vX.Y.Z && git push origin main --tags`.
-  5. GitHub Actions release workflow automatically executes:
-     - **Pre-Flight Test Gate**: Matrix build across Python 3.11, 3.12, and 3.13 running `ruff`, `compileall`, and all 860+ unit, AST integrity, function coverage, dual-profile, settings outcome, and hermetic regression tests under `-W default`.
-     - **Package & GitHub Release**: Validates version matching `addon.xml`, extracts notes from `news.txt`, packages clean `plugin.video.otaku.rpdev-<version>.zip` and SHA256/MD5 checksums, publishing release assets directly to GitHub Releases (`RPDevs-Builds/Otaku-RPDev`).
-     - **Sync to Kodi CDN Repository**: Clones `rpdev-cdn/kodi.repo.iamrp.dev` using repository secret `CDN_REPO_TOKEN`, copies ZIP and metadata, runs `tools/generate_repo.py`, and commits/pushes to `main`, triggering automated GitHub Pages deployment to `https://kodi.repo.iamrp.dev`.
-  6. **Offline / Emergency Fallback**: `scripts/release_addon.py` is preserved solely for offline or manual emergency packaging when GitHub Actions is inaccessible; standard releases must always traverse the tag-based CI/CD pipeline.
+- **Single-Command Tag-Based Release Orchestrator (`scripts/release_addon.py`)**:
+  All releases are driven through `python3 scripts/release_addon.py` and `.github/workflows/release.yml`. Never run ad-hoc manual `gh` or `curl` sequences outside the orchestrator (`gh repo set-default RPDevs-Builds/Otaku-RPDev` is pre-configured, and the orchestrator passes `-R RPDevs-Builds/Otaku-RPDev` explicitly):
+  1. **Prepare or Auto-Bump Metadata**:
+     - Either update `plugin.video.otaku.rpdev/addon.xml` (`version="X.Y.Z"`), `plugin.video.otaku.rpdev/news.txt` (keep horizontal `=` / `-` dividers **<= 32 characters** so lines fit cleanly inside `resources/skins/Default/1080i/textviewer.xml` `id="2001"`, `<width>600</width>` without multi-row wrapping), and `plugin.video.otaku.rpdev/changelog.txt` (`Changelog vX.Y.Z (YYYY-MM-DD):`) first, then run:
+       ```bash
+       python3 scripts/release_addon.py
+       ```
+     - Or let `scripts/release_addon.py` bump and format all 3 metadata files automatically:
+       ```bash
+       python3 scripts/release_addon.py --bump patch --title "Short Banner Title" -m "Bullet 1\nBullet 2"
+       ```
+     - For pre-flight validation without committing, tagging, or pushing:
+       ```bash
+       python3 scripts/release_addon.py --dry-run
+       ```
+  2. **Automated Pre-Flight, Tagging & CI/CD Verification** (executed automatically by `scripts/release_addon.py`):
+     - Validates `addon.xml`, `news.txt` (`<= 32` char dividers), and `changelog.txt` synchronization for `vX.Y.Z`.
+     - Executes the Pre-Flight Verification Gate (`ruff check --select E9,F63,F7,F82`, `python3 -m compileall -q`, `python3 -W default -m unittest discover -s tests -v`, and `python3 scripts/audit_function_coverage.py --fail-below 60`).
+     - Commits (`git commit --no-gpg-sign`), creates an unsigned annotated tag (`git tag -a vX.Y.Z --no-sign`), and pushes `main` and `vX.Y.Z` to `origin`.
+     - Watches `.github/workflows/release.yml` (`gh run watch -R RPDevs-Builds/Otaku-RPDev`), verifies GitHub Release assets (`plugin.video.otaku.rpdev-X.Y.Z.zip`, `SHA256SUMS.txt`, `MD5SUMS.txt`), and polls the live CDN (`https://kodi.repo.iamrp.dev/addons.xml`, `https://kodi.repo.iamrp.dev/addons.xml.md5`, and `https://kodi.repo.iamrp.dev/plugin.video.otaku.rpdev/plugin.video.otaku.rpdev-X.Y.Z.zip`) until `HTTP 200` and MD5 match are confirmed.
+     - Re-verify any published tag at any time via `python3 scripts/release_addon.py --verify-tag v6.1.3`.
 
 ---
 
