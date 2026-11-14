@@ -52,6 +52,95 @@ class BrowserBase(object):
         return [utils.allocate_item(name, next_url, True, False, [], 'next.png', {'plot': name}, 'next.png')]
 
     @staticmethod
+    def handle_filter(base_url, query=''):
+        """Generate multipage action item ([Filter List by Text...] or [Clear Filter])."""
+        if not control.getBool('multipage.show.filter.item'):
+            return []
+
+        base_clean = base_url.replace('%d', '1') if '%d' in base_url else base_url
+        if query:
+            name = f"[COLOR deepskyblue][Clear Filter: {query}][/COLOR]"
+            url = f"multipage_clear_filter?base_url={urllib.parse.quote_plus(base_clean)}"
+            plot = f"Clear active text filter: {query}"
+        else:
+            name = control.lang(30712) or "[Filter List by Text...]"
+            url = f"multipage_filter?base_url={urllib.parse.quote_plus(base_clean)}"
+            plot = control.lang(30714) or "Filter Anime by Title"
+
+        return [utils.allocate_item(name, url, False, False, [], 'search.png', {'plot': plot})]
+
+    def process_multipage_view(self, items, has_next, base_url, page, peek_fn=None, filter_text=None):
+        """Assembles, pre-caches, filters, sorts, and slices items for browse views."""
+        from resources.lib.ui import multipage
+
+        if filter_text is None:
+            try:
+                import sys
+                if len(sys.argv) > 2 and sys.argv[2]:
+                    qs = urllib.parse.parse_qs(sys.argv[2].lstrip('?'))
+                    filter_text = qs.get('filter_text', [''])[0] or qs.get('filter_query', [''])[0]
+                else:
+                    filter_text = ''
+            except Exception:
+                filter_text = ''
+
+        mp_settings = multipage.get_multipage_settings()
+        precache_pages = mp_settings['precache_pages']
+        sort_by = mp_settings['sort_by']
+        sort_order = mp_settings['sort_order']
+        display_mode = mp_settings['display_mode']
+        show_filter = mp_settings['show_filter_item']
+
+        # Clean current page items from any stray action / pagination items
+        window = [it for it in (items or []) if not multipage.is_next_page_item(it) and not multipage.is_action_item(it)]
+
+        # Peek already cached subsequent pages if pre-caching is active (>1) and peek_fn provided
+        if peek_fn and precache_pages > 1:
+            for p in range(2, precache_pages + 1):
+                if len(window) >= 1000:
+                    break
+                cached_items = peek_fn(p)
+                if not cached_items:
+                    break
+                clean_cached = [it for it in cached_items if not multipage.is_next_page_item(it) and not multipage.is_action_item(it)]
+                if not clean_cached:
+                    break
+                window = multipage.merge_window(window, clean_cached, max_items=1000)
+
+        # Apply text filter
+        if filter_text:
+            window = multipage.filter_window_by_text(window, filter_text)
+
+        # Apply cross-page sorting
+        if sort_by != 0:
+            window = multipage.sort_window(window, sort_by, sort_order)
+
+        per_page = getattr(self, 'perpage', 20) or 20
+
+        if display_mode == 1:
+            # Mode 1: All Pre-Cached Items loaded into the container
+            final_items = list(window)
+            if show_filter:
+                final_items = self.handle_filter(base_url, query=filter_text) + final_items
+            return final_items
+
+        else:
+            # Mode 0: Paged mode
+            if sort_by != 0 or filter_text or len(window) > per_page:
+                sliced = multipage.slice_page(window, page=page, per_page=per_page)
+                has_more = (page * per_page) < len(window) or has_next
+                paging_items = self.handle_paging(has_more, base_url, page)
+                final_items = list(sliced) + paging_items
+            else:
+                paging_items = self.handle_paging(has_next, base_url, page)
+                final_items = list(window) + paging_items
+
+            if show_filter:
+                final_items = self.handle_filter(base_url, query=filter_text) + final_items
+
+            return final_items
+
+    @staticmethod
     def open_completed():
         import json
         try:
@@ -174,8 +263,8 @@ class BrowserBase(object):
     def attach_genre_methods(cls, presets):
         for slug, preset_val in presets:
             def make_genre(_slug, _val):
-                def method(self, page, format, prefix=None):
-                    return self._browse_genre_preset(page, format, prefix, f'genre_{_slug}', _val)
+                def method(self, page, format, prefix=None, filter_text=None):
+                    return self._browse_genre_preset(page, format, prefix, f'genre_{_slug}', _val, filter_text=filter_text)
                 method.__name__ = f'get_genre_{_slug}'
                 method.__doc__ = f'Browse anime with genre preset {_slug} ({_val}).'
                 return method

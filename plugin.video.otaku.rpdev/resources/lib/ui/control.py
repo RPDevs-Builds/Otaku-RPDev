@@ -1287,20 +1287,23 @@ def set_videotags(li, info):
         vinfo.setGenres([str(g) for g in genre] if isinstance(genre, list) else [str(genre)])
     if mpaa := info.get('mpaa'):
         vinfo.setMpaa(str(mpaa))
-    if rating := info.get('rating'):
+    if rating := info.get('rating') or info.get('score'):
         if isinstance(rating, dict):
             try:
                 vinfo.setRating(float(rating.get('score', 0) or 0), int(rating.get('votes', 0) or 0))
             except (ValueError, TypeError):
                 vinfo.setRating(0.0, 0)
         else:
-            vinfo.setRating(0.0, 0)
+            try:
+                vinfo.setRating(float(rating), 0)
+            except (ValueError, TypeError):
+                vinfo.setRating(0.0, 0)
     if season := info.get('season'):
         try:
             vinfo.setSeason(int(season))
         except (ValueError, TypeError):
             pass
-    if episode := info.get('episode'):
+    if episode := info.get('episode') or info.get('episodes') or info.get('total_episodes'):
         try:
             vinfo.setEpisode(int(episode))
         except (ValueError, TypeError):

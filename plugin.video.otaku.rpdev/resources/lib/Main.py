@@ -80,8 +80,34 @@ def _draw_browser_page(browser_method, route_prefix, params):
     page = int(params.get('page', 1))
     fmt = _resolve_browser_format(route_prefix)
     prefix = plugin_url.split('?', 1)[0]
+    filter_text = params.get('filter_text') or params.get('filter_query') or ''
+    if isinstance(filter_text, list):
+        filter_text = filter_text[0] if filter_text else ''
+
+    # Background pre-caching enqueue on page 1
+    if page == 1:
+        try:
+            from resources.lib.ui import multipage
+            mp_settings = multipage.get_multipage_settings()
+            precache_pages = mp_settings.get('precache_pages', 20)
+            if precache_pages > 1:
+                provider = 'mal' if control.getStr('browser.api') in _MAL_OTAKU_APIS else 'anilist'
+                req_params = {'format': fmt, 'prefix': prefix}
+                database.enqueue_multipage_job(
+                    provider=provider,
+                    browser_method=browser_method,
+                    url_path=prefix,
+                    request_params=req_params,
+                    target_page=precache_pages
+                )
+        except Exception as e:
+            control.log(f"_draw_browser_page enqueue error: {e}", 'warning')
+
     method = getattr(BROWSER, browser_method)
-    items = method(page, fmt, prefix)
+    try:
+        items = method(page, fmt, prefix, filter_text=filter_text)
+    except TypeError:
+        items = method(page, fmt, prefix)
     control.draw_items(items, 'tvshows')
     control.schedule_next_page_prefetch(
         items,
@@ -642,6 +668,53 @@ def GENRES(payload, params):
         control.schedule_next_page_prefetch(
             items,
             lambda p=page + 1, fmt=format: BROWSER.get_genres(p, fmt))
+
+
+@Route('multipage_filter*')
+def MULTIPAGE_FILTER(payload, params):
+    import urllib.parse
+    base_url = params.get('base_url') or payload or ''
+    kb_heading = control.lang(30714) or "Filter Anime by Title"
+    filter_query = control.input_dialog(kb_heading)
+    if not filter_query or not filter_query.strip():
+        return
+    query = filter_query.strip()
+
+    if '?' in base_url:
+        path, sep, qs = base_url.partition('?')
+        parsed_qs = urllib.parse.parse_qs(qs)
+    else:
+        path, qs, parsed_qs = base_url, '', {}
+    parsed_qs['filter_text'] = [query]
+    parsed_qs['page'] = ['1']
+    new_qs = urllib.parse.urlencode(parsed_qs, doseq=True)
+    clean_path = path.lstrip('/')
+    if not clean_path.startswith('plugin://'):
+        target_url = f"plugin://{control.ADDON_ID}/{clean_path}?{new_qs}"
+    else:
+        target_url = f"{clean_path}?{new_qs}"
+    control.execute(f"Container.Update({target_url})")
+
+
+@Route('multipage_clear_filter*')
+def MULTIPAGE_CLEAR_FILTER(payload, params):
+    import urllib.parse
+    base_url = params.get('base_url') or payload or ''
+    if '?' in base_url:
+        path, sep, qs = base_url.partition('?')
+        parsed_qs = urllib.parse.parse_qs(qs)
+    else:
+        path, qs, parsed_qs = base_url, '', {}
+    parsed_qs.pop('filter_text', None)
+    parsed_qs.pop('filter_query', None)
+    parsed_qs['page'] = ['1']
+    new_qs = urllib.parse.urlencode(parsed_qs, doseq=True)
+    clean_path = path.lstrip('/')
+    if not clean_path.startswith('plugin://'):
+        target_url = f"plugin://{control.ADDON_ID}/{clean_path}?{new_qs}" if new_qs else f"plugin://{control.ADDON_ID}/{clean_path}"
+    else:
+        target_url = f"{clean_path}?{new_qs}" if new_qs else clean_path
+    control.execute(f"Container.Update({target_url})")
 
 
 @Route('update_genre_settings')

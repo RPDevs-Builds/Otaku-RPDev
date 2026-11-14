@@ -137,10 +137,22 @@ class AniListBrowser(BrowserBase):
         if self.tag:
             variables['includedTags'] = self.tag
 
-    def _fetch_page_and_process(self, variables, prefix, route_slug, page, format):
+    def _fetch_page_and_process(self, variables, prefix, route_slug, page, format, filter_text=None):
         self._apply_common_list_variables(variables, format)
         data = database.get(self.get_base_res, 24, variables)
-        return self.process_anilist_view(data, self._plugin_page_url(prefix, route_slug), page)
+        base_url = self._plugin_page_url(prefix, route_slug)
+
+        def peek_page(p):
+            vars_p = dict(variables)
+            vars_p['page'] = p
+            cached = database.peek(self.get_base_res, 24, vars_p)
+            if cached and cached.get('ANIME'):
+                get_meta.collect_meta(cached['ANIME'])
+                mapfunc = partial(self.base_anilist_view, completed=self.open_completed())
+                return [x for x in map(mapfunc, cached['ANIME']) if x]
+            return None
+
+        return self.process_anilist_view(data, base_url, page, peek_fn=peek_page, filter_text=filter_text)
 
     def _browse_season_airing(self, page, format, prefix, route_slug, period, sort):
         season, year = self.get_season_year(period)
@@ -189,7 +201,7 @@ class AniListBrowser(BrowserBase):
             raise ValueError(period_mode)
         return self._fetch_page_and_process(variables, prefix, route_slug, page, format)
 
-    def _browse_genre_preset(self, page, format, prefix, route_slug, genre_name):
+    def _browse_genre_preset(self, page, format, prefix, route_slug, genre_name, filter_text=None):
         variables = {
             'page': page,
             'perpage': self.perpage,
@@ -206,7 +218,19 @@ class AniListBrowser(BrowserBase):
         if self.status:
             variables['status'] = self.status
         data = database.get(self.get_base_res, 24, variables)
-        return self.process_anilist_view(data, self._plugin_page_url(prefix, route_slug), page)
+        base_url = self._plugin_page_url(prefix, route_slug)
+
+        def peek_page(p):
+            vars_p = dict(variables)
+            vars_p['page'] = p
+            cached = database.peek(self.get_base_res, 24, vars_p)
+            if cached and cached.get('ANIME'):
+                get_meta.collect_meta(cached['ANIME'])
+                mapfunc = partial(self.base_anilist_view, completed=self.open_completed())
+                return [x for x in map(mapfunc, cached['ANIME']) if x]
+            return None
+
+        return self.process_anilist_view(data, base_url, page, peek_fn=peek_page, filter_text=filter_text)
 
     def get_airing_last_season(self, page, format, prefix=None):
         return self._browse_season_airing(page, format, prefix, 'airing_last_season', 'last', 'TRENDING_DESC')
@@ -1328,15 +1352,21 @@ class AniListBrowser(BrowserBase):
         if json_res:
             return json_res
 
-    def process_anilist_view(self, json_res, base_plugin_url, page):
+    def process_anilist_view(self, json_res, base_plugin_url, page, peek_fn=None, filter_text=None):
         if not json_res or not json_res.get('ANIME'):
             return []
         has_next = json_res.get('pageInfo', {}).get('hasNextPage', False)
         get_meta.collect_meta(json_res['ANIME'])
         mapfunc = partial(self.base_anilist_view, completed=self.open_completed())
         all_results = [x for x in map(mapfunc, json_res['ANIME']) if x]
-        all_results += self.handle_paging(has_next, base_plugin_url, page)
-        return all_results
+        return self.process_multipage_view(
+            all_results,
+            has_next,
+            base_plugin_url,
+            page,
+            peek_fn=peek_fn,
+            filter_text=filter_text
+        )
 
     def process_recommendations_view(self, json_res, base_plugin_url, page):
         if not json_res or not json_res.get('edges'):

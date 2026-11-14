@@ -66,7 +66,7 @@ class MalBrowser(BrowserBase):
                 return ', '.join(genres)
         return ''
 
-    def process_mal_view(self, res, base_plugin_url, page):
+    def process_mal_view(self, res, base_plugin_url, page, peek_fn=None, filter_text=None):
         if not res or 'data' not in res:
             return []
         data = res.get('data') or []
@@ -74,8 +74,14 @@ class MalBrowser(BrowserBase):
         mapfunc = partial(self.base_mal_view, completed=self.open_completed())
         all_results = list(map(mapfunc, data))
         has_next = res.get('pagination', {}).get('has_next_page', False)
-        all_results += self.handle_paging(has_next, base_plugin_url, page)
-        return all_results
+        return self.process_multipage_view(
+            all_results,
+            has_next,
+            base_plugin_url,
+            page,
+            peek_fn=peek_fn,
+            filter_text=filter_text
+        )
 
     def process_res(self, res):
         if not res:
@@ -184,7 +190,7 @@ class MalBrowser(BrowserBase):
         if self.genre:
             params['genres'] = self.genre
 
-    def _browse_mal_anime_list(self, page, format, prefix, route_slug, extra_params=None, relax_on_empty=False):
+    def _browse_mal_anime_list(self, page, format, prefix, route_slug, extra_params=None, relax_on_empty=False, filter_text=None):
         params = {
             'page': page,
             'limit': self.perpage,
@@ -204,7 +210,20 @@ class MalBrowser(BrowserBase):
                 mal_res_relaxed = database.get(self.get_base_res, 24, f"{self._BASE_URL}/anime", params_relaxed)
                 if mal_res_relaxed and mal_res_relaxed.get('data'):
                     mal_res = mal_res_relaxed
-        return self.process_mal_view(mal_res, self._plugin_page_url(prefix, route_slug), page)
+
+        url = f"{self._BASE_URL}/anime"
+
+        def peek_page(p):
+            p_params = dict(params)
+            p_params['page'] = p
+            cached = database.peek(self.get_base_res, 24, url, p_params)
+            if cached and cached.get('data'):
+                get_meta.collect_meta(cached['data'])
+                mapfunc = partial(self.base_mal_view, completed=self.open_completed())
+                return [x for x in map(mapfunc, cached['data']) if x]
+            return None
+
+        return self.process_mal_view(mal_res, self._plugin_page_url(prefix, route_slug), page, peek_fn=peek_page, filter_text=filter_text)
 
     _browse_anime_list = _browse_mal_anime_list
 
@@ -241,7 +260,7 @@ class MalBrowser(BrowserBase):
 
     _ranked_anime_list = _ranked_mal_list
 
-    def _browse_season_airing(self, page, format, prefix, route_slug, period):
+    def _browse_season_airing(self, page, format, prefix, route_slug, period, filter_text=None):
         season, year, _, _, _, _, _, _, _, _, _, _, _, _ = self.get_season_year(period)
         if not season or not year:
             return []
@@ -251,10 +270,22 @@ class MalBrowser(BrowserBase):
             'sfw': self.adult,
         }
         self._apply_season_format_params(params, format)
-        airing = database.get(self.get_base_res, 24, f"{self._BASE_URL}/seasons/{year}/{season}", params)
-        return self.process_mal_view(airing, self._plugin_page_url(prefix, route_slug), page)
+        url = f"{self._BASE_URL}/seasons/{year}/{season}"
+        airing = database.get(self.get_base_res, 24, url, params)
 
-    def _browse_genre_preset(self, page, format, prefix, route_slug, mal_genre_id):
+        def peek_page(p):
+            p_params = dict(params)
+            p_params['page'] = p
+            cached = database.peek(self.get_base_res, 24, url, p_params)
+            if cached and cached.get('data'):
+                get_meta.collect_meta(cached['data'])
+                mapfunc = partial(self.base_mal_view, completed=self.open_completed())
+                return [x for x in map(mapfunc, cached['data']) if x]
+            return None
+
+        return self.process_mal_view(airing, self._plugin_page_url(prefix, route_slug), page, peek_fn=peek_page, filter_text=filter_text)
+
+    def _browse_genre_preset(self, page, format, prefix, route_slug, mal_genre_id, filter_text=None):
         # Fixed MAL genre id — do not merge saved multi-genre settings into `genres`.
         params = {
             'page': page,
@@ -269,8 +300,20 @@ class MalBrowser(BrowserBase):
             params['status'] = self.status
         if self.rating:
             params['rating'] = self.rating
-        mal_res = database.get(self.get_base_res, 24, f"{self._BASE_URL}/anime", params)
-        return self.process_mal_view(mal_res, self._plugin_page_url(prefix, route_slug), page)
+        url = f"{self._BASE_URL}/anime"
+        mal_res = database.get(self.get_base_res, 24, url, params)
+
+        def peek_page(p):
+            p_params = dict(params)
+            p_params['page'] = p
+            cached = database.peek(self.get_base_res, 24, url, p_params)
+            if cached and cached.get('data'):
+                get_meta.collect_meta(cached['data'])
+                mapfunc = partial(self.base_mal_view, completed=self.open_completed())
+                return [x for x in map(mapfunc, cached['data']) if x]
+            return None
+
+        return self.process_mal_view(mal_res, self._plugin_page_url(prefix, route_slug), page, peek_fn=peek_page, filter_text=filter_text)
 
     def _fetch_mal_anime_data(self, mal_id, retry_limit=3):
         retries = 0
@@ -536,7 +579,7 @@ class MalBrowser(BrowserBase):
     def get_all_time_favourites(self, page, format, prefix=None):
         return self._ranked_mal_list(page, format, prefix, 'all_time_favourites', 'favorites', 'desc')
 
-    def get_top_100(self, page, format, prefix=None):
+    def get_top_100(self, page, format, prefix=None, filter_text=None):
         params = {
             'page': page,
             'limit': self.perpage,
@@ -544,8 +587,20 @@ class MalBrowser(BrowserBase):
         }
         self._apply_anime_type_params(params, format)
         self._apply_content_filters(params)
-        top_100 = database.get(self.get_base_res, 24, f"{self._BASE_URL}/top/anime", params)
-        return self.process_mal_view(top_100, self._plugin_page_url(prefix, 'top_100'), page)
+        url = f"{self._BASE_URL}/top/anime"
+        top_100 = database.get(self.get_base_res, 24, url, params)
+
+        def peek_page(p):
+            p_params = dict(params)
+            p_params['page'] = p
+            cached = database.peek(self.get_base_res, 24, url, p_params)
+            if cached and cached.get('data'):
+                get_meta.collect_meta(cached['data'])
+                mapfunc = partial(self.base_mal_view, completed=self.open_completed())
+                return [x for x in map(mapfunc, cached['data']) if x]
+            return None
+
+        return self.process_mal_view(top_100, self._plugin_page_url(prefix, 'top_100'), page, peek_fn=peek_page, filter_text=filter_text)
 
     @staticmethod
     def get_base_res(url, params=None):

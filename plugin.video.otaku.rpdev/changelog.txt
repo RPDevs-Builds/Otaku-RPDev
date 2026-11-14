@@ -1,3 +1,14 @@
+Changelog v6.1.0 (2026-11-14):
+- Multipage Sorting & Filtering, Background Pre-Caching & Kodi Native Integration:
+- - Added "Multipage Filtering" settings group under Settings -> Sort & Filter with pre-cache page slider (1–20 pages), sort-by selector (Default, Date, Episode, Rating), order spinner (Ascending/Descending), and display mode (Paged vs. All Pre-Cached Items).
+- - Defined string IDs #30698 through #30715 in strings.po for group labels, option spinners, and action items.
+- - Implemented pure stateless multipage engine in multipage.py for sort key extraction, tokenized text filtering with BBCode stripping, multi-page deduplication and merging with 1,000 item ceiling, stable multi-dimensional sorting, and page slicing.
+- - Implemented database.peek() for non-blocking RAM/SQLite cache lookups and SQLite multipage_jobs table queue with atomic dequeue, progress tracking, and stale job pruning.
+- - Implemented persistent background MultipageWorker in service.py with rate pacing (>=1.0s AniList, >=1.1s Jikan), playback/standby pause guards, sliced abort loops, and triple-gated Container.Refresh notifications.
+- - Integrated multipage pre-caching, text filtering, and cross-page sorting across AniListBrowser, MalBrowser, and BrowserBase with support for Mode 0 ("Paged" with inline [Filter List by Text...] and [Clear Filter] actions) and Mode 1 ("All Pre-Cached Items" loading up to 1,000 entries into container for real-time Kodi side-blade native filtering).
+- - Synchronized Kodi native sort methods in draw_items() registering SORT_METHOD_NONE first to respect API rankings while enabling native Date, Rating, Episode, and Playcount sorting.
+- - Hardened VideoInfoTag setters in control.py: setRating safely parses scalar floats, integers, and numeric strings in addition to dictionaries; setEpisode checks episode, episodes, and total_episodes fallbacks.
+
 Changelog v6.0.10 (2026-11-08):
 - Title Isolation, Candidate Scoring & Autoplay Relevance Gating:
 - - Added isolate_show_title and clean_title_for_matching in source_utils.py with multi-format episode boundary detection (hyphen, space, dot, S##E##, Part)

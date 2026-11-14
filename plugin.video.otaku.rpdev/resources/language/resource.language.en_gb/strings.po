@@ -2737,4 +2737,77 @@ msgctxt "#30697"
 msgid "Toggle All On / Off"
 msgstr ""
 
+msgctxt "#30698"
+msgid "Multipage Filtering"
+msgstr ""
+
+msgctxt "#30699"
+msgid "Pre-Cache Pages"
+msgstr ""
+
+msgctxt "#30700"
+msgid "Sort By"
+msgstr ""
+
+msgctxt "#30701"
+msgid "Default"
+msgstr ""
+
+msgctxt "#30702"
+msgid "Date"
+msgstr ""
+
+msgctxt "#30703"
+msgid "Episode"
+msgstr ""
+
+msgctxt "#30704"
+msgid "Rating"
+msgstr ""
+
+msgctxt "#30705"
+msgid "Sort Order"
+msgstr ""
+
+msgctxt "#30706"
+msgid "Descending"
+msgstr ""
+
+msgctxt "#30707"
+msgid "Ascending"
+msgstr ""
+
+msgctxt "#30708"
+msgid "Display Mode"
+msgstr ""
+
+msgctxt "#30709"
+msgid "Paged"
+msgstr ""
+
+msgctxt "#30710"
+msgid "All Pre-Cached Items"
+msgstr ""
+
+msgctxt "#30711"
+msgid "Show Filter Item in List"
+msgstr ""
+
+msgctxt "#30712"
+msgid "[Filter List by Text...]"
+msgstr ""
+
+msgctxt "#30713"
+msgid "[Clear Filter]"
+msgstr ""
+
+msgctxt "#30714"
+msgid "Filter Anime by Title"
+msgstr ""
+
+msgctxt "#30715"
+msgid "Pre-caching completed (%d pages cached)"
+msgstr ""
+
+
 

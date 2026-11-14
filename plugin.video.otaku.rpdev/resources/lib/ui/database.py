@@ -625,6 +625,63 @@ def remove(function, *args, **kwargs):
         return False
 
 
+def peek(function, duration=24, *args, **kwargs):
+    """Non-blocking check of RAM window cache and SQLite cache.db.
+
+    Returns deserialized cached value on hit, None on miss without calling function.
+    """
+    if not isinstance(duration, (int, float)):
+        args = (duration,) + args
+        duration = 24
+
+    if duration == 24:
+        configured_ttl = control.getInt('cache.metadata.ttl')
+        if configured_ttl:
+            duration = configured_ttl
+    elif duration == 8:
+        configured_ttl = control.getInt('cache.scrapers.ttl')
+        if configured_ttl:
+            duration = configured_ttl
+
+    if isinstance(function, str):
+        key = function
+    else:
+        kwargs_copy = dict(kwargs)
+        extra_key = kwargs_copy.pop('key', '')
+        key = _hash_function(function, args, kwargs_copy) + extra_key
+
+    # --- Tier 1: RAM (instant) ---
+    mem = _mem_get(key)
+    if mem is not None and not _is_empty_result(mem):
+        return mem
+
+    # --- Tier 2: SQLite ---
+    _init_cache_table()
+    row = None
+    try:
+        with SQL(control.cacheFile) as cur:
+            cur.execute('SELECT value, date FROM cache WHERE key=?', (key,))
+            row = cur.fetchone()
+    except Exception as e:
+        control.log(f"peek SQL error: {e}", level='debug')
+        return None
+
+    if row and is_cache_valid(row['date'], duration):
+        try:
+            data = ast.literal_eval(row['value'])
+        except Exception:
+            try:
+                data = control.loads_json(row['value'], None)
+            except Exception:
+                data = None
+
+        if data is not None and not _is_empty_result(data):
+            _mem_set(key, row['value'], duration)
+            return data
+
+    return None
+
+
 # — helpers ------------------------------------------------------------------
 
 def _hash_function(func, args, kwargs):
@@ -1845,4 +1902,231 @@ def check_database_integrity():
             all_ok = False
 
     return all_ok, results
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  Multipage Pre-Caching Job Queue (multipage_jobs table in cache.db)
+# ═══════════════════════════════════════════════════════════════════════════
+
+def _init_multipage_jobs_table():
+    _ensure_table(
+        control.cacheFile, 'multipage_jobs',
+        'CREATE TABLE IF NOT EXISTS multipage_jobs ('
+        'id INTEGER PRIMARY KEY AUTOINCREMENT, '
+        'job_key TEXT UNIQUE, '
+        'provider TEXT, '
+        'browser_method TEXT, '
+        'url_path TEXT, '
+        'route TEXT, '
+        'params TEXT, '
+        'current_page INTEGER, '
+        'target_page INTEGER, '
+        'status TEXT, '
+        'priority INTEGER DEFAULT 0, '
+        'error_count INTEGER DEFAULT 0, '
+        'last_error TEXT, '
+        'created_at INTEGER, '
+        'updated_at INTEGER)'
+    )
+    _ensure_table(
+        control.cacheFile, 'multipage_jobs_ix_status',
+        'CREATE INDEX IF NOT EXISTS ix_multipage_jobs_status '
+        'ON multipage_jobs (status, priority DESC, created_at ASC)'
+    )
+    _ensure_table(
+        control.cacheFile, 'multipage_jobs_ix_updated',
+        'CREATE INDEX IF NOT EXISTS ix_multipage_jobs_updated '
+        'ON multipage_jobs (updated_at)'
+    )
+
+
+def enqueue_multipage_job(provider, browser_method, url_path, request_params, target_page=20, priority=0, current_page=2):
+    """Idempotently enqueue a multipage pre-cache job into multipage_jobs table.
+
+    Returns job_id (str) or None on failure.
+    """
+    _init_multipage_jobs_table()
+    now = int(time.time())
+
+    if isinstance(request_params, (dict, list)):
+        params_str = json.dumps(request_params, sort_keys=True)
+    else:
+        params_str = str(request_params or '')
+
+    route = str(url_path or browser_method or '')
+    job_key = f"{provider}:{browser_method}:{url_path}:{generate_md5(params_str)}"
+
+    try:
+        with SQL(control.cacheFile) as cur:
+            cur.execute(
+                "SELECT id, status, current_page, target_page FROM multipage_jobs WHERE job_key=?",
+                (job_key,)
+            )
+            existing = cur.fetchone()
+            if existing:
+                job_id = existing['id']
+                existing_target = existing['target_page'] or 0
+                existing_status = existing['status']
+
+                if existing_status in ('pending', 'running'):
+                    if target_page > existing_target:
+                        cur.execute(
+                            "UPDATE multipage_jobs SET target_page=?, updated_at=? WHERE id=?",
+                            (int(target_page), now, job_id)
+                        )
+                        cur.connection.commit()
+                    return str(job_id)
+                elif existing_status in ('completed', 'failed'):
+                    cur_page = existing['current_page'] or 1
+                    if target_page > cur_page or existing_status == 'failed':
+                        cur.execute(
+                            "UPDATE multipage_jobs SET status='pending', target_page=?, error_count=0, last_error=NULL, updated_at=? WHERE id=?",
+                            (int(target_page), now, job_id)
+                        )
+                        cur.connection.commit()
+                    return str(job_id)
+                return str(job_id)
+
+            cur.execute(
+                "INSERT INTO multipage_jobs "
+                "(job_key, provider, browser_method, url_path, route, params, current_page, target_page, status, priority, error_count, last_error, created_at, updated_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, 0, NULL, ?, ?)",
+                (job_key, str(provider), str(browser_method), str(url_path), route, params_str, int(current_page), int(target_page), int(priority), now, now)
+            )
+            cur.connection.commit()
+            return str(cur.lastrowid)
+    except Exception as e:
+        control.log(f"enqueue_multipage_job error: {e}", level='error')
+        return None
+
+
+def dequeue_multipage_job(provider=None):
+    """Atomically transitions highest priority pending job to 'running' with timestamp.
+
+    Returns job dict or None.
+    """
+    _init_multipage_jobs_table()
+    now = int(time.time())
+    try:
+        with SQL(control.cacheFile) as cur:
+            if provider:
+                cur.execute(
+                    "SELECT * FROM multipage_jobs WHERE status='pending' AND provider=? ORDER BY priority DESC, created_at ASC LIMIT 1",
+                    (provider,)
+                )
+            else:
+                cur.execute(
+                    "SELECT * FROM multipage_jobs WHERE status='pending' ORDER BY priority DESC, created_at ASC LIMIT 1"
+                )
+            job = cur.fetchone()
+            if not job:
+                return None
+
+            job_id = job['id']
+            cur.execute(
+                "UPDATE multipage_jobs SET status='running', updated_at=? WHERE id=? AND status='pending'",
+                (now, job_id)
+            )
+            if cur.rowcount > 0:
+                cur.connection.commit()
+                job_dict = dict(job)
+                job_dict['status'] = 'running'
+                job_dict['updated_at'] = now
+                if 'job_id' not in job_dict and 'id' in job_dict:
+                    job_dict['job_id'] = job_dict['id']
+                if 'request_params' not in job_dict and 'params' in job_dict:
+                    job_dict['request_params'] = job_dict['params']
+                return job_dict
+            cur.connection.commit()
+    except Exception as e:
+        control.log(f"dequeue_multipage_job error: {e}", level='error')
+    return None
+
+
+def update_multipage_job_progress(job_id, current_page):
+    """Update current_page and updated_at heartbeat for job."""
+    _init_multipage_jobs_table()
+    now = int(time.time())
+    try:
+        with SQL(control.cacheFile) as cur:
+            cur.execute(
+                "UPDATE multipage_jobs SET current_page=?, updated_at=? WHERE id=?",
+                (int(current_page), now, int(job_id))
+            )
+            cur.connection.commit()
+            return cur.rowcount > 0
+    except Exception as e:
+        control.log(f"update_multipage_job_progress error: {e}", level='error')
+        return False
+
+
+def mark_multipage_job_done(job_id):
+    """Mark job status as 'completed'."""
+    _init_multipage_jobs_table()
+    now = int(time.time())
+    try:
+        with SQL(control.cacheFile) as cur:
+            cur.execute(
+                "UPDATE multipage_jobs SET status='completed', updated_at=? WHERE id=?",
+                (now, int(job_id))
+            )
+            cur.connection.commit()
+            return cur.rowcount > 0
+    except Exception as e:
+        control.log(f"mark_multipage_job_done error: {e}", level='error')
+        return False
+
+
+def mark_multipage_job_failed(job_id, error=None, max_retries=3):
+    """Increment error count. If error_count >= max_retries, mark 'failed', else reset to 'pending'."""
+    _init_multipage_jobs_table()
+    now = int(time.time())
+    try:
+        with SQL(control.cacheFile) as cur:
+            cur.execute("SELECT error_count FROM multipage_jobs WHERE id=?", (int(job_id),))
+            row = cur.fetchone()
+            if not row:
+                return False
+            error_count = (row['error_count'] or 0) + 1
+            new_status = 'failed' if error_count >= max_retries else 'pending'
+            err_str = str(error) if error is not None else None
+            cur.execute(
+                "UPDATE multipage_jobs SET status=?, error_count=?, last_error=?, updated_at=? WHERE id=?",
+                (new_status, error_count, err_str, now, int(job_id))
+            )
+            cur.connection.commit()
+            return cur.rowcount > 0
+    except Exception as e:
+        control.log(f"mark_multipage_job_failed error: {e}", level='error')
+        return False
+
+
+def prune_stale_multipage_jobs(max_age_seconds=86400, running_timeout=300):
+    """Reset stale running jobs (>running_timeout) to 'pending' and delete completed/failed jobs older than max_age_seconds.
+
+    Returns total affected rows count.
+    """
+    _init_multipage_jobs_table()
+    now = int(time.time())
+    stale_running_cutoff = now - int(running_timeout)
+    stale_purge_cutoff = now - int(max_age_seconds)
+    total_affected = 0
+    try:
+        with SQL(control.cacheFile) as cur:
+            cur.execute(
+                "UPDATE multipage_jobs SET status='pending', updated_at=? WHERE status='running' AND updated_at < ?",
+                (now, stale_running_cutoff)
+            )
+            total_affected += cur.rowcount
+
+            cur.execute(
+                "DELETE FROM multipage_jobs WHERE status IN ('completed', 'failed') AND updated_at < ?",
+                (stale_purge_cutoff,)
+            )
+            total_affected += cur.rowcount
+            cur.connection.commit()
+    except Exception as e:
+        control.log(f"prune_stale_multipage_jobs error: {e}", level='error')
+    return total_affected
+
 

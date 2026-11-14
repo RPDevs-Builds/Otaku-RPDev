@@ -1,4 +1,23 @@
 ================================================================================
+         OTAKU RPDEV v6.1.0 - MULTIPAGE SORTING, FILTERING & BACKGROUND CACHING
+================================================================================
+
+[ Multipage Pre-Caching • Cross-Page Sorting • Text Filter • Kodi Native Sync ]
+• Background API Pre-Caching: Persistent MultipageWorker in service.py fetches up to 20
+  pages ahead (~1,000 items) into SQLite cache.db with API pacing (>=1.0s AniList, >=1.1s
+  Jikan), paused during video playback or standby.
+• Cross-Page Multi-Dimensional Sorting: Sorts merged multi-page windows by Default, Date,
+  Episode, or Rating (Ascending or Descending) with unrated/missing items placed at the bottom,
+  solving the issue of higher-rated items falling on subsequent pages.
+• Dual Display Modes: Mode 0 ("Paged") provides sliced navigation with inline [Filter List
+  by Text...] and [Clear Filter] actions; Mode 1 ("All Pre-Cached Items") loads all pre-cached
+  entries into Kodi's container for instant C++ native side-blade filtering.
+• Kodi Native Sort Method Synchronization: Registers SORT_METHOD_NONE first in draw_items()
+  to preserve API rankings while exposing native Date, Rating, Episode, and Playcount sorts.
+• Hardened Metadata & VideoInfoTags: setRating handles scalar scores and dictionaries;
+  setEpisode supports episode, episodes, and total_episodes counts.
+
+================================================================================
          OTAKU RPDEV v6.0.10 - TITLE ISOLATION, CANDIDATE SCORING & FILTERING
 ================================================================================
 
