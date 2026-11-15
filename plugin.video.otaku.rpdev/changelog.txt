@@ -1,3 +1,9 @@
+Changelog v6.1.6 (2026-11-14):
+- Fix Torrent Source Filtering:
+  - Preserve Dual/Multi-Audio MULTI-SUB releases under Sub/Dub filters
+  - Fix S01/Season 01, contraction, Romaji, and pipe title scoring
+  - Load full AniList/kodi_meta aliases and premiere year in sortSources
+
 Changelog v6.1.5 (2026-11-14):
 - Publish Context Menu v1.0.45:
   - Package and sync context.otaku.rpdev alongside main add-on in release.yml and release_addon.py

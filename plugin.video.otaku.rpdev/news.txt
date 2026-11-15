@@ -1,7 +1,17 @@
 ========================
+[B]OTAKU RPDEV v6.1.6[/B]
+Fix Torrent Source Filtering
+========================
+
+v6.1.6 Highlights:
+  * Preserve Dual/Multi-Audio MULTI-SUB releases under Sub/Dub filters
+  * Fix S01/Season 01, contraction, Romaji, and pipe title scoring
+  * Load full AniList/kodi_meta aliases and premiere year in sortSources
+
+--------------------------------
 [B]OTAKU RPDEV v6.1.5[/B]
 Publish Context Menu v1.0.45
-========================
+--------------------------------
 
 v6.1.5 Highlights:
   * Package and sync context.otaku.rpdev alongside main add-on in
