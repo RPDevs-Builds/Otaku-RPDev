@@ -115,6 +115,52 @@ class TestEndpointsAnimeSkip(unittest.TestCase):
         self.assertIn('intro', res_intro)
         self.assertNotIn('outro', res_intro)
 
+    def test_get_skip_times_modern_graphql(self):
+        from resources.lib.endpoints import anime_skip
+
+        mock_resp = mock.MagicMock()
+        mock_resp.ok = True
+        mock_resp.json.return_value = {
+            'data': {
+                'findShowsByExternalId': [{
+                    'episodes': [{
+                        'id': 'ep1',
+                        'number': '1',
+                        'timestamps': [
+                            {'at': 0, 'typeId': '9edc0037-fa4e-47a7-a29a-d9c43368daa8'},        # Canon
+                            {'at': 120.0, 'typeId': '14550023-2589-46f0-bfb4-152976506b4c'},    # Intro
+                            {'at': 210.0, 'typeId': '9edc0037-fa4e-47a7-a29a-d9c43368daa8'},    # Canon
+                            {'at': 1300.0, 'typeId': '2a730a51-a601-439b-bc1f-7b94a640ffb9'},   # Credits
+                            {'at': 1390.0, 'typeId': 'c7b1eddb-defa-4bc6-a598-f143081cfe4b'},   # Preview
+                        ]
+                    }]
+                }]
+            }
+        }
+
+        with mock.patch('resources.lib.ui.client.post', return_value=mock_resp), \
+             mock.patch.object(anime_skip, 'resolve_anilist_id', return_value=12345):
+            op_res = anime_skip.get_skip_times(12345, 1, 'op')
+            self.assertIsNotNone(op_res)
+            self.assertEqual(op_res['results'][0]['skipType'], 'op')
+            self.assertEqual(op_res['results'][0]['interval']['startTime'], 120.0)
+            self.assertEqual(op_res['results'][0]['interval']['endTime'], 210.0)
+
+            ed_res = anime_skip.get_skip_times(12345, 1, 'ed')
+            self.assertIsNotNone(ed_res)
+            self.assertEqual(ed_res['results'][0]['skipType'], 'ed')
+            self.assertEqual(ed_res['results'][0]['interval']['startTime'], 1300.0)
+            self.assertEqual(ed_res['results'][0]['interval']['endTime'], 1390.0)
+
+    def test_get_skip_times_empty_and_fallback(self):
+        from resources.lib.endpoints import anime_skip
+
+        with mock.patch('resources.lib.ui.client.post', return_value=None), \
+             mock.patch.object(anime_skip, 'resolve_anilist_id', return_value=12345):
+            self.assertIsNone(anime_skip.get_skip_times(12345, 1, 'op'))
+
+        self.assertIsNone(anime_skip.get_skip_times(None))
+
 
 class TestEndpointsAniSkip(unittest.TestCase):
     def test_fetch_and_get_skip_times(self):

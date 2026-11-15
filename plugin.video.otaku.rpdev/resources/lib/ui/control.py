@@ -685,6 +685,9 @@ def getSetting(key):
     return ''
 
 
+getString = getSetting
+
+
 def getBool(key, default=False):
     """Get setting as boolean - checks in-memory cache, then Kodi API, then window property fallback"""
     ck = f'b_{key}'

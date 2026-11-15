@@ -3909,5 +3909,37 @@ msgctxt "#30990"
 msgid "Query IntroDB (api.introdb.app) for opening and ending skip times when AniSkip has no data (Default: Enabled)."
 msgstr ""
 
+msgctxt "#30991"
+msgid "Enable Anime-Skip Alternative"
+msgstr ""
+
+msgctxt "#30992"
+msgid "Enable Anime-Skip (api.anime-skip.com) as a secondary fallback skip service when AniSkip has no data (Default: Enabled)."
+msgstr ""
+
+msgctxt "#30993"
+msgid "Anime-Skip Client ID / API Key"
+msgstr ""
+
+msgctxt "#30994"
+msgid "Default public API key provided. To prevent rate limiting and breakage, users should generate their own personal key at https://anime-skip.com/account/api-clients."
+msgstr ""
+
+msgctxt "#30995"
+msgid "Enable IntroDB Alternative"
+msgstr ""
+
+msgctxt "#30996"
+msgid "Enable IntroDB (api.introdb.app) as a tertiary fallback skip service when AniSkip and Anime-Skip have no data (Default: Enabled)."
+msgstr ""
+
+msgctxt "#30997"
+msgid "Enable Anime-Skip Fallback"
+msgstr ""
+
+msgctxt "#30998"
+msgid "Query Anime-Skip for intro or outro timestamps when AniSkip has no data (Default: Enabled)."
+msgstr ""
+
 
 

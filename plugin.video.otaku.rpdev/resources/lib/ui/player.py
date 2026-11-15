@@ -226,6 +226,11 @@ class WatchlistPlayer(player):
         self.skipintro_aniskip_auto = control.getBool('skipintro.aniskip.auto')
         self.skipoutro_aniskip_enable = control.getBool('skipoutro.aniskip.enable')
         self.skipoutro_aniskip_auto = control.getBool('skipoutro.aniskip.auto')
+        self.animeskip_enable = control.getBool('animeskip.enable', True)
+        self.animeskip_apikey = control.getSetting('animeskip.apikey') or 'OyThx3MHD7dKuaNOk9c6N2LeR4fOmiRw'
+        self.introdb_enable = control.getBool('introdb.enable', True)
+        self.skipintro_animeskip_enable = control.getBool('skipintro.animeskip.enable', True)
+        self.skipoutro_animeskip_enable = control.getBool('skipoutro.animeskip.enable', True)
         self.skipintro_introdb_enable = control.getBool('skipintro.introdb.enable', True)
         self.skipoutro_introdb_enable = control.getBool('skipoutro.introdb.enable', True)
 
@@ -284,8 +289,10 @@ class WatchlistPlayer(player):
                 if self.provider in EMBED_SKIP_PREFIXES:
                     self.process_embed(self.provider)
                 self.process_aniskip()
-                self.process_animeskip()
-                self.process_introdb()
+                if self.animeskip_enable:
+                    self.process_animeskip()
+                if self.introdb_enable:
+                    self.process_introdb()
                 self._skip_processed = True
             except Exception as e:
                 control.log(f'Error processing skip times: {e}', 'error')
@@ -1078,56 +1085,59 @@ class WatchlistPlayer(player):
                 control.log(f'AniSkip: applied outro {self.skipoutro_start}-{self.skipoutro_end}s (precedence over chapters)', 'info')
 
     def process_animeskip(self):
-        show_meta = database.get_show_meta(self.mal_id)
-        anilist_id = None
-        if show_meta and show_meta.get('meta_ids'):
-            try:
-                anilist_id = database.loads(show_meta['meta_ids']).get('anilist_id')
-            except Exception:
-                anilist_id = None
-        if not anilist_id:
-            try:
-                mappings = database.get_mappings(self.mal_id, 'mal_id')
-                anilist_id = mappings.get('anilist_id') if isinstance(mappings, dict) else None
-            except Exception:
-                anilist_id = None
-        if not anilist_id:
+        # Anime-Skip secondary fallback when AniSkip returns 404 or empty results
+        need_intro = (
+            self.skipintro_aniskip_enable
+            and self.animeskip_enable
+            and self.skipintro_animeskip_enable
+            and bool(self.animeskip_apikey)
+            and (not self.skipintro_aniskip or self.skipintro_from_chapters)
+        )
+        need_outro = (
+            self.skipoutro_aniskip_enable
+            and self.animeskip_enable
+            and self.skipoutro_animeskip_enable
+            and bool(self.animeskip_apikey)
+            and (not self.skipoutro_aniskip or self.skipoutro_from_chapters)
+        )
+
+        if not need_intro and not need_outro:
             return
 
-        if (self.skipintro_aniskip_enable and (not self.skipintro_aniskip or self.skipintro_from_chapters)) or (self.skipoutro_aniskip_enable and (not self.skipoutro_aniskip or self.skipoutro_from_chapters)):
-            skip_times = anime_skip.get_time_stamps(anime_skip.get_episode_ids(str(anilist_id), int(self.episode)))
-            intro_start = None
-            intro_end = None
-            outro_start = None
-            outro_end = None
-            if skip_times:
-                for skip in skip_times:
-                    if self.skipintro_aniskip_enable and (not self.skipintro_aniskip or self.skipintro_from_chapters):
-                        if intro_start is None and skip['type']['name'] in ['Intro', 'New Intro', 'Branding']:
-                            intro_start = int(skip['at'])
-                        elif intro_end is None and intro_start is not None and skip['type']['name'] in ['Canon']:
-                            intro_end = int(skip['at'])
-                    if self.skipoutro_aniskip_enable and (not self.skipoutro_aniskip or self.skipoutro_from_chapters):
-                        if outro_start is None and skip['type']['name'] in ['Credits', 'New Credits']:
-                            outro_start = int(skip['at'])
-                        elif outro_end is None and outro_start is not None and skip['type']['name'] in ['Canon', 'Preview']:
-                            outro_end = int(skip['at'])
-
-            if intro_start is not None and intro_end is not None:
-                self.skipintro_start = max(0, intro_start + self.skipintro_offset)
-                self.skipintro_end = intro_end + self.skipintro_offset
+        if need_intro:
+            intro_res = anime_skip.get_skip_times(self.mal_id, self.episode, 'op', client_id=self.animeskip_apikey)
+            if intro_res and intro_res.get('results'):
+                skip_times = intro_res['results'][0]['interval']
+                self.skipintro_start = max(0, int(skip_times['startTime']) + self.skipintro_offset)
+                self.skipintro_end = int(skip_times['endTime']) + self.skipintro_offset
                 self.skipintro_aniskip = True
                 self.skipintro_from_chapters = False
-            if outro_start is not None and outro_end is not None:
-                self.skipoutro_start = max(0, int(outro_start) + self.skipoutro_offset)
-                self.skipoutro_end = int(outro_end) + self.skipoutro_offset
+                control.log(f'Anime-Skip: applied intro {self.skipintro_start}-{self.skipintro_end}s (fallback from AniSkip)', 'info')
+
+        if need_outro:
+            outro_res = anime_skip.get_skip_times(self.mal_id, self.episode, 'ed', client_id=self.animeskip_apikey)
+            if outro_res and outro_res.get('results'):
+                skip_times = outro_res['results'][0]['interval']
+                self.skipoutro_start = max(0, int(skip_times['startTime']) + self.skipoutro_offset)
+                self.skipoutro_end = int(skip_times['endTime']) + self.skipoutro_offset
                 self.skipoutro_aniskip = True
                 self.skipoutro_from_chapters = False
+                control.log(f'Anime-Skip: applied outro {self.skipoutro_start}-{self.skipoutro_end}s (fallback from AniSkip)', 'info')
 
     def process_introdb(self):
-        # IntroDB secondary fallback when AniSkip returns 404 or empty results
-        need_intro = self.skipintro_aniskip_enable and self.skipintro_introdb_enable and (not self.skipintro_aniskip or self.skipintro_from_chapters)
-        need_outro = self.skipoutro_aniskip_enable and self.skipoutro_introdb_enable and (not self.skipoutro_aniskip or self.skipoutro_from_chapters)
+        # IntroDB tertiary fallback when AniSkip and Anime-Skip return 404 or empty results
+        need_intro = (
+            self.skipintro_aniskip_enable
+            and self.introdb_enable
+            and self.skipintro_introdb_enable
+            and (not self.skipintro_aniskip or self.skipintro_from_chapters)
+        )
+        need_outro = (
+            self.skipoutro_aniskip_enable
+            and self.introdb_enable
+            and self.skipoutro_introdb_enable
+            and (not self.skipoutro_aniskip or self.skipoutro_from_chapters)
+        )
 
         if not need_intro and not need_outro:
             return
@@ -1140,7 +1150,7 @@ class WatchlistPlayer(player):
                 self.skipintro_end = int(skip_times['endTime']) + self.skipintro_offset
                 self.skipintro_aniskip = True
                 self.skipintro_from_chapters = False
-                control.log(f'IntroDB: applied intro {self.skipintro_start}-{self.skipintro_end}s (fallback from AniSkip)', 'info')
+                control.log(f'IntroDB: applied intro {self.skipintro_start}-{self.skipintro_end}s (fallback from AniSkip/Anime-Skip)', 'info')
 
         if need_outro:
             outro_res = introdb.get_skip_times(self.mal_id, self.episode, 'ed')
@@ -1150,7 +1160,7 @@ class WatchlistPlayer(player):
                 self.skipoutro_end = int(skip_times['endTime']) + self.skipoutro_offset
                 self.skipoutro_aniskip = True
                 self.skipoutro_from_chapters = False
-                control.log(f'IntroDB: applied outro {self.skipoutro_start}-{self.skipoutro_end}s (fallback from AniSkip)', 'info')
+                control.log(f'IntroDB: applied outro {self.skipoutro_start}-{self.skipoutro_end}s (fallback from AniSkip/Anime-Skip)', 'info')
 
         extras = introdb.get_extra_segments(self.mal_id, self.episode)
         if extras.get('recap'):

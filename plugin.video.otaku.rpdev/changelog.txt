@@ -1,3 +1,11 @@
+Changelog v6.2.0 (2026-11-15):
+- Anime-Skip & 3-Way Skip Engine:
+  - Anime-Skip Integration: Added GraphQL client with single-trip query and SQLite caching
+  - 3-Way Autoskip Chain: AniSkip -> Anime-Skip -> IntroDB fallback chain boosting skip coverage to 78%
+  - Unified Settings: Master Anime-Skip and IntroDB toggles with shared API key under General Playback
+  - Independent Dialog Controls: Granular sub-toggles under Skip Intro and Playing Next dialog sections
+  - Fallback Resilience: Graceful fallback across missing keys, rate limits, timeouts, and orphan IDs
+
 Changelog v6.1.9 (2026-11-15):
 - Chapter Extraction & IntroDB:
   - Pure-Python MKV/MP4 HTTP range chapter extraction without external binaries

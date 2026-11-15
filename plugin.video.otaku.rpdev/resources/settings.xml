@@ -1054,6 +1054,29 @@
 						<dependency type="enable" setting="general.smartplay">true</dependency>
 					</dependencies>
 				</setting>
+				<setting id="animeskip.enable" type="boolean" label="30991" help="30992">
+					<level>1</level>
+					<default>true</default>
+					<control type="toggle" />
+				</setting>
+				<setting id="animeskip.apikey" type="string" label="30993" help="30994">
+					<level>2</level>
+					<default>OyThx3MHD7dKuaNOk9c6N2LeR4fOmiRw</default>
+					<constraints>
+						<allowempty>true</allowempty>
+					</constraints>
+					<control type="edit" format="string">
+						<heading>30993</heading>
+					</control>
+					<dependencies>
+						<dependency type="visible" setting="animeskip.enable">true</dependency>
+					</dependencies>
+				</setting>
+				<setting id="introdb.enable" type="boolean" label="30995" help="30996">
+					<level>1</level>
+					<default>true</default>
+					<control type="toggle" />
+				</setting>
 				<setting id="general.playstyle.movie" type="integer" label="30139" help="30788">
 					<level>0</level>
 					<default>0</default>
@@ -1179,6 +1202,20 @@
 						</dependency>
 					</dependencies>
 				</setting>
+				<setting id="skipintro.animeskip.enable" type="boolean" label="30997" help="30998">
+					<level>2</level>
+					<default>true</default>
+					<control type="toggle" />
+					<dependencies>
+						<dependency type="visible">
+							<and>
+								<condition setting="smartplay.skipintrodialog">true</condition>
+								<condition setting="skipintro.aniskip.enable">true</condition>
+								<condition setting="animeskip.enable">true</condition>
+							</and>
+						</dependency>
+					</dependencies>
+				</setting>
 				<setting id="skipintro.introdb.enable" type="boolean" label="30989" help="30990">
 					<level>2</level>
 					<default>true</default>
@@ -1188,6 +1225,7 @@
 							<and>
 								<condition setting="smartplay.skipintrodialog">true</condition>
 								<condition setting="skipintro.aniskip.enable">true</condition>
+								<condition setting="introdb.enable">true</condition>
 							</and>
 						</dependency>
 					</dependencies>
@@ -1317,6 +1355,20 @@
 						</dependency>
 					</dependencies>
 				</setting>
+				<setting id="skipoutro.animeskip.enable" type="boolean" label="30997" help="30998">
+					<level>2</level>
+					<default>true</default>
+					<control type="toggle" />
+					<dependencies>
+						<dependency type="visible">
+							<and>
+								<condition setting="smartplay.playingnextdialog">true</condition>
+								<condition setting="skipoutro.aniskip.enable">true</condition>
+								<condition setting="animeskip.enable">true</condition>
+							</and>
+						</dependency>
+					</dependencies>
+				</setting>
 				<setting id="skipoutro.introdb.enable" type="boolean" label="30989" help="30990">
 					<level>2</level>
 					<default>true</default>
@@ -1326,6 +1378,7 @@
 							<and>
 								<condition setting="smartplay.playingnextdialog">true</condition>
 								<condition setting="skipoutro.aniskip.enable">true</condition>
+								<condition setting="introdb.enable">true</condition>
 							</and>
 						</dependency>
 					</dependencies>

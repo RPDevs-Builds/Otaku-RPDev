@@ -917,7 +917,7 @@ def cache_clear_metadata():
     with SQL(control.cacheFile) as cur:
         metadata_tokens = [
             'anilist', 'myanimelist', 'mal', 'kitsu', 'simkl', 'mdblist',
-            'tvdb', 'aniskip', 'introdb', 'jikan', 'anidb', 'anizip', 'fanart',
+            'tvdb', 'aniskip', 'animeskip', 'introdb', 'jikan', 'anidb', 'anizip', 'fanart',
             'get_base_res', 'get_anime_init', 'get_reviews', 'get_media'
         ]
         for token in metadata_tokens:
