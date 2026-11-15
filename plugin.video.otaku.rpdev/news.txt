@@ -1,7 +1,17 @@
 ========================
+[B]OTAKU RPDEV v6.2.3[/B]
+This Season Diagnostics
+========================
+
+v6.2.3 Highlights:
+  * Log season/format/API item counts for This Season browse lists at info
+    level
+  * Show a notification when a browse list returns zero results
+
+--------------------------------
 [B]OTAKU RPDEV v6.2.2[/B]
 Watchlist Pre-Cache & Paging
-========================
+--------------------------------
 
 v6.2.2 Highlights:
   * Remove Sort & Filter multipage filtering settings, delegating full-list

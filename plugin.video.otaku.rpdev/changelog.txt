@@ -1,3 +1,8 @@
+Changelog v6.2.3 (2026-11-15):
+- This Season Diagnostics:
+  - Log season/format/API item counts for This Season browse lists at info level
+  - Show a notification when a browse list returns zero results
+
 Changelog v6.2.2 (2026-11-15):
 - Watchlist Pre-Cache & Paging:
   - Remove Sort & Filter multipage filtering settings, delegating full-list sorting directly to Kodi native side-blade menu

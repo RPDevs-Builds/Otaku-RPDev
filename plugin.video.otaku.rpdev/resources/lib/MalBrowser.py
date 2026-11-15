@@ -268,6 +268,9 @@ class MalBrowser(BrowserBase):
         self._apply_season_format_params(params, format)
         url = f"{self._BASE_URL}/seasons/{year}/{season}"
         airing = database.get(self.get_base_res, 24, url, params)
+        control.log(
+            f"season browse (mal/otaku) {route_slug}: url={url} params={params} "
+            f"api_items={len((airing or {}).get('data') or [])}", 'info')
 
         def peek_page(p):
             p_params = dict(params)

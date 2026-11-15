@@ -162,6 +162,7 @@ class AniListBrowser(BrowserBase):
             'seasonYear': int(year),
             'sort': sort,
         }
+        control.log(f"season browse (anilist) {route_slug}: variables={variables} format={format!r}", 'info')
         return self._fetch_page_and_process(variables, prefix, route_slug, page, format, filter_text=filter_text)
 
     def _ranked_media_list(self, page, format, prefix, route_slug, sort, period_mode='all_time'):

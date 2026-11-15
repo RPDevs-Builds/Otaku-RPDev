@@ -108,6 +108,16 @@ def _draw_browser_page(browser_method, route_prefix, params):
         items = method(page, fmt, prefix, filter_text=filter_text)
     except TypeError:
         items = method(page, fmt, prefix)
+    try:
+        from resources.lib.ui import multipage as _mp
+        real_count = len([it for it in (items or []) if not _mp.is_next_page_item(it) and not _mp.is_action_item(it)])
+        control.log(
+            f"browse {browser_method}: api={control.getStr('browser.api')} page={page} "
+            f"fmt={fmt!r} filter={filter_text!r} items={real_count}", 'info')
+        if real_count == 0 and page == 1:
+            control.notify(control.ADDON_NAME, 'No results returned for this list (see log: "browse %s")' % browser_method)
+    except Exception as e:
+        control.log(f"_draw_browser_page diagnostics error: {e}", 'warning')
     control.draw_items(items, 'tvshows')
     control.schedule_next_page_prefetch(
         items,
