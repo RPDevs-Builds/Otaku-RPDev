@@ -186,7 +186,7 @@ class MalBrowser(BrowserBase):
         if self.genre:
             params['genres'] = self.genre
 
-    def _browse_mal_anime_list(self, page, format, prefix, route_slug, extra_params=None, relax_on_empty=False, filter_text=None):
+    def _browse_mal_anime_list(self, page, format, prefix, route_slug, extra_params=None, relax_on_empty=False, filter_text=None, post_filter=None):
         params = {
             'page': page,
             'limit': self.perpage,
@@ -208,11 +208,14 @@ class MalBrowser(BrowserBase):
                     mal_res = mal_res_relaxed
 
         url = f"{self._BASE_URL}/anime"
+        mal_res = self._apply_post_filter(mal_res, post_filter)
+        control.log(
+            f"mal list {route_slug}: params={params} api_items={len((mal_res or {}).get('data') or [])}", 'info')
 
         def peek_page(p):
             p_params = dict(params)
             p_params['page'] = p
-            cached = database.peek(self.get_base_res, 24, url, p_params)
+            cached = self._apply_post_filter(database.peek(self.get_base_res, 24, url, p_params), post_filter)
             if cached and cached.get('data'):
                 get_meta.collect_meta(cached['data'])
                 mapfunc = partial(self.base_mal_view, completed=self.open_completed())
@@ -249,10 +252,40 @@ class MalBrowser(BrowserBase):
     def _ranked_mal_list(self, page, format, prefix, route_slug, order_by, sort, date_mode=None):
         sy = self.get_season_year('')
         extra = {'order_by': order_by, 'sort': sort}
+        post_filter = None
         if date_mode:
             extra.update(self._date_extra_from_bounds(sy, date_mode))
+            if date_mode in ('this_season', 'this_year'):
+                # Jikan's end_date matches aired.to, which is null for anything still airing,
+                # so a future end bound returns nothing. Bound by start only and trim shows
+                # that start after the period ends client-side.
+                period_end = extra.pop('end_date', None)
+                post_filter = self._aired_from_not_after(period_end)
         extra = self._normalize_date_params(extra)
-        return self._browse_mal_anime_list(page, format, prefix, route_slug, extra, relax_on_empty=True)
+        return self._browse_mal_anime_list(page, format, prefix, route_slug, extra, relax_on_empty=True,
+                                           post_filter=post_filter)
+
+    @staticmethod
+    def _aired_from_not_after(period_end):
+        """Return a predicate keeping items whose aired.from is on/before period_end."""
+        if not period_end:
+            return None
+        limit = period_end.isoformat() if hasattr(period_end, 'isoformat') else str(period_end)
+        limit = limit[:10]
+
+        def _keep(item):
+            aired_from = ((item or {}).get('aired') or {}).get('from')
+            return not aired_from or str(aired_from)[:10] <= limit
+
+        return _keep
+
+    @staticmethod
+    def _apply_post_filter(res, post_filter):
+        if not post_filter or not res or not res.get('data'):
+            return res
+        filtered = dict(res)
+        filtered['data'] = [x for x in res['data'] if post_filter(x)]
+        return filtered
 
     _ranked_anime_list = _ranked_mal_list
 

@@ -1,7 +1,18 @@
 ========================
+[B]OTAKU RPDEV v6.2.4[/B]
+Fix This Season Ranked Lists
+========================
+
+v6.2.4 Highlights:
+  * Fix MAL/Otaku Trending, Popular, Voted and Favourites This Season and
+    This Year lists returning empty
+  * Bound current-period ranked lists by start date only since Jikan
+    end_date matches aired.to which is null for airing shows
+
+--------------------------------
 [B]OTAKU RPDEV v6.2.3[/B]
 This Season Diagnostics
-========================
+--------------------------------
 
 v6.2.3 Highlights:
   * Log season/format/API item counts for This Season browse lists at info

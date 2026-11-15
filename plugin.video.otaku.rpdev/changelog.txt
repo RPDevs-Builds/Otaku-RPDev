@@ -1,3 +1,8 @@
+Changelog v6.2.4 (2026-11-15):
+- Fix This Season Ranked Lists:
+  - Fix MAL/Otaku Trending, Popular, Voted and Favourites This Season and This Year lists returning empty
+  - Bound current-period ranked lists by start date only since Jikan end_date matches aired.to which is null for airing shows
+
 Changelog v6.2.3 (2026-11-15):
 - This Season Diagnostics:
   - Log season/format/API item counts for This Season browse lists at info level
