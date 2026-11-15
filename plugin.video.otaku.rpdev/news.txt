@@ -1,7 +1,22 @@
 ========================
+[B]OTAKU RPDEV v6.1.8[/B]
+Settings Backup & Reset Suite
+========================
+
+v6.1.8 Highlights:
+  * Wipe Addon Data: Factory reset resetting runtime C++ settings, logins,
+    and databases
+  * Settings Backup & Restore: Clear Cache-styled modal with All Settings,
+    Logins Only, and Settings Only scopes
+  * Reset Category to Defaults: Action button on each of the 11 settings
+    categories
+  * Reset Settings to Defaults: Non-destructive reset in Maintenance
+    preserving all logins and credentials
+
+--------------------------------
 [B]OTAKU RPDEV v6.1.7[/B]
 Fix Season Pack Detection
-========================
+--------------------------------
 
 v6.1.7 Highlights:
   * Tag package=True and BATCH badge on whole-show torrents

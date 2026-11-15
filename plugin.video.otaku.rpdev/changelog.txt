@@ -1,3 +1,10 @@
+Changelog v6.1.8 (2026-11-14):
+- Settings Backup & Reset Suite:
+  - Wipe Addon Data: Factory reset resetting runtime C++ settings, logins, and databases
+  - Settings Backup & Restore: Clear Cache-styled modal with All Settings, Logins Only, and Settings Only scopes
+  - Reset Category to Defaults: Action button on each of the 11 settings categories
+  - Reset Settings to Defaults: Non-destructive reset in Maintenance preserving all logins and credentials
+
 Changelog v6.1.7 (2026-11-14):
 - Fix Season Pack Detection:
   - Tag package=True and BATCH badge on whole-show torrents
