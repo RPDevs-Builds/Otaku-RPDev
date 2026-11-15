@@ -467,14 +467,20 @@ def probe_mkv_chapters_ebml(play_url: str, timeout: int = 8) -> list[dict]:
 def attach_to_linkinfo(linkinfo: dict | None) -> None:
     """
     Mutates linkinfo to add 'chapters' (list, possibly empty).
-    Uses ffprobe if available, or pure-Python Matroska EBML reader as fallback.
+    Orchestration priority:
+    1. Pure-Python Extraction (chapters.python.enable, default True)
+    2. FFprobe probe_stream_chapters (ffprobe.chapters.enable, default False)
+    If FFprobe is enabled but not found, fails gracefully.
     """
     if not linkinfo or not isinstance(linkinfo, dict):
         return
 
     linkinfo['chapters'] = []
 
-    if not control.getBool('ffprobe.chapters.enable'):
+    python_enabled = control.getBool('chapters.python.enable')
+    ffprobe_enabled = control.getBool('ffprobe.chapters.enable')
+
+    if not python_enabled and not ffprobe_enabled:
         return
 
     play_url = linkinfo.get('url') or linkinfo.get('link')
@@ -491,10 +497,31 @@ def attach_to_linkinfo(linkinfo: dict | None) -> None:
         return
 
     chapters = []
-    exe = find_ffprobe()
-    if exe:
-        chapters = probe_stream_chapters(exe, str(play_url))
 
+    # Priority 1: Pure-Python Extraction (zero external binaries)
+    if python_enabled:
+        try:
+            from resources.lib.ui import chapter_extractor
+            chapters = chapter_extractor.get_remote_chapters(str(play_url))
+            if chapters:
+                control.log(f'chapters: found {len(chapters)} chapter(s) via Python extractor', 'info')
+        except Exception as e:
+            control.log(f'python chapter extractor error: {e}', 'warning')
+
+    # Priority 2: FFprobe binary fallback
+    if not chapters and ffprobe_enabled:
+        exe = find_ffprobe()
+        if exe:
+            try:
+                chapters = probe_stream_chapters(exe, str(play_url))
+                if chapters:
+                    control.log(f'chapters: found {len(chapters)} chapter(s) via ffprobe fallback', 'info')
+            except Exception as e:
+                control.log(f'ffprobe chapter fallback error: {e}', 'warning')
+        else:
+            control.log('ffprobe: binary enabled in settings but not found on system; skipping probe', 'debug')
+
+    # Legacy Matroska EBML fallback if needed
     if not chapters and ('.mkv' in str(play_url).lower() or 'matroska' in content_type.lower() or 'octet-stream' in content_type.lower()):
         try:
             chapters = probe_mkv_chapters_ebml(str(play_url))
@@ -503,4 +530,4 @@ def attach_to_linkinfo(linkinfo: dict | None) -> None:
 
     if chapters:
         linkinfo['chapters'] = chapters
-        control.log(f'chapters: found {len(chapters)} chapter(s)', 'info')
+        control.log(f'chapters: attached {len(chapters)} chapter(s) to linkinfo', 'info')

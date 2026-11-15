@@ -1890,7 +1890,7 @@ msgid "Probe MKV/MP4 chapters with ffprobe before playback"
 msgstr ""
 
 msgctxt "#30468"
-msgid "Probe stream chapters via ffprobe as fallback for skip intro/outro times when AniSkip has no data. Requires ffprobe (Default: Enabled)."
+msgid "Probe stream chapters via ffprobe as fallback for skip intro/outro times when AniSkip has no data. Requires ffprobe (Default: Disabled)."
 msgstr ""
 
 msgctxt "#30469"
@@ -1902,7 +1902,7 @@ msgid "Absolute file path to custom ffprobe executable. Leave empty or None to a
 msgstr ""
 
 msgctxt "#30471"
-msgid "FFprobe (chapters / skip times)"
+msgid "Chapter Extraction"
 msgstr ""
 
 msgctxt "#30472"
@@ -3891,6 +3891,14 @@ msgstr ""
 
 msgctxt "#30986"
 msgid "Resets all settings in this category to add-on defaults."
+msgstr ""
+
+msgctxt "#30987"
+msgid "Extract container chapters via pure Python"
+msgstr ""
+
+msgctxt "#30988"
+msgid "Extract container chapters (MKV/MP4) before playback using pure Python without external binaries. Works on all platforms including Android TV (Default: Enabled)."
 msgstr ""
 
 

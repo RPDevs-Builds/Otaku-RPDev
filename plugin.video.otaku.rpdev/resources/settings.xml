@@ -1112,9 +1112,14 @@
 				</setting>
 			</group>
 			<group id="3" label="30471">
+				<setting id="chapters.python.enable" type="boolean" label="30987" help="30988">
+					<level>1</level>
+					<default>true</default>
+					<control type="toggle" />
+				</setting>
 				<setting id="ffprobe.chapters.enable" type="boolean" label="30467" help="30468">
 					<level>2</level>
-					<default>true</default>
+					<default>false</default>
 					<control type="toggle" />
 				</setting>
 				<setting id="ffprobe.path" type="string" label="30469" help="30470" parent="ffprobe.chapters.enable">

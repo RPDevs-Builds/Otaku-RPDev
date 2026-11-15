@@ -390,7 +390,7 @@ class TestSettingsSchemaAndCodeReferences(unittest.TestCase):
                 if help_val and help_val.strip():
                     level4_with_help.append((sid, help_val))
 
-        self.assertEqual(user_visible_count, 356, f"Expected 356 user-visible settings (level 0-3), found {user_visible_count}")
+        self.assertEqual(user_visible_count, 357, f"Expected 357 user-visible settings (level 0-3), found {user_visible_count}")
         self.assertEqual(level4_count, 127, f"Expected 127 hidden level 4 settings, found {level4_count}")
         self.assertEqual(
             len(user_visible_missing), 0,
@@ -564,7 +564,7 @@ class TestSettingsSchemaAndCodeReferences(unittest.TestCase):
         """
         from resources.lib.ui import clean_settings
         active_ids = clean_settings.get_active_setting_ids(self.settings_xml_path)
-        self.assertEqual(len(active_ids), 483, f"Expected 483 active setting IDs, got {len(active_ids)}")
+        self.assertEqual(len(active_ids), 484, f"Expected 484 active setting IDs, got {len(active_ids)}")
         self.assertEqual(active_ids, set(self.declared_settings.keys()))
 
         legacy_compatibility_keys = [

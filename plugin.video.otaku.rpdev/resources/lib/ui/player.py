@@ -229,6 +229,8 @@ class WatchlistPlayer(player):
 
         self.skipintro_aniskip = False
         self.skipoutro_aniskip = False
+        self.skipintro_from_chapters = False
+        self.skipoutro_from_chapters = False
         self.skipintro_start = control.getInt('skipintro.delay')
         self.skipintro_end = self.skipintro_start + control.getInt('skipintro.duration')
         self.skipoutro_start = 0
@@ -541,8 +543,8 @@ class WatchlistPlayer(player):
             if self.ffprobe_chapters:
                 self.process_ffprobe_chapter_skips()
 
-            # 2. Only wait for external skip APIs if intro or outro has not yet been resolved
-            if not (self.skipintro_aniskip and self.skipoutro_aniskip):
+            # 2. Only wait for external skip APIs if intro or outro has not yet been resolved by AniSkip
+            if not (self.skipintro_aniskip and self.skipoutro_aniskip) or self.skipintro_from_chapters or self.skipoutro_from_chapters:
                 timeout = 30
                 while not self._skip_processed and timeout > 0:
                     if self._playback_stopped or not self.isPlaying() or (self._monitor and self._monitor.abortRequested()):
@@ -992,6 +994,7 @@ class WatchlistPlayer(player):
                 self.skipintro_start = best['start']
                 self.skipintro_end = best['end']
                 self.skipintro_aniskip = True
+                self.skipintro_from_chapters = True
                 control.log(
                     'ffprobe chapter intro fallback [%s] %s-%ss (score=%s)'
                     % (best['title'], self.skipintro_start, self.skipintro_end, best['score']),
@@ -1038,6 +1041,7 @@ class WatchlistPlayer(player):
                     self.skipoutro_start = int(start)
                     self.skipoutro_end = int(end)
                     self.skipoutro_aniskip = True
+                    self.skipoutro_from_chapters = True
                     control.log(
                         'ffprobe chapter outro fallback [%s] %s-%ss'
                         % (title, self.skipoutro_start, self.skipoutro_end),
@@ -1045,7 +1049,8 @@ class WatchlistPlayer(player):
                     )
 
     def process_aniskip(self):
-        if self.skipintro_aniskip_enable and not self.skipintro_aniskip:
+        # AniSkip integration takes precedence over chapter extraction fallback
+        if self.skipintro_aniskip_enable and (not self.skipintro_aniskip or self.skipintro_from_chapters):
             skipintro_aniskip_res = aniskip.get_skip_times(self.mal_id, self.episode, 'op')
             if not skipintro_aniskip_res or not skipintro_aniskip_res.get('results'):
                 skipintro_aniskip_res = aniskip.get_skip_times(self.mal_id, self.episode, 'mixed-op')
@@ -1054,8 +1059,10 @@ class WatchlistPlayer(player):
                 self.skipintro_start = max(0, int(skip_times['startTime']) + self.skipintro_offset)
                 self.skipintro_end = int(skip_times['endTime']) + self.skipintro_offset
                 self.skipintro_aniskip = True
+                self.skipintro_from_chapters = False
+                control.log(f'AniSkip: applied intro {self.skipintro_start}-{self.skipintro_end}s (precedence over chapters)', 'info')
 
-        if self.skipoutro_aniskip_enable and not self.skipoutro_aniskip:
+        if self.skipoutro_aniskip_enable and (not self.skipoutro_aniskip or self.skipoutro_from_chapters):
             skipoutro_aniskip_res = aniskip.get_skip_times(self.mal_id, self.episode, 'ed')
             if not skipoutro_aniskip_res or not skipoutro_aniskip_res.get('results'):
                 skipoutro_aniskip_res = aniskip.get_skip_times(self.mal_id, self.episode, 'mixed-ed')
@@ -1064,6 +1071,8 @@ class WatchlistPlayer(player):
                 self.skipoutro_start = max(0, int(skip_times['startTime']) + self.skipoutro_offset)
                 self.skipoutro_end = int(skip_times['endTime']) + self.skipoutro_offset
                 self.skipoutro_aniskip = True
+                self.skipoutro_from_chapters = False
+                control.log(f'AniSkip: applied outro {self.skipoutro_start}-{self.skipoutro_end}s (precedence over chapters)', 'info')
 
     def process_animeskip(self):
         show_meta = database.get_show_meta(self.mal_id)
@@ -1082,7 +1091,7 @@ class WatchlistPlayer(player):
         if not anilist_id:
             return
 
-        if (self.skipintro_aniskip_enable and not self.skipintro_aniskip) or (self.skipoutro_aniskip_enable and not self.skipoutro_aniskip):
+        if (self.skipintro_aniskip_enable and (not self.skipintro_aniskip or self.skipintro_from_chapters)) or (self.skipoutro_aniskip_enable and (not self.skipoutro_aniskip or self.skipoutro_from_chapters)):
             skip_times = anime_skip.get_time_stamps(anime_skip.get_episode_ids(str(anilist_id), int(self.episode)))
             intro_start = None
             intro_end = None
@@ -1090,12 +1099,12 @@ class WatchlistPlayer(player):
             outro_end = None
             if skip_times:
                 for skip in skip_times:
-                    if self.skipintro_aniskip_enable and not self.skipintro_aniskip:
+                    if self.skipintro_aniskip_enable and (not self.skipintro_aniskip or self.skipintro_from_chapters):
                         if intro_start is None and skip['type']['name'] in ['Intro', 'New Intro', 'Branding']:
                             intro_start = int(skip['at'])
                         elif intro_end is None and intro_start is not None and skip['type']['name'] in ['Canon']:
                             intro_end = int(skip['at'])
-                    if self.skipoutro_aniskip_enable and not self.skipoutro_aniskip:
+                    if self.skipoutro_aniskip_enable and (not self.skipoutro_aniskip or self.skipoutro_from_chapters):
                         if outro_start is None and skip['type']['name'] in ['Credits', 'New Credits']:
                             outro_start = int(skip['at'])
                         elif outro_end is None and outro_start is not None and skip['type']['name'] in ['Canon', 'Preview']:
@@ -1105,10 +1114,12 @@ class WatchlistPlayer(player):
                 self.skipintro_start = max(0, intro_start + self.skipintro_offset)
                 self.skipintro_end = intro_end + self.skipintro_offset
                 self.skipintro_aniskip = True
+                self.skipintro_from_chapters = False
             if outro_start is not None and outro_end is not None:
                 self.skipoutro_start = max(0, int(outro_start) + self.skipoutro_offset)
                 self.skipoutro_end = int(outro_end) + self.skipoutro_offset
                 self.skipoutro_aniskip = True
+                self.skipoutro_from_chapters = False
 
     def process_embed(self, embed):
         embed_skipintro_start = control.getInt(f'{embed}.skipintro.start')
