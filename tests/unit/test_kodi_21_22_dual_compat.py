@@ -428,11 +428,11 @@ class TestBrowserDirectoryAndSpecialSortDualCompat(unittest.TestCase):
 
 
 class TestSkinControlValidationAcrossAllXMLs(unittest.TestCase):
-    """Verify all 40 XML skin templates under strict_skin_controls=True."""
+    """Verify all 41 XML skin templates under strict_skin_controls=True."""
 
     def test_all_40_skin_templates_controls_and_types(self):
         xml_files = glob.glob(os.path.join(SKINS_1080I_DIR, '*.xml'))
-        self.assertEqual(len(xml_files), 40, "Expected exactly 40 skin XML templates")
+        self.assertEqual(len(xml_files), 41, "Expected exactly 41 skin XML templates")
         for xml_path in xml_files:
             fname = os.path.basename(xml_path)
             controls = parse_skin_xml(fname)

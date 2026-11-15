@@ -98,6 +98,7 @@ GENERAL_SETTING_IDS = {
     "artwork.banner",
     "widget.hide.nextpage",
     "widgets.delay",
+    "general.reset_category",
 }
 
 PROVIDERS_SETTING_IDS = {
@@ -120,6 +121,7 @@ PROVIDERS_SETTING_IDS = {
     "provider.gogoalt",
     "provider.hianime",
     "provider.watchnixtoons2",
+    "providers.reset_category",
 }
 
 SCRAPING_SETTING_IDS = {
@@ -137,6 +139,7 @@ SCRAPING_SETTING_IDS = {
     "torbox.cloudInspection",
     "provider.localfiles",
     "folder.location",
+    "scraping.reset_category",
 }
 
 CACHE_SETTING_IDS = {
@@ -155,6 +158,7 @@ CACHE_SETTING_IDS = {
     "clear_cache_metadata",
     "refresh_hianime_domains",
     "clean_settings",
+    "cache.reset_category",
 }
 
 PLAYBACK_SETTING_IDS = {
@@ -188,6 +192,7 @@ PLAYBACK_SETTING_IDS = {
     "skipoutro.aniskip.offset",
     "playingnext.time",
     "playingnext.defaultaction",
+    "playback.reset_category",
 }
 
 SUBTITLES_SETTING_IDS = {
@@ -216,6 +221,7 @@ SUBTITLES_SETTING_IDS = {
     "subtitles.provider.podnadpisi",
     "subtitles.provider.bsplayer",
     "subtitles.provider.addic7ed",
+    "subtitles.reset_category",
 }
 
 SORT_AND_FILTER_SETTING_IDS = {
@@ -266,6 +272,7 @@ SORT_AND_FILTER_SETTING_IDS = {
     "multipage.sort.order",
     "multipage.display.mode",
     "multipage.show.filter.item",
+    "sort_filter.reset_category",
 }
 
 ACCOUNTS_SETTING_IDS = {
@@ -308,6 +315,7 @@ ACCOUNTS_SETTING_IDS = {
     "easynews.auth.status",
     "easynews.auth_start",
     "easynews.moderation",
+    "accounts.reset_category",
 }
 
 WATCHLIST_SETTING_IDS = {
@@ -345,6 +353,7 @@ WATCHLIST_SETTING_IDS = {
     "trakt.enabled",
     "trakt.settings",
     "trakt.script",
+    "watchlist.reset_category",
 }
 
 MENU_CUSTOMIZATION_SETTING_IDS = {
@@ -420,6 +429,7 @@ MENU_CUSTOMIZATION_SETTING_IDS = {
     "music.mainmenu.config",
     "music.submenu.config",
     "music.genres.config",
+    "menu_customization.reset_category",
 }
 
 CONTEXT_CUSTOMIZATION_SETTING_IDS = {
@@ -437,6 +447,7 @@ CONTEXT_CUSTOMIZATION_SETTING_IDS = {
     "context.otaku.markpreviouswatched",
     "context.otaku.fanartselect",
     "context.otaku.clearcache",
+    "context_customization.reset_category",
 }
 
 MAINTENANCE_SETTING_IDS = {
@@ -453,6 +464,7 @@ MAINTENANCE_SETTING_IDS = {
     "clear_selected_fanart",
     "completed_sync",
     "rebuild_database",
+    "maintenance.reset_settings_to_defaults",
     "wipe_addon_data",
     "download_manager",
     "download.location",
@@ -726,26 +738,26 @@ class TestAllSettingsOutcomes(unittest.TestCase):
         Assert that TESTED_SETTING_IDS contains exactly all 471 declared settings
         from resources/settings.xml, ensuring 0 omitted settings across all categories.
         """
-        self.assertEqual(len(self.declared_settings), 471, f"Expected 471 declared settings, got {len(self.declared_settings)}")
-        self.assertEqual(len(TESTED_SETTING_IDS), 471, f"Expected 471 tested settings in registry, got {len(TESTED_SETTING_IDS)}")
+        self.assertEqual(len(self.declared_settings), 483, f"Expected 483 declared settings, got {len(self.declared_settings)}")
+        self.assertEqual(len(TESTED_SETTING_IDS), 483, f"Expected 483 tested settings in registry, got {len(TESTED_SETTING_IDS)}")
         self.assertEqual(
             set(self.declared_settings.keys()), TESTED_SETTING_IDS,
             "TESTED_SETTING_IDS does not match declared_settings in resources/settings.xml"
         )
 
         # Assert individual category counts match expectations
-        self.assertEqual(len(GENERAL_SETTING_IDS), 45)
-        self.assertEqual(len(PROVIDERS_SETTING_IDS), 19)
-        self.assertEqual(len(SCRAPING_SETTING_IDS), 14)
-        self.assertEqual(len(CACHE_SETTING_IDS), 15)
-        self.assertEqual(len(PLAYBACK_SETTING_IDS), 30)
-        self.assertEqual(len(SUBTITLES_SETTING_IDS), 25)
-        self.assertEqual(len(SORT_AND_FILTER_SETTING_IDS), 47)
-        self.assertEqual(len(ACCOUNTS_SETTING_IDS), 39)
-        self.assertEqual(len(WATCHLIST_SETTING_IDS), 34)
-        self.assertEqual(len(MENU_CUSTOMIZATION_SETTING_IDS), 72)
-        self.assertEqual(len(CONTEXT_CUSTOMIZATION_SETTING_IDS), 14)
-        self.assertEqual(len(MAINTENANCE_SETTING_IDS), 117)
+        self.assertEqual(len(GENERAL_SETTING_IDS), 46)
+        self.assertEqual(len(PROVIDERS_SETTING_IDS), 20)
+        self.assertEqual(len(SCRAPING_SETTING_IDS), 15)
+        self.assertEqual(len(CACHE_SETTING_IDS), 16)
+        self.assertEqual(len(PLAYBACK_SETTING_IDS), 31)
+        self.assertEqual(len(SUBTITLES_SETTING_IDS), 26)
+        self.assertEqual(len(SORT_AND_FILTER_SETTING_IDS), 48)
+        self.assertEqual(len(ACCOUNTS_SETTING_IDS), 40)
+        self.assertEqual(len(WATCHLIST_SETTING_IDS), 35)
+        self.assertEqual(len(MENU_CUSTOMIZATION_SETTING_IDS), 73)
+        self.assertEqual(len(CONTEXT_CUSTOMIZATION_SETTING_IDS), 15)
+        self.assertEqual(len(MAINTENANCE_SETTING_IDS), 118)
 
     # ── Category 1: General (45 settings) ──────────────────────────────────────
 
@@ -1219,9 +1231,9 @@ class TestAllSettingsOutcomes(unittest.TestCase):
         for legacy_key in LEGACY_LEVEL_4_KEYS:
             self.assertIn(legacy_key, level4_settings, f"Legacy key '{legacy_key}' must remain declared as level='4'")
 
-        # Verify clean_settings.get_active_setting_ids() keeps all 471 settings (including legacy keys)
+        # Verify clean_settings.get_active_setting_ids() keeps all 483 settings (including legacy keys)
         active_ids = clean_settings.get_active_setting_ids(self.settings_xml_path)
-        self.assertEqual(len(active_ids), 471)
+        self.assertEqual(len(active_ids), 483)
         for legacy_key in LEGACY_LEVEL_4_KEYS:
             self.assertIn(legacy_key, active_ids)
 

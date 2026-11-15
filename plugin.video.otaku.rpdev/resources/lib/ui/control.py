@@ -2009,20 +2009,9 @@ def get_view_type(viewtype):
 # ═══════════════════════════════════════════════════════════════════════════
 
 def clear_settings(silent=False):
-    from resources.lib.ui.database_sync import SyncDatabase
-    if not silent:
-        confirm = yesno_dialog(ADDON_NAME, lang(30090))
-        if confirm == 0:
-            return
-
-    if os.path.exists(dataPath):
-        shutil.rmtree(dataPath)
-
-    os.mkdir(dataPath)
-    refresh()
-
-    if getSetting('version') != '0.5.43':
-        SyncDatabase().re_build_database(True)
+    """Factory reset add-on data, database, and settings to clean install state."""
+    from resources.lib.ui import settings_manager
+    return settings_manager.wipe_addon_data(silent=silent)
 
 
 def exit_(code):

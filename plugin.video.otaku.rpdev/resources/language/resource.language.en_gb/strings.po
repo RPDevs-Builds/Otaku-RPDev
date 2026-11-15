@@ -3877,3 +3877,20 @@ msgctxt "#30982"
 msgid "Immediately invoke web_pdb.set_trace(port=...) so you can attach a browser to http://<kodi-ip>:<port> and inspect live addon state."
 msgstr ""
 
+msgctxt "#30983"
+msgid "Reset Settings to Defaults"
+msgstr ""
+
+msgctxt "#30984"
+msgid "Resets all configuration settings to add-on defaults while preserving all account logins and credentials."
+msgstr ""
+
+msgctxt "#30985"
+msgid "Reset Category to Defaults"
+msgstr ""
+
+msgctxt "#30986"
+msgid "Resets all settings in this category to add-on defaults."
+msgstr ""
+
+

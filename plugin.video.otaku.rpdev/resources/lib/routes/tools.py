@@ -483,7 +483,56 @@ def SYNC_MAPPINGS(payload, params):
 
 @Route('wipe_addon_data')
 def WIPE_ADDON_DATA(payload, params):
-    control.clear_settings()
+    from resources.lib.ui import settings_manager
+    settings_manager.wipe_addon_data(silent=False)
+    return control.exit_code()
+
+
+@Route('reset_settings_to_defaults')
+def RESET_SETTINGS_TO_DEFAULTS(payload, params):
+    from resources.lib.ui import settings_manager
+
+    confirm = control.yesno_dialog(
+        control.ADDON_NAME,
+        "Are you sure you want to reset all settings to defaults?\n\n"
+        "[COLOR lime]Safe Reset:[/COLOR] Your account logins, API keys, and Debrid/Watchlist "
+        "authorizations will [B]NOT[/B] be touched."
+    )
+    if not confirm:
+        return control.exit_code()
+
+    count = settings_manager.reset_settings_to_defaults(preserve_logins=True)
+    control.ok_dialog(
+        control.ADDON_NAME,
+        f"Reset {count} settings to add-on defaults.\n\nAll account logins and credentials were preserved."
+    )
+    control.refresh()
+    return control.exit_code()
+
+
+@Route('reset_category_settings')
+def RESET_CATEGORY_SETTINGS(payload, params):
+    from resources.lib.ui import settings_manager
+
+    category = params.get('category', '')
+    if not category:
+        return control.exit_code()
+
+    category_name = category.replace('_', ' ').title()
+    confirm = control.yesno_dialog(
+        control.ADDON_NAME,
+        f"Are you sure you want to reset all settings in the '{category_name}' category to add-on defaults?"
+    )
+    if not confirm:
+        return control.exit_code()
+
+    count = settings_manager.reset_category_settings(category)
+    control.ok_dialog(
+        control.ADDON_NAME,
+        f"Reset {count} settings in '{category_name}' to add-on defaults."
+    )
+    control.refresh()
+    return control.exit_code()
 
 
 @Route('completed_sync')
@@ -511,43 +560,70 @@ def DOWNLOAD_MANAGER(payload, params):
 
 @Route('import_settings')
 def IMPORT_SETTINGS(payload, params):
-    import xbmcvfs
+    from resources.lib.windows.settings_backup import show_settings_backup_dialog
+    from resources.lib.ui import settings_manager
 
-    setting_xml = os.path.join(control.dataPath, 'settings.xml')
-
-    # Import
-    import_location = control.browse(1, f"{control.ADDON_NAME}: Import Setting", 'files', 'settings.xml')
-    if not import_location:
+    scope = show_settings_backup_dialog(mode='import')
+    if scope == 'cancel':
         return control.exit_code()
-    if not import_location.endswith('settings.xml'):
-        control.ok_dialog(control.ADDON_NAME, "Invalid File!")
+
+    import_file = control.browse(1, f"{control.ADDON_NAME}: Select Backup File", 'files', '.json|.xml')
+    if not import_file:
+        return control.exit_code()
+
+    if not (import_file.endswith('.json') or import_file.endswith('.xml')):
+        control.ok_dialog(control.ADDON_NAME, "Invalid File Type!\nPlease select a valid .json or .xml backup file.")
+        return control.exit_code()
+
+    scope_name = "All Settings" if scope == 'all' else ("Logins Only" if scope == 'logins' else "Settings Only")
+    confirm = control.yesno_dialog(
+        control.ADDON_NAME,
+        f"Are you sure you want to import {scope_name} from:\n"
+        f"{os.path.basename(import_file)}?\n\n"
+        f"Existing settings in this scope will be overwritten."
+    )
+    if not confirm:
+        return control.exit_code()
+
+    success, count = settings_manager.import_settings(scope, import_file)
+    if success:
+        control.ok_dialog(
+            control.ADDON_NAME,
+            f"Settings imported successfully!\n\n"
+            f"Scope: {scope_name}\n"
+            f"Settings Restored: {count}"
+        )
+        control.refresh()
     else:
-        yesno = control.yesno_dialog(control.ADDON_NAME, "Are you sure you want to replace settings.xml?")
-        if yesno:
-            if xbmcvfs.delete(setting_xml) and xbmcvfs.copy(import_location, setting_xml):
-                control.ok_dialog(control.ADDON_NAME, "Replaced settings.xml")
-            else:
-                control.ok_dialog(control.ADDON_NAME, "Could Not Import File!")
+        control.ok_dialog(control.ADDON_NAME, "Failed to import settings from selected file.")
     return control.exit_code()
 
 
 @Route('export_settings')
 def EXPORT_SETTINGS(payload, params):
-    import xbmcvfs
+    from resources.lib.windows.settings_backup import show_settings_backup_dialog
+    from resources.lib.ui import settings_manager
 
-    setting_xml = os.path.join(control.dataPath, 'settings.xml')
+    scope = show_settings_backup_dialog(mode='export')
+    if scope == 'cancel':
+        return control.exit_code()
 
-    # Export
-    export_location = control.browse(3, f"{control.ADDON_NAME}: Export Setting", 'files')
+    export_location = control.browse(3, f"{control.ADDON_NAME}: Select Export Directory", 'files')
     if not export_location:
-        control.ok_dialog(control.ADDON_NAME, "Please Select Export Location!")
+        return control.exit_code()
+
+    success, dest_path, count = settings_manager.export_settings(scope, export_location)
+    if success:
+        scope_name = "All Settings" if scope == 'all' else ("Logins" if scope == 'logins' else "Preferences")
+        control.ok_dialog(
+            control.ADDON_NAME,
+            f"Settings backup successfully created!\n\n"
+            f"Scope: {scope_name}\n"
+            f"Settings Exported: {count}\n"
+            f"File: {os.path.basename(dest_path)}"
+        )
     else:
-        yesno = control.yesno_dialog(control.ADDON_NAME, "Are you sure you want to save settings.xml?")
-        if yesno:
-            if xbmcvfs.copy(setting_xml, os.path.join(export_location, 'settings.xml')):
-                control.ok_dialog(control.ADDON_NAME, "Saved settings.xml")
-            else:
-                control.ok_dialog(control.ADDON_NAME, "Could Not Export File!")
+        control.ok_dialog(control.ADDON_NAME, "Failed to create settings backup.")
     return control.exit_code()
 
 

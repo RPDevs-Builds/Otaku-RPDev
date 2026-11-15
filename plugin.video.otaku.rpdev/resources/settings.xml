@@ -502,6 +502,13 @@
 						<popup>false</popup>
 					</control>
 				</setting>
+				<setting id="general.reset_category" type="action" label="30985" help="30986">
+					<level>1</level>
+					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/reset_category_settings?category=general&amp;setting=true)</data>
+					<control type="button" format="action">
+						<close>true</close>
+					</control>
+				</setting>
 			</group>
 		</category>
 		<category id="Providers" label="30097" help="30960">
@@ -705,6 +712,13 @@
 					<default>true</default>
 					<control type="toggle" />
 				</setting>
+				<setting id="providers.reset_category" type="action" label="30985" help="30986">
+					<level>1</level>
+					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/reset_category_settings?category=Providers&amp;setting=true)</data>
+					<control type="button" format="action">
+						<close>true</close>
+					</control>
+				</setting>
 			</group>
 		</category>
 		<category id="Scraping" label="30283" help="30961">
@@ -832,6 +846,13 @@
 					<dependencies>
 						<dependency type="visible" setting="provider.localfiles">true</dependency>
 					</dependencies>
+				</setting>
+				<setting id="scraping.reset_category" type="action" label="30985" help="30986">
+					<level>1</level>
+					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/reset_category_settings?category=Scraping&amp;setting=true)</data>
+					<control type="button" format="action">
+						<close>true</close>
+					</control>
 				</setting>
 			</group>
 		</category>
@@ -973,6 +994,13 @@
 				<setting id="clean_settings" type="action" label="30573" help="30574">
 					<level>3</level>
 					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/clean_settings?setting=true)</data>
+					<control type="button" format="action">
+						<close>true</close>
+					</control>
+				</setting>
+				<setting id="cache.reset_category" type="action" label="30985" help="30986">
+					<level>1</level>
+					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/reset_category_settings?category=Cache&amp;setting=true)</data>
 					<control type="button" format="action">
 						<close>true</close>
 					</control>
@@ -1297,6 +1325,13 @@
 					</constraints>
 					<control type="spinner" format="string" />
 				</setting>
+				<setting id="playback.reset_category" type="action" label="30985" help="30986">
+					<level>1</level>
+					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/reset_category_settings?category=Playback&amp;setting=true)</data>
+					<control type="button" format="action">
+						<close>true</close>
+					</control>
+				</setting>
 			</group>
 		</category>
 		<category id="Subtitles" label="30600" help="30964">
@@ -1585,6 +1620,13 @@
 					<dependencies>
 						<dependency type="visible" setting="subtitles.enabled">true</dependency>
 					</dependencies>
+				</setting>
+				<setting id="subtitles.reset_category" type="action" label="30985" help="30986">
+					<level>1</level>
+					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/reset_category_settings?category=Subtitles&amp;setting=true)</data>
+					<control type="button" format="action">
+						<close>true</close>
+					</control>
 				</setting>
 			</group>
 		</category>
@@ -2203,6 +2245,13 @@
 					<default>true</default>
 					<control type="toggle" />
 				</setting>
+				<setting id="sort_filter.reset_category" type="action" label="30985" help="30986">
+					<level>1</level>
+					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/reset_category_settings?category=Sort%20and%20Filter&amp;setting=true)</data>
+					<control type="button" format="action">
+						<close>true</close>
+					</control>
+				</setting>
 			</group>
 		</category>
 		<category id="Accounts" label="30158" help="30966">
@@ -2653,6 +2702,13 @@
 						<dependency type="visible" setting="easynews.enabled">true</dependency>
 					</dependencies>
 				</setting>
+				<setting id="accounts.reset_category" type="action" label="30985" help="30986">
+					<level>1</level>
+					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/reset_category_settings?category=Accounts&amp;setting=true)</data>
+					<control type="button" format="action">
+						<close>true</close>
+					</control>
+				</setting>
 			</group>
 		</category>
 		<category id="Watchlist" label="30162" help="30967">
@@ -3046,6 +3102,13 @@
 						<dependency type="visible" setting="trakt.enabled">true</dependency>
 					</dependencies>
 					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/trakt_script?setting=true)</data>
+					<control type="button" format="action">
+						<close>true</close>
+					</control>
+				</setting>
+				<setting id="watchlist.reset_category" type="action" label="30985" help="30986">
+					<level>1</level>
+					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/reset_category_settings?category=Watchlist&amp;setting=true)</data>
 					<control type="button" format="action">
 						<close>true</close>
 					</control>
@@ -4207,6 +4270,13 @@
 						<hidevalue>true</hidevalue>
 					</control>
 				</setting>
+				<setting id="menu_customization.reset_category" type="action" label="30985" help="30986">
+					<level>1</level>
+					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/reset_category_settings?category=Menu%20Customization&amp;setting=true)</data>
+					<control type="button" format="action">
+						<close>true</close>
+					</control>
+				</setting>
 			</group>
 		</category>
 		<category id="Context Customization" label="30245" help="30969">
@@ -4280,6 +4350,13 @@
 					<level>2</level>
 					<default>true</default>
 					<control type="toggle" />
+				</setting>
+				<setting id="context_customization.reset_category" type="action" label="30985" help="30986">
+					<level>1</level>
+					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/reset_category_settings?category=Context%20Customization&amp;setting=true)</data>
+					<control type="button" format="action">
+						<close>true</close>
+					</control>
 				</setting>
 			</group>
 		</category>
@@ -4374,6 +4451,13 @@
 				<setting id="rebuild_database" type="action" label="30075" help="30656">
 					<level>1</level>
 					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/rebuild_database?setting=true)</data>
+					<control type="button" format="action">
+						<close>true</close>
+					</control>
+				</setting>
+				<setting id="maintenance.reset_settings_to_defaults" type="action" label="30983" help="30984">
+					<level>2</level>
+					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/reset_settings_to_defaults?setting=true)</data>
 					<control type="button" format="action">
 						<close>true</close>
 					</control>
