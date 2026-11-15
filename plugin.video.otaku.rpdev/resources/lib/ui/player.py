@@ -18,7 +18,7 @@ import service
 import json
 
 from resources.lib.ui import control, database, source_utils
-from resources.lib.endpoints import aniskip, anime_skip
+from resources.lib.endpoints import aniskip, anime_skip, introdb
 from resources.lib import indexers
 from resources.lib.pages import EMBED_SKIP_PREFIXES
 
@@ -226,6 +226,8 @@ class WatchlistPlayer(player):
         self.skipintro_aniskip_auto = control.getBool('skipintro.aniskip.auto')
         self.skipoutro_aniskip_enable = control.getBool('skipoutro.aniskip.enable')
         self.skipoutro_aniskip_auto = control.getBool('skipoutro.aniskip.auto')
+        self.skipintro_introdb_enable = control.getBool('skipintro.introdb.enable', True)
+        self.skipoutro_introdb_enable = control.getBool('skipoutro.introdb.enable', True)
 
         self.skipintro_aniskip = False
         self.skipoutro_aniskip = False
@@ -283,6 +285,7 @@ class WatchlistPlayer(player):
                     self.process_embed(self.provider)
                 self.process_aniskip()
                 self.process_animeskip()
+                self.process_introdb()
                 self._skip_processed = True
             except Exception as e:
                 control.log(f'Error processing skip times: {e}', 'error')
@@ -1120,6 +1123,42 @@ class WatchlistPlayer(player):
                 self.skipoutro_end = int(outro_end) + self.skipoutro_offset
                 self.skipoutro_aniskip = True
                 self.skipoutro_from_chapters = False
+
+    def process_introdb(self):
+        # IntroDB secondary fallback when AniSkip returns 404 or empty results
+        need_intro = self.skipintro_aniskip_enable and self.skipintro_introdb_enable and (not self.skipintro_aniskip or self.skipintro_from_chapters)
+        need_outro = self.skipoutro_aniskip_enable and self.skipoutro_introdb_enable and (not self.skipoutro_aniskip or self.skipoutro_from_chapters)
+
+        if not need_intro and not need_outro:
+            return
+
+        if need_intro:
+            intro_res = introdb.get_skip_times(self.mal_id, self.episode, 'op')
+            if intro_res and intro_res.get('results'):
+                skip_times = intro_res['results'][0]['interval']
+                self.skipintro_start = max(0, int(skip_times['startTime']) + self.skipintro_offset)
+                self.skipintro_end = int(skip_times['endTime']) + self.skipintro_offset
+                self.skipintro_aniskip = True
+                self.skipintro_from_chapters = False
+                control.log(f'IntroDB: applied intro {self.skipintro_start}-{self.skipintro_end}s (fallback from AniSkip)', 'info')
+
+        if need_outro:
+            outro_res = introdb.get_skip_times(self.mal_id, self.episode, 'ed')
+            if outro_res and outro_res.get('results'):
+                skip_times = outro_res['results'][0]['interval']
+                self.skipoutro_start = max(0, int(skip_times['startTime']) + self.skipoutro_offset)
+                self.skipoutro_end = int(skip_times['endTime']) + self.skipoutro_offset
+                self.skipoutro_aniskip = True
+                self.skipoutro_from_chapters = False
+                control.log(f'IntroDB: applied outro {self.skipoutro_start}-{self.skipoutro_end}s (fallback from AniSkip)', 'info')
+
+        extras = introdb.get_extra_segments(self.mal_id, self.episode)
+        if extras.get('recap'):
+            self.recap_start = int(extras['recap']['startTime'])
+            self.recap_end = int(extras['recap']['endTime'])
+        if extras.get('post_credits'):
+            self.post_credits_start = int(extras['post_credits']['startTime'])
+            self.post_credits_end = int(extras['post_credits']['endTime'])
 
     def process_embed(self, embed):
         embed_skipintro_start = control.getInt(f'{embed}.skipintro.start')

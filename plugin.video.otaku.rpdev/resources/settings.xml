@@ -1179,6 +1179,19 @@
 						</dependency>
 					</dependencies>
 				</setting>
+				<setting id="skipintro.introdb.enable" type="boolean" label="30989" help="30990">
+					<level>2</level>
+					<default>true</default>
+					<control type="toggle" />
+					<dependencies>
+						<dependency type="visible">
+							<and>
+								<condition setting="smartplay.skipintrodialog">true</condition>
+								<condition setting="skipintro.aniskip.enable">true</condition>
+							</and>
+						</dependency>
+					</dependencies>
+				</setting>
 				<setting id="skipintro.time" type="integer" label="30150" help="30797">
 					<level>2</level>
 					<default>80</default>
@@ -1295,6 +1308,19 @@
 					<control type="slider" format="integer">
 						<popup>false</popup>
 					</control>
+					<dependencies>
+						<dependency type="visible">
+							<and>
+								<condition setting="smartplay.playingnextdialog">true</condition>
+								<condition setting="skipoutro.aniskip.enable">true</condition>
+							</and>
+						</dependency>
+					</dependencies>
+				</setting>
+				<setting id="skipoutro.introdb.enable" type="boolean" label="30989" help="30990">
+					<level>2</level>
+					<default>true</default>
+					<control type="toggle" />
 					<dependencies>
 						<dependency type="visible">
 							<and>

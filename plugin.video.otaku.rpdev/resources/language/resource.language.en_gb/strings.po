@@ -3901,4 +3901,13 @@ msgctxt "#30988"
 msgid "Extract container chapters (MKV/MP4) before playback using pure Python without external binaries. Works on all platforms including Android TV (Default: Enabled)."
 msgstr ""
 
+msgctxt "#30989"
+msgid "Enable IntroDB Fallback"
+msgstr ""
+
+msgctxt "#30990"
+msgid "Query IntroDB (api.introdb.app) for opening and ending skip times when AniSkip has no data (Default: Enabled)."
+msgstr ""
+
+
 

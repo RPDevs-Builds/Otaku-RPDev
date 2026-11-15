@@ -27,21 +27,21 @@ class TestFunctionCoverage(unittest.TestCase):
         cls.catalog = parse_source_tree(cls.repo_root)
 
     def test_all_139_modules_discovered(self):
-        """Assert exactly 142 source modules exist across plugin and context add-ons."""
+        """Assert exactly 143 source modules exist across plugin and context add-ons."""
         self.assertEqual(
-            len(self.source_files), 142,
-            f"Expected exactly 142 Python source files, discovered {len(self.source_files)}"
+            len(self.source_files), 143,
+            f"Expected exactly 143 Python source files, discovered {len(self.source_files)}"
         )
 
         plugin_files = [rel for rel, _ in self.source_files if rel.startswith('plugin.video.otaku.rpdev/')]
         context_files = [rel for rel, _ in self.source_files if rel.startswith('context.otaku.rpdev/')]
 
-        self.assertEqual(len(plugin_files), 141, "Expected 141 modules in plugin.video.otaku.rpdev")
+        self.assertEqual(len(plugin_files), 142, "Expected 142 modules in plugin.video.otaku.rpdev")
         self.assertEqual(len(context_files), 1, "Expected 1 module in context.otaku.rpdev")
 
     def test_ast_symbol_discovery_fidelity(self):
         """Assert AST symbol visitor discovers classes, functions, and non-dunder methods."""
-        self.assertEqual(len(self.catalog), 142)
+        self.assertEqual(len(self.catalog), 143)
         total_classes = sum(len(d['classes']) for d in self.catalog.values())
         total_funcs = sum(len(d['functions']) for d in self.catalog.values())
         total_public = sum(sum(1 for f in d['functions'] if f['is_public']) for d in self.catalog.values())
@@ -106,7 +106,7 @@ class TestFunctionCoverage(unittest.TestCase):
         # Compute coverage over full catalog with tracer
         report = compute_coverage(self.catalog, tracer)
         summary = report['summary']
-        self.assertEqual(summary['total_source_files'], 142)
+        self.assertEqual(summary['total_source_files'], 143)
         self.assertEqual(summary['uncovered_source_files_count'], 0)
         self.assertEqual(summary['module_coverage_pct'], 100.0)
         self.assertGreater(summary['covered_functions'], 0)
