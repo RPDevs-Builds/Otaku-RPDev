@@ -70,7 +70,7 @@ class TestContainerRefreshAdversarialMatrix(unittest.TestCase):
         token_val = '1' if token_state == 'set' else ''
         control.homeWindow.setProperty(self.token_key, token_val)
 
-        with patch.object(control, 'getInt', return_value=mode), \
+        with patch.object(control, 'getBool', side_effect=lambda k, *args, **kwargs: (k == 'interface.watchlist.paging' and mode == 0)), \
              patch('xbmc.getInfoLabel', return_value=folder_path), \
              patch.object(control, 'is_addon_visible', return_value=is_visible), \
              patch.object(control, 'refresh') as mock_refresh:
@@ -155,7 +155,7 @@ class TestContainerRefreshAdversarialMatrix(unittest.TestCase):
         """Once token 'otaku_mp_refreshed_{job_id}' is set to '1', repeated calls are strictly blocked."""
         # Clean state triggers refresh and sets token
         control.homeWindow.setProperty(self.token_key, '')
-        with patch.object(control, 'getInt', return_value=1), \
+        with patch.object(control, 'getBool', return_value=False), \
              patch('xbmc.getInfoLabel', return_value='plugin://plugin.video.otaku.rpdev/airing?page=1'), \
              patch.object(control, 'is_addon_visible', return_value=True), \
              patch.object(control, 'refresh') as mock_refresh:
@@ -179,7 +179,7 @@ class TestContainerRefreshAdversarialMatrix(unittest.TestCase):
         refresh only occurs when the add-on is visible.
         """
         control.homeWindow.setProperty(self.token_key, '')
-        with patch.object(control, 'getInt', return_value=1), \
+        with patch.object(control, 'getBool', return_value=False), \
              patch('xbmc.getInfoLabel', return_value='plugin://plugin.video.otaku.rpdev/airing?page=1'), \
              patch.object(control, 'is_addon_visible', return_value=False) as mock_visible, \
              patch.object(control, 'refresh') as mock_refresh:

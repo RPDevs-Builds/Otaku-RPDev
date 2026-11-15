@@ -130,9 +130,7 @@ def sync_watchlist(silent=False):
 
 def prefetch_watchlist():
     """Prefetch all watchlist statuses in background for faster loading."""
-    if not control.getBool('watchlist.prefetch.enabled'):
-        return
-    if not control.getBool('watchlist.update.enabled'):
+    if not control.getBool('watchlist.prefetch.enabled') and not control.getBool('watchlist.precache.all'):
         return
 
     from resources.lib.ui.database import is_watchlist_cache_valid
@@ -194,6 +192,8 @@ def prefetch_watchlist():
                 anilist_data = Anilist().get_anilist_by_mal_ids(all_mal_ids)
                 if anilist_data:
                     save_anilist_enrichment_batch(anilist_data)
+                    from resources.lib.ui import get_meta
+                    get_meta.collect_meta([{'mal_id': mid} for mid in all_mal_ids])
                     control.log(f'### AniList enrichment cached: {len(anilist_data)} items')
                 else:
                     control.log('### AniList enrichment returned no data')
@@ -596,15 +596,15 @@ class MultipageWorker(threading.Thread):
         return True
 
     def _check_and_refresh_container(self, job):
-        """Trigger Container.Refresh only if user is actively viewing page 1 of this list in Mode 1."""
+        """Trigger Container.Refresh only if user is actively viewing page 1 of this list with paging disabled."""
         if not control.is_addon_visible():
             return
 
-        # Gate 1: Check multipage.display.mode == 1 (All Pre-Cached Items mode). Mode 0 does not refresh.
-        if control.getInt('multipage.display.mode', default=0) != 1:
+        # Gate 1: When paging is enabled, background refresh is blocked to prevent interrupting active pagination
+        if control.getBool('interface.watchlist.paging'):
             return
 
-        # Gate 2: Check Container.FolderPath matches job['url_path'] and current page == 1
+        # Check Container.FolderPath matches job['url_path'] and current page == 1
         current_folder = xbmc.getInfoLabel('Container.FolderPath')
         if not current_folder:
             return

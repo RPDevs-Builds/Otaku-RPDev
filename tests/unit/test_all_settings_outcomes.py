@@ -275,11 +275,6 @@ SORT_AND_FILTER_SETTING_IDS = {
     "general.release_title_filter.exclude3",
     "general.release_title_filter.exclude4",
     "general.release_title_filter.exclude5",
-    "multipage.precache.pages",
-    "multipage.sort.by",
-    "multipage.sort.order",
-    "multipage.display.mode",
-    "multipage.show.filter.item",
     "sort_filter.reset_category",
 }
 
@@ -330,6 +325,8 @@ WATCHLIST_SETTING_IDS = {
     "watchlist.update.enabled",
     "watchlist.sync.enabled",
     "watchlist.prefetch.enabled",
+    "watchlist.precache.all",
+    "watchlist.precache.now",
     "watchlist.update.percent",
     "nextup.flavor",
     "interface.watchlist.data",
@@ -746,8 +743,8 @@ class TestAllSettingsOutcomes(unittest.TestCase):
         Assert that TESTED_SETTING_IDS contains exactly all 471 declared settings
         from resources/settings.xml, ensuring 0 omitted settings across all categories.
         """
-        self.assertEqual(len(self.declared_settings), 491, f"Expected 491 declared settings, got {len(self.declared_settings)}")
-        self.assertEqual(len(TESTED_SETTING_IDS), 491, f"Expected 491 tested settings in registry, got {len(TESTED_SETTING_IDS)}")
+        self.assertEqual(len(self.declared_settings), 488, f"Expected 488 declared settings, got {len(self.declared_settings)}")
+        self.assertEqual(len(TESTED_SETTING_IDS), 488, f"Expected 488 tested settings in registry, got {len(TESTED_SETTING_IDS)}")
         self.assertEqual(
             set(self.declared_settings.keys()), TESTED_SETTING_IDS,
             "TESTED_SETTING_IDS does not match declared_settings in resources/settings.xml"
@@ -760,9 +757,9 @@ class TestAllSettingsOutcomes(unittest.TestCase):
         self.assertEqual(len(CACHE_SETTING_IDS), 16)
         self.assertEqual(len(PLAYBACK_SETTING_IDS), 39)
         self.assertEqual(len(SUBTITLES_SETTING_IDS), 26)
-        self.assertEqual(len(SORT_AND_FILTER_SETTING_IDS), 48)
+        self.assertEqual(len(SORT_AND_FILTER_SETTING_IDS), 43)
         self.assertEqual(len(ACCOUNTS_SETTING_IDS), 40)
-        self.assertEqual(len(WATCHLIST_SETTING_IDS), 35)
+        self.assertEqual(len(WATCHLIST_SETTING_IDS), 37)
         self.assertEqual(len(MENU_CUSTOMIZATION_SETTING_IDS), 73)
         self.assertEqual(len(CONTEXT_CUSTOMIZATION_SETTING_IDS), 15)
         self.assertEqual(len(MAINTENANCE_SETTING_IDS), 118)
@@ -991,23 +988,9 @@ class TestAllSettingsOutcomes(unittest.TestCase):
     # ── Category 7: Sort and Filter (47 settings) ──────────────────────────────
 
     def test_category_7_sort_and_filter_settings_outcomes(self):
-        """Validate all 47 Category 7: Sort and Filter settings and multipage/flavor logic."""
+        """Validate all Category 7: Sort and Filter settings and flavor logic."""
         for sid in sorted(SORT_AND_FILTER_SETTING_IDS):
             self._test_generic_setting_toggle(sid)
-
-        # Behavioral outcome: Multipage Filtering pure helper integration
-        control.setInt('multipage.precache.pages', 10)
-        control.setInt('multipage.sort.by', 2)  # Episode
-        control.setInt('multipage.sort.order', 1)  # Ascending
-        control.setInt('multipage.display.mode', 1)  # All pre-cached
-        control.setBool('multipage.show.filter.item', True)
-
-        mp_settings = mp.get_multipage_settings()
-        self.assertEqual(mp_settings['precache_pages'], 10)
-        self.assertEqual(mp_settings['sort_by'], 2)
-        self.assertEqual(mp_settings['sort_order'], 1)
-        self.assertEqual(mp_settings['display_mode'], 1)
-        self.assertTrue(mp_settings['show_filter_item'])
 
         # Behavioral outcome: Dub flavor toggling
         control.setBool('divflavors.showdub', True)
@@ -1241,7 +1224,7 @@ class TestAllSettingsOutcomes(unittest.TestCase):
 
         # Verify clean_settings.get_active_setting_ids() keeps all 491 settings (including legacy keys)
         active_ids = clean_settings.get_active_setting_ids(self.settings_xml_path)
-        self.assertEqual(len(active_ids), 491)
+        self.assertEqual(len(active_ids), 488)
         for legacy_key in LEGACY_LEVEL_4_KEYS:
             self.assertIn(legacy_key, active_ids)
 

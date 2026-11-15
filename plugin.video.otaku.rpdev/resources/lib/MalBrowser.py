@@ -96,12 +96,8 @@ class MalBrowser(BrowserBase):
         month = date.month
         seasons = ['winter', 'spring', 'summer', 'fall']
 
-        if self.year_type:
-            if 1916 < self.year_type <= year + 1:
-                year = self.year_type
-            else:
-                control.notify(control.ADDON_NAME, "Invalid year. Please select a year between 1916 and {0}.".format(year + 1))
-                return None, None, None, None, None, None, None, None, None, None, None, None, None, None
+        if self.year_type and 1916 < self.year_type <= year + 1:
+            year = self.year_type
 
         season = 'winter'
         if self.season_type > -1:
@@ -510,14 +506,14 @@ class MalBrowser(BrowserBase):
         base_plugin_url = f"{prefix}/{query}?page=%d" if prefix else f"search_anime/{query}?page=%d"
         return self.process_mal_view(search, base_plugin_url, page)
 
-    def get_airing_last_season(self, page, format, prefix=None):
-        return self._browse_season_airing(page, format, prefix, 'airing_last_season', 'last')
+    def get_airing_last_season(self, page, format, prefix=None, filter_text=None):
+        return self._browse_season_airing(page, format, prefix, 'airing_last_season', 'last', filter_text=filter_text)
 
-    def get_airing_this_season(self, page, format, prefix=None):
-        return self._browse_season_airing(page, format, prefix, 'airing_this_season', 'this')
+    def get_airing_this_season(self, page, format, prefix=None, filter_text=None):
+        return self._browse_season_airing(page, format, prefix, 'airing_this_season', 'this', filter_text=filter_text)
 
-    def get_airing_next_season(self, page, format, prefix=None):
-        return self._browse_season_airing(page, format, prefix, 'airing_next_season', 'next')
+    def get_airing_next_season(self, page, format, prefix=None, filter_text=None):
+        return self._browse_season_airing(page, format, prefix, 'airing_next_season', 'next', filter_text=filter_text)
 
     def get_trending_last_year(self, page, format, prefix=None):
         return self._ranked_mal_list(page, format, prefix, 'trending_last_year', 'members', 'desc', 'last_year')

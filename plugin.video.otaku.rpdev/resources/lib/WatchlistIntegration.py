@@ -52,6 +52,19 @@ def NEXT_UP_PAGES(payload, params):
     control.draw_items(items, 'videos')
 
 
+@Route('precache_watchlist_now')
+def PRECACHE_WATCHLIST_NOW(payload, params):
+    control.notify(control.ADDON_NAME, 'Pre-caching watchlist in progress...')
+    try:
+        import service
+        service.prefetch_watchlist()
+        control.notify(control.ADDON_NAME, 'Watchlist pre-cached successfully!')
+    except Exception as e:
+        control.log(f'Manual watchlist pre-cache error: {e}', 'warning')
+        control.notify(control.ADDON_NAME, 'Watchlist pre-cache failed.')
+    control.exit_code()
+
+
 @Route('watchlist_status_type/*')
 def WATCHLIST_STATUS_TYPE(payload, params):
     parts = [p for p in payload.strip('/').split('/') if p]

@@ -53,62 +53,16 @@ class RealisticMonitor:
 
 
 class TestMultipageSettings(unittest.TestCase):
-    """Verifies reading and bounds clamping of multipage settings."""
+    """Verifies reading of multipage settings safe defaults."""
 
     def test_default_settings(self):
-        """Default settings match expected schema values."""
-        with patch.object(control, 'getInt') as mock_int, patch.object(control, 'getBool') as mock_bool:
-            mock_int.side_effect = lambda k: {
-                'multipage.precache.pages': 20,
-                'multipage.sort.by': 0,
-                'multipage.sort.order': 0,
-                'multipage.display.mode': 0,
-            }.get(k, 0)
-            mock_bool.side_effect = lambda k: {
-                'multipage.show.filter.item': True,
-            }.get(k, True)
-
-            cfg = multipage.get_multipage_settings()
-            self.assertEqual(cfg['precache_pages'], 20)
-            self.assertEqual(cfg['sort_by'], 0)
-            self.assertEqual(cfg['sort_order'], 0)
-            self.assertEqual(cfg['display_mode'], 0)
-            self.assertTrue(cfg['show_filter_item'])
-
-    def test_settings_clamping_and_fallbacks(self):
-        """Settings out of bounds clamp to safe defaults."""
-        with patch.object(control, 'getInt') as mock_int, patch.object(control, 'getBool') as mock_bool:
-            # Test below minimum
-            mock_int.side_effect = lambda k: {
-                'multipage.precache.pages': 0,
-                'multipage.sort.by': 99,
-                'multipage.sort.order': -1,
-                'multipage.display.mode': 5,
-            }.get(k, 0)
-            mock_bool.side_effect = lambda k: None
-
-            cfg = multipage.get_multipage_settings()
-            self.assertEqual(cfg['precache_pages'], 20)
-            self.assertEqual(cfg['sort_by'], 0)
-            self.assertEqual(cfg['sort_order'], 0)
-            self.assertEqual(cfg['display_mode'], 0)
-            self.assertTrue(cfg['show_filter_item'])
-
-            # Test above maximum
-            mock_int.side_effect = lambda k: {
-                'multipage.precache.pages': 50,
-                'multipage.sort.by': 2,
-                'multipage.sort.order': 1,
-                'multipage.display.mode': 1,
-            }.get(k, 0)
-            mock_bool.side_effect = lambda k: False
-
-            cfg2 = multipage.get_multipage_settings()
-            self.assertEqual(cfg2['precache_pages'], 20)  # Clamped to 20
-            self.assertEqual(cfg2['sort_by'], 2)
-            self.assertEqual(cfg2['sort_order'], 1)
-            self.assertEqual(cfg2['display_mode'], 1)
-            self.assertFalse(cfg2['show_filter_item'])
+        """Default settings match expected safe fallback values."""
+        cfg = multipage.get_multipage_settings()
+        self.assertEqual(cfg['precache_pages'], 1)
+        self.assertEqual(cfg['sort_by'], 0)
+        self.assertEqual(cfg['sort_order'], 0)
+        self.assertEqual(cfg['display_mode'], 0)
+        self.assertFalse(cfg['show_filter_item'])
 
 
 class TestSortKeyExtraction(unittest.TestCase):
@@ -819,8 +773,8 @@ class TestContainerRefreshGating(unittest.TestCase):
         control.homeWindow.setProperty('otaku_mp_refreshed_42', '')
 
     def test_refresh_triggered_on_page_1_mode_1(self):
-        """Container.Refresh triggered when viewing page 1 in Mode 1 (All Pre-Cached Items)."""
-        with patch.object(control, 'getInt', return_value=1), \
+        """Container.Refresh triggered when viewing page 1 with paging disabled."""
+        with patch.object(control, 'getBool', return_value=False), \
              patch('xbmc.getInfoLabel', return_value='plugin://plugin.video.otaku.rpdev/airing?page=1'), \
              patch.object(control, 'refresh') as mock_refresh:
             self.worker._check_and_refresh_container(self.job)
@@ -831,7 +785,7 @@ class TestContainerRefreshGating(unittest.TestCase):
         """Second call with same job does not re-trigger Container.Refresh."""
         control.homeWindow.setProperty('otaku_mp_refreshed_42', '1')
 
-        with patch.object(control, 'getInt', return_value=1), \
+        with patch.object(control, 'getBool', return_value=False), \
              patch('xbmc.getInfoLabel', return_value='plugin://plugin.video.otaku.rpdev/airing?page=1'), \
              patch.object(control, 'refresh') as mock_refresh:
             self.worker._check_and_refresh_container(self.job)
@@ -839,7 +793,7 @@ class TestContainerRefreshGating(unittest.TestCase):
 
     def test_no_refresh_in_mode_0(self):
         """Mode 0 (Paged) does not trigger Container.Refresh."""
-        with patch.object(control, 'getInt', return_value=0), \
+        with patch.object(control, 'getBool', return_value=True), \
              patch('xbmc.getInfoLabel', return_value='plugin://plugin.video.otaku.rpdev/airing?page=1'), \
              patch.object(control, 'refresh') as mock_refresh:
             self.worker._check_and_refresh_container(self.job)
@@ -847,7 +801,7 @@ class TestContainerRefreshGating(unittest.TestCase):
 
     def test_no_refresh_when_viewing_page_2(self):
         """No refresh if user is currently viewing page 2."""
-        with patch.object(control, 'getInt', return_value=1), \
+        with patch.object(control, 'getBool', return_value=False), \
              patch('xbmc.getInfoLabel', return_value='plugin://plugin.video.otaku.rpdev/airing?page=2'), \
              patch.object(control, 'refresh') as mock_refresh:
             self.worker._check_and_refresh_container(self.job)
@@ -855,7 +809,7 @@ class TestContainerRefreshGating(unittest.TestCase):
 
     def test_no_refresh_when_viewing_different_url(self):
         """No refresh if user navigated to a different list."""
-        with patch.object(control, 'getInt', return_value=1), \
+        with patch.object(control, 'getBool', return_value=False), \
              patch('xbmc.getInfoLabel', return_value='plugin://plugin.video.otaku.rpdev/popular?page=1'), \
              patch.object(control, 'refresh') as mock_refresh:
             self.worker._check_and_refresh_container(self.job)
@@ -873,7 +827,7 @@ class TestContainerRefreshGating(unittest.TestCase):
 
     def test_no_refresh_when_addon_not_visible(self):
         """No refresh if add-on window is in background or hidden (control.is_addon_visible() is False)."""
-        with patch.object(control, 'getInt', return_value=1), \
+        with patch.object(control, 'getBool', return_value=False), \
              patch('xbmc.getInfoLabel', return_value='plugin://plugin.video.otaku.rpdev/airing?page=1'), \
              patch.object(control, 'is_addon_visible', return_value=False) as mock_visible, \
              patch.object(control, 'refresh') as mock_refresh:
@@ -884,7 +838,7 @@ class TestContainerRefreshGating(unittest.TestCase):
 
     def test_refresh_when_addon_visible(self):
         """Refresh triggers when add-on is visible (control.is_addon_visible() is True)."""
-        with patch.object(control, 'getInt', return_value=1), \
+        with patch.object(control, 'getBool', return_value=False), \
              patch('xbmc.getInfoLabel', return_value='plugin://plugin.video.otaku.rpdev/airing?page=1'), \
              patch.object(control, 'is_addon_visible', return_value=True) as mock_visible, \
              patch.object(control, 'refresh') as mock_refresh:
@@ -973,7 +927,7 @@ class TestBrowserMultipageIntegration(unittest.TestCase):
         conftest.mock_xbmcplugin.reset()
 
     def test_process_multipage_view_paged_mode_with_filter_item(self):
-        """In Mode 0 (Paged), filter action item is prepended and handle_paging is appended."""
+        """In Paged mode, content items and clean handle_paging are returned."""
         from resources.lib.ui.BrowserBase import BrowserBase
 
         browser = BrowserBase()
@@ -983,34 +937,18 @@ class TestBrowserMultipageIntegration(unittest.TestCase):
             {'name': 'Show 2', 'url': 'show/2', 'info': {'title': 'Show 2', 'rating': 7.5}},
         ]
 
-        with patch.object(control, 'getInt') as mock_int, patch.object(control, 'getBool') as mock_bool:
-            mock_int.side_effect = lambda k: {
-                'multipage.precache.pages': 5,
-                'multipage.sort.by': 0,
-                'multipage.sort.order': 0,
-                'multipage.display.mode': 0,
-            }.get(k, 0)
-            mock_bool.side_effect = lambda k: {
-                'multipage.show.filter.item': True,
-                'widget.hide.nextpage': False,
-            }.get(k, True)
+        result = browser.process_multipage_view(items, True, 'airing?page=%d', 1)
 
-            result = browser.process_multipage_view(items, True, 'airing?page=%d', 1)
+        # Last item must be Next Page (2)
+        self.assertTrue(multipage.is_next_page_item(result[-1]))
+        self.assertIn('Next Page (2)', result[-1]['name'])
 
-            # First item must be [Filter List by Text...]
-            self.assertTrue(multipage.is_action_item(result[0]))
-            self.assertTrue('[Filter' in result[0]['name'] or '30712' in result[0]['name'])
-
-            # Last item must be Next Page (2)
-            self.assertTrue(multipage.is_next_page_item(result[-1]))
-            self.assertIn('Next Page (2)', result[-1]['name'])
-
-            # Middle items are the content
-            content = [x for x in result if not multipage.is_action_item(x) and not multipage.is_next_page_item(x)]
-            self.assertEqual(len(content), 2)
+        # Items are the content
+        content = [x for x in result if not multipage.is_next_page_item(x)]
+        self.assertEqual(len(content), 2)
 
     def test_process_multipage_view_paged_mode_with_active_filter(self):
-        """Active filter_text filters window and shows [Clear Filter] action item."""
+        """Active filter_text filters window."""
         from resources.lib.ui.BrowserBase import BrowserBase
 
         browser = BrowserBase()
@@ -1021,67 +959,35 @@ class TestBrowserMultipageIntegration(unittest.TestCase):
             {'name': 'Titan Junior High', 'url': 'show/3', 'info': {'title': 'Titan Junior High', 'plot': 'School parody'}},
         ]
 
-        with patch.object(control, 'getInt') as mock_int, patch.object(control, 'getBool') as mock_bool:
-            mock_int.side_effect = lambda k: 0
-            mock_bool.side_effect = lambda k: True
+        result = browser.process_multipage_view(items, False, 'airing?page=%d', 1, filter_text='titan')
 
-            result = browser.process_multipage_view(items, False, 'airing?page=%d', 1, filter_text='titan')
-
-            # First item must be [Clear Filter: ...]
-            self.assertTrue(multipage.is_action_item(result[0]))
-            self.assertTrue('Clear Filter' in result[0]['name'] or '30713' in result[0]['name'])
-
-            # Only items matching 'titan' remain
-            content = [x for x in result if not multipage.is_action_item(x)]
-            self.assertEqual(len(content), 2)
-            titles = [x['name'] for x in content]
-            self.assertIn('Attack on Titan', titles)
-            self.assertIn('Titan Junior High', titles)
-            self.assertNotIn('Naruto', titles)
+        content = [x for x in result if not multipage.is_action_item(x) and not multipage.is_next_page_item(x)]
+        self.assertEqual(len(content), 2)
+        titles = [x['name'] for x in content]
+        self.assertIn('Attack on Titan', titles)
+        self.assertIn('Titan Junior High', titles)
+        self.assertNotIn('Naruto', titles)
 
     def test_process_multipage_view_all_items_mode(self):
-        """In Mode 1 (All Pre-Cached Items), cached pages are merged and displayed without paging item."""
+        """When multi-page window is passed with paging, sliced page is returned."""
         from resources.lib.ui.BrowserBase import BrowserBase
 
         browser = BrowserBase()
         browser.perpage = 2
-        page1 = [
+        all_items = [
             {'name': 'Show 1', 'url': 'show/1', 'info': {'title': 'Show 1', 'rating': 7.0}},
             {'name': 'Show 2', 'url': 'show/2', 'info': {'title': 'Show 2', 'rating': 8.0}},
-        ]
-        page2 = [
             {'name': 'Show 3', 'url': 'show/3', 'info': {'title': 'Show 3', 'rating': 9.0}},
             {'name': 'Show 4', 'url': 'show/4', 'info': {'title': 'Show 4', 'rating': 8.5}},
         ]
 
-        def mock_peek(p):
-            if p == 2:
-                return page2
-            return None
+        result = browser.process_multipage_view(all_items, True, 'airing?page=%d', 1)
 
-        with patch.object(control, 'getInt') as mock_int, patch.object(control, 'getBool') as mock_bool:
-            mock_int.side_effect = lambda k: {
-                'multipage.precache.pages': 5,
-                'multipage.sort.by': 3,       # Rating
-                'multipage.sort.order': 0,    # Descending
-                'multipage.display.mode': 1,  # All Pre-Cached Items
-            }.get(k, 0)
-            mock_bool.side_effect = lambda k: {
-                'multipage.show.filter.item': True,
-            }.get(k, True)
-
-            result = browser.process_multipage_view(page1, True, 'airing?page=%d', 1, peek_fn=mock_peek)
-
-            # Action item at top
-            self.assertTrue(multipage.is_action_item(result[0]))
-
-            # Content has all 4 items sorted by rating descending (9.0, 8.5, 8.0, 7.0)
-            content = [x for x in result if not multipage.is_action_item(x)]
-            self.assertEqual(len(content), 4)
-            self.assertEqual(content[0]['name'], 'Show 3')  # 9.0
-            self.assertEqual(content[1]['name'], 'Show 4')  # 8.5
-            self.assertEqual(content[2]['name'], 'Show 2')  # 8.0
-            self.assertEqual(content[3]['name'], 'Show 1')  # 7.0
+        # Sliced content has 2 items for page 1
+        content = [x for x in result if not multipage.is_next_page_item(x)]
+        self.assertEqual(len(content), 2)
+        self.assertTrue(multipage.is_next_page_item(result[-1]))
+        self.assertIn('Next Page (2)', result[-1]['name'])
 
     def test_multipage_filter_and_clear_routes(self):
         """Main MULTIPAGE_FILTER and MULTIPAGE_CLEAR_FILTER routes update container."""

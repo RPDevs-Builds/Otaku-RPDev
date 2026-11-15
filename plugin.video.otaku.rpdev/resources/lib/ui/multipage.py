@@ -81,35 +81,13 @@ def extract_item_id(item):
 
 
 def get_multipage_settings():
-    """Reads the 5 multipage settings via control.getInt() and control.getBool(),
-    with safe defaults and bounds clamping.
-    """
-    precache_pages = control.getInt('multipage.precache.pages')
-    if precache_pages < 1 or precache_pages > 20:
-        precache_pages = 20
-
-    sort_by = control.getInt('multipage.sort.by')
-    if sort_by not in (0, 1, 2, 3):
-        sort_by = 0
-
-    sort_order = control.getInt('multipage.sort.order')
-    if sort_order not in (0, 1):
-        sort_order = 0
-
-    display_mode = control.getInt('multipage.display.mode')
-    if display_mode not in (0, 1):
-        display_mode = 0
-
-    show_filter_item = control.getBool('multipage.show.filter.item')
-    if show_filter_item is None:
-        show_filter_item = True
-
+    """Returns multipage engine configuration with safe defaults."""
     return {
-        'precache_pages': precache_pages,
-        'sort_by': sort_by,
-        'sort_order': sort_order,
-        'display_mode': display_mode,
-        'show_filter_item': show_filter_item,
+        'precache_pages': 1,
+        'sort_by': 0,
+        'sort_order': 0,
+        'display_mode': 0,
+        'show_filter_item': False,
     }
 
 

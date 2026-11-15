@@ -2786,11 +2786,11 @@ msgid "Paged"
 msgstr ""
 
 msgctxt "#30710"
-msgid "All Pre-Cached Items"
+msgid "Pre-Cache All Watchlist Items"
 msgstr ""
 
 msgctxt "#30711"
-msgid "Show Filter Item in List"
+msgid "Pre-Cache Watchlist Now"
 msgstr ""
 
 msgctxt "#30712"
@@ -3366,11 +3366,11 @@ msgid "Direction applied to multi-page sorted lists (0=Descending, 1=Ascending).
 msgstr ""
 
 msgctxt "#30855"
-msgid "Presentation mode (0=Paged with Next Page item, 1=All Pre-Cached Items loaded into Kodi container for filtering)."
+msgid "Pre-cache all watchlist anime across all statuses (Current, Completed, On Hold, Dropped, Plan to Watch) and metadata into local database for instant loading."
 msgstr ""
 
 msgctxt "#30856"
-msgid "Display '[Filter List by Text...]' in directory listings to quickly search pre-cached titles via keyboard."
+msgid "Immediately fetch and cache all watchlist statuses and metadata to the local database."
 msgstr ""
 
 msgctxt "#30857"

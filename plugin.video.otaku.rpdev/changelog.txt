@@ -1,3 +1,12 @@
+Changelog v6.2.2 (2026-11-15):
+- Watchlist Pre-Cache & Paging:
+  - Remove Sort & Filter multipage filtering settings, delegating full-list sorting directly to Kodi native side-blade menu
+  - Add Pre-Cache All Watchlist Items and Pre-Cache Watchlist Now under Watchlist General settings
+  - Enable single-page container display mode when Watchlist Paging is disabled for full-list sorting
+  - Background pre-caching enriches AniList metadata, user ratings, premiered dates, and artwork across all watchlist statuses
+  - Fix Catalogue browse pagination URL query string duplication and page 2 slicing offset in BrowserBase
+  - Fix This Season seasonal queries across OtakuBrowser, MalBrowser, and AniListBrowser
+
 Changelog v6.2.1 (2026-11-15):
 - Account Backup & Simkl Fixes:
   - Expanded logins backup scope to include all account-related settings (toggles, preferences, watchlist sync, cloud inspection, auto-delete, thresholds) along with API keys and authorization tokens

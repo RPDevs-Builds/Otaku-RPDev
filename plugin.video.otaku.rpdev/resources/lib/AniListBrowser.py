@@ -91,12 +91,8 @@ class AniListBrowser(BrowserBase):
         month = date.month
         seasons = ['WINTER', 'SPRING', 'SUMMER', 'FALL']
 
-        if self.year_type:
-            if 1916 < self.year_type <= year + 1:
-                year = self.year_type
-            else:
-                control.notify(control.ADDON_NAME, "Invalid year. Please select a year between 1916 and {0}.".format(year + 1))
-                return None, None
+        if self.year_type and 1916 < self.year_type <= year + 1:
+            year = self.year_type
 
         if self.season_type > -1:
             season_id = self.season_type
@@ -154,7 +150,7 @@ class AniListBrowser(BrowserBase):
 
         return self.process_anilist_view(data, base_url, page, peek_fn=peek_page, filter_text=filter_text)
 
-    def _browse_season_airing(self, page, format, prefix, route_slug, period, sort):
+    def _browse_season_airing(self, page, format, prefix, route_slug, period, sort, filter_text=None):
         season, year = self.get_season_year(period)
         if not season or not year:
             return []
@@ -163,10 +159,10 @@ class AniListBrowser(BrowserBase):
             'perpage': self.perpage,
             'type': 'ANIME',
             'season': season,
-            'year': f'{year}%',
+            'seasonYear': int(year),
             'sort': sort,
         }
-        return self._fetch_page_and_process(variables, prefix, route_slug, page, format)
+        return self._fetch_page_and_process(variables, prefix, route_slug, page, format, filter_text=filter_text)
 
     def _ranked_media_list(self, page, format, prefix, route_slug, sort, period_mode='all_time'):
         variables = {
@@ -232,14 +228,14 @@ class AniListBrowser(BrowserBase):
 
         return self.process_anilist_view(data, base_url, page, peek_fn=peek_page, filter_text=filter_text)
 
-    def get_airing_last_season(self, page, format, prefix=None):
-        return self._browse_season_airing(page, format, prefix, 'airing_last_season', 'last', 'TRENDING_DESC')
+    def get_airing_last_season(self, page, format, prefix=None, filter_text=None):
+        return self._browse_season_airing(page, format, prefix, 'airing_last_season', 'last', 'TRENDING_DESC', filter_text=filter_text)
 
-    def get_airing_this_season(self, page, format, prefix=None):
-        return self._browse_season_airing(page, format, prefix, 'airing_this_season', 'this', 'POPULARITY_DESC')
+    def get_airing_this_season(self, page, format, prefix=None, filter_text=None):
+        return self._browse_season_airing(page, format, prefix, 'airing_this_season', 'this', 'POPULARITY_DESC', filter_text=filter_text)
 
-    def get_airing_next_season(self, page, format, prefix=None):
-        return self._browse_season_airing(page, format, prefix, 'airing_next_season', 'next', 'POPULARITY_DESC')
+    def get_airing_next_season(self, page, format, prefix=None, filter_text=None):
+        return self._browse_season_airing(page, format, prefix, 'airing_next_season', 'next', 'POPULARITY_DESC', filter_text=filter_text)
 
     def get_trending_last_year(self, page, format, prefix=None):
         return self._ranked_media_list(page, format, prefix, 'trending_last_year', 'TRENDING_DESC', 'last_year')
@@ -664,6 +660,7 @@ class AniListBrowser(BrowserBase):
             $format: [MediaFormat],
             $countryOfOrigin: CountryCode,
             $season: MediaSeason,
+            $seasonYear: Int,
             $includedGenres: [String],
             $includedTags: [String],
             $year: String,
@@ -680,6 +677,7 @@ class AniListBrowser(BrowserBase):
                     genre_in: $includedGenres,
                     tag_in: $includedTags,
                     season: $season,
+                    seasonYear: $seasonYear,
                     startDate_like: $year,
                     sort: $sort,
                     status: $status,
