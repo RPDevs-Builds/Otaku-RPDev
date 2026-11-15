@@ -66,7 +66,8 @@ class Sources(BrowserBase):
                 except Exception:
                     episodes = 0
             if episodes:
-                query2 += f'|"01-{episode_zfill}"|"01~{episode_zfill}"|"01 - {episode_zfill}"|"01 ~ {episode_zfill}"|"E{episode_zfill}"|"Episode {episode_zfill}"'
+                episodes_zfill = str(episodes).zfill(2)
+                query2 += f'|"01-{episodes_zfill}"|"01~{episodes_zfill}"|"01 - {episodes_zfill}"|"01 ~ {episodes_zfill}"|"E{episodes_zfill}"|"Episode {episodes_zfill}"'
             if season_zfill:
                 query2 += f'|"S{season_zfill}"|"Season {season_zfill}"'
             if episode_zfill and season_zfill:
@@ -157,7 +158,7 @@ class Sources(BrowserBase):
             'o': 'desc'
         }
 
-        nyaa_sources = self.process_nyaa_episodes(self._BASE_URL, params, mal_id, episode_zfill, season_zfill, part, show_title=show)
+        nyaa_sources = self.process_nyaa_episodes(self._BASE_URL, params, mal_id, episode_zfill, season_zfill, part, show_title=show, is_show_pack=True)
         control.log(f"Nyaa: Show search complete - found {len(nyaa_sources)} sources")
         return nyaa_sources
 
@@ -225,7 +226,7 @@ class Sources(BrowserBase):
             return source_utils.filter_sources('nyaa', list_, mal_id, int(season_zfill), int(episode_zfill), part)
         return []
 
-    def process_nyaa_episodes(self, url, params, mal_id, episode_zfill, season_zfill, part, show_title=None):
+    def process_nyaa_episodes(self, url, params, mal_id, episode_zfill, season_zfill, part, show_title=None, is_show_pack=False):
         filtered_list = self._fetch_and_filter_episodes(url, params, mal_id, episode_zfill, season_zfill, part, show_title=show_title)
         if filtered_list:
             cache_list, uncashed_list_ = Debrid().torrentCacheCheck(filtered_list, mal_id=mal_id, episode=episode_zfill, media_type=self.media_type, rescrape=self.rescrape)
@@ -235,10 +236,10 @@ class Sources(BrowserBase):
             uncashed_list = sorted(uncashed_list, key=lambda k: k['seeders'], reverse=True)
 
             # Parse sources in parallel for faster processing
-            mapfunc = partial(self.parse_nyaa_view, episode=episode_zfill)
+            mapfunc = partial(self.parse_nyaa_view, episode=episode_zfill, is_show_pack=is_show_pack)
             all_results = utils.parallel_process(cache_list, mapfunc) if cache_list else []
             if control.getBool('show.uncached') and uncashed_list:
-                mapfunc2 = partial(self.parse_nyaa_view, episode=episode_zfill, cached=False)
+                mapfunc2 = partial(self.parse_nyaa_view, episode=episode_zfill, cached=False, is_show_pack=is_show_pack)
                 all_results += utils.parallel_process(uncashed_list, mapfunc2)
             return all_results
         return []
@@ -290,7 +291,7 @@ class Sources(BrowserBase):
         return []
 
     @staticmethod
-    def parse_nyaa_view(res, episode, cached=True):
+    def parse_nyaa_view(res, episode, cached=True, is_show_pack=False):
         source = {
             'release_title': res['name'],
             'hash': res['hash'],
@@ -318,6 +319,8 @@ class Sources(BrowserBase):
         if not cached:
             source['magnet'] = res['magnet']
             source['type'] += ' (uncached)'
+
+        source_utils.is_season_pack(source, is_show_pack=is_show_pack)
 
         return source
 

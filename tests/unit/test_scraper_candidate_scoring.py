@@ -295,6 +295,46 @@ class TestNyaaAndAnimeToshoShowTitleFiltering(unittest.TestCase):
             hashes = [r['hash'] for r in res]
             self.assertEqual(hashes, ['3333333333333333333333333333333333333333'])
 
+    def test_nyaa_parse_show_pack_tags_package_and_batch_info(self):
+        """parse_nyaa_view with is_show_pack=True must tag whole-season packs as package=True and info=['BATCH']."""
+        pack_res = {
+            'name': "I'm Living with an Otaku NEET Kunoichi!? | NEET Kunoichi to Nazeka Dousei Hajimemashita (Dual audio ENG/JPN)",
+            'hash': '3c467df3c965e6383687313cead7679802a9eb50',
+            'size': '3.4 GB',
+            'seeders': 25,
+            'debrid_provider': 'Real-Debrid',
+        }
+        parsed = self.nyaa.parse_nyaa_view(pack_res, '01', cached=True, is_show_pack=True)
+        self.assertTrue(parsed.get('package'))
+        self.assertTrue(parsed.get('is_pack'))
+        self.assertIn('BATCH', parsed.get('info', []))
+
+        # Single episode matching show query must NOT be tagged as pack
+        single_res = {
+            'name': '[SubsPlease] NEET Kunoichi to Nazeka Dousei Hajimemashita - 01 (1080p) [65CCA509].mkv',
+            'hash': '1111111111111111111111111111111111111111',
+            'size': '933.6 MB',
+            'seeders': 50,
+            'debrid_provider': 'Real-Debrid',
+        }
+        parsed_single = self.nyaa.parse_nyaa_view(single_res, '01', cached=True, is_show_pack=True)
+        self.assertFalse(parsed_single.get('package', False))
+        self.assertNotIn('BATCH', parsed_single.get('info', []))
+
+    def test_animetosho_parse_show_pack_tags_package_and_batch_info(self):
+        """parse_animetosho_view with is_show_pack=True must tag whole-season packs."""
+        pack_res = {
+            'name': "I'm Living with an Otaku NEET Kunoichi!? | NEET Kunoichi to Nazeka Dousei Hajimemashita (Dual audio ENG/JPN)",
+            'hash': '3c467df3c965e6383687313cead7679802a9eb50',
+            'size': '3.4 GB',
+            'seeders': 25,
+            'debrid_provider': 'Real-Debrid',
+        }
+        parsed = self.animetosho.parse_animetosho_view(pack_res, '01', cached=True, is_show_pack=True)
+        self.assertTrue(parsed.get('package'))
+        self.assertTrue(parsed.get('is_pack'))
+        self.assertIn('BATCH', parsed.get('info', []))
+
 
 class TestAnikotoScraper(unittest.TestCase):
     def setUp(self):

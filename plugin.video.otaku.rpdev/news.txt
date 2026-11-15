@@ -1,7 +1,18 @@
 ========================
+[B]OTAKU RPDEV v6.1.7[/B]
+Fix Season Pack Detection
+========================
+
+v6.1.7 Highlights:
+  * Tag package=True and BATCH badge on whole-show torrents
+  * Fix Nyaa and AnimeTosho batch query range formatting
+  * Enhance is_season_pack and is_single_episode detection
+  * Ensure season packs cover series and cache for SmartPlay continuity
+
+--------------------------------
 [B]OTAKU RPDEV v6.1.6[/B]
 Fix Torrent Source Filtering
-========================
+--------------------------------
 
 v6.1.6 Highlights:
   * Preserve Dual/Multi-Audio MULTI-SUB releases under Sub/Dub filters

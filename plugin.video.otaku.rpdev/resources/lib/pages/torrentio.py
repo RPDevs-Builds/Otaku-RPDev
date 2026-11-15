@@ -197,6 +197,12 @@ class Sources(BrowserBase):
             source['magnet'] = res['magnet']
             source['type'] += ' (uncached)'
 
+        if res.get('package') or source_utils.is_season_pack(source):
+            source['package'] = True
+            source['is_pack'] = True
+            if 'BATCH' not in source['info']:
+                source['info'].append('BATCH')
+
         return source
 
     def append_cache_uncached_noduplicates(self):

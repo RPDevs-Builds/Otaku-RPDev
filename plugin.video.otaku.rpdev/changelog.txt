@@ -1,3 +1,10 @@
+Changelog v6.1.7 (2026-11-14):
+- Fix Season Pack Detection:
+  - Tag package=True and BATCH badge on whole-show torrents
+  - Fix Nyaa and AnimeTosho batch query range formatting
+  - Enhance is_season_pack and is_single_episode detection
+  - Ensure season packs cover series and cache for SmartPlay continuity
+
 Changelog v6.1.6 (2026-11-14):
 - Fix Torrent Source Filtering:
   - Preserve Dual/Multi-Audio MULTI-SUB releases under Sub/Dub filters

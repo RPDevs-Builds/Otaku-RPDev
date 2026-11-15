@@ -82,7 +82,8 @@ class Sources(BrowserBase):
                 episodes_info = None
             episode_formats = []
             if episodes_info:
-                episode_formats = [f'01-{episode_zfill}', f'01~{episode_zfill}', f'01 - {episode_zfill}', f'01 ~ {episode_zfill}']
+                episodes_zfill = str(episodes_info).zfill(2)
+                episode_formats = [f'01-{episodes_zfill}', f'01~{episodes_zfill}', f'01 - {episodes_zfill}', f'01 ~ {episodes_zfill}']
             batch_query = f'{show} ("' + '"|"'.join(batch_terms + episode_formats) + '")'
             params2 = {
                 'q': self._sphinx_clean(batch_query),
@@ -160,7 +161,7 @@ class Sources(BrowserBase):
         if self.anidb_id:
             params['aids'] = self.anidb_id
 
-        animetosho_sources = self.process_animetosho_episodes(f"{self._BASE_URL.rstrip('/')}/search", params, mal_id, episode_zfill, season_zfill, part, show=show)
+        animetosho_sources = self.process_animetosho_episodes(f"{self._BASE_URL.rstrip('/')}/search", params, mal_id, episode_zfill, season_zfill, part, show=show, is_show_pack=True)
         return animetosho_sources
 
     def get_movie_sources(self, show, mal_id):
@@ -206,7 +207,7 @@ class Sources(BrowserBase):
                 control.log(f"animetosho base32 hash conversion error: {e}", 'debug')
         return ''
 
-    def process_animetosho_episodes(self, url, params, mal_id, episode, season, part, show=None):
+    def process_animetosho_episodes(self, url, params, mal_id, episode, season, part, show=None, is_show_pack=False):
         response = client.get(url, params=params)
         if response:
             html = response.text
@@ -281,10 +282,10 @@ class Sources(BrowserBase):
             uncashed_list = sorted(uncashed_list, key=lambda k: k['seeders'], reverse=True)
 
             # Parse sources in parallel for faster processing
-            mapfunc = partial(self.parse_animetosho_view, episode=episode)
+            mapfunc = partial(self.parse_animetosho_view, episode=episode, is_show_pack=is_show_pack)
             all_results = utils.parallel_process(cache_list, mapfunc) if cache_list else []
             if control.getBool('show.uncached') and uncashed_list:
-                mapfunc2 = partial(self.parse_animetosho_view, episode=episode, cached=False)
+                mapfunc2 = partial(self.parse_animetosho_view, episode=episode, cached=False, is_show_pack=is_show_pack)
                 all_results += utils.parallel_process(uncashed_list, mapfunc2)
             return all_results
         return []
@@ -354,7 +355,7 @@ class Sources(BrowserBase):
         return []
 
     @staticmethod
-    def parse_animetosho_view(res, episode, cached=True):
+    def parse_animetosho_view(res, episode, cached=True, is_show_pack=False):
         source = {
             'release_title': res['name'],
             'hash': res['hash'],
@@ -382,6 +383,8 @@ class Sources(BrowserBase):
         if not cached:
             source['magnet'] = res['magnet']
             source['type'] += ' (uncached)'
+
+        source_utils.is_season_pack(source, is_show_pack=is_show_pack)
 
         return source
 

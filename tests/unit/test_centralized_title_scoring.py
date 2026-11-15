@@ -432,6 +432,64 @@ class TestCentralizedTitleScoring(unittest.TestCase):
             conftest._window_props.update(saved_props)
             control.clearSettingsCache()
 
+    def test_is_single_episode_and_season_pack_detection(self):
+        """Verify is_single_episode distinguishes single episodes from ranges and whole-show packs."""
+        single_episodes = [
+            '[SubsPlease] NEET Kunoichi to Nazeka Dousei Hajimemashita - 01 (1080p) [65CCA509].mkv',
+            'Show Name S01E02 1080p WEB-DL.mkv',
+            'Anime Title Ep 05 [720p].mkv',
+            'Anime Title Episode 12 [1080p].mkv',
+        ]
+        for t in single_episodes:
+            self.assertTrue(source_utils.is_single_episode(t), f"Expected single episode for: {t}")
+
+        non_single_episodes = [
+            "I'm Living with an Otaku NEET Kunoichi!? | NEET Kunoichi to Nazeka Dousei Hajimemashita (Dual audio ENG/JPN)",
+            "[AsukaRaws] NEET Kunoichi to Nazeka Dousei Hajimemashita - 01-02 (WEB-DL 1280x720 x264 AAC)",
+            "[SubsPlus+] I'm Living with an Otaku NEET Kunoichi S01 (AMZN WEB-DL 1080p AVC AAC) | NEET Kunoichi to Nazeka Dousei Hajimemashita (Batch)",
+            "K-On! Season 1 [1080p BD]",
+        ]
+        for t in non_single_episodes:
+            self.assertFalse(source_utils.is_single_episode(t), f"Expected NOT single episode for: {t}")
+
+        # Test is_season_pack with is_show_pack=True for clean dual-title release
+        clean_show_pack = {
+            'release_title': "I'm Living with an Otaku NEET Kunoichi!? | NEET Kunoichi to Nazeka Dousei Hajimemashita (Dual audio ENG/JPN)",
+            'info': ['DUAL-AUDIO'],
+        }
+        self.assertTrue(source_utils.is_season_pack(clean_show_pack, is_show_pack=True))
+        self.assertTrue(clean_show_pack.get('package'))
+        self.assertTrue(clean_show_pack.get('is_pack'))
+        self.assertIn('BATCH', clean_show_pack.get('info', []))
+
+        # Test single episode does NOT get tagged as pack even if is_show_pack=True
+        single_ep_source = {
+            'release_title': '[SubsPlease] NEET Kunoichi to Nazeka Dousei Hajimemashita - 01 (1080p) [65CCA509].mkv',
+            'info': ['1080P'],
+        }
+        self.assertFalse(source_utils.is_season_pack(single_ep_source, is_show_pack=True))
+        self.assertFalse(single_ep_source.get('package', False))
+        self.assertNotIn('BATCH', single_ep_source.get('info', []))
+
+    def test_season_pack_covers_episode_all_episodes(self):
+        """Verify season_pack_covers_episode covers all episodes in a series for whole-season packs."""
+        pack = {
+            'package': True,
+            'is_pack': True,
+            'release_title': "I'm Living with an Otaku NEET Kunoichi!? | NEET Kunoichi to Nazeka Dousei Hajimemashita (Dual audio ENG/JPN)",
+        }
+        self.assertTrue(source_utils.season_pack_covers_episode(pack, 1, 24))
+        self.assertTrue(source_utils.season_pack_covers_episode(pack, 12, 24))
+        self.assertTrue(source_utils.season_pack_covers_episode(pack, 24, 24))
+        # Range pack covering 1-12 only
+        range_pack = {
+            'package': True,
+            'release_title': 'Show Title 01-12 [1080p]',
+        }
+        self.assertTrue(source_utils.season_pack_covers_episode(range_pack, 1, 24))
+        self.assertTrue(source_utils.season_pack_covers_episode(range_pack, 12, 24))
+        self.assertFalse(source_utils.season_pack_covers_episode(range_pack, 13, 24))
+
 
 if __name__ == '__main__':
     unittest.main()

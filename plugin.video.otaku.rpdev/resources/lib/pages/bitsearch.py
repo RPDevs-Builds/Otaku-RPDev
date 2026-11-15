@@ -58,6 +58,17 @@ class Sources(BrowserBase):
             if status in ["FINISHED", "Finished Airing"]:
                 query3 = f'{title} Batch'
                 search_tasks.append({'query': query3, 'name': f'batch:{title}'})
+                show_data = database.get_show(mal_id)
+                episodes = 0
+                if show_data and show_data.get('kodi_meta'):
+                    try:
+                        episodes = database.loads(show_data['kodi_meta']).get('episodes', 0)
+                    except Exception:
+                        episodes = 0
+                if episodes:
+                    episodes_zfill = str(episodes).zfill(2)
+                    query_range = f'{title} 01-{episodes_zfill}'
+                    search_tasks.append({'query': query_range, 'name': f'range:{title}'})
 
         control.log(f"Bitsearch: Running {len(search_tasks)} searches for episode {episode_zfill}")
 
@@ -93,11 +104,11 @@ class Sources(BrowserBase):
         uncached_list = [i for i in uncached_list_ if i.get('seeders', 0) > 0]
         uncached_list = sorted(uncached_list, key=lambda k: k.get('seeders', 0), reverse=True)
 
-        mapfunc = partial(self.parse_bitsearch_view, episode=episode_zfill)
+        mapfunc = partial(self.parse_bitsearch_view, episode=episode_zfill, is_show_pack=True)
         bitsearch_sources = utils.parallel_process(cache_list, mapfunc) if cache_list else []
 
         if uncached_list and control.getBool('show.uncached'):
-            mapfunc2 = partial(self.parse_bitsearch_view, episode=episode_zfill, cached=False)
+            mapfunc2 = partial(self.parse_bitsearch_view, episode=episode_zfill, cached=False, is_show_pack=True)
             bitsearch_sources += utils.parallel_process(uncached_list, mapfunc2)
 
         control.log(f"Bitsearch: Episode search complete - returning {len(bitsearch_sources)} total sources")
@@ -139,11 +150,11 @@ class Sources(BrowserBase):
         uncached_list = [i for i in uncached_list_ if i.get('seeders', 0) > 0]
         uncached_list = sorted(uncached_list, key=lambda k: k.get('seeders', 0), reverse=True)
 
-        mapfunc = partial(self.parse_bitsearch_view, episode=episode_zfill)
+        mapfunc = partial(self.parse_bitsearch_view, episode=episode_zfill, is_show_pack=True)
         bitsearch_sources = utils.parallel_process(cache_list, mapfunc) if cache_list else []
 
         if uncached_list and control.getBool('show.uncached'):
-            mapfunc2 = partial(self.parse_bitsearch_view, episode=episode_zfill, cached=False)
+            mapfunc2 = partial(self.parse_bitsearch_view, episode=episode_zfill, cached=False, is_show_pack=True)
             bitsearch_sources += utils.parallel_process(uncached_list, mapfunc2)
 
         return bitsearch_sources
@@ -337,7 +348,7 @@ class Sources(BrowserBase):
         return results
 
     @staticmethod
-    def parse_bitsearch_view(res, episode, cached=True):
+    def parse_bitsearch_view(res, episode, cached=True, is_show_pack=False):
         source = {
             'release_title': res['name'],
             'hash': res['hash'],
@@ -359,6 +370,8 @@ class Sources(BrowserBase):
         if not cached:
             source['magnet'] = res.get('magnet', '')
             source['type'] += ' (uncached)'
+
+        source_utils.is_season_pack(source, is_show_pack=is_show_pack)
 
         return source
 

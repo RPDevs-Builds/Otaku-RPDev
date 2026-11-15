@@ -245,6 +245,10 @@ class Sources(BrowserBase):
                 raw_results = self._search_torrents(task['params'])
                 list_ = self._results_to_list(raw_results)
                 filtered = source_utils.filter_sources('nekobt', list_, mal_id, int(season_zfill), int(episode_zfill), part)
+                if task.get('name') == 'media_id+batch':
+                    for t in filtered:
+                        t['package'] = True
+                        t['is_pack'] = True
                 control.log(f"nekoBT: {task['name']} returned {len(raw_results)} raw, {len(filtered)} after filter")
                 return filtered
             except Exception as e:
@@ -409,6 +413,12 @@ class Sources(BrowserBase):
         if not cached:
             source['magnet'] = res['magnet']
             source['type'] += ' (uncached)'
+
+        if res.get('package') or source_utils.is_season_pack(source):
+            source['package'] = True
+            source['is_pack'] = True
+            if 'BATCH' not in source['info']:
+                source['info'].append('BATCH')
 
         return source
 

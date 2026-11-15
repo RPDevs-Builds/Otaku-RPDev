@@ -1,6 +1,6 @@
 import xbmcgui
 
-from resources.lib.ui import control, database, colors
+from resources.lib.ui import control, database, colors, source_utils
 from resources.lib.windows.base_window import BaseWindow
 from resources.lib.windows.download_manager import Manager
 from resources.lib.windows.resolver import Resolver
@@ -118,10 +118,13 @@ class SourceSelect(BaseWindow):
             info_raw = source.get('info', [])
             if isinstance(info_raw, list):
                 info_list = [str(t) for t in info_raw if t]
-                info_str = ' '.join(info_list)
             else:
                 info_str = str(info_raw or '')
                 info_list = [t.strip() for t in info_str.replace('|', ' ').split() if t.strip()]
+
+            if source_utils.is_season_pack(source) and 'BATCH' not in info_list:
+                info_list.append('BATCH')
+            info_str = ' '.join(info_list)
 
             raw_qual = str(source.get('quality', '')).strip().lower()
             qual_map = {

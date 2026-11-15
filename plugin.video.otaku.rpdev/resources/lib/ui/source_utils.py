@@ -324,7 +324,7 @@ _INFO_TAGS = (
     ('3D',          [' 3d', ' half ou', ' half sbs']),
     ('60-FPS',      [' 60 fps', ' 60fps']),
     # ── Batch ──
-    ('BATCH',       ['batch', 'complete series']),
+    ('BATCH',       ['batch', 'complete series', 'complete season', 'entire series', 'all episodes', 'season pack', 'series pack', 'full season', 'whole series']),
 )
 
 
@@ -1417,25 +1417,69 @@ _RE_EPISODE_CHECK = re.compile(r'\b(?:e|ep|episode)\s*\d{1,4}\b|\bs\d{1,2}e\d{1,
 _RE_INVALID_FILENAME_CHARS = re.compile(r'[\\/*?:"<>|]')
 
 
-def is_season_pack(source):
+def is_single_episode(title):
+    """
+    Check if a release title specifically targets a single episode (e.g. '- 01', 'S01E01', 'ep 02').
+    Returns False for episode ranges ('01-24', '01~02') and whole-show/season titles.
+    """
+    if not title:
+        return False
+    if extract_episode_range(title) is not None:
+        return False
+    clean = clean_text(str(title).lower())
+    if _RE_FILTER_EPISODE_RANGE.search(clean):
+        return False
+    m = _RE_FILTER_EPISODE.search(clean)
+    if m and any(bool(g) for g in m.groups() if g is not None):
+        return True
+    return False
+
+
+def is_season_pack(source, is_show_pack=False):
     """
     Determine whether a source represents a season pack / batch torrent.
     """
     if not isinstance(source, dict):
         return False
     if source.get('package') is True or source.get('is_pack') is True:
+        if isinstance(source.get('info'), list) and 'BATCH' not in source['info']:
+            source['info'].append('BATCH')
         return True
     if 'BATCH' in source.get('info', []):
+        source['package'] = True
+        source['is_pack'] = True
         return True
     title = source.get('release_title') or source.get('name') or source.get('filename') or ''
     if not title:
         return False
     if extract_episode_range(title) is not None:
+        source['package'] = True
+        source['is_pack'] = True
+        if isinstance(source.get('info'), list) and 'BATCH' not in source['info']:
+            source['info'].append('BATCH')
         return True
     lower = title.lower()
-    if any(k in lower for k in ('batch', 'complete series', 'complete season', 'entire series', 'all episodes')):
+    if any(k in lower for k in (
+        'batch', 'complete series', 'complete season', 'entire series',
+        'all episodes', 'season pack', 'series pack', 'full season',
+        'whole series'
+    )):
+        source['package'] = True
+        source['is_pack'] = True
+        if isinstance(source.get('info'), list) and 'BATCH' not in source['info']:
+            source['info'].append('BATCH')
         return True
     if _RE_SEASON_PACK_CHECK.search(lower) and not _RE_EPISODE_CHECK.search(lower):
+        source['package'] = True
+        source['is_pack'] = True
+        if isinstance(source.get('info'), list) and 'BATCH' not in source['info']:
+            source['info'].append('BATCH')
+        return True
+    if is_show_pack and not is_single_episode(title):
+        source['package'] = True
+        source['is_pack'] = True
+        if isinstance(source.get('info'), list) and 'BATCH' not in source['info']:
+            source['info'].append('BATCH')
         return True
     return False
 
