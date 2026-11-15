@@ -122,18 +122,7 @@ def get_sources(mal_id, episode, media_type, rescrape=False, source_select=False
         cached_sources = database.get_episode_sources(mal_id, episode)
         if cached_sources:
             src_filter = control.getInt('general.source')
-            if src_filter == 1:
-                cached_sources = [
-                    s for s in cached_sources
-                    if s.get('lang') in (0, 1, 2)
-                    and not any('DUB' in str(t).upper() and 'SUB' not in str(t).upper() for t in (s.get('info') or []))
-                ]
-            elif src_filter == 2:
-                cached_sources = [
-                    s for s in cached_sources
-                    if s.get('lang') in (0, 1, 3)
-                    and not any('SUB' in str(t).upper() and 'DUB' not in str(t).upper() for t in (s.get('info') or []))
-                ]
+            cached_sources = source_utils.filter_sources_by_audio(cached_sources, src_filter)
             if cached_sources:
                 control.log(f"MetaBrowser: Reusing pre-scraped sources for {mal_id} ep {episode} ({len(cached_sources)} sources)", level='info')
                 return cached_sources

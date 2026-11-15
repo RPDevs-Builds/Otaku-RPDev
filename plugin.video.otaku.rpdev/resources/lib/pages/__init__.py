@@ -345,12 +345,18 @@ class Sources(GetSources):
                 return
             if not all_sources:
                 all_sources = {'cached': [], 'uncached': []}
-            if all_sources.get('cached') or all_sources.get('uncached'):
+            cached_list = all_sources.get('cached', [])
+            uncached_list = all_sources.get('uncached', [])
+            if cached_list or uncached_list:
                 circuit_breaker.record_success(provider)
+            control.log(
+                f"{provider}: {len(cached_list)} cached, {len(uncached_list)} uncached torrent source(s)",
+                'info',
+            )
             with self._results_lock:
-                self.torrentUnCacheSources += all_sources.get('uncached', [])
-                self.torrentCacheSources += all_sources.get('cached', [])
-                self.torrentSources += all_sources.get('cached', []) + all_sources.get('uncached', [])
+                self.torrentUnCacheSources += uncached_list
+                self.torrentCacheSources += cached_list
+                self.torrentSources += cached_list + uncached_list
         except Exception as e:
             circuit_breaker.record_failure(provider)
             control.log(f"Error in torrent worker '{provider}': {e}", 'error')
@@ -623,48 +629,79 @@ class Sources(GetSources):
                 filtered.append(source)
             sortedList = filtered
 
-        # Filter by language source
+        # Filter by language source (supports Multi/Dual-Audio releases carrying MULTI-SUB info tags)
         source = control.getInt("general.source")
+        before_audio_torrents = sum(1 for x in sortedList if 'torrent' in str(x.get('type', '')))
         if source != 0:
-            if source == 1:
-                # Subtitles only: exclude pure Dub sources (lang == 3 or info containing DUB)
-                sortedList = [
-                    i for i in sortedList
-                    if i.get('lang') in [0, 1, 2]
-                    and not any('DUB' in str(t).upper() and 'SUB' not in str(t).upper() for t in (i.get('info') or []))
-                ]
-            elif source == 2:
-                # Dubbed only: exclude pure Sub sources (lang == 2 or info containing SUB)
-                sortedList = [
-                    i for i in sortedList
-                    if i.get('lang') in [0, 1, 3]
-                    and not any('SUB' in str(t).upper() and 'DUB' not in str(t).upper() for t in (i.get('info') or []))
-                ]
+            sortedList = source_utils.filter_sources_by_audio(sortedList, source)
+        after_audio_torrents = sum(1 for x in sortedList if 'torrent' in str(x.get('type', '')))
 
-        # Resolve target show title and aliases for relevance scoring
+        # Resolve target show title, aliases, and premiere year for relevance scoring
         target_title = show_title
         target_aliases = list(aliases) if aliases else []
+        target_year = None
 
-        if target_title and '(' in target_title and '|' in target_title:
-            extracted = re.findall(r'\((.*?)\)', target_title)
-            if extracted:
-                if not target_aliases:
-                    target_aliases = [x.strip() for x in extracted[1:] if x.strip()]
-                target_title = extracted[0].strip()
+        def _append_alias(val):
+            if val and isinstance(val, str):
+                cleaned = val.strip()
+                if cleaned and cleaned != target_title and cleaned not in target_aliases:
+                    target_aliases.append(cleaned)
+
+        if target_title and '|' in target_title:
+            parsed_titles = source_utils.parse_query_titles(target_title)
+            if parsed_titles:
+                target_title = parsed_titles[0]
+                for extra in parsed_titles[1:]:
+                    _append_alias(extra)
 
         if mal_id:
             try:
-                show_meta = database.get_show_meta(mal_id) or database.get_show(mal_id)
+                show_row = database.get_show(mal_id)
+                if show_row and isinstance(show_row, dict):
+                    kodi_meta = database.loads(show_row.get('kodi_meta'))
+                    if isinstance(kodi_meta, dict) and kodi_meta:
+                        if not target_title:
+                            target_title = kodi_meta.get('name') or kodi_meta.get('ename')
+                        for key in ('name', 'ename', 'title_userPreferred', 'title_english', 'title_romaji'):
+                            _append_alias(kodi_meta.get(key))
+                        if kodi_meta.get('year'):
+                            target_year = str(kodi_meta.get('year'))
+                    else:
+                        if not target_title:
+                            target_title = show_row.get('name') or show_row.get('ename')
+                        for key in ('name', 'ename', 'title_english', 'title_romaji'):
+                            _append_alias(show_row.get(key))
+                        if show_row.get('year'):
+                            target_year = str(show_row.get('year'))
+            except Exception:
+                pass
+            try:
+                show_meta = database.get_show_meta(mal_id)
                 if show_meta and isinstance(show_meta, dict):
-                    if not target_title:
-                        target_title = show_meta.get('name') or show_meta.get('ename')
-                    meta_aliases = [
-                        v for k, v in show_meta.items()
-                        if k in ('name', 'ename', 'title_english', 'title_romaji') and v and v != target_title
-                    ]
-                    for a in meta_aliases:
-                        if a not in target_aliases:
-                            target_aliases.append(a)
+                    meta_ids = database.loads(show_meta.get('meta_ids'))
+                    if isinstance(meta_ids, dict) and meta_ids:
+                        _append_alias(meta_ids.get('mal_title'))
+                    else:
+                        if not target_title:
+                            target_title = show_meta.get('name') or show_meta.get('ename')
+                        for key in ('name', 'ename', 'title_english', 'title_romaji'):
+                            _append_alias(show_meta.get(key))
+            except Exception:
+                pass
+            try:
+                mal_id_int = int(mal_id)
+                enrichment_map = database.get_anilist_enrichment_batch([mal_id_int], max_age_hours=24 * 365)
+                enrich = enrichment_map.get(mal_id_int) if isinstance(enrichment_map, dict) else None
+                if isinstance(enrich, dict):
+                    al_titles = enrich.get('title') or {}
+                    if isinstance(al_titles, dict):
+                        for key in ('romaji', 'english', 'userPreferred'):
+                            _append_alias(al_titles.get(key))
+                    for syn in (enrich.get('synonyms') or []):
+                        _append_alias(syn)
+                    start_date = enrich.get('startDate') or {}
+                    if not target_year and isinstance(start_date, dict) and start_date.get('year'):
+                        target_year = str(start_date.get('year'))
             except Exception:
                 pass
 
@@ -673,12 +710,21 @@ class Sources(GetSources):
                 if 'relevance' not in s:
                     s_title = s.get('release_title') or s.get('name') or ''
                     if s_title:
-                        s['relevance'] = source_utils.score_title_candidate(target_title, s_title, aliases=target_aliases)
+                        s['relevance'] = source_utils.score_title_candidate(
+                            target_title, s_title, aliases=target_aliases, year=target_year
+                        )
 
         # Gate out derivative/unrelated sources (relevance <= 40) when high-confidence sources exist
         has_high_relevance = any(x.get('relevance') is not None and x.get('relevance') >= 100 for x in sortedList)
         if has_high_relevance:
             sortedList = [x for x in sortedList if x.get('relevance') is None or x.get('relevance') > 40]
+        after_rel_torrents = sum(1 for x in sortedList if 'torrent' in str(x.get('type', '')))
+        control.log(
+            f"sortSources: torrents raw={len(torrent_list)} -> audio_filter={after_audio_torrents} "
+            f"(before_audio={before_audio_torrents}, lang_pref={source}) -> relevance_gate={after_rel_torrents}; "
+            f"total_final={len(sortedList)}",
+            'info',
+        )
 
         # Sort sources (Seren-style composite keys; fresh sort_options.json)
         sortedList = sort_select.sort_sources_list(sortedList)

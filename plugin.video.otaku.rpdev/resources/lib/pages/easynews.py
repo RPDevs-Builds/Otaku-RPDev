@@ -11,18 +11,7 @@ class Sources(BrowserBase):
     @staticmethod
     def _extract_titles(query):
         """Parse '(Title1)|(Title2)' from kodi_meta['query']; else single cleaned string."""
-        if not query:
-            return []
-        parts = re.findall(r'\(([^)]+)\)', query)
-        if not parts:
-            return [Sources._simplify_title(query)]
-        seen, result = set(), []
-        for p in parts:
-            p = p.strip()
-            if p and p.lower() not in seen:
-                seen.add(p.lower())
-                result.append(p)
-        return result
+        return source_utils.parse_query_titles(query)
 
     @staticmethod
     def _simplify_title(q):

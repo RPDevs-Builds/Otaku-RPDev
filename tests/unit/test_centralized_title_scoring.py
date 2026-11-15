@@ -273,6 +273,165 @@ class TestCentralizedTitleScoring(unittest.TestCase):
         self.assertTrue(len(sorted_sources) >= 1)
         self.assertEqual(sorted_sources[0]['release_title'], '[ASW] Monster - 01 [720p].mkv')
 
+    def test_parse_query_titles_preserves_nested_parens(self):
+        """parse_query_titles must split top-level '|' without breaking inner '(TV)' parens."""
+        self.assertEqual(
+            source_utils.parse_query_titles('(Koukaku Kidoutai (TV))|(The Ghost in the Shell)'),
+            ['Koukaku Kidoutai (TV)', 'The Ghost in the Shell'],
+        )
+        self.assertEqual(
+            source_utils.parse_query_titles('(NEET Kunoichi to Nazeka Dousei Hajimemashita)|(I\'m Living with an Otaku NEET Kunoichi!?)'),
+            ['NEET Kunoichi to Nazeka Dousei Hajimemashita', "I'm Living with an Otaku NEET Kunoichi!?"],
+        )
+
+    def test_season1_markers_not_treated_as_sequels_and_season2_disambiguated(self):
+        """S01/Season 01/s01_ must stay eligible for Season 1 while S01E01 is rejected for Season 2."""
+        q_s1 = 'NEET Kunoichi to Nazeka Dousei Hajimemashita'
+        self.assertGreaterEqual(
+            source_utils.score_title_candidate(q_s1, '[SubsPlus+] NEET Kunoichi to Nazeka Dousei Hajimemashita - S01E01 (1080p) [1234ABCD].mkv'),
+            140,
+        )
+        self.assertGreaterEqual(
+            source_utils.score_title_candidate(q_s1, '[Judas] NEET Kunoichi to Nazeka Dousei Hajimemashita (Season 01) [1080p][HEVC]'),
+            140,
+        )
+        self.assertGreaterEqual(
+            source_utils.score_title_candidate(q_s1, '[AniDub]_NEET_Kunoichi_to_Nazeka_Dousei_Hajimemashita_s01_02.mkv'),
+            140,
+        )
+        # Season 1 release must NOT match Season 2 query
+        self.assertLessEqual(
+            source_utils.score_title_candidate(
+                'Tsue to Tsurugi no Wistoria Season 2',
+                '[Judas] Wistoria: Wand and Sword - S01E01 [1080p][Dual-Audio]',
+                aliases=['Wistoria: Wand and Sword Season 2'],
+            ),
+            40,
+        )
+        # Equivalent Season 2 forms match cleanly
+        self.assertGreaterEqual(
+            source_utils.score_title_candidate(
+                'Tsue to Tsurugi no Wistoria Season 2',
+                '[Yameii] Wistoria: Wand and Sword - S02E01 [English Dub]',
+                aliases=['Wistoria: Wand and Sword Season 2'],
+            ),
+            115,
+        )
+        self.assertGreaterEqual(
+            source_utils.score_title_candidate(
+                'Kimi ni Todoke 2nd Season',
+                '[SubsPlease] Kimi ni Todoke Season 2 - 01 (1080p)',
+            ),
+            140,
+        )
+
+    def test_contractions_v2_ellipsis_pipe_romaji_and_article_typos(self):
+        """Isolation and scoring must handle contractions, v2 suffixes, truncated parens, pipes, and Romaji spacing."""
+        self.assertEqual(
+            source_utils.isolate_show_title('[ToonsHub] Im Living With an Otaku NEET Kunoichi?! - S01E02v2 [1080p]'),
+            'Im Living With an Otaku NEET Kunoichi?!',
+        )
+        self.assertEqual(
+            source_utils.isolate_show_title('[DKB] Wistoria: Wand and Sword (Season 2) V2 [1080p]'),
+            'Wistoria: Wand and Sword',
+        )
+        self.assertEqual(
+            source_utils.isolate_show_title('The Ghost in the Shell - S01E03 (B…'),
+            'The Ghost in the Shell',
+        )
+
+        aliases = ["I'm Living with an Otaku NEET Kunoichi!?", 'NEET Kunoichi to Naze ka Dousei Hajimemashita']
+        # I'm <-> Im
+        self.assertGreaterEqual(
+            source_utils.score_title_candidate(
+                'NEET Kunoichi to Nazeka Dousei Hajimemashita',
+                '[ToonsHub] Im Living With an Otaku NEET Kunoichi?! - S01E02v2 [1080p][Dual-Audio]',
+                aliases=aliases,
+            ),
+            115,
+        )
+        # Pipe dual-title + Romaji spacing Naze ka <-> Nazeka
+        self.assertGreaterEqual(
+            source_utils.score_title_candidate(
+                'NEET Kunoichi to Nazeka Dousei Hajimemashita',
+                "I'm Living with an Otaku NEET Kunoichi?! - 02 | NEET Kunoichi to Naze ka Dousei Hajimemashita (Dual audio ENG/JPN)",
+                aliases=aliases,
+            ),
+            115,
+        )
+        # Single article variation a <-> an
+        self.assertGreaterEqual(
+            source_utils.score_title_candidate(
+                "I'm Living with an Otaku NEET Kunoichi!?",
+                "I'm Living With a Otaku NEET Kunoichi?! - 02 [1080p]",
+            ),
+            140,
+        )
+
+    def test_sort_sources_loads_kodi_meta_enrichment_aliases_and_excludes_remake_year(self):
+        """sortSources must decode kodi_meta & anilist_enrichment aliases + year, excluding 1995 movie on 2026 show."""
+        import json
+        from unittest.mock import patch
+        import conftest
+        from resources.lib.ui import database
+
+        saved_store = dict(conftest._settings_store)
+        saved_props = dict(conftest._window_props)
+        try:
+            control.setInt('general.source', 2)
+            control.setBool('show.uncached', True)
+            control.setInt('general.minResolution', 0)
+            control.setInt('general.maxResolution', 4)
+            control.setInt('general.fileFilter', 0)
+            control.setBool('general.release_title_filter.enabled', False)
+            control.setStringList('general.filters', [])
+            control.clearSettingsCache()
+
+            show_row = {
+                'mal_id': 58929,
+                'kodi_meta': json.dumps({'name': 'Koukaku Kidoutai (TV)', 'ename': 'The Ghost in the Shell', 'year': 2026}),
+            }
+            show_meta = {
+                'mal_id': 58929,
+                'meta_ids': repr({'mal_title': 'Koukaku Kidoutai (TV)'}),
+            }
+            enrichment = {
+                58929: {
+                    'title': {'romaji': 'Koukaku Kidoutai: THE GHOST IN THE SHELL', 'english': 'THE GHOST IN THE SHELL'},
+                    'synonyms': ['The Ghost in the Shell (2026)'],
+                    'startDate': {'year': 2026},
+                }
+            }
+            sources = [
+                {'release_title': '[sam] The Ghost in the Shell (2026) - S01E08 [Dual-Audio]', 'type': 'torrent (cached)', 'provider': 'nyaa', 'quality': 2, 'size': '700 MB', 'byte_size': 700000000, 'seeders': 25, 'lang': 1, 'info': ['HEVC', 'DUAL-AUDIO']},
+                {'release_title': '[Ironclad] Koukaku Kidoutai: THE GHOST IN THE SHELL (2026) - 08 [Multi-Audio][Multi-Sub]', 'type': 'torrent', 'provider': 'nekobt', 'quality': 2, 'size': '550 MB', 'byte_size': 550000000, 'seeders': 14, 'lang': 0, 'info': ['MULTI-AUDIO', 'MULTI-SUB']},
+                {'release_title': 'Ghost in the Shell (1995) [1080p BD Dual Audio]', 'type': 'torrent', 'provider': 'nyaa', 'quality': 2, 'size': '2000 MB', 'byte_size': 2000000000, 'seeders': 99, 'lang': 1, 'info': ['DUAL-AUDIO']},
+            ]
+            embeds = [
+                {'release_title': 'Koukaku Kidoutai (TV) - Ep 8', 'type': 'direct', 'provider': 'anikoto', 'quality': 2, 'lang': 3, 'info': ['megaplay DUB']},
+            ]
+
+            with patch.object(database, 'get_show', return_value=show_row), \
+                 patch.object(database, 'get_show_meta', return_value=show_meta), \
+                 patch.object(database, 'get_anilist_enrichment_batch', return_value=enrichment), \
+                 patch.object(database, 'get_last_played_source', return_value=None):
+                result = Sources.sortSources(
+                    torrent_list=sources, hoster_list=[], embed_list=embeds,
+                    cloud_files=[], local_files=[], media_type='show',
+                    duration=24, mal_id=58929, show_title='Koukaku Kidoutai (TV)',
+                )
+
+            titles = [r['release_title'] for r in result]
+            self.assertIn('[sam] The Ghost in the Shell (2026) - S01E08 [Dual-Audio]', titles)
+            self.assertIn('[Ironclad] Koukaku Kidoutai: THE GHOST IN THE SHELL (2026) - 08 [Multi-Audio][Multi-Sub]', titles)
+            self.assertNotIn('Ghost in the Shell (1995) [1080p BD Dual Audio]', titles)
+        finally:
+            conftest._settings_store.clear()
+            conftest._settings_store.update(saved_store)
+            conftest._window_props.clear()
+            conftest._window_props.update(saved_props)
+            control.clearSettingsCache()
+
 
 if __name__ == '__main__':
     unittest.main()

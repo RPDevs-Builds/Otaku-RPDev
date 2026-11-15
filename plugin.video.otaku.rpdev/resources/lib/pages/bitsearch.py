@@ -22,17 +22,7 @@ class Sources(BrowserBase):
     @staticmethod
     def _parse_titles(query):
         """Extract individual titles from the '(Title1)|(Title2)' format."""
-        titles = re.findall(r'\(([^)]+)\)', query)
-        if not titles:
-            titles = [p.strip() for p in query.split('|') if p.strip()]
-        seen = set()
-        unique = []
-        for t in titles:
-            t_stripped = t.strip()
-            if t_stripped and t_stripped.lower() not in seen:
-                seen.add(t_stripped.lower())
-                unique.append(t_stripped)
-        return unique
+        return source_utils.parse_query_titles(query)
 
     def get_sources(self, query, mal_id, episode, status, media_type, season=None, part=None, rescrape=False):
         query = self._clean_title(query).replace('-', ' ')
@@ -253,7 +243,7 @@ class Sources(BrowserBase):
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         }
 
-        response = client.get(url, headers=headers, timeout=10)
+        response = client.get(url, headers=headers, timeout=6)
         if not response or getattr(response, 'status_code', None) != 200:
             return []
 

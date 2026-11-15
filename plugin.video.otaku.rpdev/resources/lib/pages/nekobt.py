@@ -20,18 +20,7 @@ class Sources(BrowserBase):
     @staticmethod
     def _parse_titles(query):
         """Extract individual titles from the '(Title1)|(Title2)' format."""
-        titles = re.findall(r'\(([^)]+)\)', query)
-        if not titles:
-            titles = [query.strip()]
-        # Deduplicate while preserving order
-        seen = set()
-        unique = []
-        for t in titles:
-            t_stripped = t.strip()
-            if t_stripped and t_stripped.lower() not in seen:
-                seen.add(t_stripped.lower())
-                unique.append(t_stripped)
-        return unique
+        return source_utils.parse_query_titles(query)
 
     def _get_tvdb_id(self, mal_id):
         """Look up the TVDB ID from the mapping database."""

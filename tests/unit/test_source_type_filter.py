@@ -125,6 +125,69 @@ class TestSourceTypeFilter(unittest.TestCase):
         self.assertIsNotNone(dub_src)
         self.assertEqual(dub_src['lang'], 3)
 
+    def test_filter_sources_by_audio_preserves_dual_and_multi_with_multisub(self):
+        """Dual-Audio (lang=1) and Multi-Audio (lang=0) carrying MULTI-SUB must be kept for Dub & Sub."""
+        import conftest
+        from resources.lib.ui import source_utils
+        from resources.lib.pages import Sources
+
+        sample = [
+            {'release_title': '[ToonsHub] Show - S01E01', 'type': 'torrent', 'provider': 'nyaa', 'quality': 2, 'size': '500 MB', 'byte_size': 500000000, 'seeders': 10, 'lang': 1, 'info': ['HEVC', 'DUAL-AUDIO', 'MULTI-SUB']},
+            {'release_title': '[Ironclad] Show - S01E01', 'type': 'torrent', 'provider': 'nekobt', 'quality': 2, 'size': '600 MB', 'byte_size': 600000000, 'seeders': 12, 'lang': 0, 'info': ['MULTI-AUDIO', 'MULTI-SUB']},
+            {'release_title': '[EMBER] Show - S01E01', 'type': 'torrent', 'provider': 'nyaa', 'quality': 2, 'size': '250 MB', 'byte_size': 250000000, 'seeders': 20, 'lang': 2, 'info': ['HEVC', 'SUB']},
+            {'release_title': '[Yameii] Show - S01E01 [English Dub]', 'type': 'torrent', 'provider': 'nyaa', 'quality': 2, 'size': '450 MB', 'byte_size': 450000000, 'seeders': 15, 'lang': 3, 'info': ['AVC', 'DUB']},
+        ]
+
+        dub_only = source_utils.filter_sources_by_audio(sample, 2)
+        self.assertEqual(
+            [s['release_title'] for s in dub_only],
+            ['[ToonsHub] Show - S01E01', '[Ironclad] Show - S01E01', '[Yameii] Show - S01E01 [English Dub]'],
+        )
+
+        sub_only = source_utils.filter_sources_by_audio(sample, 1)
+        self.assertEqual(
+            [s['release_title'] for s in sub_only],
+            ['[ToonsHub] Show - S01E01', '[Ironclad] Show - S01E01', '[EMBER] Show - S01E01'],
+        )
+
+        both = source_utils.filter_sources_by_audio(sample, 0)
+        self.assertEqual(len(both), 4)
+
+        saved_store = dict(conftest._settings_store)
+        saved_props = dict(conftest._window_props)
+        try:
+            # End-to-end sortSources with general.source=2 preserves ToonsHub & Ironclad MULTI-SUB torrents
+            control.setInt('general.source', 2)
+            control.setBool('show.uncached', True)
+            control.setInt('general.minResolution', 0)
+            control.setInt('general.maxResolution', 4)
+            control.setInt('general.fileFilter', 0)
+            control.setBool('general.release_title_filter.enabled', False)
+            control.setStringList('general.filters', [])
+            control.clearSettingsCache()
+
+            sorted_dub = Sources.sortSources(
+                torrent_list=[dict(s) for s in sample],
+                hoster_list=[],
+                embed_list=[],
+                cloud_files=[],
+                local_files=[],
+                media_type='show',
+                duration=24,
+                show_title='Show',
+            )
+            sorted_titles = [s['release_title'] for s in sorted_dub]
+            self.assertIn('[ToonsHub] Show - S01E01', sorted_titles)
+            self.assertIn('[Ironclad] Show - S01E01', sorted_titles)
+            self.assertIn('[Yameii] Show - S01E01 [English Dub]', sorted_titles)
+            self.assertNotIn('[EMBER] Show - S01E01', sorted_titles)
+        finally:
+            conftest._settings_store.clear()
+            conftest._settings_store.update(saved_store)
+            conftest._window_props.clear()
+            conftest._window_props.update(saved_props)
+            control.clearSettingsCache()
+
 
 if __name__ == '__main__':
     unittest.main()

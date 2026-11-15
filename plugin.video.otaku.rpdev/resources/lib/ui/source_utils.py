@@ -406,6 +406,134 @@ def _has_descriptor_tags(text):
     return bool(_RE_DESCRIPTOR_TAGS.search(str(text)))
 
 
+_RE_SEASON_TAG = re.compile(
+    r'(?:^|[\W_])(?:season[._\s]*0*(\d+)(?=[\W_]|$)|(\d+)(?:st|nd|rd|th)[._\s]+season(?=[\W_]|$)|s0*(\d+)(?=[\W_]|e\d|$))',
+    re.IGNORECASE,
+)
+_RE_SEASON_RANGE = re.compile(
+    r'(?:^|[\W_])(?:s0*(\d+)\s*[-~]\s*s?0*(\d+)|season[._\s]*0*(\d+)\s*[-~]\s*0*(\d+))(?=[\W_]|$)',
+    re.IGNORECASE,
+)
+_RE_STRIP_SEASON_MARKER = re.compile(
+    r'(?:^|[\W_])(?:season[._\s]*0*\d+(?=[\W_]|$)|\d+(?:st|nd|rd|th)[._\s]+season(?=[\W_]|$)|s0*\d+(?:e\d+(?:v\d+)?)?(?=[\W_]|$))',
+    re.IGNORECASE,
+)
+
+
+def parse_query_titles(query):
+    """Split top-level '(Title1)|(Title2)' query strings without breaking nested parentheses like '(TV)'."""
+    if not query:
+        return []
+    text = str(query).strip()
+    parts = []
+    depth = 0
+    start = 0
+    for idx, ch in enumerate(text):
+        if ch == '(':
+            depth += 1
+        elif ch == ')':
+            if depth > 0:
+                depth -= 1
+        elif ch == '|' and depth == 0:
+            seg = text[start:idx].strip()
+            if seg:
+                parts.append(seg)
+            start = idx + 1
+    tail = text[start:].strip()
+    if tail:
+        parts.append(tail)
+
+    seen = set()
+    unique = []
+    for part in parts:
+        # Unwrap matching outer parentheses only if they wrap the entire segment
+        while len(part) >= 2 and part[0] == '(' and part[-1] == ')':
+            inner_depth = 0
+            wraps_whole = True
+            for i, ch in enumerate(part):
+                if ch == '(':
+                    inner_depth += 1
+                elif ch == ')':
+                    inner_depth -= 1
+                    if inner_depth == 0 and i < len(part) - 1:
+                        wraps_whole = False
+                        break
+            if wraps_whole and inner_depth == 0:
+                part = part[1:-1].strip()
+            else:
+                break
+        if part and part.lower() not in seen:
+            seen.add(part.lower())
+            unique.append(part)
+    return unique
+
+
+def filter_sources_by_audio(sources, source_pref):
+    """
+    Filter a source list according to general.source (0=Both, 1=Sub, 2=Dub).
+    Evaluates info tags across the entire release rather than token-by-token so
+    Dual-Audio / Multi-Audio releases that also carry MULTI-SUB tags are preserved.
+    """
+    try:
+        pref = int(source_pref or 0)
+    except (ValueError, TypeError):
+        pref = 0
+    if pref == 0 or not sources:
+        return list(sources) if sources else []
+
+    filtered = []
+    for item in sources:
+        lang = item.get('lang')
+        info_upper = [str(t).upper() for t in (item.get('info') or [])]
+        has_dual_or_multi = any(
+            'DUAL' in t or 'MULTI-AUDIO' in t or 'MULTI AUDIO' in t
+            for t in info_upper
+        )
+        has_dub_tag = any('DUB' in t for t in info_upper)
+        has_sub_tag = any('SUB' in t for t in info_upper)
+
+        if pref == 1:
+            # Subtitles only: allow Sub (2), Dual (1), Multi-Audio (0); exclude pure Dub
+            if lang not in (0, 1, 2):
+                continue
+            if has_dub_tag and lang not in (0, 1) and not has_dual_or_multi and not has_sub_tag:
+                continue
+            filtered.append(item)
+        elif pref == 2:
+            # Dubbed only: allow Dub (3), Dual (1), Multi-Audio (0); exclude pure Sub
+            if lang not in (0, 1, 3):
+                continue
+            if has_sub_tag and lang not in (1, 3) and not has_dub_tag and not has_dual_or_multi:
+                continue
+            filtered.append(item)
+        else:
+            filtered.append(item)
+    return filtered
+
+
+def _extract_season_numbers(text):
+    """Extract all explicit integer season numbers referenced in text (ranges expanded)."""
+    seasons = set()
+    s_text = str(text)
+    for m in _RE_SEASON_RANGE.finditer(s_text):
+        g1, g2 = (m.group(1), m.group(2)) if m.group(1) else (m.group(3), m.group(4))
+        try:
+            lo, hi = int(g1), int(g2)
+            if 1 <= lo <= hi <= 50:
+                seasons.update(range(lo, hi + 1))
+        except (ValueError, TypeError):
+            pass
+    for m in _RE_SEASON_TAG.finditer(s_text):
+        val = m.group(1) or m.group(2) or m.group(3)
+        try:
+            num = int(val)
+            if num >= 1:
+                seasons.add(num)
+        except (ValueError, TypeError):
+            pass
+    return seasons
+
+
 def isolate_show_title(raw_title):
     """
     Isolate the release show title from a raw filename or candidate title by
@@ -425,12 +553,15 @@ def isolate_show_title(raw_title):
         flags=re.IGNORECASE
     )
 
+    # 1b. Strip trailing truncated ellipsis fragment (e.g. Torrentio 60-char "(B…")
+    text = re.sub(r'\s*[\(\[][^\)\]]*…\s*$', '', text)
+
     # 2. Strip leading bracketed/parenthesized release group tags
     text = re.sub(r'^(?:\s*\[[^\]]*\]|\s*\([^\)]*\))+', '', text).strip()
 
-    # 3. Handle dot-separated scene format: e.g. "Monster.S01E01.1080p.BluRay" -> "Monster"
+    # 3. Handle dot-separated/scene format: e.g. "Monster.S01E01.1080p" or "Show - S01E02v2"
     scene_match = re.search(
-        r'^(.*?)[._ -]+(?:s\d{1,2}(?:[._ -]?e\d{1,4})?|e\d{1,4}|season[._ -]?\d{1,2})(?:[._ -]|$)',
+        r'^(.*?)[._ -]+(?:s\d{1,2}(?:[._ -]?e\d{1,4}(?:v\d+)?)?|e\d{1,4}(?:v\d+)?|season[._ -]?\d{1,2})(?:[._ -]|$)',
         text,
         flags=re.IGNORECASE
     )
@@ -444,11 +575,11 @@ def isolate_show_title(raw_title):
             r'''(?ix)
             \s+-\s+(?:ep(?:isode)?\s*|e\s*)?\d{1,4}(?:\b|v\d)
             |
-            \s+-\s+s\d{1,2}(?:\s*-\s*\d{1,4}|\s*e\d{1,4})\b
+            \s+-\s+s\d{1,2}(?:\s*-\s*\d{1,4}|\s*e\d{1,4}(?:v\d+)?)\b
             |
-            \s+(?:s\d{1,2})?e\d{1,4}\b
+            \s+(?:s\d{1,2})?e\d{1,4}(?:v\d+)?\b
             |
-            \s+(?:ep(?:isode)?\s*)\d{1,4}\b
+            \s+(?:ep(?:isode)?\s*)\d{1,4}(?:v\d+)?\b
             |
             \s+-\s+part\s+\d+\s+-\s+\d{1,4}\b
             ''',
@@ -469,7 +600,10 @@ def isolate_show_title(raw_title):
                     cand = cand.replace('.', ' ')
                 text = cand
 
-    # 5. Remove media patterns (resolution, codecs, etc.) and bracketed text
+    # 5. Strip release-version suffix adjacent to bracketed tags (e.g. "(Season 1) V2 [1080p]")
+    text = re.sub(r'(?<=[\)\]])\s+v[2-9]\b(?=\s*(?:\[|\(|$))', '', text, flags=re.IGNORECASE)
+
+    # 6. Remove media patterns (resolution, codecs, etc.) and bracketed text
     text = remove_patterns(text)
     text = _RE_BRACKETS_AND_PARENS.sub('', text)
     text = _RE_COLLAPSE_SPACES.sub(' ', text).strip()
@@ -490,37 +624,29 @@ def clean_title_for_matching(title):
     return cleanTitle(isolated)
 
 
-def score_title_candidate(query, candidate_title, aliases=None, year=None):
-    """
-    Clean, robust, reusable candidate scoring function for all scrapers.
-    Returns an integer score from 0 to 200.
-    - Score >= 140 for exact canonical or alias matches (case-insensitive, normalized).
-    - Score >= 110 for matches with valid release descriptor tags ((Dub), (Sub), (TV), (Movie)).
-    - Score <= 40 or 0 for derivative titles (e.g. Re:Monster when query is Monster, Monster Musume, etc.).
-    - Supports alias matching against Japanese/Romaji and English variations.
-    """
-    if not query or not candidate_title:
-        return 0
-
+def _score_single_candidate(target_list, candidate_title, passed_year=None, release_year=None, release_seasons=None, release_has_desc=None):
+    """Score a single (or pipe-segment) candidate string against normalized target/alias entries."""
     cand_isolated = isolate_show_title(candidate_title) or str(candidate_title)
     cand_clean = cleanTitle(cand_isolated)
     cand_tokens = cand_clean.split()
-
-    target_list = [(query, True)]
-    if aliases:
-        for a in aliases:
-            if a and str(a).strip() and str(a).strip() != query:
-                target_list.append((str(a).strip(), False))
+    if not cand_tokens:
+        return 0
 
     best_score = 0
     raw_cand_lower = str(candidate_title).lower()
     raw_cand_isolated_lower = str(cand_isolated).lower()
 
-    cand_year_match = re.search(r'\b(19\d{2}|20\d{2})\b', str(candidate_title))
-    cand_year = cand_year_match.group(1) if cand_year_match else None
-    passed_year = str(year).strip() if year else None
+    cand_year = release_year
+    if cand_year is None:
+        cand_year_match = re.search(r'\b(19\d{2}|20\d{2})\b', str(candidate_title))
+        cand_year = cand_year_match.group(1) if cand_year_match else None
 
-    cand_has_desc = _has_descriptor_tags(candidate_title)
+    cand_seasons = release_seasons if release_seasons is not None else _extract_season_numbers(raw_cand_lower)
+    cand_sequel_seasons = {s for s in cand_seasons if s >= 2}
+    cand_has_desc = release_has_desc if release_has_desc is not None else _has_descriptor_tags(candidate_title)
+
+    cand_stripped_clean = cleanTitle(re.sub(r'[\(\[]?\b(19\d{2}|20\d{2})\b[\)\]]?', '', str(cand_isolated)))
+    cand_no_season_clean = cleanTitle(_RE_STRIP_SEASON_MARKER.sub('', str(cand_isolated)))
 
     for target, is_canonical in target_list:
         target_year_match = re.search(r'\b(19\d{2}|20\d{2})\b', str(target))
@@ -557,32 +683,59 @@ def score_title_candidate(query, candidate_title, aliases=None, year=None):
         if target_year and cand_year and target_year != cand_year:
             continue
 
-        # Disqualify sequel seasons (e.g. "Piano no Mori Season 2" when target is not Season 2)
-        cand_season_match = re.search(r'\b(?:season\s*([2-9]|\d{2,})|s([2-9]|\d{2,}))\b', raw_cand_lower)
-        target_season_match = re.search(r'\b(?:season\s*([2-9]|\d{2,})|s([2-9]|\d{2,}))\b', raw_target_lower)
-        if cand_season_match and not target_season_match:
+        # Disqualify mismatched sequel seasons (S01 / Season 01 stays eligible for Season 1)
+        target_seasons = _extract_season_numbers(raw_target_lower)
+        target_sequel_seasons = {s for s in target_seasons if s >= 2}
+        if cand_sequel_seasons and not target_sequel_seasons:
+            continue
+        if target_sequel_seasons and cand_seasons and not (cand_seasons & target_sequel_seasons):
             continue
 
         # Disqualify live-action adaptation when query is anime
         if ('live action' in raw_cand_lower or 'live-action' in raw_cand_lower) and ('live action' not in raw_target_lower and 'live-action' not in raw_target_lower):
             continue
 
-        # Exact normalized match
         target_stripped_clean = cleanTitle(re.sub(r'[\(\[]?\b(19\d{2}|20\d{2})\b[\)\]]?', '', str(target)))
-        cand_stripped_clean = cleanTitle(re.sub(r'[\(\[]?\b(19\d{2}|20\d{2})\b[\)\]]?', '', str(cand_isolated)))
-
         target_isolated = isolate_show_title(target) or str(target)
         target_isolated_clean = cleanTitle(target_isolated)
+        target_no_season_clean = cleanTitle(_RE_STRIP_SEASON_MARKER.sub('', str(target_isolated)))
 
+        # Equivalent forms when both target and candidate explicitly match the same sequel season (>= 2)
+        same_sequel_season = bool(
+            target_sequel_seasons
+            and cand_sequel_seasons
+            and (cand_sequel_seasons & target_sequel_seasons)
+            and cand_no_season_clean == target_no_season_clean
+        )
+
+        # Exact normalized match (including year-stripped, space-collapsed compound Romaji, and season-normalized)
+        cand_flat = cand_clean.replace(' ', '')
+        target_flat = target_clean.replace(' ', '')
+        cand_stripped_flat = cand_stripped_clean.replace(' ', '')
+        target_stripped_flat = target_stripped_clean.replace(' ', '')
         is_exact = (cand_clean == target_clean) or (
-            cand_clean == target_isolated_clean
+            not target_sequel_seasons and cand_clean == target_isolated_clean
+        ) or (
+            same_sequel_season and bool(cand_no_season_clean)
         ) or (
             target_year and cand_year and target_year == cand_year and target_stripped_clean == cand_stripped_clean
         ) or (
             target_year and not cand_year and target_stripped_clean == cand_clean
         ) or (
             cand_year and not target_year and target_clean == cand_stripped_clean
+        ) or (
+            len(cand_flat) >= 6 and (
+                cand_flat == target_flat
+                or cand_flat == target_isolated_clean.replace(' ', '')
+                or (cand_stripped_flat and cand_stripped_flat == target_stripped_flat)
+            )
         )
+
+        # Single-article typo match (e.g. "a Otaku" vs "an Otaku") on multi-word titles (>= 4 tokens)
+        if not is_exact and len(target_tokens) >= 4 and len(cand_tokens) == len(target_tokens):
+            diffs = [(ct, tt) for ct, tt in zip(cand_tokens, target_tokens) if ct != tt]
+            if diffs and all(pair in {('a', 'an'), ('an', 'a')} for pair in diffs):
+                is_exact = True
 
         if is_exact:
             if (cand_has_desc and not target_has_desc) or (target_has_desc and not cand_has_desc):
@@ -601,7 +754,6 @@ def score_title_candidate(query, candidate_title, aliases=None, year=None):
         missing = [tok for tok in raw_missing if tok not in ('tv', 'movie', 'film', 'dub', 'sub')]
 
         if not unexpected and not missing:
-            # Core tokens match completely; differences are solely approved descriptors
             if not raw_unexpected and not raw_missing:
                 score = 150 if is_canonical else 140
             else:
@@ -612,19 +764,61 @@ def score_title_candidate(query, candidate_title, aliases=None, year=None):
         # For short queries (<= 2 tokens), check derivative expansion
         if len(target_tokens) <= 2:
             if set(target_tokens).issubset(set(cand_tokens)):
-                # Derivative expansion: e.g. "Monster Musume", "Monster Hunter Stories"
                 best_score = max(best_score, 10 if is_canonical else 0)
                 continue
             else:
                 continue
 
-        # Multi-token titles (> 2 tokens):
-        # If candidate has unexpected non-descriptor tokens (e.g. Junior High) or misses key distinguishing tokens,
-        # it is a different series or spin-off.
+        # Multi-token titles (> 2 tokens): reject derivative spin-offs / mismatched titles
         if unexpected or missing:
             has_common = bool(set(target_tokens) & set(cand_tokens))
             best_score = max(best_score, 10 if (is_canonical and has_common) else 0)
             continue
+
+    return best_score
+
+
+def score_title_candidate(query, candidate_title, aliases=None, year=None):
+    """
+    Clean, robust, reusable candidate scoring function for all scrapers.
+    Returns an integer score from 0 to 200.
+    - Score >= 140 for exact canonical or alias matches (case-insensitive, normalized).
+    - Score >= 110 for matches with valid release descriptor tags ((Dub), (Sub), (TV), (Movie)).
+    - Score <= 40 or 0 for derivative titles (e.g. Re:Monster when query is Monster, Monster Musume, etc.).
+    - Supports alias matching against Japanese/Romaji and English variations.
+    """
+    if not query or not candidate_title:
+        return 0
+
+    target_list = [(query, True)]
+    if aliases:
+        for a in aliases:
+            if a and str(a).strip() and str(a).strip() != query:
+                target_list.append((str(a).strip(), False))
+
+    raw_cand = str(candidate_title)
+    passed_year = str(year).strip() if year else None
+
+    cand_year_match = re.search(r'\b(19\d{2}|20\d{2})\b', raw_cand)
+    release_year = cand_year_match.group(1) if cand_year_match else None
+    release_seasons = _extract_season_numbers(raw_cand.lower())
+    release_has_desc = _has_descriptor_tags(raw_cand)
+
+    best_score = _score_single_candidate(
+        target_list, raw_cand, passed_year=passed_year,
+        release_year=release_year, release_seasons=release_seasons, release_has_desc=release_has_desc,
+    )
+
+    if '|' in raw_cand:
+        for seg in raw_cand.split('|'):
+            seg = seg.strip()
+            if seg:
+                seg_score = _score_single_candidate(
+                    target_list, seg, passed_year=passed_year,
+                    release_year=release_year, release_seasons=release_seasons, release_has_desc=release_has_desc,
+                )
+                if seg_score > best_score:
+                    best_score = seg_score
 
     return min(200, max(0, best_score))
 
@@ -1119,11 +1313,10 @@ def cleanTitle(title):
     # as ASCII base characters rather than discarded.
     title = unicodedata.normalize('NFKD', str(title))
     title = title.encode('ascii', errors='ignore').decode('ascii', errors='ignore').lower()
-    apostrophe_replacement = 's'
-    title = title.replace("\\'s", apostrophe_replacement)
-    title = title.replace("'s", apostrophe_replacement)
-    title = title.replace("&#039;s", apostrophe_replacement)
-    title = title.replace(" 039 s", apostrophe_replacement)
+    # Collapse common contractions ('s, 'm, 't, 're, 've, 'll, 'd) so "I'm" == "Im"
+    title = title.replace("&#039;", "'").replace("\\'", "'")
+    title = re.sub(r"(?<=[a-z0-9])'(?=(?:s|m|t|re|ve|ll|d)\b)", '', title)
+    title = re.sub(r"(?<=[a-z0-9])\s+039\s+(?=(?:s|m|t|re|ve|ll|d)\b)", '', title)
     title = _RE_CLEANTITLE_PUNCT.sub(' ', title)
     title = _RE_COLLAPSE_SPACES.sub(' ', title)
     title = title.replace('&', 'and')
