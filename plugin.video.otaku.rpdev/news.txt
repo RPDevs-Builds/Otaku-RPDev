@@ -1,7 +1,22 @@
 ========================
+[B]OTAKU RPDEV v6.1.9[/B]
+Chapter Extraction & IntroDB
+========================
+
+v6.1.9 Highlights:
+  * Pure-Python MKV/MP4 HTTP range chapter extraction without external
+    binaries
+  * IntroDB (api.introdb.app) secondary skip times fallback boosting
+    coverage to 77%
+  * Settings controls for Python chapters and IntroDB fallback toggles under
+    Playback
+  * Strict AniSkip community skip time precedence and independent
+    intro/outro fallback
+
+--------------------------------
 [B]OTAKU RPDEV v6.1.8[/B]
 Settings Backup & Reset Suite
-========================
+--------------------------------
 
 v6.1.8 Highlights:
   * Wipe Addon Data: Factory reset resetting runtime C++ settings, logins,

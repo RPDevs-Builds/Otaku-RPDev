@@ -1,3 +1,10 @@
+Changelog v6.1.9 (2026-11-15):
+- Chapter Extraction & IntroDB:
+  - Pure-Python MKV/MP4 HTTP range chapter extraction without external binaries
+  - IntroDB (api.introdb.app) secondary skip times fallback boosting coverage to 77%
+  - Settings controls for Python chapters and IntroDB fallback toggles under Playback
+  - Strict AniSkip community skip time precedence and independent intro/outro fallback
+
 Changelog v6.1.8 (2026-11-14):
 - Settings Backup & Reset Suite:
   - Wipe Addon Data: Factory reset resetting runtime C++ settings, logins, and databases
