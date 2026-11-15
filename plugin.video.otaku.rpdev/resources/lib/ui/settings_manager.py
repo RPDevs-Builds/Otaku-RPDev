@@ -20,10 +20,10 @@ from resources.lib.ui import control
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-#  Credential & Login Setting IDs Registry (53 Keys)
+#  Credential & Login Setting IDs Registry (Sensitive Credentials + Account Settings)
 # ═══════════════════════════════════════════════════════════════════════════
 
-LOGIN_SETTING_IDS = {
+CREDENTIAL_SETTING_IDS = {
     # Subtitles
     'subtitles.opensubtitles.username',
     'subtitles.opensubtitles.password',
@@ -37,6 +37,7 @@ LOGIN_SETTING_IDS = {
     'realdebrid.secret',
     'realdebrid.client_id',
     'realdebrid.refresh',
+    'realdebrid.expiry',
 
     # Debrid - Premiumize
     'premiumize.username',
@@ -53,6 +54,7 @@ LOGIN_SETTING_IDS = {
     'debridlink.auth.status',
     'debridlink.token',
     'debridlink.refresh',
+    'debridlink.expiry',
 
     # Debrid - TorBox
     'torbox.username',
@@ -84,6 +86,7 @@ LOGIN_SETTING_IDS = {
     'kitsu.token',
     'kitsu.refresh',
     'kitsu.userid',
+    'kitsu.expiry',
 
     # Watchlists - MyAnimeList (MAL)
     'mal.username',
@@ -92,6 +95,7 @@ LOGIN_SETTING_IDS = {
     'mal.token',
     'mal.refresh',
     'mal.userid',
+    'mal.expiry',
 
     # Watchlists - Simkl
     'simkl.username',
@@ -100,7 +104,74 @@ LOGIN_SETTING_IDS = {
     'simkl.token',
     'simkl.refresh',
     'simkl.userid',
+
+    # Integration APIs - Anime-Skip
+    'animeskip.apikey',
 }
+
+ACCOUNT_RELATED_SETTING_IDS = {
+    # Debrid - Enablement & Preferences
+    'realdebrid.enabled',
+    'realdebrid.autodelete',
+    'realdebrid.cloudInspection',
+    'premiumize.enabled',
+    'premiumize.addToCloud',
+    'premiumize.autodelete',
+    'premiumize.threshold',
+    'premiumize.cloudInspection',
+    'alldebrid.enabled',
+    'alldebrid.autodelete',
+    'alldebrid.cloudInspection',
+    'debridlink.enabled',
+    'debridlink.autodelete',
+    'torbox.enabled',
+    'torbox.autodelete',
+    'torbox.cloudInspection',
+    'easydebrid.enabled',
+    'easynews.enabled',
+    'easynews.moderation',
+    'provider.easynews',
+
+    # Watchlists - Enablement, Sync & Preferences
+    'watchlist.update.enabled',
+    'watchlist.sync.enabled',
+    'watchlist.prefetch.enabled',
+    'watchlist.update.percent',
+    'nextup.flavor',
+    'trakt.enabled',
+    'anilist.enabled',
+    'anilist.sort',
+    'anilist.order',
+    'anilist.titles',
+    'kitsu.enabled',
+    'kitsu.sort',
+    'kitsu.order',
+    'kitsu.titles',
+    'mal.enabled',
+    'mal.sort',
+    'mal.order',
+    'mal.titles',
+    'simkl.enabled',
+    'simkl.sort',
+    'simkl.order',
+    'simkl.titles',
+
+    # Subtitles - Provider Toggles
+    'subtitles.provider.opensubtitles',
+    'subtitles.provider.subdl',
+    'subtitles.provider.subsource',
+    'subtitles.provider.podnadpisi',
+    'subtitles.provider.bsplayer',
+    'subtitles.provider.addic7ed',
+
+    # Anime-Skip - Enablement & Skip Toggles
+    'animeskip.enable',
+    'skipintro.animeskip.enable',
+    'skipoutro.animeskip.enable',
+}
+
+# Unified set of all login and account-related settings for scoped export/import
+LOGIN_SETTING_IDS = CREDENTIAL_SETTING_IDS | ACCOUNT_RELATED_SETTING_IDS
 
 _LOGIN_PREFIXES = (
     'realdebrid.',
@@ -117,6 +188,11 @@ _LOGIN_PREFIXES = (
     'subtitles.opensubtitles.',
     'subtitles.subdl.',
     'subtitles.subsource.',
+    'subtitles.provider.',
+    'animeskip.',
+    'skipintro.animeskip.',
+    'skipoutro.animeskip.',
+    'watchlist.',
 )
 
 _LOGIN_KEYWORDS = (
@@ -132,13 +208,39 @@ _LOGIN_KEYWORDS = (
     'userid',
     'apikey',
     'auth.status',
+    'expiry',
+    'enabled',
+    'enable',
+    'cloudinspection',
+    'autodelete',
+    'threshold',
+    'moderation',
+    'sort',
+    'order',
+    'titles',
+)
+
+_CREDENTIAL_KEYWORDS = (
+    'username',
+    'user',
+    'password',
+    'pass',
+    'token',
+    'secret',
+    'client_id',
+    'refresh',
+    'authvar',
+    'userid',
+    'apikey',
+    'auth.status',
+    'expiry',
 )
 
 SETTINGS_XML_PATH = os.path.join(control.ADDON_PATH, 'resources', 'settings.xml')
 
 
 def is_login_setting(setting_id: str) -> bool:
-    """Return True if setting_id represents an authentication credential, token, or secret."""
+    """Return True if setting_id represents an account credential, token, secret, or account configuration."""
     if not setting_id:
         return False
     sid = setting_id.strip()
@@ -147,6 +249,20 @@ def is_login_setting(setting_id: str) -> bool:
     low = sid.lower()
     if any(low.startswith(p) for p in _LOGIN_PREFIXES):
         if any(kw in low for kw in _LOGIN_KEYWORDS):
+            return True
+    return False
+
+
+def is_credential_setting(setting_id: str) -> bool:
+    """Return True if setting_id represents a sensitive authentication secret, token, or password."""
+    if not setting_id:
+        return False
+    sid = setting_id.strip()
+    if sid in CREDENTIAL_SETTING_IDS:
+        return True
+    low = sid.lower()
+    if any(low.startswith(p) for p in _LOGIN_PREFIXES):
+        if any(kw in low for kw in _CREDENTIAL_KEYWORDS):
             return True
     return False
 
@@ -387,9 +503,201 @@ def import_settings(scope: str, filepath: str) -> tuple[bool, int]:
         set_typed_setting(sid, val, stype)
         applied_count += 1
 
+    # Reconcile and auto-heal account state if importing logins or all settings
+    if scope in ('all', 'logins'):
+        reconcile_authenticated_accounts(imported_map)
+
     control.clearSettingsCache()
     control.log(f"import_settings: Successfully applied {applied_count} settings from {filepath}", 'info')
     return True, applied_count
+
+
+def heal_simkl_account(token: str = None) -> bool:
+    """Fetch Simkl user profile to heal missing username or userid."""
+    if not token:
+        token = control.getSetting('simkl.token')
+    if not token or token == 'None':
+        return False
+    try:
+        from resources.lib.WatchlistFlavor.Simkl import SimklWLF
+        inst = SimklWLF(auth_var='', username='', password='', user_id='', token=token, refresh='', sort=0, order=0)
+        profile = inst.get_user_profile()
+        if profile:
+            if profile.get('username'):
+                control.setSetting('simkl.username', profile['username'])
+            if profile.get('userid'):
+                control.setSetting('simkl.userid', profile['userid'])
+            control.log(f"heal_simkl_account: Healed Simkl profile: username={profile.get('username')}, userid={profile.get('userid')}", 'info')
+            return True
+    except Exception as e:
+        control.log(f"heal_simkl_account: Error healing Simkl profile: {e}", 'warning')
+    return False
+
+
+def heal_anilist_account(token: str = None) -> bool:
+    """Fetch AniList Viewer to heal missing username or userid."""
+    if not token:
+        token = control.getSetting('anilist.token')
+    if not token or token == 'None':
+        return False
+    try:
+        from resources.lib.ui import client
+        headers = {
+            'Authorization': f'Bearer {token}',
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+        }
+        query = 'query { Viewer { id name } }'
+        r = client.post('https://graphql.anilist.co', json_data={'query': query}, headers=headers, timeout=10)
+        if r and r.ok:
+            viewer = r.json(default={}).get('data', {}).get('Viewer', {})
+            uname = viewer.get('name')
+            uid = viewer.get('id')
+            if uname:
+                control.setSetting('anilist.username', str(uname))
+            if uid:
+                control.setSetting('anilist.userid', str(uid))
+            control.log(f"heal_anilist_account: Healed AniList profile: username={uname}, userid={uid}", 'info')
+            return True
+    except Exception as e:
+        control.log(f"heal_anilist_account: Error healing AniList profile: {e}", 'warning')
+    return False
+
+
+def heal_mal_account(token: str = None) -> bool:
+    """Fetch MAL user profile to heal missing username or userid."""
+    if not token:
+        token = control.getSetting('mal.token')
+    if not token or token == 'None':
+        return False
+    try:
+        from resources.lib.ui import client
+        headers = {'Authorization': f'Bearer {token}'}
+        r = client.get('https://api.myanimelist.net/v2/users/@me', headers=headers, params={'fields': 'name'}, timeout=10)
+        if r and r.ok:
+            data = r.json(default={})
+            uname = data.get('name')
+            uid = data.get('id')
+            if uname:
+                control.setSetting('mal.username', str(uname))
+            if uid:
+                control.setSetting('mal.userid', str(uid))
+            control.log(f"heal_mal_account: Healed MAL profile: username={uname}, userid={uid}", 'info')
+            return True
+    except Exception as e:
+        control.log(f"heal_mal_account: Error healing MAL profile: {e}", 'warning')
+    return False
+
+
+def reconcile_authenticated_accounts(imported_map: dict = None) -> dict:
+    """Reconcile and auto-heal account state after backup import or restore.
+
+    1. Debrid Services: Auto-enables realdebrid, premiumize, alldebrid, debridlink,
+       torbox, easydebrid, easynews if active credentials exist and the service was not
+       explicitly saved as disabled in imported_map.
+    2. Watchlist Flavors: Auto-enables anilist, kitsu, mal, simkl if tokens exist,
+       and ensures global watchlist.update.enabled and watchlist.sync.enabled are active.
+    3. Profile Healing: Auto-fetches missing usernames/userids for Simkl, AniList, MAL.
+    4. Anime-Skip & Subtitles: Auto-enables services when active credentials exist.
+
+    Args:
+        imported_map (dict): The dictionary of imported settings.
+
+    Returns:
+        dict: Summary of reconciled actions and healed accounts.
+    """
+    imported_map = imported_map or {}
+    reconciled = {'enabled_debrid': [], 'enabled_watchlists': [], 'healed_profiles': []}
+
+    def is_explicitly_disabled(sid):
+        if sid in imported_map:
+            v = imported_map[sid]
+            return v is False or str(v).strip().lower() in ('false', '0')
+        return False
+
+    # 1. Reconcile Debrid Services
+    debrid_token_keys = {
+        'realdebrid': 'realdebrid.token',
+        'premiumize': 'premiumize.token',
+        'alldebrid': 'alldebrid.token',
+        'debridlink': 'debridlink.token',
+        'torbox': 'torbox.token',
+        'easydebrid': 'easydebrid.token',
+    }
+    for service, token_key in debrid_token_keys.items():
+        enabled_key = f"{service}.enabled"
+        tok = control.getSetting(token_key)
+        if tok and tok != 'None' and not is_explicitly_disabled(enabled_key):
+            if not control.getBool(enabled_key):
+                control.setBool(enabled_key, True)
+                reconciled['enabled_debrid'].append(service)
+                control.log(f"reconcile_authenticated_accounts: Auto-enabled {service} debrid", 'info')
+
+    # Easynews
+    en_user = control.getSetting('easynews.user')
+    en_pass = control.getSetting('easynews.password')
+    if (en_user and en_user != 'None') or (en_pass and en_pass != 'None'):
+        if not is_explicitly_disabled('easynews.enabled') and not control.getBool('easynews.enabled'):
+            control.setBool('easynews.enabled', True)
+            reconciled['enabled_debrid'].append('easynews')
+            control.log("reconcile_authenticated_accounts: Auto-enabled easynews", 'info')
+
+    # 2. Reconcile Watchlists & Heal Missing Metadata
+    watchlist_flavors = ('simkl', 'anilist', 'kitsu', 'mal')
+    any_wl_active = False
+
+    for flavor in watchlist_flavors:
+        tok = control.getSetting(f"{flavor}.token")
+        has_creds = bool(tok and tok != 'None')
+        if not has_creds and flavor in ('kitsu', 'mal'):
+            pw = control.getSetting(f"{flavor}.password")
+            user = control.getSetting(f"{flavor}.username")
+            if pw and pw != 'None' and user and user != 'None':
+                has_creds = True
+
+        enabled_key = f"{flavor}.enabled"
+        if has_creds:
+            any_wl_active = True
+            if not is_explicitly_disabled(enabled_key) and not control.getBool(enabled_key):
+                control.setBool(enabled_key, True)
+                reconciled['enabled_watchlists'].append(flavor)
+                control.log(f"reconcile_authenticated_accounts: Auto-enabled {flavor} watchlist", 'info')
+
+            # Heal missing usernames / userids
+            uname = control.getSetting(f"{flavor}.username")
+            if not uname or uname == 'None':
+                if flavor == 'simkl' and heal_simkl_account(tok):
+                    reconciled['healed_profiles'].append('simkl')
+                elif flavor == 'anilist' and heal_anilist_account(tok):
+                    reconciled['healed_profiles'].append('anilist')
+                elif flavor == 'mal' and heal_mal_account(tok):
+                    reconciled['healed_profiles'].append('mal')
+
+    if any_wl_active:
+        if not is_explicitly_disabled('watchlist.update.enabled') and not control.getBool('watchlist.update.enabled'):
+            control.setBool('watchlist.update.enabled', True)
+        if not is_explicitly_disabled('watchlist.sync.enabled') and not control.getBool('watchlist.sync.enabled'):
+            control.setBool('watchlist.sync.enabled', True)
+
+    # 3. Anime-Skip
+    askip_key = control.getSetting('animeskip.apikey')
+    if askip_key and askip_key != 'None' and not is_explicitly_disabled('animeskip.enable'):
+        if not control.getBool('animeskip.enable'):
+            control.setBool('animeskip.enable', True)
+
+    # 4. Subtitle Providers
+    if control.getSetting('subtitles.opensubtitles.username') and control.getSetting('subtitles.opensubtitles.password'):
+        if not is_explicitly_disabled('subtitles.provider.opensubtitles'):
+            control.setBool('subtitles.provider.opensubtitles', True)
+            control.setBool('subtitles.enabled', True)
+    if control.getSetting('subtitles.subdl.apikey') and not is_explicitly_disabled('subtitles.provider.subdl'):
+        control.setBool('subtitles.provider.subdl', True)
+        control.setBool('subtitles.enabled', True)
+    if control.getSetting('subtitles.subsource.apikey') and not is_explicitly_disabled('subtitles.provider.subsource'):
+        control.setBool('subtitles.provider.subsource', True)
+        control.setBool('subtitles.enabled', True)
+
+    return reconciled
 
 
 def reset_category_settings(category_id: str) -> int:
@@ -482,8 +790,8 @@ def wipe_addon_data(silent: bool = False) -> bool:
     for sid, meta in canonical.items():
         set_typed_setting(sid, meta['default'], meta['type'])
 
-    # 3. Explicitly blank out all login settings
-    for sid in LOGIN_SETTING_IDS:
+    # 3. Explicitly blank out all credential secrets and tokens
+    for sid in CREDENTIAL_SETTING_IDS:
         set_typed_setting(sid, '', 'string')
 
     # 5. Delete SQLite databases and user JSON caches in dataPath

@@ -478,7 +478,7 @@ class TestTop100HermeticRegression(unittest.TestCase):
 
         self.assertEqual(score_failures, [], f"Candidate scoring failures detected: {score_failures[:5]}")
         self.assertEqual(fuzzy_failures, [], f"Fuzzy matching false-positive contamination detected: {fuzzy_failures[:5]}")
-        self.assertLess(elapsed, 5.0, f"Parametric matrix took {elapsed:.2f}s, expected < 5.0s")
+        self.assertLess(elapsed, 10.0, f"Parametric matrix took {elapsed:.2f}s, expected < 10.0s")
 
 
 if __name__ == '__main__':

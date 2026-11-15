@@ -48,12 +48,28 @@ class TestSettingsManager(unittest.TestCase):
             shutil.rmtree(self.temp_dir)
 
     def test_login_settings_classification(self):
-        """Verify that all 53 credential/token keys are classified as logins, and general preferences are not."""
-        # 1. All explicitly registered keys
+        """Verify that credential and account-related keys are classified as logins, and general preferences are not."""
+        # 1. Credential and account registries
+        self.assertGreater(len(settings_manager.CREDENTIAL_SETTING_IDS), 50)
+        self.assertGreater(len(settings_manager.ACCOUNT_RELATED_SETTING_IDS), 30)
+        self.assertEqual(
+            settings_manager.LOGIN_SETTING_IDS,
+            settings_manager.CREDENTIAL_SETTING_IDS | settings_manager.ACCOUNT_RELATED_SETTING_IDS
+        )
+
+        # 2. All explicitly registered keys in LOGIN_SETTING_IDS
         for sid in settings_manager.LOGIN_SETTING_IDS:
             self.assertTrue(settings_manager.is_login_setting(sid), f"Key '{sid}' must be recognized as login")
 
-        # 2. General preferences must NOT be classified as logins
+        # 3. Credential vs Account classification
+        for sid in settings_manager.CREDENTIAL_SETTING_IDS:
+            self.assertTrue(settings_manager.is_credential_setting(sid), f"Key '{sid}' must be recognized as credential")
+
+        self.assertFalse(settings_manager.is_credential_setting('premiumize.enabled'))
+        self.assertFalse(settings_manager.is_credential_setting('simkl.enabled'))
+        self.assertFalse(settings_manager.is_credential_setting('watchlist.update.enabled'))
+
+        # 4. General preferences must NOT be classified as logins
         non_logins = [
             'general.verify_ssl',
             'general.timeout',
@@ -65,13 +81,18 @@ class TestSettingsManager(unittest.TestCase):
             'db.sqlite.cache_size_mb',
             'first_time',
             'provider.nyaa',
+            'interface.watchlist.data',
+            'interface.watchlist.paging',
+            'interface.perpage.watchlist',
         ]
         for sid in non_logins:
             self.assertFalse(settings_manager.is_login_setting(sid), f"Key '{sid}' should NOT be recognized as login")
 
-        # 3. None and empty strings
+        # 5. None and empty strings
         self.assertFalse(settings_manager.is_login_setting(''))
         self.assertFalse(settings_manager.is_login_setting(None))
+        self.assertFalse(settings_manager.is_credential_setting(''))
+        self.assertFalse(settings_manager.is_credential_setting(None))
 
     def test_get_canonical_settings(self):
         """Verify get_canonical_settings extracts all stored settings with proper types."""
@@ -183,6 +204,77 @@ class TestSettingsManager(unittest.TestCase):
         self.assertEqual(control.getInt('general.timeout'), 30)
         self.assertFalse(control.getBool('general.autotrynext'))
 
+    def test_reconcile_legacy_logins_backup_auto_enables_and_heals_simkl(self):
+        """Verify importing a legacy logins backup auto-enables Debrid, Watchlists, and heals Simkl profile."""
+        legacy_backup = {
+            'otaku_backup_version': 1,
+            'scope': 'logins',
+            'timestamp': '2026-11-15T03:40:38',
+            'addon_version': '0.5.43',
+            'settings_count': 53,
+            'settings': {
+                'premiumize.username': '924132704',
+                'premiumize.auth.status': 'Premium',
+                'premiumize.token': 'd8e659099d41dc36552676d98bdf2ea720d2cd6d',
+                'simkl.token': '453e93bc693af56e2f8942159f041fb704119b6db9f0998772025efff1ddd6a5',
+                'simkl.username': '',
+                'simkl.userid': '',
+            }
+        }
+        legacy_file = os.path.join(self.temp_dir, 'otaku_backup_logins_legacy.json')
+        with open(legacy_file, 'w', encoding='utf-8') as f:
+            json.dump(legacy_backup, f)
+
+        # Initially, services are disabled
+        control.setBool('premiumize.enabled', False)
+        control.setBool('simkl.enabled', False)
+        control.setBool('watchlist.update.enabled', False)
+        control.setString('simkl.username', '')
+        control.setString('simkl.userid', '')
+
+        with patch('resources.lib.WatchlistFlavor.Simkl.SimklWLF.get_user_profile', return_value={'username': 'TheSoberDick', 'userid': '6988466'}):
+            success, count = settings_manager.import_settings('logins', legacy_file)
+
+        self.assertTrue(success)
+        self.assertGreater(count, 0)
+
+        # Debrid & Watchlist auto-enabled
+        self.assertTrue(control.getBool('premiumize.enabled'))
+        self.assertTrue(control.getBool('simkl.enabled'))
+        self.assertTrue(control.getBool('watchlist.update.enabled'))
+        self.assertTrue(control.getBool('watchlist.sync.enabled'))
+
+        # Simkl user info healed
+        self.assertEqual(control.getSetting('simkl.username'), 'TheSoberDick')
+        self.assertEqual(control.getSetting('simkl.userid'), '6988466')
+
+    def test_reconcile_respects_explicit_disabled(self):
+        """Verify reconcile does not override explicitly disabled account settings in imported data."""
+        backup_data = {
+            'otaku_backup_version': 1,
+            'scope': 'all',
+            'timestamp': '2026-11-15T04:00:00',
+            'addon_version': '0.5.43',
+            'settings': {
+                'premiumize.token': 'valid_token_123',
+                'premiumize.enabled': False,
+                'simkl.token': 'valid_simkl_token_456',
+                'simkl.enabled': False,
+                'watchlist.update.enabled': False,
+            }
+        }
+        backup_file = os.path.join(self.temp_dir, 'explicit_disabled.json')
+        with open(backup_file, 'w', encoding='utf-8') as f:
+            json.dump(backup_data, f)
+
+        with patch('resources.lib.WatchlistFlavor.Simkl.SimklWLF.get_user_profile', return_value={'username': 'TestUser', 'userid': '12345'}):
+            success, count = settings_manager.import_settings('all', backup_file)
+
+        self.assertTrue(success)
+        self.assertFalse(control.getBool('premiumize.enabled'))
+        self.assertFalse(control.getBool('simkl.enabled'))
+        self.assertFalse(control.getBool('watchlist.update.enabled'))
+
     def test_reset_category_settings(self):
         """Verify reset_category_settings reverts only the targeted category to canonical defaults."""
         # Mutate settings in Cache and Scraping
@@ -200,10 +292,12 @@ class TestSettingsManager(unittest.TestCase):
 
     def test_reset_settings_to_defaults_preserves_logins(self):
         """Verify non-destructive reset_settings_to_defaults resets preferences but preserves logins."""
-        # Mutate login credentials
+        # Mutate login credentials and account settings
         control.setString('realdebrid.token', 'my_important_debrid_token')
         control.setString('anilist.username', 'my_watchlist_user')
         control.setString('subtitles.opensubtitles.username', 'sub_user')
+        control.setBool('premiumize.enabled', True)
+        control.setBool('simkl.enabled', True)
 
         # Mutate general preferences
         control.setInt('general.timeout', 99)
@@ -212,12 +306,14 @@ class TestSettingsManager(unittest.TestCase):
 
         # Perform non-destructive reset
         count = settings_manager.reset_settings_to_defaults(preserve_logins=True)
-        self.assertGreater(count, 300)
+        self.assertGreater(count, 280)
 
-        # Assert logins are strictly preserved
+        # Assert logins and account settings are strictly preserved
         self.assertEqual(control.getSetting('realdebrid.token'), 'my_important_debrid_token')
         self.assertEqual(control.getSetting('anilist.username'), 'my_watchlist_user')
         self.assertEqual(control.getSetting('subtitles.opensubtitles.username'), 'sub_user')
+        self.assertTrue(control.getBool('premiumize.enabled'))
+        self.assertTrue(control.getBool('simkl.enabled'))
 
         # Assert preferences reverted to canonical defaults
         self.assertEqual(control.getInt('general.timeout'), 20)

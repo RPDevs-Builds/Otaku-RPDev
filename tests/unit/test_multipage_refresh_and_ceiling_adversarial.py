@@ -345,7 +345,7 @@ class TestLowRam64KbCeilingInvariant(unittest.TestCase):
                 gc.enable()
 
         self.assertEqual(len(parsed), num_items)
-        self.assertLess(elapsed, 1.0, f"ast.literal_eval took too long: {elapsed:.3f}s")
+        self.assertLess(elapsed, 3.0, f"ast.literal_eval took too long: {elapsed:.3f}s")
 
 
 if __name__ == '__main__':

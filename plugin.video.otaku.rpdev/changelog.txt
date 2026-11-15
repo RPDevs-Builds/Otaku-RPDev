@@ -1,3 +1,10 @@
+Changelog v6.2.1 (2026-11-15):
+- Account Backup & Simkl Fixes:
+  - Expanded logins backup scope to include all account-related settings (toggles, preferences, watchlist sync, cloud inspection, auto-delete, thresholds) along with API keys and authorization tokens
+  - Implemented automated post-import reconciliation ensuring authorized Debrid and Watchlist services are automatically activated even when restoring legacy logins backups
+  - Added Simkl and Watchlist profile healing to automatically fetch missing usernames and user IDs upon restore
+  - Fixed client.post/put/patch/delete query params support resolving TypeError in Simkl settings API requests
+
 Changelog v6.2.0 (2026-11-15):
 - Anime-Skip & 3-Way Skip Engine:
   - Anime-Skip Integration: Added GraphQL client with single-trip query and SQLite caching

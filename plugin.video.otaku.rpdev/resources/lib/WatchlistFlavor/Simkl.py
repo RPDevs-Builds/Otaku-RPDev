@@ -31,6 +31,24 @@ class SimklWLF(WatchlistFlavorBase):
         }
         return headers
 
+    def get_user_profile(self):
+        """Fetch Simkl user account profile containing username and account ID."""
+        if not self.token:
+            return None
+        params = {'client_id': self.client_id}
+        try:
+            r = client.post(f'{self._URL}/users/settings', headers=self.__headers(), json_data={}, params=params, timeout=10)
+            if r:
+                data = r.json(default={})
+                user = data.get('user', {})
+                account = data.get('account', {})
+                name = user.get('name') or ''
+                uid = str(account.get('id') or user.get('id') or '')
+                return {'username': name, 'userid': uid}
+        except Exception as e:
+            control.log(f"Simkl get_user_profile error: {e}", 'warning')
+        return None
+
     def login(self):
         import os
         from resources.lib.windows.progress_dialog import Progress_dialog
@@ -91,14 +109,12 @@ class SimklWLF(WatchlistFlavorBase):
                 if r.get('result') == 'OK':
                     self.token = r.get('access_token')
                     login_data = {'token': self.token}
-                    try:
-                        r = client.post(f'{self._URL}/users/settings', headers=self.__headers(), json_data={}, params=params)
-                        if r:
-                            user = r.json(default={}).get('user', {})
-                            if user.get('name'):
-                                login_data['username'] = user['name']
-                    except Exception as e:
-                        control.log(f"Simkl users/settings error: {e}", 'warning')
+                    profile = self.get_user_profile()
+                    if profile:
+                        if profile.get('username'):
+                            login_data['username'] = profile['username']
+                        if profile.get('userid'):
+                            login_data['userid'] = profile['userid']
                     return login_data
 
                 dialog.update(int(remaining_timeout / total_timeout * 100))

@@ -847,57 +847,58 @@ def get(url, headers=None, timeout=10, verify=True, cookies=None, params=None, r
     return _build_response(result, url)
 
 
-def post(url, data=None, json_data=None, headers=None, timeout=10, verify=True, cookies=None):
+def post(url, data=None, json_data=None, headers=None, timeout=10, verify=True, cookies=None, params=None):
     """Requests-like POST.  Returns a Response object."""
     if json_data:
         result = request(url, post=json_data, jpost=True, headers=headers or {},
-                         timeout=timeout, verify=verify, cookie=cookies,
+                         timeout=timeout, verify=verify, cookie=cookies, params=params,
                          output='extended', use_session=True)
     else:
         result = request(url, post=data, headers=headers or {}, timeout=timeout,
-                         verify=verify, cookie=cookies, output='extended', use_session=True)
+                         verify=verify, cookie=cookies, params=params, output='extended', use_session=True)
     return _build_response(result, url)
 
 
-def put(url, data=None, json_data=None, headers=None, timeout=10, verify=True, cookies=None):
+def put(url, data=None, json_data=None, headers=None, timeout=10, verify=True, cookies=None, params=None):
     """Requests-like PUT.  Returns a Response object."""
     if json_data:
         result = request(url, post=json_data, jpost=True, method='PUT', headers=headers or {},
-                         timeout=timeout, verify=verify, cookie=cookies,
+                         timeout=timeout, verify=verify, cookie=cookies, params=params,
                          output='extended', use_session=True)
     else:
         result = request(url, post=data, method='PUT', headers=headers or {},
-                         timeout=timeout, verify=verify, cookie=cookies,
+                         timeout=timeout, verify=verify, cookie=cookies, params=params,
                          output='extended', use_session=True)
     return _build_response(result, url)
 
 
-def patch(url, data=None, json_data=None, headers=None, timeout=10, verify=True, cookies=None):
+def patch(url, data=None, json_data=None, headers=None, timeout=10, verify=True, cookies=None, params=None):
     """Requests-like PATCH.  Returns a Response object."""
     if json_data:
         result = request(url, post=json_data, jpost=True, method='PATCH', headers=headers or {},
-                         timeout=timeout, verify=verify, cookie=cookies,
+                         timeout=timeout, verify=verify, cookie=cookies, params=params,
                          output='extended', use_session=True)
     else:
         result = request(url, post=data, method='PATCH', headers=headers or {},
-                         timeout=timeout, verify=verify, cookie=cookies,
+                         timeout=timeout, verify=verify, cookie=cookies, params=params,
                          output='extended', use_session=True)
     return _build_response(result, url)
 
 
-def delete(url, data=None, json_data=None, headers=None, timeout=10, verify=True, cookies=None):
+def delete(url, data=None, json_data=None, headers=None, timeout=10, verify=True, cookies=None, params=None):
     """Requests-like DELETE.  Returns a Response object."""
     if json_data:
         result = request(url, post=json_data, jpost=True, method='DELETE', headers=headers or {},
-                         timeout=timeout, verify=verify, cookie=cookies,
+                         timeout=timeout, verify=verify, cookie=cookies, params=params,
                          output='extended', use_session=True)
     elif data:
         result = request(url, post=data, method='DELETE', headers=headers or {},
-                         timeout=timeout, verify=verify, cookie=cookies,
+                         timeout=timeout, verify=verify, cookie=cookies, params=params,
                          output='extended', use_session=True)
     else:
         result = request(url, method='DELETE', headers=headers or {}, timeout=timeout,
-                         verify=verify, cookie=cookies, output='extended', use_session=True)
+                         verify=verify, cookie=cookies, params=params, output='extended', use_session=True)
+    return _build_response(result, url)
     return _build_response(result, url)
 
 

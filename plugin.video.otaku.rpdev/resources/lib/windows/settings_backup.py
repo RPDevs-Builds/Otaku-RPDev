@@ -43,15 +43,16 @@ class SettingsBackupDialog(xbmcgui.WindowXMLDialog):
                 },
                 {
                     'action': 'logins',
-                    'label': 'Export Logins Only',
-                    'subtitle': 'Account credentials, Debrid tokens & Watchlist logins',
-                    'title': 'Export Logins Only (Credentials & Tokens)',
+                    'label': 'Export Accounts & Logins',
+                    'subtitle': 'Account settings, Debrid tokens & Watchlist authorizations',
+                    'title': 'Export Accounts & Logins (Credentials & Account Settings)',
                     'description': (
-                        'Exports only your sensitive account authorizations and credentials:\n'
+                        'Exports your authenticated accounts, credentials, and service settings:\n'
                         '• Real-Debrid, Premiumize, AllDebrid, Debrid-Link, TorBox, EasyDebrid, Easynews\n'
-                        '• AniList, MyAnimeList, Kitsu, Simkl\n'
-                        '• OpenSubtitles, SubDL, SubSource\n\n'
-                        'No general player, scraper, or skin layout settings are included.'
+                        '• AniList, MyAnimeList, Kitsu, Simkl (including watchlist sync options)\n'
+                        '• OpenSubtitles, SubDL, SubSource & Anime-Skip\n\n'
+                        'Account toggles, cloud inspection, auto-delete, and sort rules are included.\n'
+                        'General player, scraping, and skin layout settings are excluded.'
                     )
                 },
                 {
@@ -84,13 +85,14 @@ class SettingsBackupDialog(xbmcgui.WindowXMLDialog):
                 },
                 {
                     'action': 'logins',
-                    'label': 'Import Logins Only',
-                    'subtitle': 'Restore account credentials, Debrid tokens & Watchlist logins',
-                    'title': 'Import Logins Only (Credentials & Tokens)',
+                    'label': 'Import Accounts & Logins',
+                    'subtitle': 'Restore account settings, Debrid tokens & Watchlist logins',
+                    'title': 'Import Accounts & Logins (Credentials & Account Settings)',
                     'description': (
-                        'Restores only account credentials, Debrid tokens, Watchlist authorizations, and '
-                        'Subtitle API keys from the backup file.\n\n'
-                        'All existing general preferences, scraper settings, and playback rules will remain untouched.'
+                        'Restores account credentials, Debrid tokens, Watchlist authorizations, and '
+                        'Subtitle/Anime-Skip API keys along with their enabled toggles and sync settings.\n\n'
+                        'Automatically reconciles and activates authorized accounts.\n'
+                        'General player, scraper, and playback rules will remain untouched.'
                     )
                 },
                 {
@@ -202,7 +204,7 @@ def show_settings_backup_dialog(mode='export'):
     action_label = "Export" if mode == 'export' else "Import"
     options = [
         f"{action_label} All Settings",
-        f"{action_label} Logins Only",
+        f"{action_label} Accounts & Logins",
         f"{action_label} Settings Only",
         "Cancel"
     ]
