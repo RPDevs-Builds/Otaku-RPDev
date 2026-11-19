@@ -203,7 +203,9 @@ def PLAY(payload, params):
             item.setProperty('VideoPlayer.OriginalFilename', clean_filename)
             item.setLabel(clean_filename)
         if params.get('image'):
-            item.setArt(params.get('image'))
+            clean_art = control.clean_art_dict(params.get('image'))
+            if clean_art:
+                item.setArt(clean_art)
 
         from resources.lib.ui import player
         source_dict = preresolved_data.get('source') or {}

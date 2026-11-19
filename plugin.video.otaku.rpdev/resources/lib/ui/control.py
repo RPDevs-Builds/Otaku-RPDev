@@ -1704,6 +1704,32 @@ def get_database_name(db_type='video'):
 #  Directory Listing - draw_items / bulk_dir_list / xbmc_add_dir
 # ═══════════════════════════════════════════════════════════════════════════
 
+def clean_art_dict(art):
+    """
+    Sanitize an artwork dictionary to guarantee string keys and string values
+    required by Kodi's C++ SWIG contracts (ListItem.setArt).
+    Unwraps single-item lists/tuples to their first string element and drops non-strings.
+    """
+    if not isinstance(art, dict):
+        return {}
+    clean = {}
+    for k, v in art.items():
+        if not k or v is None:
+            continue
+        key_str = str(k)
+        if isinstance(v, str):
+            v_stripped = v.strip()
+            if v_stripped:
+                clean[key_str] = v_stripped
+        elif isinstance(v, (list, tuple)) and v:
+            first = v[0]
+            if isinstance(first, str):
+                first_stripped = first.strip()
+                if first_stripped:
+                    clean[key_str] = first_stripped
+    return clean
+
+
 def xbmc_add_dir(name, url, art, info, draw_cm, bulk_add, isfolder, isplayable, bulk_prefs=None):
     u = addon_url(url)
     liz = xbmcgui.ListItem(str(name or ''), offscreen=True)
@@ -1821,7 +1847,7 @@ def xbmc_add_dir(name, url, art, info, draw_cm, bulk_add, isfolder, isplayable, 
         if 'poster' in art and art['poster']:
             art['tvshow.poster'] = art.pop('poster')
         liz.setProperties({'Video': 'true', 'IsPlayable': 'true'})
-    clean_art = {k: str(v) for k, v in art.items() if v and isinstance(v, str)}
+    clean_art = clean_art_dict(art)
     liz.setArt(clean_art)
     # Pin pagination and filter control rows so Kodi sorting never scatters them into content
     if item_looks_like_next_page_row({'image': art}) or str(name or '').startswith('Next Page ('):

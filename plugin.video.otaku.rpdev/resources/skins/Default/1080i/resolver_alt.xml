@@ -1,13 +1,10 @@
 <window type="dialog">
 <onload>Skin.SetString(otakufile,$INFO[Window().Property(release_title)])</onload>
-    <defaultcontrol>1100</defaultcontrol>
     <controls>
         <!-- Background Texture -->
         <control type="image">
             <texture>white.png</texture>
             <colordiffuse>FF000000</colordiffuse>
-        </control>
-        <control type="list" id="1100">
         </control>
         <!-- Fanart -->
         <control type="image">

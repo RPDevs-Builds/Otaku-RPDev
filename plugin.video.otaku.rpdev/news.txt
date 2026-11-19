@@ -1,7 +1,20 @@
 ========================
+[B]OTAKU RPDEV v6.2.5[/B]
+Fix Artwork C++ TypeError & Dialog Noise
+========================
+
+v6.2.5 Highlights:
+  * Fix C-15 ListItem_setArt TypeError crash during playback (unwrap
+    lists/tuples, clean_art_dict)
+  * Fix C-12 download action AttributeError in source select
+  * Fix C-02 dialog defaultcontrol focus noise across 1080i skins
+  * Add C-01 AnimePahe 403 circuit breaker and health cooldown
+  * Add C-13 HiAnime dead mirror fast-fail on initial search
+
+--------------------------------
 [B]OTAKU RPDEV v6.2.4[/B]
 Fix This Season Ranked Lists
-========================
+--------------------------------
 
 v6.2.4 Highlights:
   * Fix MAL/Otaku Trending, Popular, Voted and Favourites This Season and

@@ -147,6 +147,10 @@ class Sources(BrowserBase):
                 control.log('AnimePahe: found {0} source(s) via MAL sync slug'.format(len(direct)), level='info')
                 return direct
 
+        if not domains.is_mirror_healthy(self._BASE_URL):
+            control.log('AnimePahe: search API cooling down after recent failure', level='debug')
+            return []
+
         params = {'m': 'search', 'q': title}
         r = database.get(
             self._get_request,
@@ -156,11 +160,13 @@ class Sources(BrowserBase):
             headers=self._headers
         )
         if not r:
-            control.log('AnimePahe: search API returned no data', level='warning')
+            domains.mark_mirror_failure(self._BASE_URL)
+            control.log('AnimePahe: search API returned no data', level='info')
             return []
         parsed_r = control.loads_json(r, {})
         if not isinstance(parsed_r, dict):
-            control.log('AnimePahe: search API returned invalid JSON', level='warning')
+            domains.mark_mirror_failure(self._BASE_URL)
+            control.log('AnimePahe: search API returned invalid JSON', level='info')
             return []
         sitems = parsed_r.get('data')
 
@@ -221,11 +227,13 @@ class Sources(BrowserBase):
             headers=self._headers
         )
         if not r:
-            control.log('AnimePahe: release API returned no data for slug={0} page={1}'.format(slug, page), level='warning')
+            domains.mark_mirror_failure(self._BASE_URL)
+            control.log('AnimePahe: release API returned no data for slug={0} page={1}'.format(slug, page), level='info')
             return sources
         r = control.loads_json(r, {})
         if not isinstance(r, dict):
-            control.log('AnimePahe: release API returned invalid JSON for slug={0}'.format(slug), level='warning')
+            domains.mark_mirror_failure(self._BASE_URL)
+            control.log('AnimePahe: release API returned invalid JSON for slug={0}'.format(slug), level='info')
             return sources
         items = r.get('data') or []
         if not items:

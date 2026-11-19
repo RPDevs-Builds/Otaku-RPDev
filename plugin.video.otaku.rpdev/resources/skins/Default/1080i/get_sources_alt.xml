@@ -1,12 +1,9 @@
 <window type="dialog">
-    <defaultcontrol>2000</defaultcontrol>
     <controls>
         <!-- Background Texture -->
         <control type="image">
             <texture>white.png</texture>
             <colordiffuse>FF000000</colordiffuse>
-        </control>
-        <control type="list" id="1100">
         </control>
         <!-- Fanart -->
         <control type="image">

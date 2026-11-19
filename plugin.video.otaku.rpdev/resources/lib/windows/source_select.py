@@ -240,8 +240,8 @@ class SourceSelect(BaseWindow):
                 elif self.displayed_sources[self.position]['debrid_provider'] == 'EasyDebrid':
                     control.notify(control.ADDON_NAME, "EasyDebrid does not support Downloads")
                 else:
+                    source = [self.displayed_sources[self.position]]
                     self.close()
-                    source = [self.displayed_sources[self.display_list.getSelectedPosition()]]
                     self.actionArgs['play'] = False
                     resolver_dialog = None
                     try:

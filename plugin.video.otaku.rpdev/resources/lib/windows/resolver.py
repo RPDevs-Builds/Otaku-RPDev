@@ -324,7 +324,9 @@ class Resolver(BaseWindow):
             item = hook_mimetype.trigger(hdr['Content-Type'], item)
 
         if self.params.get('image'):
-            self.image = self.params.get('image', {})
+            self.image = self.params.get('image') or {}
+            if not isinstance(self.image, dict):
+                self.image = {}
 
         # Extract HDR / Dolby Vision metadata from resolved source if available
         selected_source = self.return_data.get('source', {}) if isinstance(self.return_data, dict) else {}
@@ -351,8 +353,10 @@ class Resolver(BaseWindow):
 
         art = self._build_art_dict(use_params=False)
         if isinstance(art, dict):
-            item.setArt(art)
-            studio_art = art.get('studio') or art.get('tvshow.studio')
+            clean_art = control.clean_art_dict(art)
+            if clean_art:
+                item.setArt(clean_art)
+            studio_art = clean_art.get('studio') or clean_art.get('tvshow.studio')
             if studio_art:
                 item.setProperty('StudioIcon', studio_art)
                 item.setProperty('StudioLogo', studio_art)
@@ -468,35 +472,45 @@ class Resolver(BaseWindow):
                 self.close()
 
     def _build_art_dict(self, use_params=False):
-        """Build art dictionary efficiently"""
+        """Build art dictionary efficiently and defensively for Kodi C++ SWIG contracts."""
+        def _get_str(container, key):
+            if not isinstance(container, dict):
+                return ''
+            val = container.get(key)
+            if isinstance(val, (list, tuple)) and val:
+                val = val[0]
+            if isinstance(val, str):
+                return val.strip()
+            return ''
+
+        params = self.params if isinstance(self.params, dict) else {}
+        image = self.image if isinstance(self.image, dict) else {}
+
         if use_params:
             return {
-                'icon': self.params.get('icon') or self.image.get('icon') or '',
-                'thumb': self.params.get('thumb') or self.image.get('thumb') or '',
-                'fanart': self.params.get('fanart') or self.image.get('fanart') or '',
-                'landscape': self.params.get('landscape') or self.image.get('landscape') or '',
-                'banner': self.params.get('banner') or self.image.get('banner') or '',
-                'clearart': self.params.get('clearart') or self.image.get('clearart') or '',
-                'clearlogo': self.params.get('clearlogo') or self.image.get('clearlogo') or '',
-                'tvshow.poster': self.params.get('tvshow.poster') or self.params.get('poster') or '',
-                'studio': self.params.get('studio') or self.image.get('studio') or '',
-                'tvshow.studio': self.params.get('tvshow.studio') or self.image.get('tvshow.studio') or '',
+                'icon': _get_str(params, 'icon') or _get_str(image, 'icon'),
+                'thumb': _get_str(params, 'thumb') or _get_str(image, 'thumb'),
+                'fanart': _get_str(params, 'fanart') or _get_str(image, 'fanart'),
+                'landscape': _get_str(params, 'landscape') or _get_str(image, 'landscape'),
+                'banner': _get_str(params, 'banner') or _get_str(image, 'banner'),
+                'clearart': _get_str(params, 'clearart') or _get_str(image, 'clearart'),
+                'clearlogo': _get_str(params, 'clearlogo') or _get_str(image, 'clearlogo'),
+                'tvshow.poster': _get_str(params, 'tvshow.poster') or _get_str(params, 'poster') or _get_str(image, 'poster'),
+                'studio': _get_str(params, 'studio') or _get_str(image, 'studio'),
+                'tvshow.studio': _get_str(params, 'tvshow.studio') or _get_str(image, 'tvshow.studio'),
             }
         else:
-            fanart = self.image.get('fanart')
-            if isinstance(fanart, list) and fanart:
-                fanart = fanart[0]
             return {
-                'icon': self.image.get('icon') or '',
-                'thumb': self.image.get('thumb') or '',
-                'fanart': fanart or '',
-                'landscape': self.image.get('landscape') or '',
-                'banner': self.image.get('banner') or '',
-                'clearart': self.image.get('clearart') or '',
-                'clearlogo': self.image.get('clearlogo') or '',
-                'tvshow.poster': self.image.get('poster') or self.params.get('poster') or '',
-                'studio': self.image.get('studio') or self.params.get('studio') or '',
-                'tvshow.studio': self.image.get('tvshow.studio') or self.params.get('tvshow.studio') or '',
+                'icon': _get_str(image, 'icon'),
+                'thumb': _get_str(image, 'thumb'),
+                'fanart': _get_str(image, 'fanart'),
+                'landscape': _get_str(image, 'landscape'),
+                'banner': _get_str(image, 'banner'),
+                'clearart': _get_str(image, 'clearart'),
+                'clearlogo': _get_str(image, 'clearlogo'),
+                'tvshow.poster': _get_str(image, 'poster') or _get_str(params, 'poster'),
+                'studio': _get_str(image, 'studio') or _get_str(params, 'studio'),
+                'tvshow.studio': _get_str(image, 'tvshow.studio') or _get_str(params, 'tvshow.studio'),
             }
 
     def resolve_source(self, api, source):

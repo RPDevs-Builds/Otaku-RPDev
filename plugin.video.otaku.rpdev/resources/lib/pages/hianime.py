@@ -288,7 +288,8 @@ class Sources(BrowserBase):
             search_url = f"{mirror}search?keyword={urllib.parse.quote_plus(keyword)}"
             html = database.get(self._get_request, 8, search_url, headers=headers)
             if not html:
-                continue
+                # If mirror completely failed to respond, fail fast instead of stalling on additional keywords
+                break
             had_response = True
             for item in self._parse_search_results(html):
                 if item['id'] not in candidates:
