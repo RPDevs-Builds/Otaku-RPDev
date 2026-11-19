@@ -61,9 +61,12 @@ if __name__ == "__main__":
                 control.setSetting('changelog.version', current_ver)
                 control.setSetting('version', current_ver)
                 control.setSetting('otaku.version', current_ver)
-                if control.getInt('showchangelog') == 0:
-                    import service
-                    service.getChangeLog()
+                if (
+                    control.getInt('showchangelog') == 0
+                    and control.is_addon_visible()
+                    and not control.xbmc.Player().isPlaying()
+                ):
+                    control.xbmc.executebuiltin(f'RunPlugin(plugin://{control.ADDON_ID}/change_log)')
             elif is_root and control.getSetting('otaku.version') != current_ver:
                 control.setSetting('changelog.version', current_ver)
                 control.setSetting('version', current_ver)

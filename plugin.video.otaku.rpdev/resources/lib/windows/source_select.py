@@ -32,11 +32,15 @@ class SourceSelect(BaseWindow):
                 self.setProperty('item.info.title', str(anime_init[0][episode - 1]['info']['title'] or ''))
                 self.setProperty('item.info.plot', str(anime_init[0][episode - 1]['info']['plot'] or ''))
                 ep_thumb = anime_init[0][episode - 1]['image'].get('thumb')
+                if isinstance(ep_thumb, (list, tuple)):
+                    ep_thumb = ep_thumb[0] if ep_thumb else ''
                 if ep_thumb:
-                    self.setProperty('item.art.thumb', str(ep_thumb))
+                    self.setProperty('item.art.thumb', ep_thumb)
                 ep_poster = anime_init[0][episode - 1]['image'].get('poster') or (self.item_information.get('poster') if isinstance(self.item_information, dict) else '')
+                if isinstance(ep_poster, (list, tuple)):
+                    ep_poster = ep_poster[0] if ep_poster else ''
                 if ep_poster:
-                    self.setProperty('item.art.poster', str(ep_poster))
+                    self.setProperty('item.art.poster', ep_poster)
             except IndexError:
                 self.setProperty('item.info.season', '-1')
                 self.setProperty('item.info.episode', '-1')
@@ -52,11 +56,16 @@ class SourceSelect(BaseWindow):
         else:
             show = database.get_show(actionArgs.get('mal_id'))
             if show:
-                kodi_meta = database.loads(show.get('kodi_meta'))
-                self.setProperty('item.info.plot', kodi_meta.get('plot'))
-                self.setProperty('item.info.rating', str(kodi_meta.get('rating', {}).get('score')))
+                kodi_meta = database.loads(show.get('kodi_meta')) or {}
+                self.setProperty('item.info.plot', kodi_meta.get('plot') or '')
+                rating_raw = kodi_meta.get('rating')
+                score = rating_raw.get('score') if isinstance(rating_raw, dict) else rating_raw
+                self.setProperty('item.info.rating', score if score is not None else '')
                 self.setProperty('item.info.aired', kodi_meta.get('start_date') or '')
-                self.setProperty('item.art.thumb', kodi_meta.get('poster'))
+                poster_val = kodi_meta.get('poster')
+                if isinstance(poster_val, (list, tuple)):
+                    poster_val = poster_val[0] if poster_val else ''
+                self.setProperty('item.art.thumb', poster_val or '')
                 start_date = kodi_meta.get('start_date')
                 if start_date and isinstance(start_date, str) and '-' in start_date:
                     self.setProperty('item.info.year', start_date.split('-')[0])

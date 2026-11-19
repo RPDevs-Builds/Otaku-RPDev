@@ -252,6 +252,7 @@ class WatchlistPlayer(player):
 
         self.ffprobe_chapters = []
         self._playback_stopped = False
+        self._playback_ended = False
         self.episodes = []
         self.type = ''
         self.provider = ''
@@ -302,8 +303,20 @@ class WatchlistPlayer(player):
 
     # ── Playback Callbacks ────────────────────────────────────────────────
 
+    @staticmethod
+    def _clear_preresolved_properties():
+        """Clear Zero-Wait pre-resolved stream window properties."""
+        for prop in (
+            'otaku.preResolved_url',
+            'otaku.preResolved_malId',
+            'otaku.preResolved_episode',
+            'otaku.preResolved_data',
+        ):
+            control.playerWindow.clearProperty(prop)
+
     def onPlayBackStopped(self):
         self._playback_stopped = True
+        self._clear_preresolved_properties()
         control.closeAllDialogs()
         playList.clear()
         try:
@@ -355,6 +368,7 @@ class WatchlistPlayer(player):
 
     def onPlayBackEnded(self):
         self._playback_stopped = True
+        self._playback_ended = True
         control.closeAllDialogs()
         try:
             from resources.lib.ui import embed_extractor
@@ -386,6 +400,7 @@ class WatchlistPlayer(player):
 
     def onPlayBackError(self):
         self._playback_stopped = True
+        self._clear_preresolved_properties()
         control.closeAllDialogs()
         playList.clear()
         try:
@@ -450,7 +465,7 @@ class WatchlistPlayer(player):
         except Exception as e:
             control.log(f'Failed to update watch history on watched percent: {e}', 'warning')
 
-        if self._watchlist_update:
+        if callable(self._watchlist_update):
             any_completed = self._watchlist_update(self.mal_id, self.episode)
             if any_completed:
                 if not control.monitor.waitForAbort(3):
@@ -581,11 +596,9 @@ class WatchlistPlayer(player):
         if self._monitor:
             del self._monitor
 
-        # Clear pre-resolved stream properties on playback termination if not consumed
-        control.playerWindow.clearProperty('otaku.preResolved_url')
-        control.playerWindow.clearProperty('otaku.preResolved_malId')
-        control.playerWindow.clearProperty('otaku.preResolved_episode')
-        control.playerWindow.clearProperty('otaku.preResolved_data')
+        # Clear pre-resolved stream properties unless transitioning naturally to next playlist item
+        if not getattr(self, '_playback_ended', False) or playList.size() <= 1:
+            self._clear_preresolved_properties()
 
     # ── Skip Intro / Outro / Playing Next ──────────────────────────────
 

@@ -207,6 +207,7 @@ def PLAY(payload, params):
             if clean_art:
                 item.setArt(clean_art)
 
+        from resources.lib.WatchlistIntegration import watchlist_update_episode
         from resources.lib.ui import player
         source_dict = preresolved_data.get('source') or {}
         if source_dict:
@@ -223,7 +224,7 @@ def PLAY(payload, params):
         xbmcplugin.setResolvedUrl(control.HANDLE, True, item)
         player.WatchlistPlayer().handle_player(
             mal_id,
-            int(episode),
+            watchlist_update_episode,
             int(episode),
             resume,
             params.get('path', ''),

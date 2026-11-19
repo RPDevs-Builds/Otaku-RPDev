@@ -100,7 +100,7 @@
                 <top>200</top>
                 <height>75</height>
                 <itemgap>30</itemgap>
-                <defaultcontrol>1000</defaultcontrol>
+                <defaultcontrol>1002</defaultcontrol>
                 <orientation>horizontal</orientation>
                 <control type="button" id="1002">
                     <width>300</width>

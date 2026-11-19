@@ -328,7 +328,12 @@ def version_check():
     control.log(f'### Kodi Version: {control.kodi_version}')
 
     if control.getSetting('otaku.version') != control.ADDON_VERSION:
-        # Automatically prune orphaned settings on version upgrade before CAddonSettings writes
+        reuselang = control.getSetting('reuselanguageinvoker.status')
+        toggle_reuselanguageinvoker(reuselang)
+        control.setSetting('otaku.version', control.ADDON_VERSION)
+        control.log(f"### {reuselang} Re-uselanguageinvoker")
+
+        # Prune orphaned settings AFTER setSetting so Kodi's CAddonSettings flush does not restore them
         try:
             from resources.lib.ui import clean_settings
             pruned_count, _ = clean_settings.clean_settings(silent=True)
@@ -336,11 +341,6 @@ def version_check():
                 control.log(f"### Version upgrade: Pruned {pruned_count} orphaned setting(s)")
         except Exception as e:
             control.log(f"Failed to prune orphaned settings on startup: {e}", 'warning')
-
-        reuselang = control.getSetting('reuselanguageinvoker.status')
-        toggle_reuselanguageinvoker(reuselang)
-        control.setSetting('otaku.version', control.ADDON_VERSION)
-        control.log(f"### {reuselang} Re-uselanguageinvoker")
 
 
 def load_settings():
@@ -808,7 +808,12 @@ if __name__ == "__main__":
         except Exception as e:
             control.log(f"Periodic WAL checkpoint notice: {e}", 'debug')
     multipage_worker.stop()
-    # Checkpoint WAL databases to 0 bytes and close all SQLite connections on shutdown
+    # Final settings prune after Kodi stops writing settings, then checkpoint WAL databases
+    try:
+        from resources.lib.ui import clean_settings
+        clean_settings.clean_settings(silent=True)
+    except Exception as e:
+        control.log(f"Shutdown clean_settings notice: {e}", 'debug')
     try:
         from resources.lib.ui import database
         database.checkpoint_databases(truncate=True)

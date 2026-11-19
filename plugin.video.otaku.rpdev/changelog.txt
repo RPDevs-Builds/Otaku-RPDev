@@ -1,3 +1,13 @@
+Changelog v6.2.6 (2026-11-19):
+- Zero-Wait & Log Audit Fixes:
+  - Fix Zero-Wait pre-resolved stream handoff wipe on episode transition and watchlist scrobble callback
+  - Fix C-07 HLS/DASH CCurlFile::Stat error 22 on Kodi 21/22 via setContentLookup(False)
+  - Fix C-03/C-09 resolver fast-fail Player.OnStop detection and pre-scraped cache invalidation
+  - Fix C-08 BaseWindow/SourceSelect/Anichart setProperty None and list coercion
+  - Fix C-02 remaining dynamic-list skin defaultcontrol focus warnings
+  - Fix C-05 clean_settings ordering after setSetting and C-06 async changelog dispatch
+  - Add C-10 get_sub proxy-to-origin fallback and C-04 Torrentio info log level
+
 Changelog v6.2.5 (2026-11-19):
 - Fix Artwork C++ TypeError & Dialog Noise:
   - Fix C-15 ListItem_setArt TypeError crash during playback (unwrap lists/tuples, clean_art_dict)

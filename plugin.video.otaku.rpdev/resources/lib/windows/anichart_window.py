@@ -49,10 +49,10 @@ class BaseWindow(xbmcgui.WindowXMLDialog):
         self.setProperty('item.ids.%s_id' % 1, str('gh'))
 
         # for i in self.item_information['art'].keys():
-        self.setProperty('item.art.%s' % 'thumb', self.item_information.get('thumb'))
-        self.setProperty('item.art.%s' % 'poster', self.item_information.get('poster'))
-        self.setProperty('item.art.%s' % 'fanart', self.item_information.get('fanart'))
-        self.setProperty('item.info.%s' % 'title', self.item_information.get('name'))
+        self.setProperty('item.art.%s' % 'thumb', self.item_information.get('thumb') or '')
+        self.setProperty('item.art.%s' % 'poster', self.item_information.get('poster') or '')
+        self.setProperty('item.art.%s' % 'fanart', self.item_information.get('fanart') or '')
+        self.setProperty('item.info.%s' % 'title', self.item_information.get('name') or '')
 
         # self.item_information['info'] = control.clean_air_dates(self.item_information['info'])
 
@@ -67,3 +67,14 @@ class BaseWindow(xbmcgui.WindowXMLDialog):
             self.setProperty('item.info.%s' % 1, str('fdf'))
         except UnicodeEncodeError:
             self.setProperty('item.info.%s' % 1, 'fdf')
+
+    def setProperty(self, key, value):
+        """Override WindowXML setProperty to coerce None/lists and enforce the 64KB UTF-8 ceiling."""
+        key_str = str(key or '')
+        if isinstance(value, (list, tuple)):
+            value = value[0] if value else ''
+        val_str = '' if value is None else str(value)
+        if len(val_str.encode('utf-8', errors='replace')) > 65536:
+            control.log(f"AnichartBaseWindow: skipping oversized property '{key_str}' (>64KB)", 'warning')
+            return
+        super().setProperty(key_str, val_str)

@@ -36,7 +36,7 @@ class Sources(BrowserBase):
             self.thetvdb_season = show_ids.get('thetvdb_season') or show_ids.get('season')
 
         if not self.kitsu_id and not self.imdb_id:
-            control.log('Torrentio: No kitsu_id or imdb_id found, skipping', 'warning')
+            control.log('Torrentio: No kitsu_id or imdb_id found, skipping', 'info')
             return {'cached': [], 'uncached': []}
 
         if media_type == 'movie':

@@ -22,7 +22,6 @@
 -->
 
 <window type="dialog">
-    <defaultcontrol>1000</defaultcontrol>
     <coordinates>
         <left>0</left>
         <top>0</top>

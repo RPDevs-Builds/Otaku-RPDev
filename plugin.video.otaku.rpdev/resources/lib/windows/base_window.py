@@ -130,19 +130,34 @@ class BaseWindow(xbmcgui.WindowXMLDialog):
         # If clearlogo is already a string (pre-selected), use it directly
 
         # Set properties in batch
-        self.setProperty('item.art.fanart', str(fanart or ''))
-        self.setProperty('item.art.poster', str(self.item_information.get('poster') or ''))
-        self.setProperty('item.art.clearlogo', str(clearlogo or ''))
-        self.setProperty('item.info.title', str(self.item_information.get('name') or self.item_information.get('title_userPreferred') or self.item_information.get('title') or ''))
+        poster = self.item_information.get('poster')
+        if isinstance(poster, (list, tuple)):
+            poster = poster[0] if poster else ''
+        self.setProperty('item.art.fanart', fanart or '')
+        self.setProperty('item.art.poster', poster or '')
+        self.setProperty('item.art.clearlogo', clearlogo or '')
+        self.setProperty('item.info.title', self.item_information.get('name') or self.item_information.get('title_userPreferred') or self.item_information.get('title') or '')
 
         # Movie-specific properties
         if self.item_information.get('format') in ['MOVIE', 'Movie']:
-            self.setProperty('item.info.plot', self.item_information.get('plot'))
+            self.setProperty('item.info.plot', self.item_information.get('plot') or '')
             rating = self.item_information.get('rating')
             if isinstance(rating, dict):
                 rating = rating.get('score')
-            self.setProperty('item.info.rating', str(rating))
-            self.setProperty('item.info.title', self.item_information.get('title_userPreferred'))
+            self.setProperty('item.info.rating', rating if rating is not None else '')
+            movie_title = self.item_information.get('title_userPreferred') or self.item_information.get('name') or self.item_information.get('title') or ''
+            self.setProperty('item.info.title', movie_title)
+
+    def setProperty(self, key, value):
+        """Override WindowXML setProperty to coerce None/lists and enforce the 64KB UTF-8 ceiling."""
+        key_str = str(key or '')
+        if isinstance(value, (list, tuple)):
+            value = value[0] if value else ''
+        val_str = '' if value is None else str(value)
+        if len(val_str.encode('utf-8', errors='replace')) > 65536:
+            control.log(f"BaseWindow: skipping oversized property '{key_str}' (>64KB)", 'warning')
+            return
+        super().setProperty(key_str, val_str)
 
     def getControlList(self, control_id):
         """Get and check the control for the ControlList type.

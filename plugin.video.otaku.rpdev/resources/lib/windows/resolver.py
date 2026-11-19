@@ -407,21 +407,32 @@ class Resolver(BaseWindow):
             if monitor.playing:
                 break
         else:
-            control.log('no xbmc playing source found; Continuing code', level='warning')
+            control.log('no xbmc playing source found; aborting candidate for failover', level='warning')
+            self.abort = True
         del monitor
 
         self.close()
 
         if self.abort:
             failed_source = self.return_data.get('source', {}) if isinstance(self.return_data, dict) else {}
+            mal_id = getattr(self, 'mal_id', None)
+            episode = getattr(self, 'episode', None)
+            failed_provider = failed_source.get('provider', 'unknown') if isinstance(failed_source, dict) else 'unknown'
+            failed_host = urllib.parse.urlparse(stream_url).netloc if isinstance(stream_url, str) and stream_url else 'unknown'
+            control.log(
+                f"Resolver: Playback startup failed for provider={failed_provider} host={failed_host} (mal_id={mal_id}, ep={episode})",
+                level='warning',
+            )
+            if mal_id is not None and episode is not None:
+                database.clear_episode_sources(mal_id, episode)
             # If the failed source was a cached season pack, clear pack and rescrape
             if failed_source.get('_cached_season_pack'):
                 control.log("Resolver: Playback startup failed for cached season pack, rescraping", level='warning')
-                episode_data = database.get_episode(self.mal_id)
+                episode_data = database.get_episode(mal_id)
                 season = episode_data.get('season') if episode_data else None
-                database.clear_season_pack(self.mal_id, season)
+                database.clear_season_pack(mal_id, season)
                 from resources.lib import MetaBrowser
-                fresh_sources = MetaBrowser.get_sources(self.mal_id, self.episode, self.media_type, rescrape=True, silent=True)
+                fresh_sources = MetaBrowser.get_sources(mal_id, episode, self.media_type, rescrape=True, silent=True)
                 if fresh_sources:
                     self.abort = False
                     self.sources = fresh_sources
@@ -725,16 +736,22 @@ class Monitor(xbmc.Monitor):
         self.playbackerror = False
         self.playing = False
         self._created = time.time()
+        try:
+            self._was_playing_at_start = bool(xbmc.Player().isPlaying())
+        except Exception:
+            self._was_playing_at_start = False
+        self._saw_onplay = False
 
     def onNotification(self, sender, method, data):
-        if method == 'Player.OnAVStart':
+        if method == 'Player.OnPlay':
+            self._saw_onplay = True
+        elif method == 'Player.OnAVStart':
             self.playing = True
             self.playbackerror = False
         elif method == 'Player.OnStop':
-            # Ignore OnStop events that arrive within 2 seconds of monitor
-            # creation — these are leftover notifications from the previous
-            # episode ending (playlist transitions / user stops).
-            if time.time() - self._created < 2:
+            # Only ignore rapid OnStop events arriving within 2s when the player was
+            # already playing a previous item and hasn't emitted Player.OnPlay for the new item yet.
+            if (time.time() - self._created < 2) and self._was_playing_at_start and not self._saw_onplay:
                 return
             if not self.playing:
                 self.playbackerror = True
@@ -750,9 +767,12 @@ def _DASH_HOOK(item):
         is_helper = inputstreamhelper.Helper('mpd')
         if is_helper.check_inputstream():
             item.setProperty('inputstream', is_helper.inputstream_addon)
+            if hasattr(item, 'setContentLookup'):
+                item.setContentLookup(False)
+            if hasattr(item, 'setMimeType'):
+                item.setMimeType('application/dash+xml')
             if control.kodi_version < 20.9:
                 item.setProperty('inputstream.adaptive.manifest_type', 'mpd')
-                item.setContentLookup(False)
             if '|' in stream_url:
                 stream_url, headers = stream_url.split('|')
                 item.setPath(stream_url)  # Set clean URL without headers
@@ -777,11 +797,13 @@ def _HLS_HOOK(item):
         is_helper = inputstreamhelper.Helper('hls')
         if is_helper.check_inputstream():
             item.setProperty('inputstream', is_helper.inputstream_addon)
+            if hasattr(item, 'setContentLookup'):
+                item.setContentLookup(False)
+            if hasattr(item, 'setMimeType'):
+                item.setMimeType('application/vnd.apple.mpegurl')
+            item.setProperty('MimeType', 'application/vnd.apple.mpegurl')
             if control.kodi_version < 20.9:
                 item.setProperty('inputstream.adaptive.manifest_type', 'hls')
-                item.setProperty('MimeType', 'application/vnd.apple.mpegurl')
-                item.setMimeType('application/vnd.apple.mpegstream_url')
-                item.setContentLookup(False)
             if '|' in stream_url:
                 stream_url, headers = stream_url.split('|')
                 item.setPath(stream_url)  # Set clean URL without headers

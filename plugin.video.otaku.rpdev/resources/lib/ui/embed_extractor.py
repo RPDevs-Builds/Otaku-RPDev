@@ -556,6 +556,30 @@ def get_sub(sub_url, sub_lang, headers=None, sub_index=0, display_name=None, sou
             response = None
 
     if not response:
+        # C-10 fallback: retry original source_url or proxy ?url=<origin> target
+        fallback_urls = []
+        if source_url and isinstance(source_url, str) and source_url.startswith('http') and source_url != sub_url:
+            fallback_urls.append(source_url)
+        try:
+            proxied_target = urllib.parse.parse_qs(urllib.parse.urlparse(sub_url).query).get('url', [None])[0]
+            if proxied_target and isinstance(proxied_target, str) and proxied_target.startswith('http'):
+                if proxied_target != sub_url and proxied_target not in fallback_urls:
+                    fallback_urls.append(proxied_target)
+        except Exception:
+            pass
+
+        for fb_url in fallback_urls:
+            control.log(f"get_sub: proxy failed for {sub_url}, trying fallback {fb_url}", level='info')
+            response = client.get(fb_url)
+            if not response:
+                try:
+                    response = client.get(fb_url, verify=False)
+                except Exception:
+                    response = None
+            if response:
+                break
+
+    if not response:
         control.log(f"get_sub: request failed for {sub_url}", level='info')
         return None
 

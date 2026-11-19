@@ -43,11 +43,13 @@ class Anichart(BaseWindow):
                 try:
                     value = i[info]
                     if isinstance(value, list):
-                        value = [str(k) for k in value]
+                        value = [str(k) for k in value if k is not None]
                         value = ' '.join(sorted(value))
-                    menu_item.setProperty(info, str(value).replace('_', ' '))
+                    val_str = '' if value is None else str(value).replace('_', ' ')
+                    menu_item.setProperty(str(info), val_str)
                 except UnicodeEncodeError:
-                    menu_item.setProperty(info, i[info])
+                    raw_val = i[info]
+                    menu_item.setProperty(str(info), '' if raw_val is None else str(raw_val))
 
             menu_items.append(menu_item)
             self.display_list.addItem(menu_item)
