@@ -31,23 +31,23 @@ Notes:
 
 ## Open Otaku-RPDev concerns
 
-| ID | Severity | Concern | Total | First seen | Last seen | Trend |
-|---|---|---|---|---|---|---|
-| C-01 | Medium | `AnimePahe: search API returned no data` on every scrape (Cloudflare 403 block) | 76 (57 + 16 + 3) | 11-15 07:14 | 11-19 12:14 | Repeating, 100% failure rate |
-| C-02 | Medium | Otaku dialogs cannot focus default list on open: `Control 1100/2000/1000 in window 130xx has been asked to focus, but it can't` | about 105 (73 + 18 + 14) | 11-15 07:14 | 11-19 12:14 | Repeating, every dialog open |
-| C-03 | Medium | Playback fails to start for an HLS source, with no automatic fail-over to the next source (see C-09) | 2 | 11-15 07:15 | 11-16 02:48 | Not seen in reviews 3-4 |
-| C-04 | Low | `Torrentio: No kitsu_id or imdb_id found, skipping` for newly released shows | 2 | 11-15 17:28 | 11-15 17:44 | Not seen in reviews 2-4 |
-| C-05 | Low | `clean_settings` re-prunes the same 11 settings on every add-on update (settings are rewritten by Kodi's in-memory copy) | 3 | 11-15 06:43 | 11-15 17:04 | Only on updates |
-| C-06 | Low | Directory-load failures: `GetDirectory - Error getting plugin://plugin.video.otaku.rpdev/` plus `plugin://` plus `/tools` | 2 events | 11-15 16:49 | 11-16 02:49 | Low frequency |
-| C-07 | Low | HLS probe rejected: `CCurlFile::Stat - <stream>/master.m3u8 Failed: HTTP response code said error(22)` | about 53 | 11-15 14:14 | 11-19 12:14 | Repeating, once per HLS episode start |
-| C-08 | Low | `Passing None where a string is expected is deprecated` (a `None` goes to a Kodi API call from an unknown caller) | 2 | 11-15 06:47 | 11-15 16:58 | Not seen in reviews 2-4 |
-| C-09 | Medium | HLS proxy failure: `megacloud.animanga.fun/ts-proxy` returns HTTP 502 and the segment download fails 3 times | 1 incident | 11-16 02:48 | 11-16 02:48 | Not seen in reviews 3-4 |
-| C-10 | Low | `get_sub: request failed for https://megacloud.animanga.fun/fetch?url=...eng-2.vtt` (logged at info level) | 1 | 11-16 02:48 | 11-16 02:48 | Not seen in reviews 3-4 |
-| C-11 | Low | `OpenStream - Unable to create subtitle parser` at the start of a stream | 3 | 11-16 02:48 | 11-16 02:49 | Not seen in reviews 3-4 |
-| C-12 | High | Download action crash: `AttributeError: 'NoneType' object has no attribute 'getSelectedPosition'` in `source_select.py:244` (`self.close()` called before position query) | 1 | 11-16 06:36 | 11-16 06:36 | Critical defect in download context menu |
-| C-13 | Medium | HiAnime scraper thread freeze: sequential 30s timeouts across 6 dead mirrors freeze scrape pipeline for ~3 minutes before trying fallback | 2 incidents | 11-16 06:34 | 11-19 11:53 | Scraper stalls on dead mirrors |
-| C-14 | Low | CURL receive error 56: `CCurlFile::CReadState::FillBuffer Failed: Failure when receiving data from the peer(56)` during stream download | 2 | 11-16 09:46 | 11-16 09:56 | Transient network drop |
-| C-15 | CRITICAL | Fatal Python callback crash: `TypeError: in method 'ListItem_setArt', argument 2 of type 'XBMCAddon::Properties const &'` in `resolver.py:354`. Prevents playback of movies/episodes when artwork dictionary contains non-strings (lists from `merge_artwork`) | 6 | 11-19 11:53 | 11-19 12:10 | Repeating, crashes playback on affected titles |
+| ID | Severity | Concern | Total | First seen | Last seen | Trend | Status |
+|---|---|---|---|---|---|---|---|
+| C-01 | Medium | `AnimePahe: search API returned no data` on every scrape (Cloudflare 403 block) | 76 | 11-15 07:14 | 11-19 12:14 | Repeating | Hardened in v6.2.5 (cooldown circuit breaker) |
+| C-02 | Medium | Otaku dialogs cannot focus default list on open: `Control 1100/2000/1000 in window 130xx has been asked to focus, but it can't` | about 105 | 11-15 07:14 | 11-19 12:14 | Repeating | Resolved in v6.2.5 (skins defaultcontrol cleanup) |
+| C-03 | Medium | Playback fails to start for an HLS source, with no automatic fail-over to the next source (see C-09) | 2 | 11-15 07:15 | 11-16 02:48 | Not seen in reviews 3-4 | Open |
+| C-04 | Low | `Torrentio: No kitsu_id or imdb_id found, skipping` for newly released shows | 2 | 11-15 17:28 | 11-15 17:44 | Not seen in reviews 2-4 | Open |
+| C-05 | Low | `clean_settings` re-prunes the same 11 settings on every add-on update (settings are rewritten by Kodi's in-memory copy) | 3 | 11-15 06:43 | 11-15 17:04 | Only on updates | Open |
+| C-06 | Low | Directory-load failures: `GetDirectory - Error getting plugin://plugin.video.otaku.rpdev/` plus `plugin://` plus `/tools` | 2 events | 11-15 16:49 | 11-16 02:49 | Low frequency | Open |
+| C-07 | Low | HLS probe rejected: `CCurlFile::Stat - <stream>/master.m3u8 Failed: HTTP response code said error(22)` | about 53 | 11-15 14:14 | 11-19 12:14 | Repeating | Open |
+| C-08 | Low | `Passing None where a string is expected is deprecated` (a `None` goes to a Kodi API call from an unknown caller) | 2 | 11-15 06:47 | 11-15 16:58 | Not seen in reviews 2-4 | Open |
+| C-09 | Medium | HLS proxy failure: `megacloud.animanga.fun/ts-proxy` returns HTTP 502 and the segment download fails 3 times | 1 incident | 11-16 02:48 | 11-16 02:48 | Not seen in reviews 3-4 | Open |
+| C-10 | Low | `get_sub: request failed for https://megacloud.animanga.fun/fetch?url=...eng-2.vtt` (logged at info level) | 1 | 11-16 02:48 | 11-16 02:48 | Not seen in reviews 3-4 | Open |
+| C-11 | Low | `OpenStream - Unable to create subtitle parser` at the start of a stream | 3 | 11-16 02:48 | 11-16 02:49 | Not seen in reviews 3-4 | Open |
+| C-12 | High | Download action crash: `AttributeError: 'NoneType' object has no attribute 'getSelectedPosition'` in `source_select.py:244` (`self.close()` called before position query) | 1 | 11-16 06:36 | 11-16 06:36 | Single occurrence | Resolved in v6.2.5 |
+| C-13 | Medium | HiAnime scraper thread freeze: sequential 30s timeouts across 6 dead mirrors freeze scrape pipeline for ~3 minutes before trying fallback | 2 incidents | 11-16 06:34 | 11-19 11:53 | Scraper stalls on dead mirrors | Resolved in v6.2.5 (fast-fail) |
+| C-14 | Low | CURL receive error 56: `CCurlFile::CReadState::FillBuffer Failed: Failure when receiving data from the peer(56)` during stream download | 2 | 11-16 09:46 | 11-16 09:56 | Transient network drop | Open |
+| C-15 | CRITICAL | Fatal Python callback crash: `TypeError: in method 'ListItem_setArt', argument 2 of type 'XBMCAddon::Properties const &'` in `resolver.py:354`. Prevents playback of movies/episodes when artwork dictionary contains non-strings (lists from `merge_artwork`) | 6 | 11-19 11:53 | 11-19 12:10 | Repeating, crashes playback on affected titles | Resolved in v6.2.5 |
 
 ### Details and recommended remediation
 
@@ -146,3 +146,8 @@ Notes:
 |---|---|---|
 | R-01 | Empty This Season and Trending/Popular/Voted/Favourites This Season and This Year lists (MAL/Otaku) | Fixed in v6.2.4 (start-date-only bounds). Confirmed working on the device. |
 | R-02 | Page 2+ of catalogue lists not loading | Fixed in v6.2.2 (URL query handling). |
+| R-03 | C-15 Fatal Python callback crash `TypeError: in method 'ListItem_setArt'` in `resolver.py:354` | Fixed in v6.2.5. Implemented `control.clean_art_dict(art)` and safe list unwrapping across `_build_art_dict`, `resolver.py`, and `playback.py`. |
+| R-04 | C-12 Download context action crash `AttributeError: 'NoneType' object has no attribute 'getSelectedPosition'` | Fixed in v6.2.5. Extracted selected source before `self.close()` in `source_select.py`. |
+| R-05 | C-02 Dialog defaultcontrol focus noise across 1080i skins (`Control 1100/2000/1000 ... cannot focus`) | Fixed in v6.2.5. Removed invalid/unfocusable `<defaultcontrol>` tags in `resolver.xml`, `resolver_alt.xml`, `get_sources.xml`, `get_sources_alt.xml`, `source_select.xml`, and `source_select_alt.xml`. |
+| R-06 | C-01 AnimePahe 403 search failure warning spam | Hardened in v6.2.5. Integrated with `domains.is_mirror_healthy` failure cooldown and silenced warning log spam. |
+| R-07 | C-13 HiAnime scraper thread freeze across dead mirrors | Hardened in v6.2.5. Fast-fail break on first keyword failure avoids wasting 20+ seconds on non-responsive mirrors. |
