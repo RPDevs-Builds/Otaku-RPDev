@@ -246,6 +246,114 @@ class TestConcernsRemediationsV625(unittest.TestCase):
         self.assertEqual(mock_resolve_id.call_count, 2)
         mock_mark_fail.assert_called_once_with('https://hianime.dead/')
 
+    def test_isolate_and_score_batch_torrents_with_bundled_ova_and_ranges(self):
+        """C-18: Valid Blood Lad batch torrents (+ OVA, 1-10+OVA Complete, truncated '[', BD) pass relevance gate while standalone OVAs/derivatives stay <= 40."""
+        from resources.lib.ui import source_utils
+
+        valid_batches = [
+            "[MK] Blood Lad + OVA [BD 1080p][Hi10][Dual-Audio]",
+            "[CBM] Blood Lad 1-10+OVA Complete (Dual Audio) [BDRip-1080p-8bit-FLAC]",
+            "[CBM] Blood Lad 1-10+OVA Complete (Dual Audio) [BDRip-1080p-8bit",
+            "[AnimeKaizoku] Blood Lad 720p x264 BD Dual Audio [Demon Alpha]",
+            "[HorribleSubs] Blood Lad: Complete (1-10) [720p]",
+            "Blood Lad 720p Complete [1-10] + Blood Lad Special 720p Dual Audio",
+            "Blood Lad 1-10+OVA Complete 720p [Dual-Audio] [English Subbed] Neroextreme_NTRG",
+            "[Aries].Blood lad Complete",
+            "Blood Lad [Dual Audio] [HEVC] [10-bit] [BDRip] [HD 1080p] [bluury]",
+            "[CRUCiBLE] Blood Lad Season 1 (S01) + OVA (BD Remux 1080p FLAC H.264) [Dual Audio]",
+            "Blood Lad [Season 1 + OVA] [USBD 1080p x265 HEVC AAC] [Dual Audio-EngSubs] (Batch)",
+        ]
+        for raw_title in valid_batches:
+            score = source_utils.score_title_candidate("Blood Lad", raw_title, year="2013")
+            self.assertGreaterEqual(
+                score,
+                110,
+                f"Expected valid batch release to pass relevance gate (>=110), got {score} for {raw_title!r} (isolated={source_utils.isolate_show_title(raw_title)!r})",
+            )
+
+        negative_controls = [
+            ("Blood Lad", "[Thomku] Blood Lad - OVA [x264 720p BD AAC].mp4", "2013"),
+            ("Blood Lad", "[Kaitou]_Blood_Lad_OVA_-_EX_[BD_1080p][10bit][FLAC][2149EF43].mkv", "2013"),
+            ("Blood Lad", "Blood Lad: Wagahai wa Neko de wa Nai", "2013"),
+            ("Monster", "Re:Monster - 01 [1080p]", None),
+            ("Monster", "Monster Musume - 01 [1080p]", None),
+        ]
+        for query, raw_title, year in negative_controls:
+            score = source_utils.score_title_candidate(query, raw_title, year=year)
+            self.assertLessEqual(
+                score,
+                40,
+                f"Expected standalone OVA/derivative to stay <=40, got {score} for {raw_title!r}",
+            )
+
+    def test_zero_wait_survives_eof_when_isplaying_false_before_callback(self):
+        """C-16 follow-up: keepAlive preserves otaku.preResolved_* on natural EOF even before onPlayBackEnded fires."""
+        from resources.lib.ui.player import WatchlistPlayer
+
+        control.playerWindow.setProperty('otaku.preResolved_url', 'https://cdn.example.com/ep9.m3u8')
+        control.playerWindow.setProperty('otaku.preResolved_malId', '11633')
+        control.playerWindow.setProperty('otaku.preResolved_episode', '9')
+        control.playerWindow.setProperty('otaku.preResolved_data', '{"url": "https://cdn.example.com/ep9.m3u8"}')
+
+        control.playList.clear()
+        control.playList.add('plugin://plugin.video.otaku.rpdev/play/11633/8')
+        control.playList.add('plugin://plugin.video.otaku.rpdev/play/11633/9')
+
+        wp = WatchlistPlayer()
+        wp.mal_id = 11633
+        wp.episode = 8
+        wp.path = 'plugin://plugin.video.otaku.rpdev/play/11633/8'
+        wp.total_time = 1440
+        wp._skip_processed = True
+        wp.media_type = 'episode'
+        # Simulate Kodi C++ flipping isPlaying() False on EOF BEFORE onPlayBackEnded() fires
+        wp._playback_ended = False
+        wp._user_stopped_or_errored = False
+
+        with patch.object(wp, 'isPlaying', return_value=False), \
+             patch.object(wp, 'getVideoInfoTag', return_value=MagicMock(getMediaType=lambda: 'episode')), \
+             patch.object(wp, 'getTotalTime', return_value=1440), \
+             patch.object(wp, '_run_unified_episode_monitor'), \
+             patch.object(wp, 'process_ffprobe_chapter_skips'), \
+             patch('resources.lib.ui.database.get_show', return_value=None), \
+             patch('resources.lib.ui.player.control.getBool', return_value=False):
+            wp.keepAlive()
+
+        self.assertEqual(
+            control.playerWindow.getProperty('otaku.preResolved_url'),
+            'https://cdn.example.com/ep9.m3u8',
+        )
+        control.playList.clear()
+        wp._clear_preresolved_properties()
+
+    def test_prescrape_skips_movies_and_season_finales(self):
+        """C-19: _trigger_background_prescrape skips non-existent Ep 2 of movies and Ep N+1 of season finales."""
+        from resources.lib.ui.player import WatchlistPlayer
+
+        wp = WatchlistPlayer()
+        wp.mal_id = 11737
+        wp.episode = 1
+        wp.media_type = 'video'  # Not marked 'movie' by Kodi vtag
+        wp.episodes = []
+        control.playList.clear()
+
+        movie_row = {'kodi_meta': '{"name": "Blue Exorcist: The Movie", "mediatype": "movie", "episodes": 1}'}
+        with patch('resources.lib.ui.player.control.getBool', return_value=True), \
+             patch('resources.lib.ui.player.database.get_show', return_value=movie_row), \
+             patch('resources.lib.ui.player.threading.Thread') as mock_thread:
+            wp._trigger_background_prescrape()
+            mock_thread.assert_not_called()
+
+        # Also skip season finale when next_ep > len(self.episodes)
+        wp.mal_id = 11633
+        wp.episode = 10
+        wp.media_type = 'episode'
+        wp.episodes = [{'number': i} for i in range(1, 11)]
+        with patch('resources.lib.ui.player.control.getBool', return_value=True), \
+             patch('resources.lib.ui.player.threading.Thread') as mock_thread:
+            wp._trigger_background_prescrape()
+            mock_thread.assert_not_called()
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -1,7 +1,16 @@
 ========================
+[B]OTAKU RPDEV v6.2.8[/B]
+Batch Torrent Relevance, Zero-Wait EOF Race & Pre-Scrape Guard
+========================
+
+v6.2.8 Highlights:
+  * Guard background pre-scraping against non-existent Ep 2 on movies and Ep
+    N+1 on season finales (C-19)
+
+--------------------------------
 [B]OTAKU RPDEV v6.2.7[/B]
 HiAnime Mirror Short-Circuit & Log Review
-========================
+--------------------------------
 
 v6.2.7 Highlights:
   * Relocate CONCERNS.md to docs/CONCERNS.md and record Review #6 live

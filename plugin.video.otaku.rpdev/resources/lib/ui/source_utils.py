@@ -553,11 +553,12 @@ def isolate_show_title(raw_title):
         flags=re.IGNORECASE
     )
 
-    # 1b. Strip trailing truncated ellipsis fragment (e.g. Torrentio 60-char "(B…")
-    text = re.sub(r'\s*[\(\[][^\)\]]*…\s*$', '', text)
+    # 1b. Strip trailing truncated/unclosed bracketed or parenthesized fragment
+    #     (e.g. Torrentio 60-char "(B…" or "[BDRip-1080p-8bit")
+    text = re.sub(r'\s*[\(\[][^\)\]]*$', '', text)
 
-    # 2. Strip leading bracketed/parenthesized release group tags
-    text = re.sub(r'^(?:\s*\[[^\]]*\]|\s*\([^\)]*\))+', '', text).strip()
+    # 2. Strip leading bracketed/parenthesized release group tags and leading dot separator
+    text = re.sub(r'^(?:\s*\[[^\]]*\]|\s*\([^\)]*\))+', '', text).lstrip('. ').strip()
 
     # 3. Handle dot-separated/scene format: e.g. "Monster.S01E01.1080p" or "Show - S01E02v2"
     scene_match = re.search(
@@ -600,6 +601,16 @@ def isolate_show_title(raw_title):
                     cand = cand.replace('.', ' ')
                 text = cand
 
+    # 4b. Strip batch episode ranges (e.g. "Show 1-10+OVA Complete", "Show 01-12 [1080p]")
+    batch_range_match = re.match(
+        r'^(.*?)(?:\s+-\s+|\s+)(?:ep(?:isodes?)?\s*)?\d{1,3}\s*[-~]\s*\d{1,4}'
+        r'(?:\s*\+\s*.*|\s+(?:complete|batch|bd|bdrip|bluray|dvd|dual|sub|dub|eng|multi|raw|uncensored|remastered|v\d+|360p|480p|720p|1080p|2160p|4k|x264|x265|hevc|av1|hi10|10bit|8bit|flac|aac)\b.*|\s*[\[\(].*|$)',
+        text,
+        flags=re.IGNORECASE,
+    )
+    if batch_range_match and batch_range_match.group(1).strip():
+        text = batch_range_match.group(1).strip()
+
     # 5. Strip release-version suffix adjacent to bracketed tags (e.g. "(Season 1) V2 [1080p]")
     text = re.sub(r'(?<=[\)\]])\s+v[2-9]\b(?=\s*(?:\[|\(|$))', '', text, flags=re.IGNORECASE)
 
@@ -607,6 +618,30 @@ def isolate_show_title(raw_title):
     text = remove_patterns(text)
     text = _RE_BRACKETS_AND_PARENS.sub('', text)
     text = _RE_COLLAPSE_SPACES.sub(' ', text).strip()
+
+    # 6b. Strip bundled "+ OVA" / "+ Special" extras after bracket stripping so
+    #     bracketed tags like "[Season 1 + OVA]" are already removed intact,
+    #     while standalone "- OVA" titles remain untouched.
+    plus_extra_match = re.match(
+        r'^(.*?)\s*\+\s*(?:(?:ova|oav|special|extra|movie|ncop|nced|ona)s?\b.*|.*?\b(?:ova|oav|special|extra)s?\b.*)$',
+        text,
+        flags=re.IGNORECASE,
+    )
+    if plus_extra_match and plus_extra_match.group(1).strip():
+        text = plus_extra_match.group(1).strip()
+
+    # 7. Strip trailing standalone batch/media markers (e.g. ": Complete", "Complete", "Batch", "BD")
+    while True:
+        stripped = re.sub(
+            r'(?::\s*|\s+)(?:complete(?:\s+series)?|batch|bd|bdrip|bdremux|bluray|blu-ray|dvdrip|web-dl|webrip|hdtv)\s*$',
+            '',
+            text,
+            flags=re.IGNORECASE,
+        ).strip()
+        if not stripped or stripped == text:
+            break
+        text = stripped
+
     return text
 
 

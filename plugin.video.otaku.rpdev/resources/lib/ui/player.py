@@ -253,6 +253,7 @@ class WatchlistPlayer(player):
         self.ffprobe_chapters = []
         self._playback_stopped = False
         self._playback_ended = False
+        self._user_stopped_or_errored = False
         self.episodes = []
         self.type = ''
         self.provider = ''
@@ -316,6 +317,7 @@ class WatchlistPlayer(player):
 
     def onPlayBackStopped(self):
         self._playback_stopped = True
+        self._user_stopped_or_errored = True
         self._clear_preresolved_properties()
         control.closeAllDialogs()
         playList.clear()
@@ -400,6 +402,7 @@ class WatchlistPlayer(player):
 
     def onPlayBackError(self):
         self._playback_stopped = True
+        self._user_stopped_or_errored = True
         self._clear_preresolved_properties()
         control.closeAllDialogs()
         playList.clear()
@@ -596,8 +599,10 @@ class WatchlistPlayer(player):
         if self._monitor:
             del self._monitor
 
-        # Clear pre-resolved stream properties unless transitioning naturally to next playlist item
-        if not getattr(self, '_playback_ended', False) or playList.size() <= 1:
+        # Clear pre-resolved stream properties only on explicit stop/error or single-item playback.
+        # Do NOT require _playback_ended here: Kodi's isPlaying() flips False on natural EOF
+        # before the async onPlayBackEnded() callback is dispatched.
+        if getattr(self, '_user_stopped_or_errored', False) or playList.size() <= 1:
             self._clear_preresolved_properties()
 
     # ── Skip Intro / Outro / Playing Next ──────────────────────────────
@@ -697,6 +702,23 @@ class WatchlistPlayer(player):
             except (ValueError, TypeError):
                 return
             next_ep = current_ep + 1
+
+            # Skip pre-scraping when playing a movie or the final episode of a series
+            if self.episodes and next_ep > len(self.episodes):
+                return
+            if not self.episodes and playList.size() <= 1:
+                show_row = database.get_show(self.mal_id)
+                if show_row and isinstance(show_row, dict):
+                    kodi_meta = database.loads(show_row.get('kodi_meta'))
+                    if isinstance(kodi_meta, dict):
+                        if str(kodi_meta.get('mediatype') or '').lower() == 'movie':
+                            return
+                        try:
+                            total_eps = int(kodi_meta.get('episodes') or 0)
+                        except (ValueError, TypeError):
+                            total_eps = 0
+                        if total_eps > 0 and next_ep > total_eps:
+                            return
 
             episode_data = database.get_episode(self.mal_id)
             season = episode_data.get('season') if episode_data else None

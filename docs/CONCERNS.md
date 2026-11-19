@@ -10,9 +10,9 @@ Do **not** re-read the whole log. Start the next review at the saved offset and 
 | Field | Value |
 |---|---|
 | Log session started | 2026-11-19 12:06:38 (Kodi start) |
-| Last line reviewed | 2026-11-19 14:45:53.095 |
-| **Next review offset** | **151157** (`/tail?offset=151157` / `adb shell tail -c +151158 kodi.log`) |
-| Add-on version at last review | v6.2.6 (live on device since 13:55:58; C-17 fix landing in v6.2.7) |
+| Last line reviewed | 2026-11-19 16:03:26.770 |
+| **Next review offset** | **198957** (`/tail?offset=198957` / `adb shell tail -c +198958 kodi.log`) |
+| Add-on version at last review | v6.2.7 (live on device; C-16 EOF race + C-18 + C-19 fixes landing in v6.2.8) |
 
 Notes:
 - If Kodi restarts, the log rotates and the offset resets to 0. A review that returns far fewer bytes than the saved offset means a new session, so start from 0 and update the "session started" row.
@@ -28,6 +28,8 @@ Notes:
 | 4 | 2026-11-19 12:28 | 11:50 to 12:02 (kodi.old.log) & 12:06 to 12:25 (kodi.log) | Incremental review via direct ADB connection. Identified CRITICAL C-15 (resolver.py ListItem_setArt crash blocking playback) and updated counts. |
 | 5 | 2026-11-19 13:14 | 12:30 to 13:10 (kodi.log bytes 75948 to 102635) | Incremental ADB review + full codebase audit. Identified C-16 (Zero-Wait pre-resolved stream property wipe on episode transition) and mapped root causes for C-02 through C-10. |
 | 6 | 2026-11-19 14:56 | 13:14 to 14:45 (kodi.log bytes 102636 to 151157) | Incremental ADB review spanning live update to v6.2.6 (13:55:58). Confirmed C-01/C-02/C-04/C-05/C-07/C-15 clean under v6.2.6; identified C-17 (HiAnime 6-mirror redundant loop adding ~22.5s stall on 0-source embeds). |
+| 7 | 2026-11-19 15:41 | 15:02 to 15:40 (kodi.log bytes 151158 to 180275) | Incremental ADB review spanning live update to v6.2.7 (15:30:01). Confirmed C-05 zero re-prunes on update; identified C-18 (valid Blood Lad batch torrents dropped by `relevance_gate=0` in `sortSources` due to `+ OVA`, `1-10+OVA Complete`, `BD`, and truncated `[` tags in `isolate_show_title`). |
+| 8 | 2026-11-19 16:04 | 15:41 to 16:03 (kodi.log bytes 180276 to 198957) | Incremental ADB review of Blood Lad Ep 8 -> Ep 9 transition under v6.2.7. Caught C-16 EOF callback race (`isPlaying()` flips False before `onPlayBackEnded()` fires, wiping `otaku.preResolved_*`) and C-19 (background pre-scrape running for non-existent Ep 2 of movies / Ep N+1 of season finales). |
 
 ---
 
@@ -50,8 +52,10 @@ Notes:
 | C-13 | Medium | HiAnime scraper thread freeze: sequential 30s timeouts across 6 dead mirrors freeze scrape pipeline for ~3 minutes before trying fallback | 2 incidents | 11-16 06:34 | 11-19 11:53 | Scraper stalls on dead mirrors | Resolved in v6.2.5 (fast-fail) |
 | C-14 | Low | CURL receive error 56: `CCurlFile::CReadState::FillBuffer Failed: Failure when receiving data from the peer(56)` during stream download | 5 (3 + 2) | 11-16 09:46 | 11-19 14:32 | Transient network drop | Open (CDNs/transient; Kodi reconnects cleanly) |
 | C-15 | CRITICAL | Fatal Python callback crash: `TypeError: in method 'ListItem_setArt', argument 2 of type 'XBMCAddon::Properties const &'` in `resolver.py:354`. Prevents playback of movies/episodes when artwork dictionary contains non-strings (lists from `merge_artwork`) | 6 | 11-19 11:53 | 11-19 12:10 | Eliminated | Verified in v6.2.6 (zero exceptions on Blue Exorcist: The Movie) |
-| C-16 | High | Zero-Wait pre-resolved stream handoff wiped on natural episode EOF transition (`player.py:585`) & non-callable `int(episode)` passed as `watchlist_update` (`routes/playback.py:226`) | 4 transitions (pre-update) | 11-19 12:36 | 11-19 13:42 | Pending v6.2.6 marathon check | Resolved in v6.2.6 (awaiting first multi-episode marathon under v6.2.6) |
-| C-17 | Medium | HiAnime redundant 6-mirror loop on 0-source embeds: healthy mirrors sharing the same catalog/embed URL all retry sequentially (~22.5s scrape stall) | 1 incident (6 mirrors) | 11-19 13:59 | 11-19 13:59 | New in review 6 | Resolved in v6.2.7 |
+| C-16 | High | Zero-Wait pre-resolved stream handoff wiped on natural episode EOF transition (`player.py:585`) & non-callable `int(episode)` passed as `watchlist_update` (`routes/playback.py:226`); follow-up EOF race where `isPlaying()` flips False before `onPlayBackEnded()` fires | 5 transitions | 11-19 12:36 | 11-19 16:02 | EOF race caught in review 8 | Resolved in v6.2.8 (`_user_stopped_or_errored`) |
+| C-17 | Medium | HiAnime redundant 6-mirror loop on 0-source embeds: healthy mirrors sharing the same catalog/embed URL all retry sequentially (~22.5s scrape stall) | 1 incident (6 mirrors) | 11-19 13:59 | 11-19 13:59 | Resolved | Resolved in v6.2.7 |
+| C-18 | High | Valid batch torrents dropped by `relevance_gate=0` in `sortSources` (`Blood Lad` Ep 4/5/8/9 returning only embed sources): `isolate_show_title` failed to strip `+ OVA`, `1-10+OVA Complete`, `: Complete`, `BD`, and unclosed truncated `[` tags | 6 scrapes | 11-19 13:14 | 11-19 15:56 | Repeating on batch torrents | Resolved in v6.2.8 |
+| C-19 | Low | Background pre-scrape triggers for non-existent Ep 2 of movies (e.g. *Blue Exorcist: The Movie* `MAL 11737` at `15:02:11`) and Ep N+1 of season finales when `vtag.getMediaType()` is not `'movie'` | 1 scrape | 11-19 15:02 | 11-19 15:02 | Caught in review 8 | Resolved in v6.2.8 |
 
 ### Details and recommended remediation
 
@@ -143,6 +147,12 @@ Notes:
   - Track `_last_mirror_resolved` in `_scrape_mirror()` (set when the mirror responds cleanly with no catalog match or resolves servers cleanly) and deduplicate `failed_embed_urls` across mirrors.
   - Break out of the mirror loop in `get_sources()` once a healthy mirror responds cleanly with 0 streams, while preserving failover on unreachable/dead mirrors (`ConnectionError`) or broken mirror API endpoints.
 
+**C-18 Valid batch torrents dropped by `relevance_gate=0` (`Blood Lad` returning only embed sources)**
+- During Review #7 (Blood Lad MAL 11633 Ep 8 at `15:38:39`, `15:39:36`, `15:40:30` — and earlier Ep 4/5), Torrentio (3), Bitsearch (2), Nyaa (2), and AnimeTosho (2) found 9 cached torrents that deduplicated to 2 Dual-Audio matches (`audio_filter=2`), yet `sortSources` logged `relevance_gate=0; total_final=4` (only Anikoto + HiAnime embeds survived).
+- Root cause: `source_utils.isolate_show_title()` did not strip batch episode ranges (`1-10+OVA Complete`), bundled `+ OVA` / `+ Special` extras, unclosed truncated trailing `[...` tags from Torrentio (`[BDRip-1080p-8bit`), or trailing `: Complete` / `Complete` / `Batch` / `BD` markers. Consequently, valid Blood Lad Dual-Audio batch releases scored `10` (below the `> 40` gate) whenever high-confidence embed sources existed.
+- Fix:
+  - Updated `isolate_show_title()` in `source_utils.py` to strip unclosed trailing `[...`/`(...`, leading `.` separators after group tags, batch episode ranges (`1-10+OVA`), post-bracket bundled `+ OVA`/`+ Special` extras, and trailing standalone batch/media markers (`Complete`, `Batch`, `BD`, `BDRip`, etc.), while strictly preserving standalone `- OVA` and derivative title rejection (`<= 40`).
+
 ---
 
 ## Non-Otaku items (informational)
@@ -180,3 +190,5 @@ Notes:
 | R-14 | C-06 Synchronous modal changelog blocking root `GetDirectory` | Hardened in v6.2.6. Gated auto-changelog in `default.py` on `is_addon_visible()` + idle player and dispatched asynchronously via `RunPlugin(.../change_log)`. |
 | R-15 | C-04 Torrentio missing IDs warning & C-10 subtitle proxy failure | Fixed/Hardened in v6.2.6. Downgraded Torrentio missing-ID log to `'info'` and added `get_sub()` fallback to `source_url` and `?url=` origin URL. |
 | R-16 | C-17 HiAnime redundant 6-mirror loop on 0-source embeds (~22.5s stall) | Fixed in v6.2.7. Short-circuits mirror iteration after a healthy mirror resolves cleanly with 0 streams and deduplicates failed embed URLs while preserving dead-mirror failover. |
+| R-17 | C-18 Valid batch torrents dropped by `relevance_gate=0` (`Blood Lad` missing torrent sources) | Fixed in v6.2.8. Normalized batch episode ranges, bundled `+ OVA`/`+ Special` extras, unclosed truncated `[` tags, and trailing `Complete`/`Batch`/`BD` markers in `isolate_show_title()` while keeping standalone OVAs/derivatives `<= 40`. |
+| R-18 | C-16 Zero-Wait EOF callback race & C-19 movie/season-finale phantom pre-scrape | Fixed in v6.2.8. `keepAlive()` only clears `otaku.preResolved_*` on explicit `_user_stopped_or_errored` or `playList.size() <= 1`, and `_trigger_background_prescrape()` guards against movies and `next_ep > episode_count`. |
