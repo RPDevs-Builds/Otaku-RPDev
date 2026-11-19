@@ -169,6 +169,83 @@ class TestConcernsRemediationsV625(unittest.TestCase):
             # Verify database.get was called exactly once, not 3 times
             self.assertEqual(mock_db_get.call_count, 1)
 
+    @patch('resources.lib.pages.hianime.extract_megaplay_sources', return_value=None)
+    @patch('resources.lib.ui.domains.get_healthy_mirrors', return_value=[
+        'https://hianime.at/',
+        'https://hianime.ba/',
+        'https://hianime.gy/',
+    ])
+    @patch('resources.lib.ui.database.get_show', return_value={'kodi_meta': '{"name": "Blue Exorcist: The Movie"}'})
+    def test_hianime_short_circuits_mirrors_after_clean_zero_source_embed(
+        self, _mock_show, _mock_mirrors, mock_extract
+    ):
+        """C-17: Stop iterating identical mirrors once a healthy mirror resolves servers with 0 streams."""
+        scraper = hianime.Sources()
+        mock_servers = {
+            'dub': [{
+                'name': 'ZokoAnime',
+                'url': 'https://zokoanime.video/stream/mal/11737/1/dub',
+                'domain': 'zokoanime.video',
+            }]
+        }
+        with patch.object(scraper, '_enabled_servers', return_value=['ryu']), \
+             patch.object(scraper, '_resolve_anime_id', return_value='519') as mock_resolve_id, \
+             patch.object(scraper, '_resolve_episode_id', return_value='100'), \
+             patch.object(scraper, '_resolve_servers', return_value=mock_servers), \
+             patch('resources.lib.ui.control.getInt', return_value=2):
+            results = scraper.get_sources(11737, 1)
+
+        self.assertEqual(results, [])
+        self.assertEqual(mock_resolve_id.call_count, 1)
+        self.assertEqual(mock_extract.call_count, 1)
+
+    @patch('resources.lib.ui.domains.get_healthy_mirrors', return_value=[
+        'https://hianime.at/',
+        'https://hianime.ba/',
+        'https://hianime.gy/',
+    ])
+    @patch('resources.lib.ui.database.get_show', return_value={'kodi_meta': '{"name": "Obscure OVA"}'})
+    def test_hianime_short_circuits_mirrors_on_clean_no_catalog_match(self, _mock_show, _mock_mirrors):
+        """C-17: Stop iterating identical mirrors when mirror 1 responds cleanly with no catalog match."""
+        scraper = hianime.Sources()
+        with patch.object(scraper, '_enabled_servers', return_value=['ryu']), \
+             patch.object(scraper, '_resolve_anime_id', return_value=None) as mock_resolve_id:
+            results = scraper.get_sources(99999, 1)
+
+        self.assertEqual(results, [])
+        self.assertEqual(mock_resolve_id.call_count, 1)
+
+    @patch('resources.lib.ui.domains.mark_mirror_failure')
+    @patch('resources.lib.ui.domains.get_healthy_mirrors', return_value=[
+        'https://hianime.dead/',
+        'https://hianime.live/',
+    ])
+    @patch('resources.lib.ui.database.get_show', return_value={'kodi_meta': '{"name": "Blood Lad"}'})
+    def test_hianime_fails_over_on_dead_mirror_and_api_miss(self, _mock_show, _mock_mirrors, mock_mark_fail):
+        """C-17: Dead mirrors (ConnectionError) still fail over to the next healthy mirror."""
+        scraper = hianime.Sources()
+        fake_source = {'provider': 'hianime', 'hash': 'https://cdn.test/master.m3u8', 'type': 'direct'}
+
+        def _fake_resolve(mirror, *args, **kwargs):
+            if 'dead' in mirror:
+                raise ConnectionError("Mirror dead")
+            return '1676'
+
+        with patch.object(scraper, '_enabled_servers', return_value=['ryu']), \
+             patch.object(scraper, '_resolve_anime_id', side_effect=_fake_resolve) as mock_resolve_id, \
+             patch.object(scraper, '_resolve_episode_id', return_value='500'), \
+             patch.object(scraper, '_resolve_servers', return_value={
+                 'dub': [{'name': 'HD-1', 'url': 'https://megaplay.buzz/stream/1', 'domain': 'megaplay.buzz'}]
+             }), \
+             patch('resources.lib.pages.hianime.extract_megaplay_sources', return_value={'sources': [{'file': 'https://cdn.test/master.m3u8'}]}), \
+             patch.object(scraper, '_extract_server_source', return_value=fake_source), \
+             patch('resources.lib.ui.control.getInt', return_value=2):
+            results = scraper.get_sources(11633, 4)
+
+        self.assertEqual(results, [fake_source])
+        self.assertEqual(mock_resolve_id.call_count, 2)
+        mock_mark_fail.assert_called_once_with('https://hianime.dead/')
+
 
 if __name__ == '__main__':
     unittest.main()

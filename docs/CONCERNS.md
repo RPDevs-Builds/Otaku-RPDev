@@ -10,9 +10,9 @@ Do **not** re-read the whole log. Start the next review at the saved offset and 
 | Field | Value |
 |---|---|
 | Log session started | 2026-11-19 12:06:38 (Kodi start) |
-| Last line reviewed | 2026-11-19 13:10:43.076 |
-| **Next review offset** | **102635** (`/tail?offset=102635` / `adb shell tail -c +102636 kodi.log`) |
-| Add-on version at last review | v6.2.4 (live on device; fixes landing in v6.2.6) |
+| Last line reviewed | 2026-11-19 14:45:53.095 |
+| **Next review offset** | **151157** (`/tail?offset=151157` / `adb shell tail -c +151158 kodi.log`) |
+| Add-on version at last review | v6.2.6 (live on device since 13:55:58; C-17 fix landing in v6.2.7) |
 
 Notes:
 - If Kodi restarts, the log rotates and the offset resets to 0. A review that returns far fewer bytes than the saved offset means a new session, so start from 0 and update the "session started" row.
@@ -27,6 +27,7 @@ Notes:
 | 3 | 2026-11-16 10:48 | 03:03 to 10:11 (kodi.old.log) & 10:43 to 10:44 (kodi.log) | Incremental review covering session end and restart. Identified C-12 (download AttributeError) & C-13 (HiAnime sequential timeout freeze). |
 | 4 | 2026-11-19 12:28 | 11:50 to 12:02 (kodi.old.log) & 12:06 to 12:25 (kodi.log) | Incremental review via direct ADB connection. Identified CRITICAL C-15 (resolver.py ListItem_setArt crash blocking playback) and updated counts. |
 | 5 | 2026-11-19 13:14 | 12:30 to 13:10 (kodi.log bytes 75948 to 102635) | Incremental ADB review + full codebase audit. Identified C-16 (Zero-Wait pre-resolved stream property wipe on episode transition) and mapped root causes for C-02 through C-10. |
+| 6 | 2026-11-19 14:56 | 13:14 to 14:45 (kodi.log bytes 102636 to 151157) | Incremental ADB review spanning live update to v6.2.6 (13:55:58). Confirmed C-01/C-02/C-04/C-05/C-07/C-15 clean under v6.2.6; identified C-17 (HiAnime 6-mirror redundant loop adding ~22.5s stall on 0-source embeds). |
 
 ---
 
@@ -34,22 +35,23 @@ Notes:
 
 | ID | Severity | Concern | Total | First seen | Last seen | Trend | Status |
 |---|---|---|---|---|---|---|---|
-| C-01 | Medium | `AnimePahe: search API returned no data` on every scrape (Cloudflare 403 block) | 78 (76 + 2) | 11-15 07:14 | 11-19 12:52 | Repeating | Hardened in v6.2.5 (cooldown circuit breaker) |
-| C-02 | Medium | Otaku dialogs cannot focus default list on open: `Control 1100/2000/1000 in window 130xx has been asked to focus, but it can't` | about 107 | 11-15 07:14 | 11-19 12:58 | Repeating | Resolved in v6.2.5 & v6.2.6 (all dynamic/invalid skin `<defaultcontrol>` tags cleaned up) |
-| C-03 | Medium | Playback fails to start for an HLS source, with no automatic fail-over to the next source (see C-09) | 2 | 11-15 07:15 | 11-16 02:48 | Not seen in reviews 3-5 | Resolved in v6.2.6 (30s timeout aborts, fast-fail `OnStop`, cache clear) |
-| C-04 | Low | `Torrentio: No kitsu_id or imdb_id found, skipping` for newly released shows | 2 | 11-15 17:28 | 11-15 17:44 | Not seen in reviews 2-5 | Resolved in v6.2.6 (downgraded to info log) |
-| C-05 | Low | `clean_settings` re-prunes the same 11 settings on every add-on update (settings are rewritten by Kodi's in-memory copy) | 3 | 11-15 06:43 | 11-15 17:04 | Only on updates | Resolved in v6.2.6 (`clean_settings` ordered after `setSetting` + shutdown prune) |
-| C-06 | Low | Directory-load failures: `GetDirectory - Error getting plugin://plugin.video.otaku.rpdev/` plus `plugin://` plus `/tools` | 2 events | 11-15 16:49 | 11-16 02:49 | Not seen in reviews 3-5 | Hardened in v6.2.6 (non-blocking async changelog dispatch when visible & idle) |
-| C-07 | Low | HLS probe rejected: `CCurlFile::Stat - <stream>/master.m3u8 Failed: HTTP response code said error(22)` | about 57 | 11-15 14:14 | 11-19 12:58 | Repeating | Resolved in v6.2.6 (`setContentLookup(False)` & MIME type enabled on Kodi 21/22) |
-| C-08 | Low | `Passing None where a string is expected is deprecated` (a `None` goes to a Kodi API call from an unknown caller) | 2 | 11-15 06:47 | 11-15 16:58 | Not seen in reviews 2-5 | Resolved in v6.2.6 (`BaseWindow`/`Anichart`/`SourceSelect` `setProperty` None & list coercion) |
-| C-09 | Medium | HLS proxy failure: `megacloud.animanga.fun/ts-proxy` returns HTTP 502 and the segment download fails 3 times | 1 incident | 11-16 02:48 | 11-16 02:48 | Not seen in reviews 3-5 | Resolved in v6.2.6 (fast-fail `OnStop` triggers automatic failover) |
-| C-10 | Low | `get_sub: request failed for https://megacloud.animanga.fun/fetch?url=...eng-2.vtt` (logged at info level) | 1 | 11-16 02:48 | 11-16 02:48 | Not seen in reviews 3-5 | Hardened in v6.2.6 (proxy-to-origin `?url=` / `source_url` fallback) |
-| C-11 | Low | `OpenStream - Unable to create subtitle parser` at the start of a stream | 3 | 11-16 02:48 | 11-16 02:49 | Not seen in reviews 3-5 | Open (external subtitles already prioritized in `resolver.py`) |
+| C-01 | Medium | `AnimePahe: search API returned no data` on every scrape (Cloudflare 403 block) | 80 (78 + 2 pre-update) | 11-15 07:14 | 11-19 13:36 | Downgraded to info in v6.2.6 | Verified in v6.2.6 (13:59 logged at `info`; cooldown circuit breaker active) |
+| C-02 | Medium | Otaku dialogs cannot focus default list on open: `Control 1100/2000/1000 in window 130xx has been asked to focus, but it can't` | about 109 (pre-update) | 11-15 07:14 | 11-19 13:42 | Eliminated in v6.2.6 | Verified in v6.2.6 (zero focus errors across 5 dialogs) |
+| C-03 | Medium | Playback fails to start for an HLS source, with no automatic fail-over to the next source (see C-09) | 2 | 11-15 07:15 | 11-16 02:48 | Not seen in reviews 3-6 | Resolved in v6.2.6 (30s timeout aborts, fast-fail `OnStop`, cache clear) |
+| C-04 | Low | `Torrentio: No kitsu_id or imdb_id found, skipping` for newly released shows | 2 | 11-15 17:28 | 11-15 17:44 | Not seen in reviews 2-6 | Verified in v6.2.6 (downgraded to info log) |
+| C-05 | Low | `clean_settings` re-prunes the same 11 settings on every add-on update (settings are rewritten by Kodi's in-memory copy) | 4 | 11-15 06:43 | 11-19 13:56 | Only on updates | Verified in v6.2.6 (pruned cleanly on update; monitor next update for 0 re-prunes) |
+| C-06 | Low | Directory-load failures: `GetDirectory - Error getting plugin://plugin.video.otaku.rpdev/` plus `plugin://` plus `/tools` | 3 events | 11-15 16:49 | 11-19 13:56 | Transient during hot-update | Hardened in v6.2.6 (non-blocking async changelog dispatch; monitor outside updates) |
+| C-07 | Low | HLS probe rejected: `CCurlFile::Stat - <stream>/master.m3u8 Failed: HTTP response code said error(22)` | about 58 (pre-update) | 11-15 14:14 | 11-19 13:20 | Eliminated in v6.2.6 | Verified in v6.2.6 (zero `CCurlFile::Stat` errors on 13:59 HLS playback) |
+| C-08 | Low | `Passing None where a string is expected is deprecated` (a `None` goes to a Kodi API call from an unknown caller) | 2 | 11-15 06:47 | 11-15 16:58 | Not seen in reviews 2-6 | Resolved in v6.2.6 (`BaseWindow`/`Anichart`/`SourceSelect` `setProperty` None & list coercion) |
+| C-09 | Medium | HLS proxy failure: `megacloud.animanga.fun/ts-proxy` returns HTTP 502 and the segment download fails 3 times | 1 incident | 11-16 02:48 | 11-16 02:48 | Not seen in reviews 3-6 | Resolved in v6.2.6 (fast-fail `OnStop` triggers automatic failover) |
+| C-10 | Low | `get_sub: request failed for https://megacloud.animanga.fun/fetch?url=...eng-2.vtt` (logged at info level) | 1 | 11-16 02:48 | 11-16 02:48 | Not seen in reviews 3-6 | Hardened in v6.2.6 (proxy-to-origin `?url=` / `source_url` fallback) |
+| C-11 | Low | `OpenStream - Unable to create subtitle parser` at the start of a stream | 3 | 11-16 02:48 | 11-16 02:49 | Not seen in reviews 3-6 | Open (external subtitles already prioritized in `resolver.py`) |
 | C-12 | High | Download action crash: `AttributeError: 'NoneType' object has no attribute 'getSelectedPosition'` in `source_select.py:244` (`self.close()` called before position query) | 1 | 11-16 06:36 | 11-16 06:36 | Single occurrence | Resolved in v6.2.5 |
 | C-13 | Medium | HiAnime scraper thread freeze: sequential 30s timeouts across 6 dead mirrors freeze scrape pipeline for ~3 minutes before trying fallback | 2 incidents | 11-16 06:34 | 11-19 11:53 | Scraper stalls on dead mirrors | Resolved in v6.2.5 (fast-fail) |
-| C-14 | Low | CURL receive error 56: `CCurlFile::CReadState::FillBuffer Failed: Failure when receiving data from the peer(56)` during stream download | 3 | 11-16 09:46 | 11-19 13:10 | Transient network drop | Open (CDNs/transient) |
-| C-15 | CRITICAL | Fatal Python callback crash: `TypeError: in method 'ListItem_setArt', argument 2 of type 'XBMCAddon::Properties const &'` in `resolver.py:354`. Prevents playback of movies/episodes when artwork dictionary contains non-strings (lists from `merge_artwork`) | 6 | 11-19 11:53 | 11-19 12:10 | Repeating, crashes playback on affected titles | Resolved in v6.2.5 |
-| C-16 | High | Zero-Wait pre-resolved stream handoff wiped on natural episode EOF transition (`player.py:585`) & non-callable `int(episode)` passed as `watchlist_update` (`routes/playback.py:226`) | 2 transitions | 11-19 12:36 | 11-19 12:58 | New in review 5 | Resolved in v6.2.6 |
+| C-14 | Low | CURL receive error 56: `CCurlFile::CReadState::FillBuffer Failed: Failure when receiving data from the peer(56)` during stream download | 5 (3 + 2) | 11-16 09:46 | 11-19 14:32 | Transient network drop | Open (CDNs/transient; Kodi reconnects cleanly) |
+| C-15 | CRITICAL | Fatal Python callback crash: `TypeError: in method 'ListItem_setArt', argument 2 of type 'XBMCAddon::Properties const &'` in `resolver.py:354`. Prevents playback of movies/episodes when artwork dictionary contains non-strings (lists from `merge_artwork`) | 6 | 11-19 11:53 | 11-19 12:10 | Eliminated | Verified in v6.2.6 (zero exceptions on Blue Exorcist: The Movie) |
+| C-16 | High | Zero-Wait pre-resolved stream handoff wiped on natural episode EOF transition (`player.py:585`) & non-callable `int(episode)` passed as `watchlist_update` (`routes/playback.py:226`) | 4 transitions (pre-update) | 11-19 12:36 | 11-19 13:42 | Pending v6.2.6 marathon check | Resolved in v6.2.6 (awaiting first multi-episode marathon under v6.2.6) |
+| C-17 | Medium | HiAnime redundant 6-mirror loop on 0-source embeds: healthy mirrors sharing the same catalog/embed URL all retry sequentially (~22.5s scrape stall) | 1 incident (6 mirrors) | 11-19 13:59 | 11-19 13:59 | New in review 6 | Resolved in v6.2.7 |
 
 ### Details and recommended remediation
 
@@ -134,6 +136,13 @@ Notes:
   - Track `self._playback_ended` in `WatchlistPlayer`, clear `otaku.preResolved_*` on `onPlayBackStopped()` / `onPlayBackError()` and at `keepAlive()` exit only when `not self._playback_ended` or `playList.size() <= 1`, and guard `callable(self._watchlist_update)` in `_update_watched_progress()`.
   - Pass `watchlist_update_episode` as argument 2 in `routes/playback.py:226`.
 
+**C-17 HiAnime redundant 6-mirror loop on 0-source embeds (~22.5s scrape stall)**
+- During Review #6 (Blue Exorcist: The Movie, MAL 11737, dub, 13:59:14–13:59:37), all 6 healthy HiAnime mirrors (`hianime.at`, `hianime.ba`, `hianime.gy`, `hianime.lu`, `hianime.tr`, `hianimetv.bz`) returned the exact same show (`ID: 519`, Score `160`) and the exact same failing embed (`https://zokoanime.video/stream/mal/11737/1/dub` → `No player id in embed page`).
+- Because `hianime.py` only broke out of the mirror loop when `sources` was non-empty, a healthy mirror that resolved the catalog/servers cleanly but yielded 0 streams still iterated through all 5 remaining identical mirrors, holding `get_sources` open ~16s past every other scraper.
+- Fix:
+  - Track `_last_mirror_resolved` in `_scrape_mirror()` (set when the mirror responds cleanly with no catalog match or resolves servers cleanly) and deduplicate `failed_embed_urls` across mirrors.
+  - Break out of the mirror loop in `get_sources()` once a healthy mirror responds cleanly with 0 streams, while preserving failover on unreachable/dead mirrors (`ConnectionError`) or broken mirror API endpoints.
+
 ---
 
 ## Non-Otaku items (informational)
@@ -170,3 +179,4 @@ Notes:
 | R-13 | C-05 `clean_settings` re-pruning on every add-on update | Fixed in v6.2.6. Reordered `clean_settings()` after `control.setSetting('otaku.version', ...)` in `service.py` and added shutdown teardown prune. |
 | R-14 | C-06 Synchronous modal changelog blocking root `GetDirectory` | Hardened in v6.2.6. Gated auto-changelog in `default.py` on `is_addon_visible()` + idle player and dispatched asynchronously via `RunPlugin(.../change_log)`. |
 | R-15 | C-04 Torrentio missing IDs warning & C-10 subtitle proxy failure | Fixed/Hardened in v6.2.6. Downgraded Torrentio missing-ID log to `'info'` and added `get_sub()` fallback to `source_url` and `?url=` origin URL. |
+| R-16 | C-17 HiAnime redundant 6-mirror loop on 0-source embeds (~22.5s stall) | Fixed in v6.2.7. Short-circuits mirror iteration after a healthy mirror resolves cleanly with 0 streams and deduplicates failed embed URLs while preserving dead-mirror failover. |

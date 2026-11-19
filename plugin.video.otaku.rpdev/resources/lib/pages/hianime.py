@@ -51,14 +51,30 @@ class Sources(BrowserBase):
         sources = []
         all_failed = True
         failed_count = 0
+        failed_embed_urls = set()
 
         for mirror in mirrors:
             try:
-                sources = self._scrape_mirror(mirror, title, kodi_meta, mal_id, ep_num, langs, enabled)
+                sources = self._scrape_mirror(
+                    mirror,
+                    title,
+                    kodi_meta,
+                    mal_id,
+                    ep_num,
+                    langs,
+                    enabled,
+                    failed_embed_urls=failed_embed_urls,
+                )
                 all_failed = False
                 if sources:
                     control.log(f"HiAnime: Successfully extracted {len(sources)} source(s) from mirror {mirror}", 'info')
                     return sources
+                if getattr(self, '_last_mirror_resolved', False):
+                    control.log(
+                        f"HiAnime: Mirror {mirror} responded cleanly with 0 streams; skipping remaining mirrors",
+                        'info',
+                    )
+                    break
             except Exception as e:
                 failed_count += 1
                 domains.mark_mirror_failure(mirror)
@@ -85,10 +101,14 @@ class Sources(BrowserBase):
         control.log(f"HiAnime: Returning {len(sources)} source(s)")
         return sources
 
-    def _scrape_mirror(self, mirror, title, kodi_meta, mal_id, ep_num, langs, enabled):
+    def _scrape_mirror(self, mirror, title, kodi_meta, mal_id, ep_num, langs, enabled, failed_embed_urls=None):
+        self._last_mirror_resolved = False
         headers = {'Referer': mirror, 'User-Agent': client.randomagent()}
         anime_id = self._resolve_anime_id(mirror, title, kodi_meta, mal_id, headers)
         if not anime_id:
+            # _resolve_anime_id raises ConnectionError on unreachable mirrors;
+            # returning None means the mirror answered cleanly with no catalog match.
+            self._last_mirror_resolved = True
             return []
 
         ep_id = self._resolve_episode_id(mirror, anime_id, ep_num, headers)
@@ -99,6 +119,7 @@ class Sources(BrowserBase):
         if not servers:
             return []
 
+        self._last_mirror_resolved = True
         lang_results = {}
         for lang in langs:
             candidates = servers.get(lang) or []
@@ -106,6 +127,8 @@ class Sources(BrowserBase):
                 cand_url = candidate['url']
                 cand_name = candidate['name']
                 cand_domain = candidate['domain']
+                if failed_embed_urls is not None and cand_url in failed_embed_urls:
+                    continue
                 try:
                     res = extract_megaplay_sources(cand_url, mirror)
                     if res and res.get('sources'):
@@ -113,8 +136,12 @@ class Sources(BrowserBase):
                         control.log(f"HiAnime: Extracted stream from {cand_name} ({cand_domain}) for {lang}", 'info')
                         break
                     else:
+                        if failed_embed_urls is not None:
+                            failed_embed_urls.add(cand_url)
                         control.log(f"HiAnime: Server {cand_name} ({cand_domain}) returned 0 sources for {lang}", 'info')
                 except Exception as e:
+                    if failed_embed_urls is not None:
+                        failed_embed_urls.add(cand_url)
                     control.log(f"HiAnime: Extraction error for {cand_name} ({cand_domain}) [{lang}]: {e}", 'warning')
 
         tasks = []
