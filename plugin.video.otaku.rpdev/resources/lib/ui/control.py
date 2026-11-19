@@ -1893,7 +1893,7 @@ def end_directory(handle=None, succeeded=True, cacheToDisc=False):
         return
     try:
         h = HANDLE if handle is None else handle
-        if h is not None and h > 0:
+        if h is not None and h >= 0:
             xbmcplugin.endOfDirectory(h, succeeded=succeeded, cacheToDisc=cacheToDisc)
     except Exception:
         pass

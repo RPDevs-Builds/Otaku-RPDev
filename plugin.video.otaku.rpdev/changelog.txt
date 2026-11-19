@@ -1,3 +1,8 @@
+Changelog v6.2.9 (2026-11-19):
+- Deep Concerns Audit & Live Kodi 21/22 Verification:
+  - Persist mirror cooldowns & scraper circuit breaker across invocations, fix translate.goog alt URL joins, harden HLS/VTT/subtitle & failover deprioritization, fix read-only mappings.db WAL checkpoint, numeric playlist sorting, smartplay.preresolve getBool & EOF playback guards
+  - verified live on Kodi 21 & 22
+
 Changelog v6.2.8 (2026-11-19):
 - Batch Torrent Relevance, Zero-Wait EOF Race & Pre-Scrape Guard:
   - Guard background pre-scraping against non-existent Ep 2 on movies and Ep N+1 on season finales (C-19)

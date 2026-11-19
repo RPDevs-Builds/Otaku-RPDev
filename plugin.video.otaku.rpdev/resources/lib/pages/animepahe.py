@@ -39,17 +39,28 @@ class Sources(BrowserBase):
             .strip()
         )
 
-    def _rewrite_origin(self, raw_url):
+    def _get_base_url(self):
+        """Resolve active AnimePahe base URL dynamically (respects live provider.animepahealt toggles)."""
+        return domains.get_domain('animepahe', self._BASE_URL) or self._BASE_URL
+
+    def _get_headers(self, base_url=None):
+        return {'Referer': base_url or self._get_base_url()}
+
+    def _rewrite_origin(self, raw_url, base_url=None):
         """Rewrite legacy MALSync AnimePahe URLs dynamically onto the active mirror origin."""
-        parsed_base = urllib.parse.urlparse(self._BASE_URL)
+        target_base = base_url or self._get_base_url()
+        parsed_base = urllib.parse.urlparse(target_base)
         parsed_link = urllib.parse.urlparse(raw_url)
         if parsed_base.scheme and parsed_base.netloc and parsed_link.path:
+            base_qs = urllib.parse.parse_qsl(parsed_base.query, keep_blank_values=True)
+            link_qs = urllib.parse.parse_qsl(parsed_link.query, keep_blank_values=True)
+            merged_q = urllib.parse.urlencode(base_qs + link_qs)
             return urllib.parse.urlunparse((
                 parsed_base.scheme,
                 parsed_base.netloc,
                 parsed_link.path,
                 parsed_link.params,
-                parsed_link.query,
+                merged_q,
                 parsed_link.fragment,
             ))
         return raw_url
@@ -133,6 +144,13 @@ class Sources(BrowserBase):
         return None
 
     def get_sources(self, mal_id, episode):
+        base_url = self._get_base_url()
+        headers = self._get_headers(base_url)
+
+        if not domains.is_mirror_healthy(base_url):
+            control.log('AnimePahe: cooling down after recent failure; skipping scrape', level='info')
+            return []
+
         title = malsync.get_title(mal_id, site='animepahe')
         if not title:
             control.log('AnimePahe: no mapped title for mal_id={0}'.format(mal_id), level='info')
@@ -147,25 +165,22 @@ class Sources(BrowserBase):
                 control.log('AnimePahe: found {0} source(s) via MAL sync slug'.format(len(direct)), level='info')
                 return direct
 
-        if not domains.is_mirror_healthy(self._BASE_URL):
-            control.log('AnimePahe: search API cooling down after recent failure', level='debug')
-            return []
-
+        api_url = domains.join_url(base_url, 'api')
         params = {'m': 'search', 'q': title}
         r = database.get(
             self._get_request,
             8,
-            self._BASE_URL + 'api',
+            api_url,
             data=params,
-            headers=self._headers
+            headers=headers
         )
         if not r:
-            domains.mark_mirror_failure(self._BASE_URL)
+            domains.mark_mirror_failure(base_url)
             control.log('AnimePahe: search API returned no data', level='info')
             return []
         parsed_r = control.loads_json(r, {})
         if not isinstance(parsed_r, dict):
-            domains.mark_mirror_failure(self._BASE_URL)
+            domains.mark_mirror_failure(base_url)
             control.log('AnimePahe: search API returned invalid JSON', level='info')
             return []
         sitems = parsed_r.get('data')
@@ -176,9 +191,9 @@ class Sources(BrowserBase):
             r = database.get(
                 self._get_request,
                 8,
-                self._BASE_URL + 'api',
+                api_url,
                 data=params,
-                headers=self._headers
+                headers=headers
             )
             parsed_r = control.loads_json(r, {})
             sitems = parsed_r.get('data') if isinstance(parsed_r, dict) else []
@@ -213,6 +228,10 @@ class Sources(BrowserBase):
         big_series = e_num > 30
         page = max(1, 1 + ((e_num - 1) // 30))
 
+        base_url = self._get_base_url()
+        headers = self._get_headers(base_url)
+        api_url = domains.join_url(base_url, 'api')
+
         params = {
             'm': 'release',
             'id': slug,
@@ -222,17 +241,17 @@ class Sources(BrowserBase):
         r = database.get(
             self._get_request,
             8,
-            self._BASE_URL + 'api',
+            api_url,
             data=params,
-            headers=self._headers
+            headers=headers
         )
         if not r:
-            domains.mark_mirror_failure(self._BASE_URL)
+            domains.mark_mirror_failure(base_url)
             control.log('AnimePahe: release API returned no data for slug={0} page={1}'.format(slug, page), level='info')
             return sources
         r = control.loads_json(r, {})
         if not isinstance(r, dict):
-            domains.mark_mirror_failure(self._BASE_URL)
+            domains.mark_mirror_failure(base_url)
             control.log('AnimePahe: release API returned invalid JSON for slug={0}'.format(slug), level='info')
             return sources
         items = r.get('data') or []
@@ -249,8 +268,8 @@ class Sources(BrowserBase):
             control.log('AnimePahe: episode {0} not found for slug={1}'.format(e_num, slug), level='info')
             return sources
 
-        eurl = self._BASE_URL + 'play/' + slug + '/' + items[0].get('session')
-        html = self._get_request(eurl, headers=self._headers)
+        eurl = domains.join_url(base_url, f"play/{slug}/{items[0].get('session')}")
+        html = self._get_request(eurl, headers=headers)
         if not html:
             control.log('AnimePahe: empty play page for {0}'.format(eurl), level='warning')
             return sources

@@ -7,26 +7,75 @@ import urllib.parse
 
 from resources.lib.WatchlistIntegration import watchlist_update_episode
 from resources.lib.debrid import all_debrid, debrid_link, easynews, premiumize, real_debrid, torbox, easydebrid
-from resources.lib.ui import client, control, database, ffprobe_chapters, source_utils, player
+from resources.lib.ui import client, control, database, domains, ffprobe_chapters, source_utils, player
 from resources.lib.windows.base_window import BaseWindow
 
 control.sys.path.append(control.dataPath)
+
+
+def _get_header_ci(headers, name):
+    """Case-insensitive HTTP header lookup."""
+    if not isinstance(headers, dict):
+        return ''
+    target = name.lower()
+    for k, v in headers.items():
+        if isinstance(k, str) and k.lower() == target and v:
+            return str(v)
+    return ''
+
+
+def _extract_source_origin(source):
+    """Extract scheme://netloc/ origin for embed/direct stream candidates, or '' for non-URL hashes."""
+    if not isinstance(source, dict):
+        return ''
+    if source.get('type') not in ('embed', 'direct'):
+        return ''
+    raw = source.get('hash') or source.get('url') or ''
+    if not isinstance(raw, str) or not raw.startswith(('http://', 'https://')):
+        return ''
+    url_part = raw.split('|', 1)[0]
+    parsed = urllib.parse.urlparse(url_part)
+    if parsed.scheme and parsed.netloc:
+        return f"{parsed.scheme.lower()}://{parsed.netloc.lower()}/"
+    return ''
+
+
+def _deprioritize_unhealthy_hosts(sources):
+    """Stably move embed/direct candidates whose stream host is in failure cooldown to the tail."""
+    if not sources or len(sources) <= 1:
+        return list(sources) if sources else []
+    healthy = []
+    unhealthy = []
+    for src in sources:
+        origin = _extract_source_origin(src)
+        if origin and not domains.is_mirror_healthy(origin):
+            unhealthy.append(src)
+        else:
+            healthy.append(src)
+    return healthy + unhealthy
 
 
 class hook_mimetype:
     __MIME_HOOKS = {}
 
     @classmethod
+    def _normalize(cls, mimetype):
+        if not mimetype or not isinstance(mimetype, str):
+            return ''
+        return mimetype.split(';', 1)[0].strip().lower()
+
+    @classmethod
     def trigger(cls, mimetype, item):
-        if mimetype in cls.__MIME_HOOKS.keys():
-            return cls.__MIME_HOOKS[mimetype](item)
+        norm = cls._normalize(mimetype)
+        if norm in cls.__MIME_HOOKS:
+            return cls.__MIME_HOOKS[norm](item)
         return item
 
     def __init__(self, mimetype):
-        self._type = mimetype
+        self._type = self._normalize(mimetype)
 
     def __call__(self, func):
-        assert self._type not in self.__MIME_HOOKS.keys()
+        assert self._type not in self.__MIME_HOOKS
         self.__MIME_HOOKS[self._type] = func
         return func
 
@@ -95,6 +144,7 @@ class Resolver(BaseWindow):
 
     def reorder_sources(self, sources):
         if len(sources) > 1 and not self.source_select:
+            sources = _deprioritize_unhealthy_hosts(sources)
             lp = control.getSetting('last_played_source') or ''
             # remove any [HASH] blocks (e.g. [E5A85899])
             lp = re.sub(r'\[[0-9A-Fa-f]{8,}\]', '', lp).strip()
@@ -319,9 +369,10 @@ class Resolver(BaseWindow):
 
         # Handle mimetype - hooks will configure InputStream Adaptive for HLS/DASH
         hdr = linkInfo.get('headers') or {}
-        if hdr.get('Content-Type'):
-            item.setProperty('MimeType', hdr['Content-Type'])
-            item = hook_mimetype.trigger(hdr['Content-Type'], item)
+        content_type = _get_header_ci(hdr, 'Content-Type')
+        if content_type:
+            item.setProperty('MimeType', content_type.split(';', 1)[0].strip())
+            item = hook_mimetype.trigger(content_type, item)
 
         if self.params.get('image'):
             self.image = self.params.get('image') or {}
@@ -418,11 +469,20 @@ class Resolver(BaseWindow):
             mal_id = getattr(self, 'mal_id', None)
             episode = getattr(self, 'episode', None)
             failed_provider = failed_source.get('provider', 'unknown') if isinstance(failed_source, dict) else 'unknown'
-            failed_host = urllib.parse.urlparse(stream_url).netloc if isinstance(stream_url, str) and stream_url else 'unknown'
+            failed_parsed = urllib.parse.urlparse(stream_url) if isinstance(stream_url, str) and stream_url else None
+            failed_host = failed_parsed.netloc if failed_parsed and failed_parsed.netloc else 'unknown'
             control.log(
                 f"Resolver: Playback startup failed for provider={failed_provider} host={failed_host} (mal_id={mal_id}, ep={episode})",
                 level='warning',
             )
+            if (
+                isinstance(failed_source, dict)
+                and failed_source.get('type') in ('embed', 'direct')
+                and failed_parsed
+                and failed_parsed.scheme in ('http', 'https')
+                and failed_parsed.netloc
+            ):
+                domains.mark_mirror_failure(f"{failed_parsed.scheme}://{failed_parsed.netloc}/", cooldown=300)
             if mal_id is not None and episode is not None:
                 database.clear_episode_sources(mal_id, episode)
             # If the failed source was a cached season pack, clear pack and rescrape
@@ -442,6 +502,7 @@ class Resolver(BaseWindow):
             cand_idx = self.return_data.get('candidate_index', 0) if isinstance(self.return_data, dict) else 0
             remaining = self.sources[cand_idx + 1:] if self.sources and cand_idx + 1 < len(self.sources) else []
             if remaining:
+                remaining = _deprioritize_unhealthy_hosts(remaining)
                 control.log(f"Resolver: Playback startup failed, advancing to next candidate ({len(remaining)} left)", level='info')
                 self.abort = False
                 self.sources = remaining
@@ -611,13 +672,17 @@ class Resolver(BaseWindow):
             control.log(f"Resolver: could not verify {url}, status={response.status_code if response else 'failed'}", level='warning')
             return None
         resp_headers = dict(response.headers)
-        if 'Content-Type' not in resp_headers.keys():
-            if 'Content-Length' not in resp_headers.keys():
+        existing_ct = _get_header_ci(resp_headers, 'Content-Type')
+        existing_cl = _get_header_ci(resp_headers, 'Content-Length')
+        if not existing_ct:
+            if not existing_cl:
                 resp_headers.update({'Content-Type': 'video/MP2T'})
             elif '.m3u8' in url:
                 resp_headers.update({'Content-Type': 'application/vnd.apple.mpegurl'})
-        elif resp_headers['Content-Type'] == 'application/octet-stream' and '.m3u8' in url:
+        elif existing_ct.split(';', 1)[0].strip().lower() == 'application/octet-stream' and '.m3u8' in url:
             resp_headers.update({'Content-Type': 'video/MP2T'})
+        elif 'Content-Type' not in resp_headers:
+            resp_headers['Content-Type'] = existing_ct
         return {
             "url": link if '|' in link else response.url,
             "headers": resp_headers,
@@ -788,6 +853,7 @@ def _DASH_HOOK(item):
 
 
 @hook_mimetype('application/vnd.apple.mpegurl')
+@hook_mimetype('application/x-mpegurl')
 @hook_mimetype('video/MP2T')
 @hook_mimetype('image/jpeg')
 def _HLS_HOOK(item):
@@ -881,9 +947,10 @@ def resolve_silent(sources, episode, mal_id=None):
                 return None
 
     helper = _HeadlessResolver(episode, mal_id)
+    ordered_sources = _deprioritize_unhealthy_hosts(sources)
 
     # Evaluate top candidates (try up to 3)
-    for s in sources[:3]:
+    for s in ordered_sources[:3]:
         if not s or not isinstance(s, dict):
             continue
         try:

@@ -38,8 +38,8 @@ class FilterSelect(BaseWindow):
 
     @staticmethod
     def _set_setting_item_properties(menu_item, setting):
-        value = str(setting["value"])
-        menu_item.setProperty("label", setting["label"])
+        value = str(setting.get("value") if setting.get("value") is not None else '')
+        menu_item.setProperty("label", str(setting.get("label") or ''))
         menu_item.setProperty("value", value)
 
     def _populate_list(self, codec_list, key):

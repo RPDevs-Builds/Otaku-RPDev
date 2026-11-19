@@ -89,10 +89,25 @@ class Sources(BrowserBase):
                     for mirror in new_mirrors:
                         if mirror not in mirrors:
                             try:
-                                sources = self._scrape_mirror(mirror, title, kodi_meta, mal_id, ep_num, langs, enabled)
+                                sources = self._scrape_mirror(
+                                    mirror,
+                                    title,
+                                    kodi_meta,
+                                    mal_id,
+                                    ep_num,
+                                    langs,
+                                    enabled,
+                                    failed_embed_urls=failed_embed_urls,
+                                )
                                 if sources:
                                     control.log(f"HiAnime: Extracted {len(sources)} source(s) from refreshed mirror {mirror}", 'info')
                                     return sources
+                                if getattr(self, '_last_mirror_resolved', False):
+                                    control.log(
+                                        f"HiAnime: Refreshed mirror {mirror} responded cleanly with 0 streams; skipping remaining mirrors",
+                                        'info',
+                                    )
+                                    break
                             except Exception as e:
                                 control.log(f"HiAnime: Refreshed mirror {mirror} failed: {e}", 'warning')
             else:

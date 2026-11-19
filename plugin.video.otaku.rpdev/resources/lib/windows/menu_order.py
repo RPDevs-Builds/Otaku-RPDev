@@ -312,10 +312,10 @@ class MenuOrderDialog(xbmcgui.WindowXMLDialog):
             status_text = control.lang(30690) if is_enabled else control.lang(30691)
         else:
             status_text = control.lang(30695) if is_enabled else control.lang(30696)
-        li.setProperty('status_badge', status_badge)
-        li.setProperty('status_text', status_text)
+        li.setProperty('status_badge', str(status_badge or ''))
+        li.setProperty('status_text', str(status_text or ''))
         li.setProperty('is_enabled', 'true' if is_enabled else 'false')
-        li.setProperty('item_id', item_id)
+        li.setProperty('item_id', str(item_id or ''))
 
     def _populate_list(self, selected_idx=0):
         if self.list_control is None:

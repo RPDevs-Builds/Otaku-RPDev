@@ -955,7 +955,6 @@ def checkpoint_databases(truncate=True):
         getattr(control, 'cacheFile', None),
         getattr(control, 'malSyncDB', None),
         getattr(control, 'searchHistoryDB', None),
-        getattr(control, 'mappingDB', None),
     ]
     mode = "TRUNCATE" if truncate else "PASSIVE"
     for path in db_paths:
@@ -1916,7 +1915,6 @@ def vacuum_all_databases():
         getattr(control, 'cacheFile', None),
         getattr(control, 'malSyncDB', None),
         getattr(control, 'searchHistoryDB', None),
-        getattr(control, 'mappingDB', None),
     ]
 
     total_reclaimed = 0

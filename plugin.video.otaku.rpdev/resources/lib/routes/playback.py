@@ -145,7 +145,7 @@ def PLAY(payload, params):
         and preresolved_ep == str(episode)
         and not source_select
         and not rescrape
-        and control.getSetting('smartplay.preresolve') != 'false'
+        and control.getBool('smartplay.preresolve', default=True)
     ):
         control.log(f"Playback: Zero-Wait Pre-Resolved Stream Hit for {mal_id} Ep {episode}!", 'info')
         control.playerWindow.clearProperty('otaku.preResolved_url')
@@ -188,10 +188,11 @@ def PLAY(payload, params):
                 item.setSubtitles([e['path'] for e in sub_entries])
 
         headers = preresolved_data.get('headers') or {}
-        if headers.get('Content-Type'):
-            item.setProperty('MimeType', headers['Content-Type'])
-            from resources.lib.windows.resolver import hook_mimetype
-            item = hook_mimetype.trigger(headers['Content-Type'], item)
+        from resources.lib.windows.resolver import _get_header_ci, hook_mimetype
+        content_type = _get_header_ci(headers, 'Content-Type')
+        if content_type:
+            item.setProperty('MimeType', content_type.split(';', 1)[0].strip())
+            item = hook_mimetype.trigger(content_type, item)
 
         video_info = dict(params.get('info', {})) if params.get('info') else dict(params)
         control.set_videotags(item, video_info)

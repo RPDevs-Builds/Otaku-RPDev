@@ -580,7 +580,7 @@ def get_sub(sub_url, sub_lang, headers=None, sub_index=0, display_name=None, sou
                 break
 
     if not response:
-        control.log(f"get_sub: request failed for {sub_url}", level='info')
+        control.log(f"get_sub: request failed for {sub_url}", level='warning')
         return None
 
     # Handle both Response objects and string content
@@ -596,6 +596,9 @@ def get_sub(sub_url, sub_lang, headers=None, sub_index=0, display_name=None, sou
         return None
 
     ext = _detect_sub_ext(source_url or sub_url, content)
+    if ext == '.vtt' and '<}' in content:
+        # Sanitize malformed upstream WebVTT tag typos (e.g. "<}text</i>") that trigger CWebVTTHandler errors
+        content = re.sub(r'<\}', '', content)
     fname = 'TemporarySubs.{0}.{1}{2}'.format(sub_index, lang, ext)
     fname = fname.encode(encoding='ascii', errors='ignore').decode(encoding='ascii')
     subtitle = xbmcvfs.translatePath('special://temp/')

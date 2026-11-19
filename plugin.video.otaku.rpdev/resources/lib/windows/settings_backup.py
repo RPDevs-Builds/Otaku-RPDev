@@ -124,11 +124,11 @@ class SettingsBackupDialog(xbmcgui.WindowXMLDialog):
         if self.list_control is not None:
             self.list_control.reset()
             for meta in self._items_meta:
-                item = xbmcgui.ListItem(label=meta['label'])
-                item.setProperty('subtitle', meta['subtitle'])
-                item.setProperty('title', meta['title'])
-                item.setProperty('description', meta['description'])
-                item.setProperty('action', meta['action'])
+                item = xbmcgui.ListItem(label=str(meta.get('label') or ''))
+                item.setProperty('subtitle', str(meta.get('subtitle') or ''))
+                item.setProperty('title', str(meta.get('title') or ''))
+                item.setProperty('description', str(meta.get('description') or ''))
+                item.setProperty('action', str(meta.get('action') or ''))
                 self.list_control.addItem(item)
 
             self.list_control.selectItem(0)

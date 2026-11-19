@@ -7,6 +7,7 @@ moves without requiring manual add-on updates.
 import json
 import os
 import time
+import urllib.parse
 
 from resources.lib.ui import control
 
@@ -111,17 +112,36 @@ def get_domain(provider_key, default=None):
     """
     # Check alt settings first
     if provider_key == 'nyaa' and control.getBool('provider.nyaaalt'):
-        return 'https://nyaa-si.translate.goog/?_x_tr_sl=es&_x_tr_tl=en&_x_tr_hl=en/'
+        return 'https://nyaa-si.translate.goog/?_x_tr_sl=es&_x_tr_tl=en&_x_tr_hl=en'
     if provider_key == 'animetosho' and control.getBool('provider.animetoshoalt'):
-        return 'https://animetosho-org.translate.goog/?_x_tr_sl=es&_x_tr_tl=en&_x_tr_hl=en/'
+        return 'https://animetosho-org.translate.goog/?_x_tr_sl=es&_x_tr_tl=en&_x_tr_hl=en'
     if provider_key == 'animepahe' and control.getBool('provider.animepahealt'):
-        return 'https://animepahe-pw.translate.goog/?_x_tr_sl=auto&_x_tr_tl=en&_x_tr_hl=en&_x_tr_pto=wapp/'
+        return 'https://animepahe-pw.translate.goog/?_x_tr_sl=auto&_x_tr_tl=en&_x_tr_hl=en&_x_tr_pto=wapp'
 
     domains = _load_domains()
     domain = domains.get(provider_key)
     if domain:
         return domain
     return default or ''
+
+
+def join_url(base_url, path='', params=None):
+    """Safely join a path and optional query params onto a base URL, preserving any base query params (e.g. translate.goog)."""
+    parsed = urllib.parse.urlparse(base_url or '')
+    base_path = parsed.path or '/'
+    if path:
+        rel_path = str(path).lstrip('/')
+        new_path = base_path.rstrip('/') + '/' + rel_path
+    else:
+        new_path = base_path
+    query_pairs = urllib.parse.parse_qsl(parsed.query, keep_blank_values=True)
+    if params:
+        if isinstance(params, dict):
+            query_pairs.extend((str(k), str(v)) for k, v in params.items() if v is not None)
+        else:
+            query_pairs.extend(params)
+    new_query = urllib.parse.urlencode(query_pairs)
+    return urllib.parse.urlunparse((parsed.scheme, parsed.netloc, new_path, '', new_query, ''))
 
 
 def get_hianime_mirrors():
@@ -158,27 +178,97 @@ def get_hianime_mirrors():
 
 _FAILED_MIRRORS = {}
 _FAILURE_COOLDOWN = 600  # 10 minutes
+_FAILED_MIRRORS_PROP = 'otaku.failed_mirrors'
 
 
-def mark_mirror_failure(url):
-    """Mark a mirror URL as temporarily failing with a 10-minute cooldown."""
+def _normalize_mirror_key(url):
+    """Normalize a mirror/host URL to scheme://netloc/ for consistent cooldown keys."""
+    if not url:
+        return ''
+    parsed = urllib.parse.urlparse(str(url).strip())
+    if parsed.scheme and parsed.netloc:
+        return f"{parsed.scheme.lower()}://{parsed.netloc.lower()}/"
+    return str(url).strip().rstrip('/') + '/'
+
+
+def _load_failed_mirrors():
+    """Load persisted mirror cooldowns from Kodi Window(10000), pruning expired entries."""
+    now = time.time()
+    merged = {}
+    try:
+        raw = control.homeWindow.getProperty(_FAILED_MIRRORS_PROP)
+        if raw:
+            data = control.loads_json(raw, default={})
+            if isinstance(data, dict):
+                for k, exp in data.items():
+                    if k not in _FAILED_MIRRORS and isinstance(exp, (int, float)) and exp > now:
+                        merged[k] = float(exp)
+    except Exception:
+        pass
+    for k, exp in list(_FAILED_MIRRORS.items()):
+        if isinstance(exp, (int, float)) and exp > now:
+            merged[k] = float(exp)
+        else:
+            _FAILED_MIRRORS.pop(k, None)
+    _FAILED_MIRRORS.clear()
+    _FAILED_MIRRORS.update(merged)
+    return _FAILED_MIRRORS
+
+
+def _save_failed_mirrors():
+    """Persist active mirror cooldowns to Kodi Window(10000) so they survive across plugin invocations."""
+    now = time.time()
+    active = {k: v for k, v in _FAILED_MIRRORS.items() if isinstance(v, (int, float)) and v > now}
+    _FAILED_MIRRORS.clear()
+    _FAILED_MIRRORS.update(active)
+    try:
+        if active:
+            control.homeWindow.setProperty(_FAILED_MIRRORS_PROP, json.dumps(active, separators=(',', ':')))
+        else:
+            control.homeWindow.clearProperty(_FAILED_MIRRORS_PROP)
+    except Exception:
+        pass
+
+
+def clear_mirror_failures(url=None):
+    """Clear one or all mirror failure cooldowns (in memory and Window(10000))."""
+    if url:
+        key = _normalize_mirror_key(url)
+        _load_failed_mirrors()
+        _FAILED_MIRRORS.pop(key, None)
+        _save_failed_mirrors()
+    else:
+        _FAILED_MIRRORS.clear()
+        try:
+            control.homeWindow.clearProperty(_FAILED_MIRRORS_PROP)
+        except Exception:
+            pass
+
+
+def mark_mirror_failure(url, cooldown=None):
+    """Mark a mirror/host URL as temporarily failing with a persistent session cooldown."""
     if not url:
         return
-    url_norm = url.strip().rstrip('/') + '/'
-    _FAILED_MIRRORS[url_norm] = time.time()
-    control.log(f"Domains: marked mirror {url_norm} as failing (cooldown {int(_FAILURE_COOLDOWN)}s)", 'debug')
+    ttl = float(cooldown) if cooldown is not None else float(_FAILURE_COOLDOWN)
+    url_norm = _normalize_mirror_key(url)
+    _load_failed_mirrors()
+    _FAILED_MIRRORS[url_norm] = time.time() + ttl
+    _save_failed_mirrors()
+    control.log(f"Domains: marked mirror {url_norm} as failing (cooldown {int(ttl)}s)", 'debug')
 
 
 def is_mirror_healthy(url):
-    """Check if a mirror URL is healthy (not currently in failure cooldown)."""
+    """Check if a mirror/host URL is healthy (not currently in failure cooldown)."""
     if not url:
         return False
-    url_norm = url.strip().rstrip('/') + '/'
-    last_fail = _FAILED_MIRRORS.get(url_norm)
-    if not last_fail:
+    url_norm = _normalize_mirror_key(url)
+    failed = _load_failed_mirrors()
+    expiry = failed.get(url_norm)
+    if not expiry:
         return True
-    if time.time() - last_fail > _FAILURE_COOLDOWN:
+    if time.time() >= expiry:
         _FAILED_MIRRORS.pop(url_norm, None)
+        _save_failed_mirrors()
         return True
     return False
 

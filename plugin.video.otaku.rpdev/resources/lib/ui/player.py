@@ -164,6 +164,11 @@ def score_subtitle_stream(sub, target_mode='dialog', preferred_lang='eng', custo
     if preferred_type and sub.get(preferred_type, False):
         score += 10
 
+    # 3b. External Subtitle Preference (C-11): prefer addon-downloaded .vtt/.srt over in-manifest HLS streams on ties
+    is_external = bool(sub.get('isexternal', False)) or 'temporarysubs' in sub_name or '(external)' in sub_name
+    if is_external:
+        score += 25
+
     # 4. Default Container Flag (Tie-Breaker Only)
     if is_default:
         score += 5
@@ -315,6 +320,24 @@ class WatchlistPlayer(player):
         ):
             control.playerWindow.clearProperty(prop)
 
+    def _resolve_resume_target_file(self):
+        """Return a safe non-HTTP(S) file path for Files.SetFileDetails (prevents EOF CCurlFile::Stat HTTP 22 errors)."""
+        target_file = self.path or ''
+        if not target_file:
+            try:
+                target_file = self.getPlayingFile()
+            except Exception:
+                target_file = ''
+        if not target_file:
+            return ''
+        if str(target_file).lower().startswith(('http://', 'https://')):
+            mal_id = getattr(self, 'mal_id', None)
+            ep = getattr(self, 'episode', None)
+            if mal_id and ep is not None and str(ep) != '':
+                return f"plugin://{control.ADDON_ID}/play/{mal_id}/{ep}"
+            return ''
+        return str(target_file)
+
     def onPlayBackStopped(self):
         self._playback_stopped = True
         self._user_stopped_or_errored = True
@@ -326,16 +349,11 @@ class WatchlistPlayer(player):
             embed_extractor.del_subs()
         except Exception:
             pass
-        target_file = self.path or ''
-        if not target_file:
-            try:
-                target_file = self.getPlayingFile()
-            except Exception:
-                target_file = ''
+        target_file = self._resolve_resume_target_file()
 
-        if target_file and getattr(self, 'total_time', 0) > 60:
+        if target_file and (getattr(self, 'total_time', 0) or 0) > 60:
             watched_pct = self.getWatchedPercent()
-            if 10 < watched_pct < 90 and 0 < getattr(self, 'current_time', 0) < self.total_time:
+            if 10 < watched_pct < 90 and 0 < (getattr(self, 'current_time', 0) or 0) < self.total_time:
                 query = {
                     'jsonrpc': '2.0',
                     'method': 'Files.SetFileDetails',
@@ -377,13 +395,8 @@ class WatchlistPlayer(player):
             embed_extractor.del_subs()
         except Exception:
             pass
-        target_file = self.path or ''
-        if not target_file:
-            try:
-                target_file = self.getPlayingFile()
-            except Exception:
-                target_file = ''
-        if target_file and getattr(self, 'total_time', 0) > 60:
+        target_file = self._resolve_resume_target_file()
+        if target_file and (getattr(self, 'total_time', 0) or 0) > 60:
             query = {
                 'jsonrpc': '2.0',
                 'method': 'Files.SetFileDetails',
@@ -416,22 +429,35 @@ class WatchlistPlayer(player):
     # ── Playlist Building ─────────────────────────────────────────────────
 
     def build_playlist(self):
+        def _ep_num(ep):
+            try:
+                return int(ep.get('number') or 0)
+            except (ValueError, TypeError, AttributeError):
+                return 0
+
+        sorted_episodes = sorted(self.episodes or [], key=_ep_num)
         if not control.getBool('playlist.unaired'):
             from resources.lib.AnimeSchedule import get_anime_schedule
             airing_anime = get_anime_schedule(self.mal_id)
 
             if airing_anime and airing_anime.get('current_episode'):
-                episode_count = airing_anime['current_episode']
-                self.episodes = self.episodes[:episode_count]
+                episode_count = int(airing_anime['current_episode'])
+                sorted_episodes = [ep for ep in sorted_episodes if _ep_num(ep) <= episode_count]
 
-        video_data = indexers.process_episodes(self.episodes, '') if self.episodes else []
-        playlist = control.bulk_dir_list(video_data, True)[self.episode:]
+        try:
+            current_ep = int(self.episode or 0)
+        except (ValueError, TypeError):
+            current_ep = 0
+
+        upcoming_episodes = [ep for ep in sorted_episodes if _ep_num(ep) > current_ep]
+        video_data = indexers.process_episodes(upcoming_episodes, '') if upcoming_episodes else []
+        playlist = control.bulk_dir_list(video_data, True)
 
         for i, item in enumerate(playlist):
             url, listitem = item[0], item[1]
 
-            # Calculate the actual episode number based on playlist position
-            actual_episode_number = self.episode + i + 1
+            # Calculate the actual episode number from the sorted upcoming episode
+            actual_episode_number = _ep_num(upcoming_episodes[i]) if i < len(upcoming_episodes) else (current_ep + i + 1)
             payload = f"{self.mal_id}/{actual_episode_number}"
 
             # Add context menu with correct episode number
@@ -476,8 +502,11 @@ class WatchlistPlayer(player):
 
     def onWatchedPercent(self):
         while self.isPlaying() and not self.updated:
-            self.current_time = self.getTime()
-            watched_percentage = (self.current_time / self.total_time) * 100 if self.total_time != 0 else 0
+            try:
+                self.current_time = self.getTime()
+            except RuntimeError:
+                break
+            watched_percentage = (self.current_time / self.total_time) * 100 if self.total_time else 0
 
             if watched_percentage > self.update_percent:
                 self._update_watched_progress()
@@ -589,7 +618,10 @@ class WatchlistPlayer(player):
 
         # Continue monitoring until playback finishes (responsive 200ms slices)
         while not self._playback_stopped and self.isPlaying():
-            self.current_time = int(self.getTime())
+            try:
+                self.current_time = int(self.getTime())
+            except RuntimeError:
+                break
             for _ in range(25):  # 25 x 200ms = 5000ms max, checks stop/abort every 200ms
                 if self._playback_stopped or not self.isPlaying() or (self._monitor and self._monitor.abortRequested()):
                     break
@@ -627,9 +659,12 @@ class WatchlistPlayer(player):
                     xbmc.sleep(200)
                 continue
 
-            self.current_time = int(self.getTime())
-            if self.total_time <= 0:
-                self.total_time = int(self.getTotalTime())
+            try:
+                self.current_time = int(self.getTime())
+                if (self.total_time or 0) <= 0:
+                    self.total_time = int(self.getTotalTime())
+            except RuntimeError:
+                break
 
             intro_start = self.skipintro_start if self.skipintro_aniskip else (control.getInt('skipintro.delay') or 1)
             intro_end = self.skipintro_end if self.skipintro_aniskip else intro_start + control.getInt('skipintro.duration')
@@ -1233,12 +1268,19 @@ class WatchlistPlayer(player):
 class PlayerDialogs(xbmc.Player):
     def __init__(self):
         super().__init__()
-        self.playing_file = self.getPlayingFile()
+        try:
+            self.playing_file = self.getPlayingFile()
+        except RuntimeError:
+            self.playing_file = ''
 
     def display_dialog(self, skipoutro_aniskip, skipoutro_end):
         if playList.size() == 0 or playList.getposition() == (playList.size() - 1):
             return
-        if self.playing_file != self.getPlayingFile() or not self.isPlayingVideo() or not self._is_video_window_open():
+        try:
+            current_file = self.getPlayingFile()
+        except RuntimeError:
+            return
+        if self.playing_file != current_file or not self.isPlayingVideo() or not self._is_video_window_open():
             return
         self._show_playing_next(skipoutro_aniskip, skipoutro_end)
 
@@ -1352,7 +1394,12 @@ class PlayerDialogs(xbmc.Player):
                 next_info['tvshowtitle'] = getattr(vtag, 'getTVShowTitle', lambda: '')()
                 next_info['season'] = getattr(vtag, 'getSeason', lambda: 0)()
                 next_info['episode'] = getattr(vtag, 'getEpisode', lambda: 0)()
-                next_info['aired'] = getattr(vtag, 'getFirstAired', lambda: '')() or getattr(vtag, 'getPremiered', lambda: '')()
+                next_info['aired'] = (
+                    (vtag.getFirstAiredAsW3C() if hasattr(vtag, 'getFirstAiredAsW3C') else '')
+                    or (vtag.getPremieredAsW3C() if hasattr(vtag, 'getPremieredAsW3C') else '')
+                    or ('' if hasattr(vtag, 'getFirstAiredAsW3C') else getattr(vtag, 'getFirstAired', lambda: '')())
+                    or ('' if hasattr(vtag, 'getPremieredAsW3C') else getattr(vtag, 'getPremiered', lambda: '')())
+                )
                 next_info['rating'] = getattr(vtag, 'getRating', lambda: 0.0)()
                 next_info['plot'] = getattr(vtag, 'getPlot', lambda: '')()
         except Exception:

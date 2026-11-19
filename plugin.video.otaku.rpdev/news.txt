@@ -1,7 +1,19 @@
 ========================
+[B]OTAKU RPDEV v6.2.9[/B]
+Deep Concerns Audit & Live Kodi 21/22 Verification
+========================
+
+v6.2.9 Highlights:
+  * Persist mirror cooldowns & scraper circuit breaker across invocations,
+    fix translate.goog alt URL joins, harden HLS/VTT/subtitle & failover
+    deprioritization, fix read-only mappings.db WAL checkpoint, numeric
+    playlist sorting, smartplay.preresolve getBool & EOF playback guards
+  * verified live on Kodi 21 & 22
+
+--------------------------------
 [B]OTAKU RPDEV v6.2.8[/B]
 Batch Torrent Relevance, Zero-Wait EOF Race & Pre-Scrape Guard
-========================
+--------------------------------
 
 v6.2.8 Highlights:
   * Guard background pre-scraping against non-existent Ep 2 on movies and Ep

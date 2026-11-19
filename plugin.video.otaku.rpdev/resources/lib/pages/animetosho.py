@@ -122,7 +122,7 @@ class Sources(BrowserBase):
         def run_search(task):
             try:
                 sources = self.process_animetosho_episodes(
-                    f"{self._BASE_URL.rstrip('/')}/search",
+                    domains.join_url(domains.get_domain('animetosho', self._BASE_URL) or self._BASE_URL, 'search'),
                     task['params'],
                     mal_id,
                     episode_zfill,
@@ -161,7 +161,8 @@ class Sources(BrowserBase):
         if self.anidb_id:
             params['aids'] = self.anidb_id
 
-        animetosho_sources = self.process_animetosho_episodes(f"{self._BASE_URL.rstrip('/')}/search", params, mal_id, episode_zfill, season_zfill, part, show=show, is_show_pack=True)
+        search_url = domains.join_url(domains.get_domain('animetosho', self._BASE_URL) or self._BASE_URL, 'search')
+        animetosho_sources = self.process_animetosho_episodes(search_url, params, mal_id, episode_zfill, season_zfill, part, show=show, is_show_pack=True)
         return animetosho_sources
 
     def get_movie_sources(self, show, mal_id):
@@ -186,7 +187,8 @@ class Sources(BrowserBase):
         if self.anidb_id:
             params['aids'] = self.anidb_id
 
-        self.sources = self.process_animetosho_movie(f"{self._BASE_URL.rstrip('/')}/search", params, mal_id)
+        search_url = domains.join_url(domains.get_domain('animetosho', self._BASE_URL) or self._BASE_URL, 'search')
+        self.sources = self.process_animetosho_movie(search_url, params, mal_id)
         self.append_cache_uncached_noduplicates()
         return {'cached': self.cached, 'uncached': self.uncached}
 

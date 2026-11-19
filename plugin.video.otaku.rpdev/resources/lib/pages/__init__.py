@@ -51,7 +51,9 @@ EMBED_SKIP_PREFIXES = tuple(dict.fromkeys(row[3] for row in _EMBED_MODULES if ro
 
 
 class ScraperCircuitBreaker:
-    """In-memory circuit breaker that temporarily pauses failing scrapers to prevent UI freezes."""
+    """Session-persistent circuit breaker (backed by Kodi Window(10000)) that pauses failing scrapers across invocations."""
+    _PROP_KEY = 'otaku.circuit_breaker'
+
     def __init__(self, failure_threshold=3, cooldown_seconds=300):
         self.failure_threshold = failure_threshold
         self.cooldown_seconds = cooldown_seconds
@@ -59,8 +61,46 @@ class ScraperCircuitBreaker:
         self._cooldown_until = {}
         self._lock = threading.Lock()
 
+    def _load_locked(self):
+        try:
+            raw = control.homeWindow.getProperty(self._PROP_KEY)
+            if not raw:
+                return
+            data = control.loads_json(raw, default={})
+            if not isinstance(data, dict):
+                return
+            now = time.time()
+            persisted_failures = data.get('failures') or {}
+            persisted_cooldowns = data.get('cooldowns') or {}
+            for k, v in persisted_failures.items():
+                if k not in self._failures and isinstance(v, (int, float)):
+                    self._failures[k] = int(v)
+            for k, exp in persisted_cooldowns.items():
+                if k not in self._cooldown_until and isinstance(exp, (int, float)) and exp > now:
+                    self._cooldown_until[k] = float(exp)
+        except Exception:
+            pass
+
+    def _save_locked(self):
+        try:
+            import json
+            now = time.time()
+            active_cooldowns = {k: v for k, v in self._cooldown_until.items() if isinstance(v, (int, float)) and v > now}
+            self._cooldown_until = active_cooldowns
+            if self._failures or active_cooldowns:
+                payload = json.dumps(
+                    {'failures': self._failures, 'cooldowns': active_cooldowns},
+                    separators=(',', ':'),
+                )
+                control.homeWindow.setProperty(self._PROP_KEY, payload)
+            else:
+                control.homeWindow.clearProperty(self._PROP_KEY)
+        except Exception:
+            pass
+
     def is_tripped(self, provider: str) -> bool:
         with self._lock:
+            self._load_locked()
             now = time.time()
             cooldown = self._cooldown_until.get(provider, 0)
             if now < cooldown:
@@ -68,29 +108,36 @@ class ScraperCircuitBreaker:
             if cooldown != 0:
                 del self._cooldown_until[provider]
                 self._failures[provider] = 0
+                self._save_locked()
             return False
 
     def record_success(self, provider: str):
         with self._lock:
+            self._load_locked()
             self._failures.pop(provider, None)
             self._cooldown_until.pop(provider, None)
+            self._save_locked()
 
     def record_failure(self, provider: str):
         with self._lock:
+            self._load_locked()
             count = self._failures.get(provider, 0) + 1
             self._failures[provider] = count
             if count >= self.failure_threshold:
                 self._cooldown_until[provider] = time.time() + self.cooldown_seconds
                 control.log(f"CircuitBreaker: Provider '{provider}' tripped for {self.cooldown_seconds}s ({count} consecutive errors)", 'warning')
+            self._save_locked()
 
     def reset(self, provider: str = None):
         with self._lock:
             if provider:
+                self._load_locked()
                 self._failures.pop(provider, None)
                 self._cooldown_until.pop(provider, None)
             else:
                 self._failures.clear()
                 self._cooldown_until.clear()
+            self._save_locked()
 
 
 circuit_breaker = ScraperCircuitBreaker()
