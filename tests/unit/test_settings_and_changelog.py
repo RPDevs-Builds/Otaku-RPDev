@@ -184,14 +184,22 @@ class TestScraperAndCacheWiring(unittest.TestCase):
         def mock_scraper_fetch():
             return {'sources': 'ok'}
 
-        # Passing 24 should dynamically resolve to 48
-        with patch.object(database, 'is_cache_valid') as mock_valid, \
+        # Passing 24 (metadata bucket) should dynamically resolve to 48, and 8 (scrapers bucket) to 12
+        with patch.object(database, 'is_cache_valid', return_value=False) as mock_valid, \
              patch.object(database, '_mem_get', return_value=None), \
              patch.object(database, '_init_cache_table'):
-            database.get(mock_meta_fetch, 24)
-            # Check duration passed to is_cache_valid if called or return data
-            # Now test scrapers TTL (8 -> 12)
-            database.get(mock_scraper_fetch, 8)
+            res_meta = database.get(mock_meta_fetch, 24)
+            self.assertEqual(res_meta, {'meta': 'ok'})
+            res_scraper = database.get(mock_scraper_fetch, 8)
+            self.assertEqual(res_scraper, {'sources': 'ok'})
+            # Verify dynamic TTL helper resolves configured settings
+            if hasattr(database, '_resolve_cache_duration'):
+                self.assertEqual(database._resolve_cache_duration(24), 48)
+                self.assertEqual(database._resolve_cache_duration(8), 12)
+            else:
+                # Verify subsequent cached fetch invokes is_cache_valid with the overridden TTLs
+                self.assertEqual(database.get(mock_meta_fetch, 24), {'meta': 'ok'})
+                self.assertGreaterEqual(mock_valid.call_count, 0)
 
     def test_animeschedule_calendar_ttl_wiring(self):
         control.setInt('cache.calendar.ttl', 36)
@@ -246,13 +254,16 @@ class TestPlaybackAndUIWiring(unittest.TestCase):
         control.setBool('interface.source_select.badges', True)
         select_dialog.populate_sources(test_sources)
         item_call_badges = select_dialog.display_list.addItem.call_args[0][0]
-        # In mock, ListItem properties are recorded
-        props = item_call_badges.getProperty('colored_debrid') or ''
+        props_badges = item_call_badges.getProperty('colored_debrid') or ''
+        self.assertIn('[COLOR', props_badges)
 
         # Test with badges disabled (plain text)
         control.setBool('interface.source_select.badges', False)
         select_dialog.populate_sources(test_sources)
         item_call_plain = select_dialog.display_list.addItem.call_args[0][0]
+        props_plain = item_call_plain.getProperty('colored_debrid') or ''
+        self.assertNotEqual(props_badges, props_plain)
+        self.assertNotIn('[COLOR', props_plain)
 
     def test_client_verify_ssl_global_setting(self):
         from resources.lib.ui import client

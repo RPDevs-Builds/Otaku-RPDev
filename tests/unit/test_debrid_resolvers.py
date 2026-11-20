@@ -96,8 +96,9 @@ class TestDebridResolvers(unittest.TestCase):
     def test_torbox_status_network_failure(self):
         tb = TorBox()
         with patch("resources.lib.ui.client.get", return_value=None):
-            # Must not crash when network returns None
-            tb.status()
+            # Must return safely without crashing when network returns None
+            status = tb.status()
+            self.assertFalse(status)
 
 
 if __name__ == "__main__":

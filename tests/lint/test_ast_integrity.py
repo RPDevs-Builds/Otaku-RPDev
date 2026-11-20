@@ -424,6 +424,47 @@ class TestASTIntegrity(unittest.TestCase):
                     bbcode_errors.append((os.path.basename(xf), f"Unbalanced [{tag}] ({open_cnt}) vs [/{tag}] ({close_cnt})"))
         self.assertEqual(bbcode_errors, [], f"BBCode formatting errors in skin XMLs: {bbcode_errors}")
 
+    def test_zero_deprecated_ssl_protocol_constants(self):
+        """AGENTS.md §4/§11: Deprecated ssl.PROTOCOL_TLSv1* / PROTOCOL_TLS constants are forbidden; use PROTOCOL_TLS_CLIENT."""
+        deprecated = {'PROTOCOL_TLS', 'PROTOCOL_TLSv1', 'PROTOCOL_TLSv1_1', 'PROTOCOL_TLSv1_2', 'PROTOCOL_SSLv23'}
+        violations = []
+        for path in _iter_addon_py_files():
+            with open(path, 'r', encoding='utf-8') as f:
+                tree = ast.parse(f.read(), filename=path)
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Attribute) and node.attr in deprecated:
+                    violations.append((os.path.relpath(path, REPO_ROOT), node.lineno, node.attr))
+        self.assertEqual(violations, [], f"Deprecated SSL protocol constants detected: {violations}")
+
+    def test_zero_deprecated_listitem_setinfo_calls(self):
+        """AGENTS.md §4: Deprecated ListItem.setInfo() calls are forbidden; use getVideoInfoTag()."""
+        violations = []
+        for path in _iter_addon_py_files():
+            with open(path, 'r', encoding='utf-8') as f:
+                tree = ast.parse(f.read(), filename=path)
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == 'setInfo':
+                    violations.append((os.path.relpath(path, REPO_ROOT), node.lineno))
+        self.assertEqual(violations, [], f"Deprecated ListItem.setInfo() calls detected: {violations}")
+
+    def test_zero_int_timeout_truncation_in_client_py(self):
+        """AGENTS.md §11: client.py must cast timeouts via float(timeout), never int(timeout)."""
+        client_path = os.path.join(ADDON_DIR, 'resources', 'lib', 'ui', 'client.py')
+        with open(client_path, 'r', encoding='utf-8') as f:
+            tree = ast.parse(f.read(), filename=client_path)
+        violations = []
+        for node in ast.walk(tree):
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Name)
+                and node.func.id == 'int'
+                and node.args
+                and isinstance(node.args[0], ast.Name)
+                and 'timeout' in node.args[0].id.lower()
+            ):
+                violations.append((os.path.relpath(client_path, REPO_ROOT), node.lineno))
+        self.assertEqual(violations, [], f"int(timeout) truncation detected in client.py: {violations}")
+
 
 if __name__ == '__main__':
     unittest.main()

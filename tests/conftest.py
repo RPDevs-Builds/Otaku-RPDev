@@ -772,6 +772,10 @@ class MockWindowXMLDialog(metaclass=SwigClassProtectionMeta):
     def getProperty(self, k): return self._props.get(str(k), '')
     def clearProperty(self, k): self._props.pop(str(k), None)
     def clearProperties(self): self._props.clear()
+    def onInit(self): pass
+    def onAction(self, action): pass
+    def onClick(self, control_id): pass
+    def onFocus(self, control_id): pass
     def getControl(self, control_id):
         active_profile = _current_kodi_profile
         strict_skin = active_profile and getattr(active_profile, 'strict_skin_controls', False)
@@ -817,6 +821,10 @@ class MockWindowDialog(metaclass=SwigClassProtectionMeta):
     def getProperty(self, k): return self._props.get(str(k), '')
     def clearProperty(self, k): self._props.pop(str(k), None)
     def clearProperties(self): self._props.clear()
+    def onInit(self): pass
+    def onAction(self, action): pass
+    def onClick(self, control_id): pass
+    def onFocus(self, control_id): pass
     def getControl(self, control_id):
         if control_id not in self._controls:
             self._controls[control_id] = MockControlList()

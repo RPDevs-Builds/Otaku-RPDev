@@ -188,10 +188,10 @@ class TestDebridAndPlaybackM1C(unittest.TestCase):
         calendar = AnimeScheduleCalendar()
         with patch.object(calendar, '_load_cache', return_value=[{'title': 'Anime A'}]):
             res1 = calendar.get_calendar_data(days=7)
-            self.assertIsNotNone(res1)
-            # Default types parameter must be safely handled
+            self.assertEqual(res1, [{'title': 'Anime A'}])
+            # Default types parameter must be safely handled without mutating shared defaults
             res2 = calendar.get_calendar_data(days=7, types=None)
-            self.assertIsNotNone(res2)
+            self.assertEqual(res2, [{'title': 'Anime A'}])
 
     def test_browserbase_mutable_defaults(self):
         """Verify BrowserBase _post_request does not reuse a shared mutable dict."""

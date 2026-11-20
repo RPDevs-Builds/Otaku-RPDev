@@ -105,10 +105,14 @@ class TestUICoreEngine(unittest.TestCase):
         self.assertEqual(vtag.getResumePoint(), 600.0)
 
     def test_client_ssl_contexts(self):
+        import ssl
         unverified = client._get_ssl_context(verify=False)
-        self.assertIsNotNone(unverified)
+        self.assertIsInstance(unverified, ssl.SSLContext)
+        self.assertFalse(unverified.check_hostname)
+        self.assertEqual(unverified.verify_mode, ssl.CERT_NONE)
         verified = client._get_ssl_context(verify=True)
-        self.assertIsNotNone(verified)
+        self.assertIsInstance(verified, ssl.SSLContext)
+        self.assertEqual(verified.verify_mode, ssl.CERT_REQUIRED)
 
     def test_client_url_helpers(self):
         self.assertTrue(client._validate_url_scheme("https://api.jikan.moe/v4"))
@@ -137,13 +141,11 @@ class TestUICoreEngine(unittest.TestCase):
             self.assertEqual(row['val'], 'item1')
 
         # Test explicit transaction rollback on error
-        try:
+        with self.assertRaises(ValueError):
             with database.SQL(self.db_path) as cur:
                 cur.execute("BEGIN TRANSACTION")
                 cur.execute("INSERT INTO test_table (val) VALUES ('item2')")
                 raise ValueError("Forced error during transaction")
-        except ValueError:
-            pass
 
         with database.SQL(self.db_path) as cur:
             cur.execute("SELECT COUNT(*) as count FROM test_table")

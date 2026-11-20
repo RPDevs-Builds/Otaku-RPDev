@@ -136,15 +136,17 @@ class TestScrapersPages(unittest.TestCase):
             anikoto, hianime, watchnixtoons2
         )
 
-        scrapers = [
+        torrent_scrapers = [
             (nyaa.Sources, ('Frieren', 123, 1, 'Finished', 'tv')),
             (animetosho.Sources, ('Frieren', 123, 1, 'Finished', 'tv')),
             (nekobt.Sources, ('Frieren', 123, 1, 'Finished', 'tv')),
             (torrentio.Sources, ('Frieren', 123, 1, 'Finished', 'tv')),
             (bitsearch.Sources, ('Frieren', 123, 1, 'Finished', 'tv')),
             (piratebay.Sources, ('Frieren', 123, 1, 'Finished', 'tv')),
-            (animekai.Sources, (123, 1)),
             (easynews.Sources, ('Frieren', 123, 1, 'Finished', 'tv')),
+        ]
+        embed_scrapers = [
+            (animekai.Sources, (123, 1)),
             (gogoanime.Sources, (123, 1)),
             (animepahe.Sources, (123, 1)),
             (anikoto.Sources, (123, 1)),
@@ -152,22 +154,26 @@ class TestScrapersPages(unittest.TestCase):
             (watchnixtoons2.Sources, (123, 1, 'tv')),
         ]
 
-        for scraper_cls, args in scrapers:
-            instance = scraper_cls()
-            self.assertIsNotNone(instance)
-            # Patch network calls to verify get_sources graceful handling
-            with mock.patch('resources.lib.ui.client.get', return_value=None), \
-                 mock.patch('resources.lib.ui.client.post', return_value=None), \
-                 mock.patch('resources.lib.ui.client.request', return_value=None):
-                try:
-                    res = instance.get_sources(*args)
-                    self.assertIsInstance(res, list)
-                    if hasattr(instance, 'get_movie_sources'):
-                        movie_res = instance.get_movie_sources(query='Frieren', anilist_id=123, episode='1', status='Finished', media_type='movie')
-                        self.assertIsInstance(movie_res, list)
-                except Exception as e:
-                    # Some scrapers return early or catch exceptions internally
-                    pass
+        with mock.patch('resources.lib.ui.client.get', return_value=None), \
+             mock.patch('resources.lib.ui.client.post', return_value=None), \
+             mock.patch('resources.lib.ui.client.request', return_value=None), \
+             mock.patch('resources.lib.ui.domains.is_mirror_healthy', return_value=True), \
+             mock.patch('resources.lib.ui.domains.mark_mirror_failure'), \
+             mock.patch('resources.lib.ui.database.get_show', return_value=None), \
+             mock.patch('resources.lib.ui.database.get_show_meta', return_value=None), \
+             mock.patch('resources.lib.ui.database.get_mappings', return_value={}):
+            for scraper_cls, args in torrent_scrapers:
+                instance = scraper_cls()
+                res = instance.get_sources(*args)
+                self.assertIsInstance(res, dict, f"{scraper_cls.__module__}.get_sources must return dict")
+                self.assertEqual(res.get('cached', []), [])
+                self.assertEqual(res.get('uncached', []), [])
+
+            for scraper_cls, args in embed_scrapers:
+                instance = scraper_cls()
+                res = instance.get_sources(*args)
+                self.assertIsInstance(res, list, f"{scraper_cls.__module__}.get_sources must return list")
+                self.assertEqual(res, [])
 
 
 class TestEmbedExtractors(unittest.TestCase):
@@ -306,25 +312,25 @@ class TestDebridModules(unittest.TestCase):
 
         with mock.patch.object(control, 'getSetting', return_value='test-token'):
             p = Premiumize()
-            self.assertIsNotNone(p)
+            self.assertEqual(p.token, 'test-token')
 
             ad = AllDebrid()
-            self.assertIsNotNone(ad)
+            self.assertEqual(ad.token, 'test-token')
 
             rd = RealDebrid()
-            self.assertIsNotNone(rd)
+            self.assertEqual(rd.token, 'test-token')
 
             tb = TorBox()
-            self.assertIsNotNone(tb)
+            self.assertEqual(tb.token, 'test-token')
 
             dl = DebridLink()
-            self.assertIsNotNone(dl)
+            self.assertEqual(dl.token, 'test-token')
 
             ed = EasyDebrid()
-            self.assertIsNotNone(ed)
+            self.assertEqual(ed.token, 'test-token')
 
             en = Easynews()
-            self.assertIsNotNone(en)
+            self.assertEqual(en.username, 'test-token')
 
 
 if __name__ == '__main__':

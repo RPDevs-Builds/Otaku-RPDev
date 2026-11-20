@@ -702,11 +702,11 @@ def run_kodi_version_suite(ver, mode, fs_url, mock_server_url=None, skip_playbac
     branch, profile_dir = PROFILES[ver]
     addon_ver = get_addon_version()
 
-    print(f"\n=======================================================")
+    print("\n=======================================================")
     print(f" Launching Headless Kodi {ver} ({branch}) E2E Suite [mode={mode}]")
     print(f" Profile: {profile_dir}")
     print(f" Addon:   plugin.video.otaku.rpdev v{addon_ver}")
-    print(f"=======================================================")
+    print("=======================================================")
 
     subprocess.run(["flatpak", "kill", "tv.kodi.Kodi"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     time.sleep(1.0)

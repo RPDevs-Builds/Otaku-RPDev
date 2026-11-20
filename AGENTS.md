@@ -1,13 +1,13 @@
 # Otaku-RPDev Development & Engineering Rules
 
-Authoritative engineering invariants and operational mandates for `Otaku-RPDev` (`plugin.video.otaku.rpdev` & `context.otaku.rpdev`). For deep architecture diagrams and module maps, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). For operational runbooks, see `.agents/skills/otaku-onn-log-review/SKILL.md` and `.agents/skills/otaku-release-and-verification/SKILL.md`.
+Authoritative engineering invariants and operational mandates for `Otaku-RPDev` (`plugin.video.otaku.rpdev` & `context.otaku.rpdev`). See [docs/README.md](docs/README.md) for the full documentation index ([docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/TESTING.md](docs/TESTING.md), [docs/AUTOMATION.md](docs/AUTOMATION.md), [docs/CONFIGURATION_GUIDE.md](docs/CONFIGURATION_GUIDE.md), [docs/CONCERNS.md](docs/CONCERNS.md)), and `.agents/skills/` for operational runbooks.
 
 ---
 
 ## 1. Repository Architecture & Module Boundaries
 - **`plugin.video.otaku.rpdev/`**: Primary video add-on targeting Kodi 20 (Nexus), Kodi 21 (Omega), and Kodi 22 (Piers).
   - `default.py` (plugin router; dispatches auto-changelog asynchronously so modal dialogs never block root `GetDirectory`), `service.py` (`clean_settings`, 15m proactive OAuth refresh, passive SQLite WAL checkpoints).
-  - `resources/lib/ui/` (`control.py`, `database.py`, `client.py`, `player.py`, `source_utils.py`, `embed_extractor.py`, `domains.py`), `Main.py` & `routes/`, `pages/`, `debrid/`, `endpoints/`, `WatchlistFlavor/`, `subtitles/`, `windows/` & `resources/skins/Default/1080i/` (38 XML templates).
+  - `resources/lib/ui/` (`control.py`, `database.py`, `client.py`, `player.py`, `source_utils.py`, `embed_extractor.py`, `domains.py`), `Main.py` & `routes/`, `pages/`, `debrid/`, `endpoints/`, `WatchlistFlavor/`, `subtitles/`, `windows/` & `resources/skins/Default/1080i/` (41 XML templates).
 - **`context.otaku.rpdev/`**: Standalone context menu add-on (`_extract_subpath()` regex parsing for skin widgets; read-only `info.db`; 580 coloured/white studio logos under `resources/images/studios/`).
 - **`tests/`**: Hermetic offline suite (`tests/conftest.py` socket guard + SWIG mocks, `tests/kodi_profile.py` Kodi 21/22 simulation, `tests/unit/`, `tests/integration/`, `tests/lint/`, `tests/fixtures/`).
 
@@ -64,7 +64,7 @@ Authoritative engineering invariants and operational mandates for `Otaku-RPDev` 
 ## 8. Kodi GUI WindowXML & Single Event Dispatch Protocol
 - **Single Event Dispatch**: Never handle Action IDs `7`, `100`, or double-click inside `onAction()` when `onClick(control_id)` exists; guard irreversible modal actions with an idempotency flag.
 - **In-Place `ControlList` Updates**: Never call `list_control.reset()` to toggle/refresh rows (evicts C++ focus to index 0). Mutate `getListItem(idx)` in place, trim excess tail items via `removeItem(size - 1)` (guarded with `hasattr`), and restore `selectItem(pos)`. Retrieve control state *before* calling `self.close()`.
-- **Skin XML & `<defaultcontrol>` Integrity**: Keep all 38 1080i XMLs valid (`ElementTree`), handle Android TV Back `[9, 10, 92, 216]`, and never set `<defaultcontrol>` to invisible or dynamically populated lists (call `self.setFocusId(X)` in Python after populating items).
+- **Skin XML & `<defaultcontrol>` Integrity**: Keep all 41 1080i XMLs valid (`ElementTree`), handle Android TV Back `[9, 10, 92, 216]`, and never set `<defaultcontrol>` to invisible or dynamically populated lists (call `self.setFocusId(X)` in Python after populating items).
 - **Sort Methods & Pinning**: Register `"Default"` with `SORT_METHOD_UNSORTED` (never `SORT_METHOD_NONE`). Keep titles in `addSortMethod()` `labelMask` (`"%L"` / `"%H. %T"`) and metadata tokens (`%Y`, `%R`, `%E`, `%P`) strictly in `label2Mask`. Pin `Next Page` (`SpecialSort="bottom"`) and filter rows (`SpecialSort="top"`).
 - **Headless Kodi 22 Captures**: In `Window 10140` (Settings), send `Input.Left` before iterating sidebar categories. Capture Xvfb screenshots with `import -window root -quality 92 <path>`.
 
@@ -101,17 +101,17 @@ Authoritative engineering invariants and operational mandates for `Otaku-RPDev` 
 
 ---
 
-## 12. Hermetic Testing, CI & Pre-Commit Verification Gate
-- All unit/integration tests must import `tests/conftest.py` (offline socket guard + SWIG mocks) and stay hermetic via `tests/fixtures/`. Validate dual Kodi 21/22 behavior via `tests/kodi_profile.py`, all 467 settings via `test_all_settings_outcomes.py`, and scoring via the 576-title dataset (`test_top100_hermetic_regression.py`).
-- **Mandatory Local Pre-Flight Gate** (run from `/mnt/sharedroot/projects/RPDevs-Builds/Otaku-RPDev`; treat project `DeprecationWarning`/`ResourceWarning` as defects):
-  1. `ruff check --select E9,F63,F7,F82 plugin.video.otaku.rpdev context.otaku.rpdev tests scripts`
-  2. `python3 -m compileall -q plugin.video.otaku.rpdev context.otaku.rpdev tests scripts`
-  3. `python3 -W default -m unittest discover -s tests -v` (991+ tests, 0 failures/errors)
-  4. `python3 scripts/audit_function_coverage.py --fail-below 60` (100% module coverage across all `.py` files)
-- For live local Kodi 21/22 Flatpak E2E validation, use `scripts/test_kodi_installs.py` or `kodi-env headless 22` (see `.agents/skills/otaku-onn-log-review/SKILL.md`).
+## 12. Hermetic Testing, CI & Unified Verification Gate
+- All unit/integration tests must import `tests/conftest.py` (offline socket guard + SWIG mocks) and stay hermetic via `tests/fixtures/`. Validate dual Kodi 21/22 behavior via `tests/kodi_profile.py`, all 467 settings via real consumer calls in `test_all_settings_outcomes.py`, UI/routes via `test_end_user_ui_and_routes.py`, and scoring via the 576-title dataset (`test_top100_hermetic_regression.py`).
+- **Actionable Test Quality Guardrails (`tests/lint/`)**: `test_suite_quality.py` forbids zero-assertion tests, tautologies, broad `except Exception: pass` swallowing in tests, unexecuted `module_from_spec`, and import-only `assertIsNotNone` placeholders. `test_ast_integrity.py` enforces code invariants (zero `soupsieve`, zero deprecated `ssl.PROTOCOL_TLS*`/`ListItem.setInfo()`, zero `int(timeout)`). `test_docs_and_customizations.py` enforces the `< 22 KB` `AGENTS.md` cap, skill frontmatter, `news.txt` divider width, and Markdown link integrity.
+- **Non-Vacuous Linters & Strict UI/Consumer Testing**: Every `tests/lint/*.py` module must compute `_REPO_ROOT = os.path.dirname(os.path.dirname(_TEST_DIR))` and assert a minimum scanned-item floor (`>= 90` test files, `>= 5` docs) so broken paths never pass vacuously. Settings tests must assert real consumer outcomes (no `set`→`get` echoes), and WindowXML tests must run under `KodiProfile('22', strict_skin_controls=True)`.
+- **Unified Pre-Flight Gate (`scripts/verify_all.py`)** — identical locally, in `ci.yml`, in `release.yml`, and in `scripts/release_addon.py`:
+  - Run `python3 scripts/verify_all.py --fail-below 60` (or `--json <path>` for structured LLM diagnostics, `--e2e` for headless Kodi 22).
+  - Executes 4 mandatory silos: `ruff check --select E9,F63,F7,F82,F811,F405,F541`, `compileall`, `unittest discover -s tests` with strict project warnings-as-errors (`-W error::DeprecationWarning:resources -W error::ResourceWarning:resources`), and `audit_function_coverage.py --fail-below 60` (100% module coverage).
+- See [docs/TESTING.md](docs/TESTING.md) and [docs/AUTOMATION.md](docs/AUTOMATION.md) for detailed recipes and headless Kodi 21/22 E2E commands.
 
 ---
 
 ## 13. Automated Tag-Based Release Workflow
-- Release directly with `python3 scripts/release_addon.py --bump patch --title "<Short Banner <=32 chars>" -m "<Bullets>"` (auto-updates `addon.xml`/`news.txt`/`changelog.txt`, runs the full pre-flight gate, commits `--no-gpg-sign`, tags `--no-sign`, pushes `main` + `vX.Y.Z`, watches GitHub Actions CI, and verifies GitHub Release + live CDN `https://kodi.repo.iamrp.dev/`).
-- Store all `Otaku-RPDev` project-specific rules in this file (keeping it strictly `< 24,000` bytes).
+- Release directly with `python3 scripts/release_addon.py --bump patch --title "<Short Banner <=32 chars>" -m "<Bullets>"` (auto-updates `addon.xml`/`news.txt`/`changelog.txt`, runs `scripts/verify_all.py --fail-below 60`, commits `--no-gpg-sign`, tags `--no-sign`, pushes `main` + `vX.Y.Z`, watches GitHub Actions CI, and verifies GitHub Release + live CDN `https://kodi.repo.iamrp.dev/`).
+- Store all `Otaku-RPDev` project-specific rules in this file (keeping it strictly `< 22,000` bytes; enforced by `test_docs_and_customizations.py`).

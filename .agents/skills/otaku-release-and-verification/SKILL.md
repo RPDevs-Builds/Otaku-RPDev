@@ -11,21 +11,25 @@ description: >-
 
 Run all commands from `/mnt/sharedroot/projects/RPDevs-Builds/Otaku-RPDev`.
 
-## 1. Local Pre-Flight Verification Gate
+## 1. Local Pre-Flight Verification Gate (`scripts/verify_all.py`)
+Run the unified multi-silo gate (identical to GitHub Actions `ci.yml`, `release.yml`, and `scripts/release_addon.py`):
 ```bash
-ruff check --select E9,F63,F7,F82 plugin.video.otaku.rpdev context.otaku.rpdev tests scripts
-python3 -m compileall -q plugin.video.otaku.rpdev context.otaku.rpdev tests scripts
-python3 -W default -m unittest discover -s tests -v
-python3 scripts/audit_function_coverage.py --fail-below 60
+python3 scripts/verify_all.py --fail-below 60
 ```
-- Treat any project `DeprecationWarning` or `ResourceWarning` surfaced under `-W default` as an actionable defect.
-- For targeted gate checks:
+For machine-readable LLM diagnostics (JSON report with failing test IDs, coverage metrics, and remediation hints):
+```bash
+python3 scripts/verify_all.py --fail-below 60 --json /tmp/verify_report.json
+```
+- Silos executed in order: `ruff` (`E9,F63,F7,F82,F811,F405,F541`), `compileall`, `unittest discover -s tests` (strict project warnings-as-errors for `resources.*` `DeprecationWarning`/`ResourceWarning`), and `audit_function_coverage.py --fail-below 60` (100% module coverage). Pass `--e2e` to also run headless Flatpak Kodi 22 E2E.
+- For fast targeted lint + settings + UI checks during development:
   ```bash
   python3 -W default -m unittest \
     tests/lint/test_ast_integrity.py \
-    tests/lint/test_function_coverage.py \
+    tests/lint/test_suite_quality.py \
+    tests/lint/test_docs_and_customizations.py \
     tests/unit/test_settings_schema_and_code_references.py \
     tests/unit/test_all_settings_outcomes.py \
+    tests/unit/test_end_user_ui_and_routes.py \
     tests/unit/test_kodi_21_22_dual_compat.py
   ```
 

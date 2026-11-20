@@ -253,15 +253,23 @@ class TestConcernsDeepAuditV629(unittest.TestCase):
         self.assertIn(control.cacheFile, opened_dbs)
 
     def test_playback_route_uses_getbool_for_preresolve(self):
-        """Live Kodi 22 fix: smartplay.preresolve is read via control.getBool, not getSetting."""
-        playback_path = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-            'plugin.video.otaku.rpdev', 'resources', 'lib', 'routes', 'playback.py',
-        )
-        with open(playback_path, 'r', encoding='utf-8') as f:
-            src = f.read()
-        self.assertIn("control.getBool('smartplay.preresolve', default=True)", src)
-        self.assertNotIn("control.getSetting('smartplay.preresolve')", src)
+        """Live Kodi 22 fix: smartplay.preresolve is evaluated via control.getBool during playback route."""
+        from resources.lib.routes import playback
+        control.playerWindow.setProperty('otaku.preResolved_url', 'https://cdn.test/ep2.mkv')
+        control.playerWindow.setProperty('otaku.preResolved_malId', '58516')
+        control.playerWindow.setProperty('otaku.preResolved_episode', '2')
+        try:
+            with patch.object(control, 'getBool', side_effect=lambda k, default=False: False if k == 'smartplay.preresolve' else default) as mock_gb, \
+                 patch.object(playback, 'database') as mock_db, \
+                 patch('resources.lib.MetaBrowser.get_sources', return_value=[]):
+                mock_db.get_episode.return_value = None
+                playback.PLAY('58516/2', {})
+                queried_keys = [c.args[0] for c in mock_gb.call_args_list if c.args]
+                self.assertIn('smartplay.preresolve', queried_keys)
+        finally:
+            control.playerWindow.clearProperty('otaku.preResolved_url')
+            control.playerWindow.clearProperty('otaku.preResolved_malId')
+            control.playerWindow.clearProperty('otaku.preResolved_episode')
 
 
 if __name__ == '__main__':

@@ -44,8 +44,11 @@ class TestAuditRemediations(unittest.TestCase):
         action_args = {'skipintro_end': 90, 'skipintro_aniskip': False}
         with patch.object(database, 'get_show', return_value={'mal_id': 123}):
             dlg = SkipIntro('skip_intro.xml', control.ADDON_PATH, actionArgs=action_args)
-            with patch.object(control, 'wait_for_abort', return_value=True):
+            with patch.object(dlg, 'getControl', wraps=dlg.getControl) as mock_ctrl, \
+                 patch.object(control, 'wait_for_abort', return_value=True):
                 dlg.background_tasks()
+                requested_ids = [c.args[0] for c in mock_ctrl.call_args_list]
+                self.assertNotIn(3014, requested_ids)
 
     def test_still_watching_selection_actions_defined(self):
         """StillWatchingXML must define selection_actions and closing_actions."""

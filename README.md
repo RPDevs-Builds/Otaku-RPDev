@@ -3,7 +3,7 @@
 [![Kodi version](https://img.shields.io/badge/Kodi-20%20(Nexus)%20%7C%2021%20(Omega)%20%7C%2022%20(Piers%20RC)-blue?style=for-the-badge&logo=kodi)](https://kodi.tv/)
 [![Python versions](https://img.shields.io/badge/Python-3.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue?style=for-the-badge&logo=python)](https://python.org/)
 [![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/GPL-3.0)
-[![Test Suite](https://img.shields.io/badge/Tests-412%2B%20Passing-brightgreen?style=for-the-badge&logo=checkmarx)](https://github.com/RPDevs-Builds/Otaku-RPDev/actions)
+[![Test Suite](https://img.shields.io/badge/Tests-1014%2B%20Passing-brightgreen?style=for-the-badge&logo=checkmarx)](https://github.com/RPDevs-Builds/Otaku-RPDev/actions)
 [![CDN Repository](https://img.shields.io/badge/CDN-kodi.repo.iamrp.dev-blueviolet?style=for-the-badge)](https://kodi.repo.iamrp.dev/)
 [![Original Project](https://img.shields.io/badge/Forked%20From-Goldenfreddy0703%2FOtaku-orange?style=for-the-badge&logo=github)](https://github.com/Goldenfreddy0703/Otaku)
 
@@ -146,7 +146,7 @@ Every single subsystem has been audited, benchmarked, hardened, and expanded:
 
 | Version | Highlights |
 | :--- | :--- |
-| **v6.2.0 – v6.2.13** | **Kodi 22.0-RC2 (Piers) Certified & Scraper/Subtitle Hardening**: Automatic direct ↔ `translate.goog` host failover and parallel single-batch scraping (`nyaa.py`, `animetosho.py`, ~3.5s scrapes), pre-Debrid & sort-stage sequel alias parity (`expand_sequel_season_aliases`), Kodi 22 `CDVDFactorySubtitle`-aligned external `.vtt`/`.srt`/`.ass` validation + unique `sub_tag` VFS cache isolation, full upstream `Goldenfreddy0703/Otaku` PR parity (`#496`–`#507`, `animetosho.net`, IEC sizes, AniList direct GraphQL fallback, multi-part filtering), persistent cross-invocation mirror cooldowns, and **991+ hermetic tests** across Python 3.11–3.13. |
+| **v6.2.0 – v6.2.14** | **Kodi 22.0-RC2 (Piers) Certified, Unified Verification & Scraper/Subtitle Hardening**: Automatic direct ↔ `translate.goog` host failover and parallel single-batch scraping (`nyaa.py`, `animetosho.py`, ~3.5s scrapes), pre-Debrid & sort-stage sequel alias parity (`expand_sequel_season_aliases`), Kodi 22 `CDVDFactorySubtitle`-aligned external `.vtt`/`.srt`/`.ass` validation + unique `sub_tag` VFS cache isolation, full upstream `Goldenfreddy0703/Otaku` PR parity (`#496`–`#507`, `animetosho.net`, IEC sizes, AniList direct GraphQL fallback, multi-part filtering), persistent cross-invocation mirror cooldowns, unified `scripts/verify_all.py` CI/release gate with strict project warnings-as-errors, and **1,014+ hermetic tests** (100% module coverage) across Python 3.11–3.14. |
 | **v5.9.0 – v5.9.2** | Full codebase audit remediation across all 123 Python modules and 38 skin XMLs; hardened window controllers (`skip_intro`, `still_watching`, `resolver`, `playing_next`, `source_select`, `sort_select`, `filter_select`, `download_manager`, `anichart`), skin XML layout/color/navigation fixes, hermetic 412+ test suite, and live scraper health monitor enhancements. |
 | **v5.8.0 – v5.8.x** | Multi-debrid provider resilience, season pack rescrape failover, enhanced subtitle selection & forced track prioritization, and watchlist synchronization hardening. |
 | **v5.7.0 – v5.7.x** | Scraper concurrency & early-termination optimizations, expanded torrent & web embed extraction rules, and rich metadata/artwork fallbacks. |
@@ -169,20 +169,23 @@ Every single subsystem has been audited, benchmarked, hardened, and expanded:
 
 ## 🛠️ Development, Architecture & Testing
 
+- **Documentation Hub**: [docs/README.md](docs/README.md)
 - **Architecture & Subsystems**: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- **Testing Standards & Silos**: [docs/TESTING.md](docs/TESTING.md)
+- **CI, Release & LLM Automation**: [docs/AUTOMATION.md](docs/AUTOMATION.md)
 - **End-User Configuration Guide**: [docs/CONFIGURATION_GUIDE.md](docs/CONFIGURATION_GUIDE.md)
 - **Device Log Concerns & Audit History**: [docs/CONCERNS.md](docs/CONCERNS.md)
 - **Engineering Invariants**: [AGENTS.md](AGENTS.md)
 
-Otaku RPDev includes a hermetic offline test suite (**991+ tests**) with dual Kodi 21/22 simulation that executes in pure Python without requiring a live Kodi installation:
+Otaku RPDev includes a hermetic offline test suite (**1,014+ tests**, 100% module coverage, strict project warnings-as-errors) with dual Kodi 21/22 simulation that executes in pure Python without requiring a live Kodi installation:
 
 ```bash
 # Clone the repository
 git clone https://github.com/RPDevs-Builds/Otaku-RPDev.git
 cd Otaku-RPDev
 
-# Run the complete test suite (991+ tests) with warnings surfaced
-python3 -W default -m unittest discover -s tests -v
+# Run the unified multi-silo verification gate (ruff, compileall, 1,014+ tests, coverage)
+python3 scripts/verify_all.py --fail-below 60
 ```
 
 ### Packaging & Release

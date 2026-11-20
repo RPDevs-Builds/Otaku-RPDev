@@ -127,7 +127,6 @@ class TestSourceTypeFilter(unittest.TestCase):
 
     def test_filter_sources_by_audio_preserves_dual_and_multi_with_multisub(self):
         """Dual-Audio (lang=1) and Multi-Audio (lang=0) carrying MULTI-SUB must be kept for Dub & Sub."""
-        import conftest
         from resources.lib.ui import source_utils
         from resources.lib.pages import Sources
 

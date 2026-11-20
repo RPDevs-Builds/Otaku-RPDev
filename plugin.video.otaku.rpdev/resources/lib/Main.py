@@ -1123,8 +1123,9 @@ _register_ui_menu_routes()
 
 # --- Re-export domain route modules for single-import-surface compatibility ---
 from resources.lib.routes.cloud import *  # noqa: F401,F403,E402
-from resources.lib.routes.cloud import _draw_cloud_directory  # noqa: F401,E402
+from resources.lib.routes.cloud import _draw_cloud_directory, add_my_cloud  # noqa: F401,E402
 from resources.lib.routes.history import *  # noqa: F401,F403,E402
+from resources.lib.routes.history import add_last_watched, add_watch_history  # noqa: F401,E402
 from resources.lib.routes.playback import *  # noqa: F401,F403,E402
 from resources.lib.routes.search import *  # noqa: F401,F403,E402
 from resources.lib.routes.search import (  # noqa: F401,E402

@@ -158,7 +158,7 @@ class TestSettingsSchemaAndCodeReferences(unittest.TestCase):
             self.assertIsNotNone(grp.get('label'), f"<group id='{grp_id}'> is missing required 'label' attribute")
 
         for sid, s in self.declared_settings.items():
-            self.assertTrue(sid and sid.strip(), f"Setting has empty 'id'")
+            self.assertTrue(sid and sid.strip(), "Setting has empty 'id'")
             self.assertIsNotNone(s.get('label'), f"<setting id='{sid}'> missing required 'label' attribute")
             self.assertIsNotNone(s.get('type'), f"<setting id='{sid}'> missing required 'type' attribute")
 
@@ -524,7 +524,7 @@ class TestSettingsSchemaAndCodeReferences(unittest.TestCase):
 
         self.assertEqual(
             len(bbcode_errors), 0,
-            f"BBCode formatting errors found in help tooltips:\n" +
+            "BBCode formatting errors found in help tooltips:\n" +
             "\n".join([f"  • #{hid}: {err} | '{msg}'" for hid, err, msg in bbcode_errors])
         )
 

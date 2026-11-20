@@ -337,7 +337,7 @@ class TestMultipageAdversarialHarness(unittest.TestCase):
         # Final failure reaching max_retries
         job = database.dequeue_multipage_job('kitsu')
         self.assertIsNotNone(job)
-        fatal_msg = f"HTTP 404 Fatal Final Error"
+        fatal_msg = "HTTP 404 Fatal Final Error"
         ok = database.mark_multipage_job_failed(job['id'], error=fatal_msg, max_retries=max_retries)
         self.assertTrue(ok)
 

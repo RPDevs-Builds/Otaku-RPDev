@@ -771,10 +771,12 @@ class TestAllSettingsOutcomes(unittest.TestCase):
         for sid in sorted(GENERAL_SETTING_IDS):
             self._test_generic_setting_toggle(sid)
 
-        # Behavioral outcome: general.verify_ssl effect on client request
+        # Behavioral outcome: general.verify_ssl=False disables SSL verification in client._get_ssl_context & client.request
+        import ssl
         control.setBool('general.verify_ssl', False)
-        self.assertFalse(control.getBool('general.verify_ssl'))
-        # client.request should run without raising SSL errors when mocked
+        unverified_ctx = client._get_ssl_context(verify=False)
+        self.assertEqual(unverified_ctx.verify_mode, ssl.CERT_NONE)
+        self.assertFalse(unverified_ctx.check_hostname)
         with patch.object(urllib.request.OpenerDirector, 'open') as mock_open:
             mock_resp = MagicMock()
             mock_resp.read.return_value = b'{"ok": true}'
@@ -782,62 +784,88 @@ class TestAllSettingsOutcomes(unittest.TestCase):
             mock_resp.info.return_value = {}
             mock_resp.headers = {}
             mock_open.return_value = mock_resp
-            # request with verify=True gets overridden by general.verify_ssl=False
             client.request('https://127.0.0.1/test', verify=True)
             self.assertTrue(mock_open.called)
 
-        # Behavioral outcome: titlelanguage (0=Romaji/Japanese, 1=English)
-        for lang_code in (0, 1):
-            control.setInt('titlelanguage', lang_code)
-            self.assertEqual(control.getInt('titlelanguage'), lang_code)
-            mapped_lang = ["ja", "en"][control.getInt("titlelanguage")]
-            self.assertEqual(mapped_lang, ["ja", "en"][lang_code])
+        # Behavioral outcome: titlelanguage propagates into WatchlistFlavorBase.title_lang ('romaji' vs 'english')
+        from resources.lib.WatchlistFlavor.WatchlistFlavorBase import WatchlistFlavorBase
+        control.setInt('titlelanguage', 0)
+        self.assertEqual(WatchlistFlavorBase().title_lang, 'romaji')
+        control.setInt('titlelanguage', 1)
+        self.assertEqual(WatchlistFlavorBase().title_lang, 'english')
 
-        # Behavioral outcome: interface.cleantitles
-        control.setBool('interface.cleantitles', True)
-        self.assertTrue(control.getBool('interface.cleantitles'))
-        control.setBool('interface.cleantitles', False)
-        self.assertFalse(control.getBool('interface.cleantitles'))
+        # Behavioral outcome: interface.watchhistory.click controls last_watched target URL (0=list, 1=next ep, 2=resume ep)
+        from resources.lib.routes import history as history_route
+        show_row = {'kodi_meta': database.dumps({'title_userPreferred': 'Frieren', 'episodes': 28, 'eps_watched': 5})}
+        with patch.object(database, 'get_show', return_value=show_row), \
+             patch.object(database, 'get_show_meta', return_value=None), \
+             patch.object(database, 'get_unique_ids', return_value={}), \
+             patch.object(control, 'pathExists', return_value=False):
+            control.setSetting('addon.last_watched', '52991')
+            control.setInt('interface.watchhistory.click', 0)
+            self.assertEqual(history_route.add_last_watched([])[0][2], 'animes/52991/')
+            control.setInt('interface.watchhistory.click', 1)
+            self.assertEqual(history_route.add_last_watched([])[0][2], 'play/52991/6')
+            control.setInt('interface.watchhistory.click', 2)
+            self.assertEqual(history_route.add_last_watched([])[0][2], 'play/52991/5')
 
-        # Behavioral outcome: browser.api and meta.api overrides
-        control.setSetting('browser.api', 'anilist')
-        self.assertEqual(control.getSetting('browser.api'), 'anilist')
-        control.setSetting('meta.api', 'mal')
-        self.assertEqual(control.getSetting('meta.api'), 'mal')
+        # Behavioral outcome: general.dialog=5 selects get_sources_alt.xml instead of get_sources.xml
+        control.setInt('general.dialog', 5)
+        with patch.object(pages_mod, 'Sources') as mock_src_win:
+            mock_src_win.return_value.doModal.return_value = []
+            pages_mod.getSourcesHelper({})
+            self.assertEqual(mock_src_win.call_args.args[0], 'get_sources_alt.xml')
+        control.setInt('general.dialog', 0)
+        with patch.object(pages_mod, 'Sources') as mock_src_win:
+            mock_src_win.return_value.doModal.return_value = []
+            pages_mod.getSourcesHelper({})
+            self.assertEqual(mock_src_win.call_args.args[0], 'get_sources.xml')
 
-        # Behavioral outcome: widget.hide.nextpage and widgets.delay
-        control.setBool('widget.hide.nextpage', True)
-        self.assertTrue(control.getBool('widget.hide.nextpage'))
-        control.setInt('widgets.delay', 1500)
-        self.assertEqual(control.getInt('widgets.delay'), 1500)
+        # Behavioral outcome: browser.api switches MetaBrowser._get_browser() concrete browser implementation
+        from resources.lib import MetaBrowser, AniListBrowser, MalBrowser, OtakuBrowser
+        saved_browser = MetaBrowser._BROWSER_INSTANCE
+        try:
+            for api_val, expected_cls in (
+                ('anilist', AniListBrowser.AniListBrowser),
+                ('mal', MalBrowser.MalBrowser),
+                ('otaku', OtakuBrowser.OtakuBrowser),
+            ):
+                MetaBrowser._BROWSER_INSTANCE = None
+                control.setSetting('browser.api', api_val)
+                self.assertIsInstance(MetaBrowser._get_browser(), expected_cls)
+        finally:
+            MetaBrowser._BROWSER_INSTANCE = saved_browser
 
     # ── Category 2: Providers (19 settings) ────────────────────────────────────
 
     def test_category_2_providers_settings_outcomes(self):
-        """Validate all 19 Category 2: Providers settings and provider module registry."""
+        """Validate all 19 Category 2: Providers settings and real domain/provider consumers."""
         for sid in sorted(PROVIDERS_SETTING_IDS):
             self._test_generic_setting_toggle(sid)
 
-        # Behavioral outcome: provider toggles reflect in control.getBool
-        torrent_providers = ['provider.nyaa', 'provider.animetosho', 'provider.torrentio', 'provider.piratebay']
-        for p in torrent_providers:
-            control.setBool(p, False)
-            self.assertFalse(control.getBool(p))
-            control.setBool(p, True)
-            self.assertTrue(control.getBool(p))
+        # Behavioral outcome: alt-proxy toggles actually switch domains.get_domain() URLs
+        from resources.lib.ui import domains
+        for provider_key, setting_key, direct_host, alt_host in (
+            ('nyaa', 'provider.nyaaalt', 'nyaa.si', 'nyaa-si.translate.goog'),
+            ('animetosho', 'provider.animetoshoalt', 'animetosho.net', 'animetosho-net.translate.goog'),
+            ('animepahe', 'provider.animepahealt', 'animepahe', 'animepahe-pw.translate.goog'),
+        ):
+            control.setBool(setting_key, False)
+            self.assertIn(direct_host, domains.get_domain(provider_key))
+            control.setBool(setting_key, True)
+            self.assertIn(alt_host, domains.get_domain(provider_key))
+            control.setBool(setting_key, False)
 
         # Behavioral outcome: torrentio.config and embed.config list parsing
         control.setSetting('torrentio.config', 'nyaasi,tokyotosho,anidex')
-        t_configs = control.getStringList('torrentio.config')
-        self.assertEqual(t_configs, ['nyaasi', 'tokyotosho', 'anidex'])
-
+        self.assertEqual(control.getStringList('torrentio.config'), ['nyaasi', 'tokyotosho', 'anidex'])
         control.setSetting('embed.config', 'megacloud,mp4upload,vidplay')
-        e_configs = control.getStringList('embed.config')
-        self.assertEqual(e_configs, ['megacloud', 'mp4upload', 'vidplay'])
+        self.assertEqual(control.getStringList('embed.config'), ['megacloud', 'mp4upload', 'vidplay'])
 
-        # Behavioral outcome: animetosho.paging boundary
+        # Behavioral outcome: animetosho.paging propagates to animetosho.Sources().paging
+        from resources.lib.pages import animetosho as animetosho_mod
         control.setInt('animetosho.paging', 3)
-        self.assertEqual(control.getInt('animetosho.paging'), 3)
+        self.assertEqual(animetosho_mod.Sources().paging, 3)
 
     # ── Category 3: Scraping (14 settings) ─────────────────────────────────────
 
@@ -877,147 +905,145 @@ class TestAllSettingsOutcomes(unittest.TestCase):
         for sid in sorted(CACHE_SETTING_IDS):
             self._test_generic_setting_toggle(sid)
 
-        # Behavioral outcome: cache TTLs
-        ttls = {
-            'cache.scrapers.ttl': 48,
-            'cache.torrents.ttl': 72,
-            'cache.metadata.ttl': 360,
-            'cache.calendar.ttl': 12,
-        }
-        for k, v in ttls.items():
-            control.setInt(k, v)
-            self.assertEqual(control.getInt(k), v)
+        # Behavioral outcome: cache.scrapers.ttl drives pages._scraper_cache_ttl() and calendar TTL drives AnimeScheduleCalendar
+        control.setInt('cache.scrapers.ttl', 48)
+        self.assertEqual(pages_mod._scraper_cache_ttl(), 48)
+        from resources.lib.AnimeSchedule import AnimeScheduleCalendar
+        control.setInt('cache.calendar.ttl', 12)
+        self.assertEqual(AnimeScheduleCalendar().cache_duration, 12 * 3600)
 
-        # Behavioral outcome: SQLite PRAGMA settings reflected in database
-        control.setInt('db.sqlite.synchronous', 1)  # NORMAL
-        self.assertEqual(control.getInt('db.sqlite.synchronous'), 1)
+        # Behavioral outcome: SQLite PRAGMA settings actually take effect on live SQLite connection
+        control.setInt('db.sqlite.synchronous', 1)  # NORMAL == 1
         control.setInt('db.sqlite.cache_size_mb', 16)
-        self.assertEqual(control.getInt('db.sqlite.cache_size_mb'), 16)
         control.setInt('db.sqlite.mmap_size_mb', 32)
-        self.assertEqual(control.getInt('db.sqlite.mmap_size_mb'), 32)
         control.setBool('db.sqlite.temp_store_ram', True)
-        self.assertTrue(control.getBool('db.sqlite.temp_store_ram'))
+        database.close_thread_connections()
 
-        # Verify database connection executes clean pragmas
         with database.SQL(control.cacheFile) as cur:
             cur.execute("PRAGMA synchronous;")
-            row = cur.fetchone()
-            self.assertIsNotNone(row)
+            self.assertEqual(cur.fetchone()['synchronous'], 1)
+            cur.execute("PRAGMA cache_size;")
+            self.assertEqual(cur.fetchone()['cache_size'], -16 * 1024)
+            cur.execute("PRAGMA temp_store;")
+            self.assertEqual(cur.fetchone()['temp_store'], 2)
 
     # ── Category 5: Playback (30 settings) ─────────────────────────────────────
 
     def test_category_5_playback_settings_outcomes(self):
-        """Validate all 30 Category 5: Playback settings and smartplay/aniskip logic."""
+        """Validate all 30 Category 5: Playback settings and WatchlistPlayer/SourceSelect consumers."""
         for sid in sorted(PLAYBACK_SETTING_IDS):
             self._test_generic_setting_toggle(sid)
 
-        # Behavioral outcome: general.playstyle (movie / episode)
-        control.setInt('general.playstyle.movie', 1)  # Autoplay
-        control.setInt('general.playstyle.episode', 0)  # Source select
-        self.assertEqual(control.getInt('general.playstyle.movie'), 1)
-        self.assertEqual(control.getInt('general.playstyle.episode'), 0)
-
-        # Behavioral outcome: AniSkip and skip intro/outro offsets
+        # Behavioral outcome: playback/skip settings propagate directly into WatchlistPlayer instance state
+        from resources.lib.ui.player import WatchlistPlayer
         control.setBool('skipintro.aniskip.enable', True)
         control.setBool('skipintro.aniskip.auto', True)
         control.setInt('skipintro.aniskip.offset', 3)
-        self.assertTrue(control.getBool('skipintro.aniskip.enable'))
-        self.assertTrue(control.getBool('skipintro.aniskip.auto'))
-        self.assertEqual(control.getInt('skipintro.aniskip.offset'), 3)
-
         control.setBool('skipoutro.aniskip.enable', True)
         control.setBool('skipoutro.aniskip.auto', True)
         control.setInt('skipoutro.aniskip.offset', -2)
-        self.assertTrue(control.getBool('skipoutro.aniskip.enable'))
-        self.assertTrue(control.getBool('skipoutro.aniskip.auto'))
-        self.assertEqual(control.getInt('skipoutro.aniskip.offset'), -2)
+        control.setBool('animeskip.enable', False)
+        control.setBool('introdb.enable', False)
+        control.setInt('general.audio', 1)
+        control.setInt('general.subtitles', 2)
+        wp = WatchlistPlayer()
+        self.assertTrue(wp.skipintro_aniskip_enable)
+        self.assertTrue(wp.skipintro_aniskip_auto)
+        self.assertEqual(wp.skipintro_offset, 3)
+        self.assertTrue(wp.skipoutro_aniskip_enable)
+        self.assertTrue(wp.skipoutro_aniskip_auto)
+        self.assertEqual(wp.skipoutro_offset, -2)
+        self.assertFalse(wp.animeskip_enable)
+        self.assertFalse(wp.introdb_enable)
+        self.assertEqual(wp.preferred_audio, 1)
+        self.assertEqual(wp.preferred_subtitle_setting, 2)
 
-        # Behavioral outcome: SmartPlay binge mode and still watching timeout
-        control.setBool('smartplay.binge_mode', True)
-        control.setInt('smartplay.stillwatching_count', 4)
-        control.setInt('smartplay.stillwatching_timeout', 20)
-        self.assertTrue(control.getBool('smartplay.binge_mode'))
-        self.assertEqual(control.getInt('smartplay.stillwatching_count'), 4)
-        self.assertEqual(control.getInt('smartplay.stillwatching_timeout'), 20)
-
-        # Behavioral outcome: smartplay quality match & source badges
-        control.setBool('smartplay.match_quality', True)
+        # Behavioral outcome: interface.source_select.badges alters BBCode formatting in SourceSelect.populate_sources()
+        from resources.lib.windows.source_select import SourceSelect
+        dlg = SourceSelect.__new__(SourceSelect)
+        dlg.display_list = MagicMock()
+        sample = [{'release_title': 'Show - 01', 'provider': 'nyaa', 'debrid_provider': 'realdebrid', 'type': 'torrent', 'quality': 2}]
         control.setBool('interface.source_select.badges', True)
-        self.assertTrue(control.getBool('smartplay.match_quality'))
-        self.assertTrue(control.getBool('interface.source_select.badges'))
+        dlg.populate_sources(sample)
+        with_badges = dlg.display_list.addItem.call_args[0][0].getProperty('colored_debrid') or ''
+        control.setBool('interface.source_select.badges', False)
+        dlg.populate_sources(sample)
+        without_badges = dlg.display_list.addItem.call_args[0][0].getProperty('colored_debrid') or ''
+        self.assertIn('[COLOR', with_badges)
+        self.assertNotIn('[COLOR', without_badges)
 
     # ── Category 6: Subtitles (25 settings) ────────────────────────────────────
 
     def test_category_6_subtitles_settings_outcomes(self):
-        """Validate all 25 Category 6: Subtitles settings and credential storage."""
+        """Validate all 25 Category 6: Subtitles settings and native subtitle engine consumers."""
         for sid in sorted(SUBTITLES_SETTING_IDS):
             self._test_generic_setting_toggle(sid)
 
-        # Behavioral outcome: subtitle engine toggle & auto-download
+        # Behavioral outcome: subtitle settings propagate into subtitles.get_subtitles_settings()
+        from resources.lib import subtitles as sub_pkg
         control.setBool('subtitles.enabled', True)
-        control.setBool('subtitles.auto_download', True)
-        control.setBool('subtitles.prefer_sdh', False)
+        control.setBool('subtitles.auto_download', False)
+        control.setBool('subtitles.prefer_sdh', True)
         control.setBool('subtitles.prefer_forced', True)
-        self.assertTrue(control.getBool('subtitles.enabled'))
-        self.assertTrue(control.getBool('subtitles.auto_download'))
-        self.assertFalse(control.getBool('subtitles.prefer_sdh'))
-        self.assertTrue(control.getBool('subtitles.prefer_forced'))
+        control.setSetting('subtitles.subdl.apikey', 'dl_key_999')
+        cfg = sub_pkg.get_subtitles_settings()
+        self.assertTrue(cfg['subtitles.enabled'])
+        self.assertFalse(cfg['subtitles.auto_download'])
+        self.assertTrue(cfg['subtitles.prefer_sdh'])
+        self.assertTrue(cfg['subtitles.prefer_forced'])
+        self.assertEqual(cfg['subtitles.subdl.apikey'], 'dl_key_999')
 
-        # Behavioral outcome: subtitle providers and API keys
-        sub_providers = [
-            ('subtitles.provider.opensubtitles', 'subtitles.opensubtitles.username', 'subtitles.opensubtitles.password'),
-            ('subtitles.provider.subdl', 'subtitles.subdl.apikey', None),
-            ('subtitles.provider.subsource', 'subtitles.subsource.apikey', None),
+        # Behavioral outcome: subtitles.enabled=False short-circuits search_subtitles() to []
+        from resources.lib.subtitles.models import VideoMeta
+        control.setBool('subtitles.enabled', False)
+        self.assertEqual(sub_pkg.search_subtitles(VideoMeta(title='Frieren', season=1, episode=1, preferred_lang='eng')), [])
+
+        # Behavioral outcome: select_subtitle_stream respects custom keyword & forced preference
+        from resources.lib.ui.player import select_subtitle_stream
+        streams = [
+            {'index': 0, 'language': 'eng', 'name': 'English Signs/Songs', 'isforced': True, 'isdefault': False},
+            {'index': 1, 'language': 'eng', 'name': 'SubsPlease Full Dialogue', 'isforced': False, 'isdefault': True},
         ]
-        for toggle_key, user_key, pass_key in sub_providers:
-            control.setBool(toggle_key, True)
-            self.assertTrue(control.getBool(toggle_key))
-            if user_key:
-                control.setSetting(user_key, 'sample_user_or_api_key')
-                self.assertEqual(control.getSetting(user_key), 'sample_user_or_api_key')
-            if pass_key:
-                control.setSetting(pass_key, 'sample_password')
-                self.assertEqual(control.getSetting(pass_key), 'sample_password')
-
-        # Behavioral outcome: custom keyword override
-        control.setBool('subtitles.keywords', True)
-        control.setSetting('subtitles.customkeyword', 'SubsPlease')
-        self.assertTrue(control.getBool('subtitles.keywords'))
-        self.assertEqual(control.getSetting('subtitles.customkeyword'), 'SubsPlease')
+        self.assertEqual(select_subtitle_stream(streams, target_mode='dialog', preferred_lang='eng', custom_keyword='SubsPlease'), 1)
+        self.assertEqual(select_subtitle_stream(streams, target_mode='signs', preferred_lang='eng'), 0)
 
     # ── Category 7: Sort and Filter (47 settings) ──────────────────────────────
 
     def test_category_7_sort_and_filter_settings_outcomes(self):
-        """Validate all Category 7: Sort and Filter settings and flavor logic."""
+        """Validate all Category 7: Sort and Filter settings via real sortSources() filtering."""
         for sid in sorted(SORT_AND_FILTER_SETTING_IDS):
             self._test_generic_setting_toggle(sid)
 
-        # Behavioral outcome: Dub flavor toggling
-        control.setBool('divflavors.showdub', True)
-        control.setBool('divflavors.dubonly', False)
-        self.assertTrue(control.getBool('divflavors.showdub'))
-        self.assertFalse(control.getBool('divflavors.dubonly'))
-
-        # Behavioral outcome: Resolution boundaries and file filter
-        control.setInt('general.minResolution', 1)  # 720p
-        control.setInt('general.maxResolution', 3)  # 1080p
-        control.setInt('general.fileFilter', 2)     # Size filter
-        control.setNumber('general.movie.minGB', 0.5)
-        control.setNumber('general.episode.minGB', 0.1)
-        self.assertEqual(control.getInt('general.minResolution'), 1)
-        self.assertEqual(control.getInt('general.maxResolution'), 3)
-        self.assertEqual(control.getInt('general.fileFilter'), 2)
-        self.assertAlmostEqual(control.getNumber('general.movie.minGB'), 0.5, places=2)
-        self.assertAlmostEqual(control.getNumber('general.episode.minGB'), 0.1, places=2)
-
-        # Behavioral outcome: Release title filtering (include / exclude logic)
+        # Behavioral outcome: resolution bounds, audio preference, and release_title_filter actually prune sortSources()
+        torrents = [
+            {'release_title': '[SubsPlease] Frieren - 01 (1080p) [Dual Audio].mkv', 'type': 'torrent', 'quality': 3, 'lang': 1, 'info': ['DUAL-AUDIO'], 'size': '1 GB', 'byte_size': 1 * 2**30, 'cached': True, 'seeders': 50},
+            {'release_title': '[Erai-raws] Frieren - 01 (720p).mkv', 'type': 'torrent', 'quality': 2, 'lang': 2, 'info': [], 'size': '400 MB', 'byte_size': 400 * 2**20, 'cached': True, 'seeders': 30},
+            {'release_title': '[BadGroup] Frieren - 01 (480p).mkv', 'type': 'torrent', 'quality': 1, 'lang': 2, 'info': [], 'size': '150 MB', 'byte_size': 150 * 2**20, 'cached': True, 'seeders': 10},
+        ]
+        control.setInt('general.minResolution', 2)  # 720p+
+        control.setInt('general.maxResolution', 3)  # <=1080p
+        control.setInt('general.fileFilter', 0)
+        control.setInt('general.source', 0)  # Sub & Dub
         control.setBool('general.release_title_filter.enabled', True)
-        control.setInt('general.release_title_filter.logic', 0)  # ANY
-        control.setSetting('general.release_title_filter.value1', 'SubsPlease')
-        control.setBool('general.release_title_filter.exclude1', False)
-        self.assertTrue(control.getBool('general.release_title_filter.enabled'))
-        self.assertEqual(control.getSetting('general.release_title_filter.value1'), 'SubsPlease')
-        self.assertFalse(control.getBool('general.release_title_filter.exclude1'))
+        control.setInt('general.release_title_filter.logic', 0)
+        control.setSetting('general.release_title_filter.value1', 'Erai-raws')
+        control.setBool('general.release_title_filter.exclude1', True)
+        with patch.object(database, 'get_show', return_value=None), \
+             patch.object(database, 'get_show_meta', return_value=None), \
+             patch.object(database, 'get_anilist_enrichment_batch', return_value={}):
+            filtered = pages_mod.Sources.sortSources(list(torrents), [], [], [], [], 'episode', 24, mal_id=52991, show_title='Frieren')
+        titles = [s['release_title'] for s in filtered]
+        self.assertEqual(titles, ['[SubsPlease] Frieren - 01 (1080p) [Dual Audio].mkv'])
+
+        # Behavioral outcome: general.source=2 (Dub) filters out sub-only releases when title filter is off
+        control.setBool('general.release_title_filter.enabled', False)
+        control.setInt('general.minResolution', 0)
+        control.setInt('general.source', 2)
+        with patch.object(database, 'get_show', return_value=None), \
+             patch.object(database, 'get_show_meta', return_value=None), \
+             patch.object(database, 'get_anilist_enrichment_batch', return_value={}):
+            dub_only = pages_mod.Sources.sortSources(list(torrents), [], [], [], [], 'episode', 24, mal_id=52991, show_title='Frieren')
+        self.assertEqual([s['release_title'] for s in dub_only], ['[SubsPlease] Frieren - 01 (1080p) [Dual Audio].mkv'])
 
     # ── Category 8: Accounts (39 settings) ─────────────────────────────────────
 
@@ -1093,16 +1119,17 @@ class TestAllSettingsOutcomes(unittest.TestCase):
         for sid in sorted(MENU_CUSTOMIZATION_SETTING_IDS):
             self._test_generic_setting_toggle(sid)
 
-        # Behavioral outcome: Verify menu order and config lists across all 8 flavors
+        # Behavioral outcome: Menu order settings drive Main.get_menu_items() ordering
+        control.setSetting('menu.mainmenu.order', 'popular_this_season,trending_this_year')
+        control.setSetting('menu.mainmenu.config', 'popular_this_season,trending_this_year')
+        resolved_menu = Main.get_menu_items('menu.mainmenu')
+        self.assertIsInstance(resolved_menu, list)
         flavors = ['menu', 'movie', 'tv_show', 'tv_short', 'special', 'ova', 'ona', 'music']
         for flav in flavors:
-            # Order CSV string
             order_key = f'{flav}.mainmenu.order'
             test_order = f'trending_{flav},popular_{flav},voted_{flav}'
             control.setSetting(order_key, test_order)
             self.assertEqual(control.getSetting(order_key), test_order)
-
-            # Config list[string]
             config_key = f'{flav}.mainmenu.config'
             test_config = [f'trending_{flav}', f'popular_{flav}']
             control.setSetting(config_key, ','.join(test_config))

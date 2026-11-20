@@ -372,8 +372,6 @@ class TestCentralizedTitleScoring(unittest.TestCase):
         """sortSources must decode kodi_meta & anilist_enrichment aliases + year, excluding 1995 movie on 2026 show."""
         import json
         from unittest.mock import patch
-        import conftest
-        from resources.lib.ui import database
 
         saved_store = dict(conftest._settings_store)
         saved_props = dict(conftest._window_props)

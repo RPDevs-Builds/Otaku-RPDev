@@ -47,10 +47,7 @@ class TestDubLabel(unittest.TestCase):
         with patch('resources.lib.ui.control.xbmcgui.ListItem', return_value=liz), \
              patch('resources.lib.ui.control.set_videotags'), \
              patch('resources.lib.ui.control.addon_url', return_value='u'):
-            try:
-                control.xbmc_add_dir('Ep', 'x', {'fanart': '', 'icon': ''}, {'code': 'Dub 2026-10-28 09:30'}, None, True, False, True)
-            except Exception:
-                pass
+            control.xbmc_add_dir('Ep', 'x', {'fanart': '', 'icon': ''}, {'code': 'Dub 2026-10-28 09:30'}, None, True, False, True)
         liz.setLabel2.assert_called_with('Dub 2026-10-28 09:30')
 
 

@@ -60,8 +60,10 @@ class TestFullSystemLifecycle(unittest.TestCase):
 
     def test_router_dispatch_invalid_route_safety(self):
         xbmcplugin.reset()
-        # Malformed path should not crash the process
-        router_process("invalid_route_xyz", {"bad": "param"})
+        # Malformed path should not crash the process or emit directory items
+        result = router_process("invalid_route_xyz", {"bad": "param"})
+        self.assertIsNone(result)
+        self.assertEqual(len(xbmcplugin.directory_items), 0)
 
 
 if __name__ == "__main__":

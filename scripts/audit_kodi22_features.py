@@ -186,7 +186,7 @@ class Kodi22FeatureAuditor:
                     read_back = f.read()
                 os.remove(test_file)
             self.log_result("Database", "Atomic Write Resilience", write_ok and read_back == "atomic_test_content",
-                            f"Atomic write & read verified")
+                            "Atomic write & read verified")
         except Exception as e:
             self.log_result("Database", "Atomic Write Resilience", False, str(e))
 

@@ -30,18 +30,6 @@ jobs:
           pip install --upgrade pip
           pip install beautifulsoup4 pyqrcode ruff
 
-      - name: Static Analysis (ruff)
+      - name: Run Unified Multi-Silo Verification Gate (ruff, compileall, unittest, coverage)
         run: |
-          ruff check --select E9,F63,F7,F82 plugin.video.otaku.rpdev context.otaku.rpdev tests scripts
-
-      - name: Validate Python Syntax (compileall)
-        run: |
-          python3 -m compileall plugin.video.otaku.rpdev context.otaku.rpdev tests scripts
-
-      - name: Run Test Suite & AST Integrity Checks
-        run: |
-          python3 -W default -m unittest discover tests
-
-      - name: Function Coverage Audit
-        run: |
-          python3 scripts/audit_function_coverage.py --fail-below 60
+          python3 scripts/verify_all.py --fail-below 60 --verbose

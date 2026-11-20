@@ -276,22 +276,33 @@ class TestLanguageMatchingDualCompat(unittest.TestCase):
             self.assertTrue(is_language_match('zh-Hans', '', 'chi'))
 
     def test_watchlist_player_setup_audio_and_subtitles_dual(self):
-        # Kodi 21 profile test
+        from unittest.mock import patch
+        # Kodi 21 profile test (3-letter ISO 639-2 codes jpn/eng)
         with KodiProfile('21'):
             player21 = WatchlistPlayer()
             player21.audio_lang = 'jpn'
             player21.sub_lang = 'eng'
             player21.subtitles_enable = True
-            player21.setup_audio_and_subtitles()
-            # Verified that execution completes without error under ISO 639-2 JSON-RPC return
+            with patch.object(player21, 'setAudioStream'), \
+                 patch.object(player21, 'setSubtitleStream'):
+                player21.setup_audio_and_subtitles()
+                self.assertEqual(player21.audio_lang, 'jpn')
+                # Ensure JSON-RPC query returned Kodi 21 ISO 639-2 streams without raising
+                raw21 = xbmc.executeJSONRPC('{"jsonrpc":"2.0","method":"Player.GetProperties","params":{"playerid":1,"properties":["audiostreams","subtitles"]},"id":1}')
+                self.assertIn('jpn', raw21)
 
-        # Kodi 22 profile test
+        # Kodi 22 profile test (2-letter BCP 47 codes ja/en)
         with KodiProfile('22'):
             player22 = WatchlistPlayer()
             player22.audio_lang = 'jpn'
             player22.sub_lang = 'eng'
             player22.subtitles_enable = True
-            player22.setup_audio_and_subtitles()
+            with patch.object(player22, 'setAudioStream'), \
+                 patch.object(player22, 'setSubtitleStream'):
+                player22.setup_audio_and_subtitles()
+                self.assertEqual(player22.audio_lang, 'jpn')
+                raw22 = xbmc.executeJSONRPC('{"jsonrpc":"2.0","method":"Player.GetProperties","params":{"playerid":1,"properties":["audiostreams","subtitles"]},"id":1}')
+                self.assertIn('"ja"', raw22)
             # Verified that execution completes without error under BCP 47 JSON-RPC return
 
 
@@ -418,13 +429,13 @@ class TestBrowserDirectoryAndSpecialSortDualCompat(unittest.TestCase):
             with self.subTest(kodi_version=ver):
                 with KodiProfile(ver):
                     b_base = BrowserBase()
-                    self.assertIsNotNone(b_base)
+                    self.assertEqual(b_base._clean_title('A×B'), 'A x B')
                     o_browser = OtakuBrowser()
-                    self.assertIsNotNone(o_browser)
+                    self.assertIsInstance(o_browser, BrowserBase)
                     a_browser = AniListBrowser()
-                    self.assertIsNotNone(a_browser)
+                    self.assertIsInstance(a_browser, BrowserBase)
                     m_browser = MalBrowser()
-                    self.assertIsNotNone(m_browser)
+                    self.assertIsInstance(m_browser, BrowserBase)
 
 
 class TestSkinControlValidationAcrossAllXMLs(unittest.TestCase):
@@ -462,89 +473,69 @@ class TestSkinControlValidationAcrossAllXMLs(unittest.TestCase):
     def test_all_16_window_xml_dialog_subclasses_init(self):
         with KodiProfile('22', strict_skin_controls=True):
             # Instantiate all 16 WindowXMLDialog subclasses against their canonical XML templates
-            w1 = Anichart('anichart.xml', control.ADDON_PATH)
-            self.assertIsNotNone(w1)
-
-            w2 = StatsWindow('anime_statistics.xml', control.ADDON_PATH, stats={})
-            self.assertIsNotNone(w2)
-
-            w3 = ClearCacheDialog('clear_cache.xml', control.ADDON_PATH)
-            self.assertIsNotNone(w3)
-
-            w4 = DownloadManager('download_manager.xml', control.ADDON_PATH)
-            self.assertIsNotNone(w4)
-
-            w5 = FilterSelect('filter_select.xml', control.ADDON_PATH)
-            self.assertIsNotNone(w5)
-
-            w6 = GetSources('get_sources.xml', control.ADDON_PATH, actionArgs={'item_information': {}})
-            self.assertIsNotNone(w6)
-
-            w7 = MenuOrderDialog('menu_order.xml', control.ADDON_PATH)
-            self.assertIsNotNone(w7)
-
-            w8 = Progress_dialog('progress_dialog.xml', control.ADDON_PATH)
-            self.assertIsNotNone(w8)
-
-            w9 = Resolver('resolver.xml', control.ADDON_PATH, actionArgs={'item_information': {}})
-            self.assertIsNotNone(w9)
-
-            w10 = SortSelect('sort_select.xml', control.ADDON_PATH)
-            self.assertIsNotNone(w10)
-
-            w11 = SourceSelect('source_select.xml', control.ADDON_PATH, actionArgs={'item_information': {}})
-            self.assertIsNotNone(w11)
-
-            w12 = StillWatchingXML('still_watching.xml', control.ADDON_PATH, actionArgs={'item_information': {}})
-            self.assertIsNotNone(w12)
-
-            w13 = TextViewerXML('textviewer.xml', control.ADDON_PATH)
-            self.assertIsNotNone(w13)
-
-            w14 = WatchlistFlavorAuth('wlf_auth_anilist.xml', control.ADDON_PATH, flavor='anilist')
-            self.assertIsNotNone(w14)
-
-            w15 = PlayingNext('playing_next_default.xml', control.ADDON_PATH, actionArgs={'item_information': {}})
-            self.assertIsNotNone(w15)
-
-            w16 = SkipIntro('skip_intro_default.xml', control.ADDON_PATH, actionArgs={'item_information': {}, 'skipintro_end': 90, 'skipintro_aniskip': True})
-            self.assertIsNotNone(w16)
+            instances = [
+                Anichart('anichart.xml', control.ADDON_PATH),
+                StatsWindow('anime_statistics.xml', control.ADDON_PATH, stats={}),
+                ClearCacheDialog('clear_cache.xml', control.ADDON_PATH),
+                DownloadManager('download_manager.xml', control.ADDON_PATH),
+                FilterSelect('filter_select.xml', control.ADDON_PATH),
+                GetSources('get_sources.xml', control.ADDON_PATH, actionArgs={'item_information': {}}),
+                MenuOrderDialog('menu_order.xml', control.ADDON_PATH),
+                Progress_dialog('progress_dialog.xml', control.ADDON_PATH),
+                Resolver('resolver.xml', control.ADDON_PATH, actionArgs={'item_information': {}}),
+                SortSelect('sort_select.xml', control.ADDON_PATH),
+                SourceSelect('source_select.xml', control.ADDON_PATH, actionArgs={'item_information': {}}),
+                StillWatchingXML('still_watching.xml', control.ADDON_PATH, actionArgs={'item_information': {}}),
+                TextViewerXML('textviewer.xml', control.ADDON_PATH),
+                WatchlistFlavorAuth('wlf_auth_anilist.xml', control.ADDON_PATH, flavor='anilist'),
+                PlayingNext('playing_next_default.xml', control.ADDON_PATH, actionArgs={'item_information': {}}),
+                SkipIntro('skip_intro_default.xml', control.ADDON_PATH, actionArgs={'item_information': {}, 'skipintro_end': 90, 'skipintro_aniskip': True}),
+            ]
+            self.assertEqual(len(instances), 16)
+            for dlg in instances:
+                self.assertIsInstance(dlg, xbmcgui.WindowXMLDialog)
+                self.assertTrue(callable(getattr(dlg, 'close', None)))
 
     def test_all_7_theme_variants_playing_next_and_skip_intro(self):
         themes = ['default', 'ah2', 'auramod', 'af', 'af2', 'az', 'tb']
+        verified = 0
         with KodiProfile('22', strict_skin_controls=True):
             for t in themes:
                 # playing_next_{t}.xml
-                pn = PlayingNext(f'playing_next_{t}.xml', control.ADDON_PATH, actionArgs={'item_information': {}})
+                pn = PlayingNext(f'playing_next_{t}.xml', control.ADDON_PATH, actionArgs={'item_information': {'title': 'Next Ep'}})
                 pn.closed = True
                 pn.onInit()
+                self.assertTrue(pn.closed)
+                self.assertGreater(len(parse_skin_xml(f'playing_next_{t}.xml')), 0)
 
                 # skip_outro_{t}.xml
-                so = PlayingNext(f'skip_outro_{t}.xml', control.ADDON_PATH, actionArgs={'item_information': {}})
+                so = PlayingNext(f'skip_outro_{t}.xml', control.ADDON_PATH, actionArgs={'item_information': {'title': 'Next Ep'}})
                 so.closed = True
                 so.onInit()
+                self.assertTrue(so.closed)
+                self.assertGreater(len(parse_skin_xml(f'skip_outro_{t}.xml')), 0)
 
                 # skip_intro_{t}.xml
-                si = SkipIntro(f'skip_intro_{t}.xml', control.ADDON_PATH, actionArgs={'item_information': {}, 'skipintro_end': 90, 'skipintro_aniskip': True})
+                si = SkipIntro(f'skip_intro_{t}.xml', control.ADDON_PATH, actionArgs={'item_information': {'title': 'Ep 1'}, 'skipintro_end': 90, 'skipintro_aniskip': True})
                 si.closed = True
                 si.onInit()
+                self.assertTrue(si.closed)
+                self.assertTrue(si.skipintro_aniskip)
+                verified += 3
+        self.assertEqual(verified, 21)
 
     def test_alt_and_specialized_templates(self):
         with KodiProfile('22', strict_skin_controls=True):
-            gs_alt = GetSources('get_sources_alt.xml', control.ADDON_PATH, actionArgs={'item_information': {}})
-            self.assertIsNotNone(gs_alt)
-
-            res_alt = Resolver('resolver_alt.xml', control.ADDON_PATH, actionArgs={'item_information': {}})
-            self.assertIsNotNone(res_alt)
-
-            src_alt = SourceSelect('source_select_alt.xml', control.ADDON_PATH, actionArgs={'item_information': {}})
-            self.assertIsNotNone(src_alt)
-
-            tv1 = TextViewerXML('textviewer_1.xml', control.ADDON_PATH)
-            self.assertIsNotNone(tv1)
-
-            wlf_mal = WatchlistFlavorAuth('wlf_auth_mal.xml', control.ADDON_PATH, flavor='mal')
-            self.assertIsNotNone(wlf_mal)
+            specialized = [
+                (GetSources('get_sources_alt.xml', control.ADDON_PATH, actionArgs={'item_information': {}}), 'get_sources_alt.xml'),
+                (Resolver('resolver_alt.xml', control.ADDON_PATH, actionArgs={'item_information': {}}), 'resolver_alt.xml'),
+                (SourceSelect('source_select_alt.xml', control.ADDON_PATH, actionArgs={'item_information': {}}), 'source_select_alt.xml'),
+                (TextViewerXML('textviewer_1.xml', control.ADDON_PATH), 'textviewer_1.xml'),
+                (WatchlistFlavorAuth('wlf_auth_mal.xml', control.ADDON_PATH, flavor='mal'), 'wlf_auth_mal.xml'),
+            ]
+            for dlg, xml_name in specialized:
+                self.assertIsInstance(dlg, xbmcgui.WindowXMLDialog)
+                self.assertGreater(len(parse_skin_xml(xml_name)), 0)
 
 
 class TestStrictCAddonSettingsSchema(unittest.TestCase):

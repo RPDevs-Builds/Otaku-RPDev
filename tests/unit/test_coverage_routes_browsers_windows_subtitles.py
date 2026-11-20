@@ -23,22 +23,26 @@ class TestBrowsersAndMain(unittest.TestCase):
         from resources.lib import (
             AniListBrowser, MalBrowser, OtakuBrowser, MetaBrowser, AnimeSchedule
         )
+        from resources.lib.ui.BrowserBase import BrowserBase
 
         with mock.patch('resources.lib.ui.control.getSetting', return_value=''):
             alb = AniListBrowser.AniListBrowser()
-            self.assertIsNotNone(alb)
+            self.assertIsInstance(alb, BrowserBase)
+            self.assertEqual(alb._clean_title("Hunter×Hunter"), "Hunter x Hunter")
 
             mb = MalBrowser.MalBrowser()
-            self.assertIsNotNone(mb)
+            self.assertIsInstance(mb, BrowserBase)
+            self.assertTrue(callable(getattr(mb, 'get_popular_this_season', None)))
 
             ob = OtakuBrowser.OtakuBrowser()
-            self.assertIsNotNone(ob)
+            self.assertIsInstance(ob, BrowserBase)
+            self.assertTrue(callable(getattr(ob, 'get_popular_this_season', None)))
 
             browser = MetaBrowser._get_browser()
-            self.assertIsNotNone(browser)
+            self.assertIsInstance(browser, BrowserBase)
 
             asch = AnimeSchedule.AnimeScheduleCalendar()
-            self.assertIsNotNone(asch)
+            self.assertTrue(callable(getattr(asch, 'get_calendar_data', None)))
 
     def test_meta_browser_next_up_meta(self):
         from resources.lib import MetaBrowser
@@ -67,20 +71,25 @@ class TestWatchlist(unittest.TestCase):
         from resources.lib.WatchlistFlavor.WatchlistFlavorBase import WatchlistFlavorBase
 
         wfb = WatchlistFlavorBase()
-        self.assertIsNotNone(wfb)
+        self.assertIsInstance(wfb, WatchlistFlavorBase)
+        self.assertIn(wfb.title_lang, ('romaji', 'english'))
 
         with mock.patch('resources.lib.ui.control.getSetting', return_value=''):
             al = AniList.AniListWLF()
-            self.assertIsNotNone(al)
+            self.assertIsInstance(al, WatchlistFlavorBase)
+            self.assertEqual(al._NAME, 'anilist')
 
             k = Kitsu.KitsuWLF()
-            self.assertIsNotNone(k)
+            self.assertIsInstance(k, WatchlistFlavorBase)
+            self.assertEqual(k._NAME, 'kitsu')
 
             mal = MyAnimeList.MyAnimeListWLF()
-            self.assertIsNotNone(mal)
+            self.assertIsInstance(mal, WatchlistFlavorBase)
+            self.assertEqual(mal._NAME, 'mal')
 
             sim = Simkl.SimklWLF()
-            self.assertIsNotNone(sim)
+            self.assertIsInstance(sim, WatchlistFlavorBase)
+            self.assertEqual(sim._NAME, 'simkl')
 
     def test_watchlist_integration(self):
         from resources.lib.WatchlistFlavor import WatchlistFlavor
@@ -104,23 +113,26 @@ class TestRoutes(unittest.TestCase):
         )
 
         # history routes
-        with mock.patch('resources.lib.ui.control.draw_items'):
+        with mock.patch('resources.lib.ui.control.draw_items') as mock_draw_hist:
             history.WATCH_HISTORY("", {})
+            mock_draw_hist.assert_called_once()
 
         # search routes
-        with mock.patch('resources.lib.ui.control.draw_items'):
+        with mock.patch('resources.lib.ui.control.draw_items') as mock_draw_search:
             search.SEARCH_MENU("", {})
+            mock_draw_search.assert_called_once()
 
         # subtitles route
-        with mock.patch('resources.lib.subtitles.search_subtitles', return_value=[]), \
+        with mock.patch('resources.lib.subtitles.search_subtitles', return_value=[]) as mock_search_subs, \
              mock.patch('resources.lib.subtitles.get_meta_from_player'), \
              mock.patch('resources.lib.subtitles.get_subtitles_settings'):
             subtitles.handle_subtitles_search("", {'query': 'test'})
+            mock_search_subs.assert_called_once()
 
-        # tools route
-        self.assertIsNotNone(tools)
-        self.assertIsNotNone(cloud)
-        self.assertIsNotNone(playback)
+        # Verify expected route entrypoints are callable on tools, cloud, playback
+        self.assertTrue(callable(getattr(tools, 'CLEAN_SETTINGS', None)))
+        self.assertTrue(callable(getattr(cloud, '_draw_cloud_directory', None)))
+        self.assertTrue(callable(getattr(playback, 'PLAY', None)))
 
 
 class TestSubtitles(unittest.TestCase):
@@ -167,16 +179,28 @@ class TestSubtitles(unittest.TestCase):
         self.assertIsNotNone(search)
 
     def test_subtitles_services(self):
+        from resources.lib.subtitles.models import VideoMeta
         from resources.lib.subtitles.services import (
             addic7ed, bsplayer, opensubtitles, podnadpisi, subdl, subsource
         )
 
-        self.assertIsNotNone(addic7ed)
-        self.assertIsNotNone(bsplayer)
-        self.assertIsNotNone(opensubtitles)
-        self.assertIsNotNone(podnadpisi)
-        self.assertIsNotNone(subdl)
-        self.assertIsNotNone(subsource)
+        service_classes = (
+            addic7ed.Addic7edService,
+            bsplayer.BSPlayerService,
+            opensubtitles.OpenSubtitlesService,
+            podnadpisi.PodnadpisiService,
+            subdl.SubDLService,
+            subsource.SubSourceService,
+        )
+        meta = VideoMeta(title="Frieren", season=1, episode=1, preferred_lang="eng")
+        settings = {'subtitles.timeout': 5}
+        with mock.patch('resources.lib.ui.client.get', return_value=None), \
+             mock.patch('resources.lib.ui.client.post', return_value=None):
+            for svc_cls in service_classes:
+                svc = svc_cls()
+                self.assertTrue(callable(getattr(svc, 'search', None)), f"{svc_cls.__name__} missing search()")
+                res = svc.search(meta, settings)
+                self.assertEqual(res, [], f"{svc_cls.__name__}.search() should return [] on offline/None HTTP")
 
 
 class TestWindows(unittest.TestCase):
@@ -190,39 +214,39 @@ class TestWindows(unittest.TestCase):
         )
 
         windows = [
-            (base_window.BaseWindow, ('test.xml', '/fake/path')),
-            (anichart.Anichart, ('anichart.xml', control.ADDON_PATH)),
-            (anichart_window.BaseWindow, ('anichart_window.xml', control.ADDON_PATH)),
-            (clear_cache.ClearCacheDialog, ('clear_cache.xml', control.ADDON_PATH)),
-            (download_manager.DownloadManager, ('download_manager.xml', control.ADDON_PATH)),
-            (filter_select.FilterSelect, ('filter_select.xml', control.ADDON_PATH)),
-            (get_sources_window.GetSources, ('get_sources_window.xml', control.ADDON_PATH)),
-            (menu_order.MenuOrderDialog, ('menu_order.xml', control.ADDON_PATH)),
-            (playing_next.PlayingNext, ('playing_next.xml', control.ADDON_PATH)),
-            (progress_dialog.Progress_dialog, ('progress_dialog.xml', control.ADDON_PATH)),
-            (resolver.Resolver, ('resolver.xml', control.ADDON_PATH)),
-            (skip_intro.SkipIntro, ('skip_intro.xml', control.ADDON_PATH)),
-            (sort_select.SortSelect, ('sort_select.xml', control.ADDON_PATH)),
-            (source_select.SourceSelect, ('source_select.xml', control.ADDON_PATH)),
-            (stats_window.StatsWindow, ('stats_window.xml', control.ADDON_PATH)),
-            (still_watching.StillWatchingXML, ('still_watching.xml', control.ADDON_PATH)),
-            (textviewer.TextViewerXML, ('textviewer.xml', control.ADDON_PATH)),
-            (wlf_auth.WatchlistFlavorAuth, ('wlf_auth.xml', control.ADDON_PATH)),
+            (base_window.BaseWindow, ('anichart.xml', control.ADDON_PATH), {}),
+            (anichart.Anichart, ('anichart.xml', control.ADDON_PATH), {'anime_items': []}),
+            (anichart_window.BaseWindow, ('anichart.xml', control.ADDON_PATH), {}),
+            (clear_cache.ClearCacheDialog, ('clear_cache.xml', control.ADDON_PATH), {}),
+            (download_manager.DownloadManager, ('download_manager.xml', control.ADDON_PATH), {}),
+            (filter_select.FilterSelect, ('filter_select.xml', control.ADDON_PATH), {}),
+            (get_sources_window.GetSources, ('get_sources.xml', control.ADDON_PATH), {'actionArgs': {}}),
+            (menu_order.MenuOrderDialog, ('menu_order.xml', control.ADDON_PATH), {'menu_key': 'menu.mainmenu'}),
+            (playing_next.PlayingNext, ('playing_next_default.xml', control.ADDON_PATH), {'actionArgs': {'item_information': {}}}),
+            (progress_dialog.Progress_dialog, ('progress_dialog.xml', control.ADDON_PATH), {}),
+            (resolver.Resolver, ('resolver.xml', control.ADDON_PATH), {'actionArgs': {}}),
+            (skip_intro.SkipIntro, ('skip_intro_default.xml', control.ADDON_PATH), {'actionArgs': {'item_information': {}, 'skipintro_end': 90, 'skipintro_aniskip': False}}),
+            (sort_select.SortSelect, ('sort_select.xml', control.ADDON_PATH), {}),
+            (source_select.SourceSelect, ('source_select.xml', control.ADDON_PATH), {'actionArgs': {}, 'sources': []}),
+            (stats_window.StatsWindow, ('stats_window.xml', control.ADDON_PATH), {'stats': {}, 'heading': 'Stats'}),
+            (still_watching.StillWatchingXML, ('still_watching_default.xml', control.ADDON_PATH), {'actionArgs': {'item_information': {}}}),
+            (textviewer.TextViewerXML, ('textviewer.xml', control.ADDON_PATH), {'heading': 'Test', 'text': 'Body'}),
+            (wlf_auth.WatchlistFlavorAuth, ('wlf_auth_mal.xml', control.ADDON_PATH), {'flavor': 'mal'}),
         ]
 
-        for win_cls, args in windows:
-            try:
-                win = win_cls(*args)
-                self.assertIsNotNone(win)
-            except Exception:
-                # Some window constructors require complex XML or display context
-                pass
+        instantiated = []
+        for win_cls, args, kwargs in windows:
+            win = win_cls(*args, **kwargs)
+            self.assertIsInstance(win, win_cls)
+            self.assertTrue(callable(getattr(win, 'close', None)))
+            instantiated.append(win)
+        self.assertEqual(len(instantiated), 18)
 
     def test_base_window_get_control_list(self):
         from resources.lib.windows import base_window
         win = base_window.BaseWindow('anichart.xml', '')
         ctrl = win.getControlList(1000)
-        self.assertIsNotNone(ctrl)
+        self.assertTrue(hasattr(ctrl, 'addItem'))
         win._controls[9999] = object()
         with self.assertRaises(AttributeError):
             win.getControlList(9999)
@@ -232,22 +256,40 @@ class TestServiceAndContext(unittest.TestCase):
     def test_service_functions(self):
         import service
 
-        # version check
-        with mock.patch.object(control, 'getSetting', return_value='1.0.0'):
+        # version check updates stored version when different
+        with mock.patch.object(control, 'getSetting', return_value='1.0.0'), \
+             mock.patch.object(control, 'setSetting') as mock_set_setting, \
+             mock.patch('resources.lib.ui.clean_settings.clean_settings'):
             service.version_check()
+            self.assertTrue(mock_set_setting.called)
 
-        # changelog & instructions
-        with mock.patch('resources.lib.windows.textviewer.TextViewerXML'):
+        # changelog & instructions invoke TextViewerXML.run()
+        with mock.patch('resources.lib.windows.textviewer.TextViewerXML') as mock_tv:
             service.getChangeLog()
             service.getInstructions()
+            self.assertEqual(mock_tv.call_count, 2)
+            self.assertEqual(mock_tv.return_value.run.call_count, 2)
 
-        # cleanup cache databases
-        with mock.patch('resources.lib.ui.database.cache_clear'):
+        # cleanup cache databases invokes prune & checkpoint pipeline
+        with mock.patch('resources.lib.ui.database.prune_expired_cache') as mock_prune, \
+             mock.patch('resources.lib.debrid.debrid_cache.prune_expired_hashes') as mock_hashes, \
+             mock.patch('resources.lib.ui.database.prune_stale_multipage_jobs') as mock_jobs, \
+             mock.patch('resources.lib.ui.database.checkpoint_databases') as mock_ckpt:
             service.cleanup_cache_databases()
+            mock_prune.assert_called_once_with(30)
+            mock_hashes.assert_called_once()
+            mock_jobs.assert_called_once()
+            mock_ckpt.assert_called_once_with(truncate=True)
 
-        # toggle invoker
-        with mock.patch('builtins.open', mock.mock_open(read_data='<reuselanguageinvoker>true</reuselanguageinvoker>')):
-            service.toggle_reuselanguageinvoker(forced_state=False)
+        # toggle invoker rewrites addon.xml via control.atomic_write_text
+        m_open = mock.mock_open(read_data='<reuselanguageinvoker>true</reuselanguageinvoker>\n')
+        with mock.patch('builtins.open', m_open), \
+             mock.patch.object(control, 'atomic_write_text') as mock_write, \
+             mock.patch.object(control, 'setSetting') as mock_set_invoker:
+            service.toggle_reuselanguageinvoker(forced_state='Disabled')
+            mock_write.assert_called_once()
+            self.assertIn('<reuselanguageinvoker>false</reuselanguageinvoker>', mock_write.call_args.args[1])
+            mock_set_invoker.assert_called_with('reuselanguageinvoker.status', 'Disabled')
 
     def test_context_menu_default(self):
         # Load context.otaku.rpdev/default.py
@@ -319,14 +361,18 @@ class TestServiceAndContext(unittest.TestCase):
                     context_mod.main()
 
     def test_plugin_default(self):
-        # Load plugin.video.otaku.rpdev/default.py
+        # Execute plugin.video.otaku.rpdev/default.py as __main__ and verify root router dispatch
         plugin_path = os.path.join(
             os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
             'plugin.video.otaku.rpdev', 'default.py'
         )
-        spec = importlib.util.spec_from_file_location("plugin_default", plugin_path)
+        spec = importlib.util.spec_from_file_location("__main__", plugin_path)
         plugin_mod = importlib.util.module_from_spec(spec)
-        self.assertIsNotNone(plugin_mod)
+        with mock.patch('sys.argv', ['plugin://plugin.video.otaku.rpdev/', '1', '']), \
+             mock.patch('resources.lib.ui.router.router_process') as mock_router, \
+             mock.patch.object(control, 'getBool', return_value=False):
+            spec.loader.exec_module(plugin_mod)
+            mock_router.assert_called_once_with('', {})
 
 
 if __name__ == '__main__':

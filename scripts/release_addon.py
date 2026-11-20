@@ -239,42 +239,12 @@ def validate_release_metadata(addon_xml_path, news_path, changelog_path, target_
 
 
 def run_preflight_gate(repo_root, with_flatpak_e2e=False):
-    """Execute the mandatory 5-step pre-flight verification gate from AGENTS.md."""
-    print("\n🧪 Step 2: Running Pre-Flight Verification Gate...")
-
-    # 2a. Ruff Linter
-    if shutil.which("ruff"):
-        print("  • [1/4] Running Ruff linter (--select E9,F63,F7,F82)...")
-        run_cmd(
-            "ruff check --select E9,F63,F7,F82 plugin.video.otaku.rpdev context.otaku.rpdev tests scripts",
-            cwd=repo_root,
-        )
-    else:
-        print("  • [1/4] ruff not found in PATH; skipping standalone ruff binary (covered by unit lint test).")
-
-    # 2b. Bytecode compilation
-    print("  • [2/4] Verifying Python bytecode compilation...")
-    run_cmd("python3 -m compileall -q plugin.video.otaku.rpdev context.otaku.rpdev tests scripts", cwd=repo_root)
-
-    # 2c. Full unit/integration/lint suite with -W default
-    print("  • [3/4] Running full test suite with -W default...")
-    res = run_cmd("python3 -W default -m unittest discover -s tests -v", cwd=repo_root)
-    # Summarize test count from stderr
-    match = re.search(r"Ran (\d+) tests in [\d.]+s", res.stderr)
-    test_count = match.group(1) if match else "all"
-    print(f"    ✓ {test_count} tests passed with zero errors.")
-
-    # 2d. Function-level coverage audit
-    print("  • [4/4] Auditing function and module test coverage (--fail-below 60)...")
-    cov_res = run_cmd("python3 scripts/audit_function_coverage.py --fail-below 60", cwd=repo_root)
-    for line in cov_res.stdout.splitlines():
-        if "Modules with tests:" in line or "Tested functions:" in line or "[PASS]" in line:
-            print(f"    {line.strip()}")
-
-    # Optional 2e. Hermetic Flatpak Kodi 21/22 E2E runner
+    """Execute the unified multi-silo pre-flight verification gate via scripts/verify_all.py."""
+    print("\n🧪 Step 2: Running Unified Pre-Flight Verification Gate (scripts/verify_all.py)...")
+    cmd = [sys.executable, "scripts/verify_all.py", "--fail-below", "60"]
     if with_flatpak_e2e:
-        print("  • [5/5] Running hermetic Flatpak Kodi 21 & 22 E2E smoke test...")
-        run_cmd("python3 scripts/run_flatpak_kodi_e2e.py", cwd=repo_root)
+        cmd.append("--e2e")
+    run_cmd(cmd, cwd=repo_root, capture=False)
 
 
 def ensure_gh_default_repo(repo_root):

@@ -43,6 +43,8 @@ Before releasing fixes via `scripts/release_addon.py`:
 4. Audit `kodi.log` for provider timings, `sortSources` funnel counts, external subtitle attachment, and **0** `PythonToCpp` / `Traceback` / `OTAKU RPDEV` errors or warnings.
 5. Always stop playback (`Input.Back`, `Player.Stop`), send `Application.Quit`, restore `settings.xml.bak` → `settings.xml`, and verify 0 background tasks remain running.
 
-## 4. Update `docs/CONCERNS.md` & Release
+## 4. Regression Testing, `docs/CONCERNS.md` & Release
+- Write concrete behavioral regression tests for every fixed defect following the `otaku-testing-and-qa` skill (no placeholder assertions or `except Exception: pass`).
+- Run `python3 scripts/verify_all.py --fail-below 60 --json /tmp/verify_report.json` to confirm 0 failures and 0 project warnings before releasing.
 - Update `Next review offset`, `Last line reviewed`, `Review history`, and `Open` / `Resolved` tables in `docs/CONCERNS.md`.
 - Publish fixes strictly via `scripts/release_addon.py` (see the `otaku-release-and-verification` skill).

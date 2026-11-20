@@ -1,3 +1,9 @@
+Changelog v6.2.14 (2026-11-20):
+- Testing, CI & Docs Overhaul:
+  - Unified scripts/verify_all.py verification gate across local pre-flight, CI, and release workflows (expanded Ruff, strict project warnings-as-errors, 100% module coverage)
+  - Refactored test suite to 1,014+ actionable tests removing placeholders/swallowed exceptions and adding end-user settings consumer, UI/WindowXML, route, and E2E journey tests
+  - Added automated test-quality and doc/skill drift linters, explicit Main.py re-exports, expanded docs hub (TESTING/AUTOMATION/README), and otaku-testing-and-qa agent skill
+
 Changelog v6.2.13 (2026-11-20):
 - Scraper Host Fallback, Parallel Batching & Kodi 22 Subtitle Parser Hardening:
   - Add automatic direct <-> alt proxy host fallback with sticky switching and diagnostics in animetosho.py and nyaa.py (C-24)
