@@ -146,6 +146,7 @@ Every single subsystem has been audited, benchmarked, hardened, and expanded:
 
 | Version | Highlights |
 | :--- | :--- |
+| **v6.2.0 – v6.2.13** | **Kodi 22.0-RC2 (Piers) Certified & Scraper/Subtitle Hardening**: Automatic direct ↔ `translate.goog` host failover and parallel single-batch scraping (`nyaa.py`, `animetosho.py`, ~3.5s scrapes), pre-Debrid & sort-stage sequel alias parity (`expand_sequel_season_aliases`), Kodi 22 `CDVDFactorySubtitle`-aligned external `.vtt`/`.srt`/`.ass` validation + unique `sub_tag` VFS cache isolation, full upstream `Goldenfreddy0703/Otaku` PR parity (`#496`–`#507`, `animetosho.net`, IEC sizes, AniList direct GraphQL fallback, multi-part filtering), persistent cross-invocation mirror cooldowns, and **991+ hermetic tests** across Python 3.11–3.13. |
 | **v5.9.0 – v5.9.2** | Full codebase audit remediation across all 123 Python modules and 38 skin XMLs; hardened window controllers (`skip_intro`, `still_watching`, `resolver`, `playing_next`, `source_select`, `sort_select`, `filter_select`, `download_manager`, `anichart`), skin XML layout/color/navigation fixes, hermetic 412+ test suite, and live scraper health monitor enhancements. |
 | **v5.8.0 – v5.8.x** | Multi-debrid provider resilience, season pack rescrape failover, enhanced subtitle selection & forced track prioritization, and watchlist synchronization hardening. |
 | **v5.7.0 – v5.7.x** | Scraper concurrency & early-termination optimizations, expanded torrent & web embed extraction rules, and rich metadata/artwork fallbacks. |
@@ -166,24 +167,29 @@ Every single subsystem has been audited, benchmarked, hardened, and expanded:
 
 ---
 
-## 🛠️ Development & Testing
+## 🛠️ Development, Architecture & Testing
 
-Otaku RPDev includes an extensive automated test suite that executes in pure Python without requiring a live Kodi installation:
+- **Architecture & Subsystems**: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- **End-User Configuration Guide**: [docs/CONFIGURATION_GUIDE.md](docs/CONFIGURATION_GUIDE.md)
+- **Device Log Concerns & Audit History**: [docs/CONCERNS.md](docs/CONCERNS.md)
+- **Engineering Invariants**: [AGENTS.md](AGENTS.md)
+
+Otaku RPDev includes a hermetic offline test suite (**991+ tests**) with dual Kodi 21/22 simulation that executes in pure Python without requiring a live Kodi installation:
 
 ```bash
 # Clone the repository
 git clone https://github.com/RPDevs-Builds/Otaku-RPDev.git
 cd Otaku-RPDev
 
-# Run the complete test suite (412+ tests)
-python3 -m unittest discover -s tests
+# Run the complete test suite (991+ tests) with warnings surfaced
+python3 -W default -m unittest discover -s tests -v
 ```
 
 ### Packaging & Release
-New releases are built and published to the CDN repository using `scripts/release_addon.py`:
+New releases are validated, tagged, built via GitHub Actions, and published to the CDN repository using `scripts/release_addon.py`:
 
 ```bash
-python3 scripts/release_addon.py plugin.video.otaku.rpdev --version 5.6.0 -m "release: v5.6.0 - Kodi 22 RC readiness, embed pre-caching, SmartPlay continuity, and docs refresh"
+python3 scripts/release_addon.py --bump patch --title "Short Banner Title" -m "- Bullet 1\n- Bullet 2"
 ```
 
 ---

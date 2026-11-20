@@ -100,11 +100,13 @@ For dedicated boxes, HTPCs, and mini-PCs with ample RAM and high-speed broadband
 ### Category 2: Providers
 Configure your scrape sources:
 - **Torrents / Debrid Providers**: Nyaa, Nyaa Alt, AnimeTosho, AnimeTosho Alt, NekoBT, Bitsearch, ThePirateBay, and Torrentio. (Torrentio includes an advanced configuration string for custom filters).
+  - **Automatic Direct ↔ Alt Failover (v6.2.13+)**: Both **AnimeTosho** (`animetosho.net` ↔ `animetosho-net.translate.goog`) and **Nyaa** (`nyaa.si` ↔ `nyaa-si.translate.goog`) automatically fail over to the opposite host and sticky-switch for the rest of the scrape if your selected host is blocked or rate-limited.
 - **Usenet**: Easynews integration (requires Easynews account authorized in Accounts).
-- **Direct Embed Providers**: Anikoto, AnimePahe, AnimePahe Alt, Animix, HiAnime, and WatchNixtoons2. HiAnime supports dynamic domain switching.
+- **Direct Embed Providers**: Anikoto, AnimePahe, AnimePahe Alt, HiAnime, and WatchNixtoons2. HiAnime supports dynamic domain switching, and failing WAF-blocked mirrors (such as AnimePahe) automatically enter a session-persistent cooldown.
 
 ### Category 3: Scraping
 - **Auto Try Next Source**: If a chosen stream fails or disconnects during playback start, Otaku will automatically fall back to the next best source without user intervention.
+- **Show Uncached Torrents (`show.uncached`) & Audio Filtering**: When `show.uncached` is disabled and **Preferred Source Audio** is set to **Dub / Dual-Audio**, only torrents that are *both* cached on your Debrid service *and* carry English/Dual-Audio tracks are retained. If an older or niche sequel shows few torrent results, temporarily enabling *Show Uncached* or switching audio filter to *Sub & Dub* reveals uncached or sub-only releases.
 - **Cloud Inspection**: When using Debrid providers, cloud inspection verifies whether torrent contents match the requested season and episode before presenting them in the source list.
 - **Local Media Folder**: Point Otaku to a local NAS or hard drive directory to merge your offline anime collection seamlessly with streamed sources.
 
@@ -122,7 +124,7 @@ Configure your scrape sources:
 ### Category 6: Subtitles (Embedded & External)
 - **Subtitle Engine**: Automatically detects character encoding (`use_chardet`) to eliminate garbled text on international tracks. Set auto-download triggers, request timeouts (default: 8s), and preference for SDH (Deaf/Hard-of-Hearing) or Forced tracks.
 - **Embedded Track Auto-Selection**: Automatically activates internal subtitle tracks matching your language. Configure keyword patterns (e.g., `dialogue`, `signs`, `full`) to prioritize specific release group styles. Enable *Dub Audio Subtitles* if you want subtitles active while watching English dubs.
-- **External Subtitle Providers**: Built-in, direct integration with OpenSubtitles, SubDL, SubSource, Podnadpisi, BSPlayer, and Addic7ed without requiring secondary external addons.
+- **External Subtitle Providers & Kodi 22 WebVTT Validation**: Built-in, direct integration with OpenSubtitles, SubDL, SubSource, Podnadpisi, BSPlayer, and Addic7ed without requiring secondary external addons. Embed `.vtt`/`.srt`/`.ass` sidecars are automatically validated against Kodi 22's subtitle parser contract (stripping BOM/leading whitespace, rejecting HTML/JSON proxy error pages with automatic origin fallback, and isolating per-play temp filenames to prevent Kodi VFS cache collisions).
 
 ### Category 7: Sort and Filter
 - **Content Catalog Filters**: Filter browse and search directories by release year, broadcast season (Winter, Spring, Summer, Fall), media format (TV, Movie, OVA, ONA, Special), airing status, age rating (PG-13, R-17+), and country of origin.
