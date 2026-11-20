@@ -551,7 +551,14 @@ class TestSubtitleDownloadIntegrationAndIsolation(unittest.TestCase):
             mock_item = MagicMock()
             mock_item_cls.return_value = mock_item
             resolver._handle_playback()
-            mock_get_sub.assert_called_once_with('https://sub/eng.vtt', 'eng', headers=None, sub_index=1, display_name='English', source_url=None)
+            mock_get_sub.assert_called_once()
+            call_args, call_kwargs = mock_get_sub.call_args
+            self.assertEqual(call_args, ('https://sub/eng.vtt', 'eng'))
+            self.assertEqual(call_kwargs.get('headers'), None)
+            self.assertEqual(call_kwargs.get('sub_index'), 1)
+            self.assertEqual(call_kwargs.get('display_name'), 'English')
+            self.assertEqual(call_kwargs.get('source_url'), None)
+            self.assertTrue(call_kwargs.get('sub_tag'))
             mock_item.setSubtitles.assert_called_once_with(['special://temp/TemporarySubs.1.eng.vtt'])
 
         # 2. Preferred = 'none': zero subtitles are fetched

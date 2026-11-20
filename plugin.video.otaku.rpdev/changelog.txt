@@ -1,3 +1,11 @@
+Changelog v6.2.13 (2026-11-20):
+- Scraper Host Fallback, Parallel Batching & Kodi 22 Subtitle Parser Hardening:
+  - Add automatic direct <-> alt proxy host fallback with sticky switching and diagnostics in animetosho.py and nyaa.py (C-24)
+  - Eliminate redundant AnimeTosho query burst, parallelize show_pack searches with episode queries, and batch Debrid cache checks once per scraper so both finish in ~3.5s well inside 15s timeout (C-25)
+  - Align embed_extractor.get_sub() with Kodi 22 CDVDFactorySubtitle::CreateParser() (byte-0 whitespace stripping, cue validation for VTT/SRT/ASS, HTTP 200 error-body origin fallback, atomic write verification) and pass unique per-play sub_tag nonces in resolver.py & routes/playback.py (C-11)
+  - Downgrade expected SIMKLAPI.get_unique_ids missing 'ids' miss on newly airing shows from warning to debug (C-26)
+  - Update docs/CONCERNS.md with ONN Review #13 (offset 184328) and resolutions R-30..R-33
+
 Changelog v6.2.12 (2026-11-20):
 - Torrent Pipeline Fix: Alt Proxy Query Join, Pre-Debrid Sequel Filtering & Parallel Season/AniDB Search:
   - Fix double '?' URL query joining in client.py that silently broke translate.goog alt providers (provider.animetoshoalt, nyaaalt, animepahealt) returning 0 entries on every episode (C-21)

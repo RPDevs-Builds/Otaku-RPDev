@@ -1,4 +1,5 @@
 import re
+import threading
 
 from functools import partial
 from bs4 import BeautifulSoup, SoupStrainer
@@ -8,10 +9,17 @@ from resources.lib.ui.BrowserBase import BrowserBase
 
 
 class Sources(BrowserBase):
-    _BASE_URL = domains.get_domain('nyaa', 'https://nyaa.si/')
+    _DIRECT_URL = 'https://nyaa.si/'
+    _ALT_URL = 'https://nyaa-si.translate.goog/?_x_tr_sl=es&_x_tr_tl=en&_x_tr_hl=en'
+    _BASE_URL = domains.get_domain('nyaa', _DIRECT_URL)
 
     def __init__(self):
-        self._BASE_URL = domains.get_domain('nyaa', self._BASE_URL) or self._BASE_URL
+        self._BASE_URL = domains.get_domain('nyaa', self._BASE_URL) or self._DIRECT_URL
+        self._host_lock = threading.Lock()
+        self._active_base_url = self._BASE_URL
+        self._fallback_base_url = self._DIRECT_URL if 'translate.goog' in self._BASE_URL else self._ALT_URL
+        self._fallback_logged = False
+        self._both_failed_logged = False
         self.media_type = None
         self.cached = []
         self.uncached = []
@@ -19,6 +27,57 @@ class Sources(BrowserBase):
         self.rescrape = False
         self.filter_kwargs = {}
         self.absolute_episode = None
+
+    def _fetch_html(self, params, url_override=None):
+        """Fetch Nyaa search HTML with automatic direct <-> alt proxy fallback and diagnostics."""
+        with self._host_lock:
+            primary_base = url_override or self._active_base_url
+            fallback_base = self._fallback_base_url
+
+        def _try_host(base_url):
+            resp = client.get(base_url, params=params)
+            if not resp:
+                return None, 'no_response'
+            status = getattr(resp, 'status_code', 200)
+            html = getattr(resp, 'text', '') or ''
+            if isinstance(status, int) and status >= 400:
+                return None, f'http_{status}'
+            if 'table-responsive' not in html and 'No results found' not in html and 'nyaa' not in html.lower():
+                return None, f'unexpected_html(len={len(html)})'
+            return html, 'ok'
+
+        html, primary_reason = _try_host(primary_base)
+        if html is not None:
+            return html
+
+        if not url_override and fallback_base and fallback_base != primary_base:
+            with self._host_lock:
+                should_log = not self._fallback_logged
+                if should_log:
+                    self._fallback_logged = True
+            if should_log:
+                control.log(
+                    f"Nyaa: primary host {primary_base} failed ({primary_reason}); trying fallback {fallback_base}",
+                    'warning',
+                )
+            fb_html, fb_reason = _try_host(fallback_base)
+            if fb_html is not None:
+                with self._host_lock:
+                    if self._active_base_url == primary_base:
+                        self._active_base_url = fallback_base
+                        self._fallback_base_url = primary_base
+                        control.log(f"Nyaa: switched active host to {fallback_base}", 'info')
+                return fb_html
+            with self._host_lock:
+                should_log_both = not self._both_failed_logged
+                if should_log_both:
+                    self._both_failed_logged = True
+            if should_log_both:
+                control.log(
+                    f"Nyaa: both primary ({primary_reason}) and fallback ({fb_reason}) hosts failed",
+                    'warning',
+                )
+        return None
 
     def get_sources(self, query, mal_id, episode, status, media_type, season=None, part=None, rescrape=False, hints=None):
         query = self._clean_title(query).replace('-', ' ')
@@ -30,22 +89,20 @@ class Sources(BrowserBase):
         if media_type == 'movie':
             return self.get_movie_sources(query, mal_id)
 
-        episode_sources = self.get_episode_sources(query, mal_id, episode, season, part, status)
-        show_sources = self.get_show_sources(query, mal_id, episode, season, part)
-        self.sources = episode_sources + show_sources
+        self.sources = self.get_episode_sources(query, mal_id, episode, season, part, status, include_show_pack=True)
 
         if not self.sources and ':' in query:
             q1, q2 = query.split('|', 2)
             q1 = q1[1:-1].split(':')[0]
             q2 = q2[1:-1].split(':')[0]
             query2 = '({0})|({1})'.format(q1, q2)
-            self.sources = self.get_episode_sources(query2, mal_id, episode, season, part, status)
+            self.sources = self.get_episode_sources(query2, mal_id, episode, season, part, status, include_show_pack=True)
 
         # remove any duplicate sources
         self.append_cache_uncached_noduplicates()
         return {'cached': self.cached, 'uncached': self.uncached}
 
-    def get_episode_sources(self, show, mal_id, episode, season, part, status):
+    def get_episode_sources(self, show, mal_id, episode, season, part, status, include_show_pack=False):
         season_zfill = str(season).zfill(2) if season else '01'
         episode_zfill = str(episode).zfill(2) if episode is not None else '01'
 
@@ -136,30 +193,45 @@ class Sources(BrowserBase):
                     'name': 'sequel_season_base'
                 })
 
+        if include_show_pack:
+            search_tasks.append({
+                'query': show,
+                'params': {'f': '0', 'c': '1_0', 'q': show.replace(' ', '+'), 's': 'downloads', 'o': 'desc'},
+                'name': 'show_pack',
+                'is_show_pack': True,
+            })
+
         # Execute all searches in parallel
         control.log(f"Nyaa: Running {len(search_tasks)} searches in parallel for episode {episode_zfill}")
 
         def run_search(task):
             try:
-                filtered = self._fetch_and_filter_episodes(self._BASE_URL, task['params'], mal_id, episode_zfill, season_zfill, part, show_title=show)
+                filtered = self._fetch_and_filter_episodes(None, task['params'], mal_id, episode_zfill, season_zfill, part, show_title=show)
+                is_pack = bool(task.get('is_show_pack'))
+                for item in filtered:
+                    item['_is_show_pack'] = is_pack
                 control.log(f"Nyaa: {task['name']} search returned {len(filtered)} filtered torrents")
                 return filtered
             except Exception as e:
-                control.log(f"Nyaa: {task['name']} search failed: {str(e)}")
+                control.log(f"Nyaa: {task['name']} search failed: {str(e)}", 'warning')
                 return []
 
         all_search_results = utils.parallel_process(search_tasks, run_search)
 
         # Deduplicate candidate torrents across parallel tasks before calling Debrid().torrentCacheCheck once
-        seen_hashes = set()
+        seen_hashes = {}
         combined = []
         for torrents in all_search_results:
             for t in torrents:
                 h = t.get('hash', '').lower()
-                if h and h not in seen_hashes:
+                if not h:
+                    continue
+                if h not in seen_hashes:
                     t['hash'] = h
-                    seen_hashes.add(h)
+                    seen_hashes[h] = t
                     combined.append(t)
+                elif not t.get('_is_show_pack') and seen_hashes[h].get('_is_show_pack'):
+                    seen_hashes[h]['_is_show_pack'] = False
 
         if not combined:
             return []
@@ -170,11 +242,12 @@ class Sources(BrowserBase):
         uncashed_list = [i for i in uncashed_list_ if i['seeders'] > 0]
         uncashed_list = sorted(uncashed_list, key=lambda k: k['seeders'], reverse=True)
 
-        mapfunc = partial(self.parse_nyaa_view, episode=episode_zfill)
-        nyaa_sources = utils.parallel_process(cache_list, mapfunc) if cache_list else []
+        def _parse_entry(item, cached=True):
+            return self.parse_nyaa_view(item, episode=episode_zfill, cached=cached, is_show_pack=bool(item.get('_is_show_pack')))
+
+        nyaa_sources = utils.parallel_process(cache_list, partial(_parse_entry, cached=True)) if cache_list else []
         if control.getBool('show.uncached') and uncashed_list:
-            mapfunc2 = partial(self.parse_nyaa_view, episode=episode_zfill, cached=False)
-            nyaa_sources += utils.parallel_process(uncashed_list, mapfunc2)
+            nyaa_sources += utils.parallel_process(uncashed_list, partial(_parse_entry, cached=False))
 
         control.log(f"Nyaa: Episode search complete - returning {len(nyaa_sources)} total sources")
         return nyaa_sources
@@ -214,9 +287,8 @@ class Sources(BrowserBase):
         return {'cached': self.cached, 'uncached': self.uncached}
 
     def _fetch_and_filter_episodes(self, url, params, mal_id, episode_zfill, season_zfill, part, show_title=None):
-        response = client.get(url, params=params)
-        if response:
-            html = response.text
+        html = self._fetch_html(params, url_override=url)
+        if html:
             mlink = SoupStrainer('div', {'class': 'table-responsive'})
             soup = BeautifulSoup(html, "html.parser", parse_only=mlink)
             rex = r'(magnet:)+[^"]*'
@@ -286,9 +358,8 @@ class Sources(BrowserBase):
         return []
 
     def process_nyaa_movie(self, url, params, mal_id):
-        response = client.get(url, params=params)
-        if response:
-            res = response.text
+        res = self._fetch_html(params, url_override=None if url == self._BASE_URL else url)
+        if res:
             results = BeautifulSoup(res, 'html.parser')
             rex = r'(magnet:)+[^"]*'
             search_results = [

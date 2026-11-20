@@ -540,6 +540,55 @@ def _detect_sub_ext(sub_url, content):
     return '.srt'
 
 
+_SRT_CUE_RE = re.compile(r'\d{1,2}:\d{2}:\d{2}[.,]\d{3}\s*-->\s*\d{1,2}:\d{2}:\d{2}[.,]\d{3}')
+_VTT_SHORT_CUE_RE = re.compile(r'\d{1,2}:\d{2}\.\d{3}\s*-->\s*\d{1,2}:\d{2}\.\d{3}')
+
+
+def _validate_and_normalize_sub_content(content, sub_url, source_url=None):
+    """Validate and normalize subtitle text to match Kodi 22 CDVDFactorySubtitle::CreateParser()."""
+    if not content or not content.strip():
+        return None, None, 'empty_body'
+
+    # Strip UTF-8 BOM and leading whitespace/blank lines so headers sit at byte 0
+    content = content.lstrip('\ufeff').lstrip()
+    if not content:
+        return None, None, 'empty_after_strip'
+
+    head_lower = content[:64].lower()
+    if head_lower.startswith(('<!doctype', '<html', '<head', '<body', '<?xml')):
+        return None, None, 'html_error_page'
+    if head_lower.startswith(('{', '[')) and '-->' not in content and '[events]' not in content.lower():
+        return None, None, 'json_error_body'
+
+    ext = _detect_sub_ext(source_url or sub_url, content)
+    if ext == '.vtt':
+        if '<}' in content:
+            # Sanitize malformed upstream WebVTT tag typos (e.g. "<}text</i>") that trigger CWebVTTHandler errors
+            content = re.sub(r'<\}', '', content)
+        if '-->' not in content:
+            return None, None, 'vtt_missing_cues'
+        if not content.upper().startswith('WEBVTT'):
+            content = 'WEBVTT\n\n' + content
+    elif ext in ('.ass', '.ssa'):
+        upper_head = content[:4096].upper()
+        if '[EVENTS]' not in upper_head and 'DIALOGUE:' not in upper_head and 'SCRIPTTYPE:' not in upper_head:
+            return None, None, 'ass_missing_header'
+    else:
+        # .srt fallback: verify SubRip cue format (HH:MM:SS,mmm --> HH:MM:SS,mmm),
+        # or auto-promote hour-less WebVTT cues (MM:SS.mmm --> MM:SS.mmm) to .vtt
+        if not _SRT_CUE_RE.search(content):
+            if _VTT_SHORT_CUE_RE.search(content):
+                ext = '.vtt'
+                if '<}' in content:
+                    content = re.sub(r'<\}', '', content)
+                if not content.upper().startswith('WEBVTT'):
+                    content = 'WEBVTT\n\n' + content
+            else:
+                return None, None, 'srt_missing_cues'
+
+    return content, ext, 'ok'
+
+
 def get_sub(sub_url, sub_lang, headers=None, sub_index=0, display_name=None, source_url=None, sub_tag=None):
     if not sub_url:
         return None
@@ -548,80 +597,68 @@ def get_sub(sub_url, sub_lang, headers=None, sub_index=0, display_name=None, sou
     lang = detect_sub_lang(source_url or sub_url, label)
     if sub_lang and re.match(r'^[a-z]{3}$', str(sub_lang).lower()):
         lang = str(sub_lang).lower()
-    response = client.get(sub_url, headers=headers)
-    if not response:
-        try:
-            response = client.get(sub_url, headers=headers, verify=False)
-        except Exception:
-            response = None
 
-    if not response:
-        # C-10 fallback: retry original source_url or proxy ?url=<origin> target
-        fallback_urls = []
-        if source_url and isinstance(source_url, str) and source_url.startswith('http') and source_url != sub_url:
-            fallback_urls.append(source_url)
-        try:
-            proxied_target = urllib.parse.parse_qs(urllib.parse.urlparse(sub_url).query).get('url', [None])[0]
-            if proxied_target and isinstance(proxied_target, str) and proxied_target.startswith('http'):
-                if proxied_target != sub_url and proxied_target not in fallback_urls:
-                    fallback_urls.append(proxied_target)
-        except Exception:
-            pass
+    # Build ordered candidate list: primary URL first, then origin fallbacks (source_url / ?url=<origin>)
+    candidates = [(sub_url, headers)]
+    if source_url and isinstance(source_url, str) and source_url.startswith('http') and source_url != sub_url:
+        candidates.append((source_url, None))
+    try:
+        proxied_target = urllib.parse.parse_qs(urllib.parse.urlparse(sub_url).query).get('url', [None])[0]
+        if proxied_target and isinstance(proxied_target, str) and proxied_target.startswith('http'):
+            if all(c[0] != proxied_target for c in candidates):
+                candidates.append((proxied_target, None))
+    except Exception:
+        pass
 
-        for fb_url in fallback_urls:
-            control.log(f"get_sub: proxy failed for {sub_url}, trying fallback {fb_url}", level='info')
-            response = client.get(fb_url)
-            if not response:
-                try:
-                    response = client.get(fb_url, verify=False)
-                except Exception:
-                    response = None
-            if response:
-                break
+    normalized_content = None
+    ext = None
+    last_reason = 'no_response'
 
-    if not response:
-        control.log(f"get_sub: request failed for {sub_url}", level='warning')
+    for cand_idx, (cand_url, cand_headers) in enumerate(candidates):
+        if cand_idx > 0:
+            control.log(f"get_sub: primary failed ({last_reason}), trying fallback {cand_url}", level='info')
+        response = client.get(cand_url, headers=cand_headers)
+        if not response:
+            try:
+                response = client.get(cand_url, headers=cand_headers, verify=False)
+            except Exception:
+                response = None
+
+        if not response:
+            last_reason = 'request_failed'
+            continue
+
+        if hasattr(response, 'text'):
+            raw_content = response.text
+        elif hasattr(response, 'content'):
+            raw_content = response.content.decode('utf-8', errors='ignore')
+        else:
+            raw_content = str(response)
+
+        norm, detected_ext, reason = _validate_and_normalize_sub_content(raw_content, cand_url, source_url=source_url)
+        if norm is not None:
+            normalized_content = norm
+            ext = detected_ext
+            break
+        last_reason = reason
+        control.log(f"get_sub: rejected subtitle from {cand_url} ({reason})", level='warning')
+
+    if normalized_content is None or ext is None:
+        control.log(f"get_sub: failed to fetch valid subtitle for {sub_url} ({last_reason})", level='warning')
         return None
-
-    # Handle both Response objects and string content
-    if hasattr(response, 'text'):
-        content = response.text
-    elif hasattr(response, 'content'):
-        content = response.content.decode('utf-8', errors='ignore')
-    else:
-        content = str(response)
-
-    if not content or not content.strip():
-        control.log(f"get_sub: empty subtitle body for {sub_url}", level='info')
-        return None
-
-    content = content.lstrip('\ufeff')
-    head_lower = content.lstrip()[:64].lower()
-    if head_lower.startswith(('<!doctype', '<html', '<head', '<body')):
-        control.log(f"get_sub: skipping HTML error page disguised as subtitle for {sub_url}", level='warning')
-        return None
-
-    ext = _detect_sub_ext(source_url or sub_url, content)
-    if ext == '.vtt':
-        if '<}' in content:
-            # Sanitize malformed upstream WebVTT tag typos (e.g. "<}text</i>") that trigger CWebVTTHandler errors
-            content = re.sub(r'<\}', '', content)
-        if not content.lstrip().upper().startswith('WEBVTT'):
-            if '-->' in content:
-                content = 'WEBVTT\n\n' + content.lstrip()
-            else:
-                control.log(f"get_sub: invalid VTT content (no WEBVTT header or cues) for {sub_url}", level='warning')
-                return None
 
     if sub_tag:
         safe_tag = re.sub(r'[^A-Za-z0-9_-]', '', str(sub_tag))
         fname = 'TemporarySubs.{0}.{1}.{2}{3}'.format(safe_tag, sub_index, lang, ext)
     else:
-        fname = 'TemporarySubs.{0}.{1}{2}'.format(sub_index, lang, ext)
+        nonce = int(time.time() * 1000)
+        fname = 'TemporarySubs.{0}.{1}.{2}{3}'.format(nonce, sub_index, lang, ext)
     fname = fname.encode(encoding='ascii', errors='ignore').decode(encoding='ascii')
     subtitle = xbmcvfs.translatePath('special://temp/')
     fpath = os.path.join(subtitle, fname)
-    control.atomic_write_text(fpath, content)
+    if control.atomic_write_text(fpath, normalized_content) is False:
+        control.log(f"get_sub: failed to write subtitle file {fpath}", level='warning')
+        return None
     return {
         'path': 'special://temp/{0}'.format(fname),
         'lang': lang,

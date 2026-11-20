@@ -192,5 +192,5 @@ class SIMKLAPI:
             if 'ids' in r:
                 return r['ids']
             else:
-                control.log(f"SIMKLAPI.get_unique_ids: 'ids' not found in response for anime_id {anime_id}", 'warning')
+                control.log(f"SIMKLAPI.get_unique_ids: 'ids' not found in response for anime_id {anime_id}", 'debug')
         return {}

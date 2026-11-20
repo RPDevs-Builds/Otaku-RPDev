@@ -361,6 +361,7 @@ class Resolver(BaseWindow):
                         sub_index=sub.get('index', idx),
                         display_name=sub.get('name'),
                         source_url=sub.get('file'),
+                        sub_tag=f"{getattr(self, 'mal_id', None) or '0'}_{getattr(self, 'episode', None) or '0'}_{int(time.time() * 1000)}",
                     )
                     if entry:
                         subtitle_entries.append(entry)
