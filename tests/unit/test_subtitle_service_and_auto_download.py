@@ -474,6 +474,141 @@ class TestSubtitleServiceAndAutoDownload(unittest.TestCase):
         self.assertIn("('service.subtitles.otaku.rpdev', 'context.otaku.rpdev')", src)
         self.assertIn("settings.getBool(key, default)", src)
 
+    def test_atomic_write_text_uses_xbmcvfs_rename_for_kodi_directory_cache(self):
+        """C-30: control.atomic_write_text must prefer xbmcvfs.rename() so Kodi C++ g_directoryCache.AddFile() runs."""
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            dest = os.path.join(tmp_dir, 'test_sub.en.12345.srt')
+            rename_calls = []
+
+            def _fake_vfs_rename(src, dst):
+                rename_calls.append((src, dst))
+                os.replace(src, dst)
+                return True
+
+            with patch.object(control.xbmcvfs, 'rename', side_effect=_fake_vfs_rename):
+                ok = control.atomic_write_text(dest, "1\n00:00:01,000 --> 00:00:03,000\nHello\n")
+
+            self.assertTrue(ok)
+            self.assertEqual(len(rename_calls), 1)
+            self.assertEqual(rename_calls[0][1], dest)
+            self.assertTrue(os.path.isfile(dest))
+            with open(dest, 'r', encoding='utf-8') as f:
+                self.assertIn('Hello', f.read())
+
+    def test_download_syncs_vfs_file_if_kodi_cache_hides_written_subtitle(self):
+        """C-30: If xbmcvfs.exists(dest_path) reports False after write (stale g_directoryCache), sync via xbmcvfs.File."""
+        import tempfile
+        valid_srt = b"1\n00:00:01,000 --> 00:00:04,000\nSync line.\n"
+        fake_svc = MagicMock()
+        fake_svc.download.return_value = valid_srt
+
+        result = SubtitleResult(
+            service_name='subsource',
+            display_name='SubSource',
+            name='Blue.Exorcist.S04E10.srt',
+            lang='English',
+            lang_code='en',
+            download_url='https://api.subsource.net/api/v1/subtitles/1/download',
+        )
+        meta = VideoMeta(title='Blue Exorcist', tvshow='Blue Exorcist', season=4, episode=10, is_tvshow=True)
+        vfs_writes = []
+
+        class _TrackingVFSFile:
+            def __init__(self, path, mode='r'):
+                self.path = path
+                self.mode = mode
+            def write(self, data):
+                vfs_writes.append((self.path, self.mode, data))
+                return len(data)
+            def close(self):
+                pass
+
+        with tempfile.TemporaryDirectory() as tmp_dir, \
+             patch.dict(sub_download.ALL_SERVICES, {'subsource': fake_svc}), \
+             patch.object(sub_download.xbmcvfs, 'exists', return_value=False), \
+             patch.object(sub_download.xbmcvfs, 'File', _TrackingVFSFile):
+            path = sub_download.download_and_prepare_subtitle(result, meta, {'subtitles.use_chardet': False}, dest_dir=tmp_dir)
+
+        self.assertIsNotNone(path)
+        self.assertTrue(path.startswith(tmp_dir))
+        self.assertEqual(len(vfs_writes), 1)
+        self.assertEqual(vfs_writes[0][0], path)
+        self.assertEqual(vfs_writes[0][1], 'w')
+        self.assertIn(b'Sync line.', vfs_writes[0][2])
+
+    def test_subsource_and_anime_dash_episode_auto_identification(self):
+        """C-31: Anime '- 10' filenames and SubSource season matches should be auto-identified."""
+        meta = VideoMeta(
+            title='Blue Exorcist -Beyond the Snow Saga-',
+            tvshow='Blue Exorcist -Beyond the Snow Saga-',
+            season=4,
+            episode=10,
+            languages=['English'],
+            preferred_lang='en',
+            is_tvshow=True,
+        )
+        dash_sub = SubtitleResult(
+            service_name='subsource',
+            display_name='SubSource',
+            name='[SubsPlease] Blue Exorcist -Beyond the Snow Saga- - 10 (1080p).srt',
+            lang='English',
+            lang_code='en',
+            season=4,
+        )
+        sub_search.score_result(dash_sub, meta, {})
+        self.assertTrue(dash_sub.auto_identified)
+        self.assertEqual(dash_sub.match_reason, 'Exact Ep')
+
+        pack_sub = SubtitleResult(
+            service_name='subsource',
+            display_name='SubSource',
+            name='Blue.Exorcist.Beyond.the.Snow.Saga.WEB-DL.1080p.zip',
+            lang='English',
+            lang_code='en',
+            season=4,
+        )
+        sub_search.score_result(pack_sub, meta, {})
+        self.assertTrue(pack_sub.auto_identified)
+        self.assertEqual(pack_sub.match_reason, 'Season Pack')
+
+    def test_service_download_uses_own_profile_temp_dir(self):
+        """C-30: service.subtitles.otaku.rpdev action=download stages files in its own addon_data temp dir."""
+        import tempfile
+        svc = _load_subtitle_service_module()
+        with tempfile.TemporaryDirectory() as tmp_profile:
+            payload = urllib.parse.quote_plus(json.dumps({
+                'service_name': 'subsource',
+                'display_name': 'SubSource',
+                'name': 'Blue.Exorcist.S04E10.srt',
+                'lang': 'English',
+                'lang_code': 'en',
+                'download_url': 'https://api.subsource.net/api/v1/subtitles/99/download',
+                'action_args': {'sub_id': '99'},
+            }))
+            captured_dest_dirs = []
+
+            def _fake_dl(result, meta, settings, dest_dir=None):
+                captured_dest_dirs.append(dest_dir)
+                out = os.path.join(dest_dir or tmp_profile, 'Blue_Exorcist.en.12345.srt')
+                os.makedirs(os.path.dirname(out), exist_ok=True)
+                with open(out, 'w', encoding='utf-8') as f:
+                    f.write("1\n00:00:01,000 --> 00:00:02,000\nHi\n")
+                return out
+
+            fake_addon = MagicMock()
+            fake_addon.getAddonInfo.return_value = tmp_profile
+            with patch.object(svc.xbmcaddon, 'Addon', return_value=fake_addon), \
+                 patch.object(svc.xbmcvfs, 'translatePath', side_effect=lambda p: p), \
+                 patch.object(subtitles, 'download_subtitle', side_effect=_fake_dl), \
+                 patch.object(xbmcplugin, 'addDirectoryItem') as mock_add, \
+                 patch.object(xbmcplugin, 'endOfDirectory'):
+                emitted = svc.handle_request(77, f'?action=download&payload={payload}')
+
+            self.assertEqual(emitted, 1)
+            self.assertEqual(captured_dest_dirs, [os.path.join(tmp_profile, 'temp')])
+            mock_add.assert_called_once()
+
 
 if __name__ == '__main__':
     unittest.main()

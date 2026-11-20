@@ -16,10 +16,11 @@ from resources.lib.subtitles import languages
 
 @functools.lru_cache(maxsize=128)
 def _get_episode_patterns(target_s: int, target_e: int):
-    s_e_pattern = re.compile(rf'[._\s\-\[]s0*{target_s}e0*{target_e}[._\s\-\]]', re.IGNORECASE)
-    alt_pattern = re.compile(rf'[._\s\-\[]0*{target_s}x0*{target_e}[._\s\-\]]', re.IGNORECASE)
-    single_ep_pattern = re.compile(rf'[._\s\-\[]e0*{target_e}[._\s\-\]]', re.IGNORECASE)
-    return s_e_pattern, alt_pattern, single_ep_pattern
+    s_e_pattern = re.compile(rf'(?:^|[._\s\-\[])s0*{target_s}e0*{target_e}(?:[._\s\-\]]|$)', re.IGNORECASE)
+    alt_pattern = re.compile(rf'(?:^|[._\s\-\[])0*{target_s}x0*{target_e}(?:[._\s\-\]]|$)', re.IGNORECASE)
+    single_ep_pattern = re.compile(rf'(?:^|[._\s\-\[])e0*{target_e}(?:[._\s\-\]]|$)', re.IGNORECASE)
+    anime_dash_ep_pattern = re.compile(rf'(?:^|[\s._])-\s*0*{target_e}(?:v\d)?(?:[\s._\-\[\(]|$)', re.IGNORECASE)
+    return s_e_pattern, alt_pattern, single_ep_pattern, anime_dash_ep_pattern
 
 
 def score_result(sub: SubtitleResult, meta: VideoMeta, settings: Dict[str, Any]) -> float:
@@ -86,7 +87,7 @@ def score_result(sub: SubtitleResult, meta: VideoMeta, settings: Dict[str, Any])
                     ep_mismatch = True
 
             # Regex search in filename
-            s_e_pattern, alt_pattern, single_ep_pattern = _get_episode_patterns(target_s, target_e)
+            s_e_pattern, alt_pattern, single_ep_pattern, anime_dash_ep_pattern = _get_episode_patterns(target_s, target_e)
 
             if not ep_mismatch:
                 if s_e_pattern.search(name_lower) or alt_pattern.search(name_lower):
@@ -97,6 +98,9 @@ def score_result(sub: SubtitleResult, meta: VideoMeta, settings: Dict[str, Any])
                     exact_ep_match = True
                 elif f"s{target_s:02d}" in name_lower and f"e{target_e:02d}" in name_lower:
                     score += 0.7
+                    exact_ep_match = True
+                elif not explicit_se and anime_dash_ep_pattern.search(name_lower):
+                    score += 0.6
                     exact_ep_match = True
 
     # 3. Filename / Hash match

@@ -2174,7 +2174,7 @@ def atomic_write_json(file_path: str, data: any, indent: int = 2) -> bool:
 
 
 def atomic_write_text(file_path: str, content: str, encoding: str = 'utf-8') -> bool:
-    """Atomically write text content to file_path via temporary swap."""
+    """Atomically write text content to file_path via temporary swap and Kodi VFS registration."""
     parent_dir = os.path.dirname(os.path.abspath(file_path))
     if not os.path.exists(parent_dir):
         os.makedirs(parent_dir, exist_ok=True)
@@ -2184,7 +2184,20 @@ def atomic_write_text(file_path: str, content: str, encoding: str = 'utf-8') -> 
             f.write(content)
             f.flush()
             os.fsync(f.fileno())
-        os.replace(tmp_path, file_path)
+        renamed_via_vfs = False
+        try:
+            # Prefer xbmcvfs.rename() so Kodi C++ CFile::Rename() calls
+            # g_directoryCache.ClearFile(tmp) + g_directoryCache.AddFile(dest).
+            # Pure os.replace() bypasses Kodi VFS and causes CFile::Open() /
+            # CGUIDialogSubtitles::OnDownloadComplete CFile::Copy() to fail on
+            # cached temp directories with stale g_directoryCache listings.
+            if hasattr(xbmcvfs, 'rename') and xbmcvfs.rename(tmp_path, file_path):
+                if os.path.exists(file_path) and not os.path.exists(tmp_path):
+                    renamed_via_vfs = True
+        except Exception:
+            renamed_via_vfs = False
+        if not renamed_via_vfs:
+            os.replace(tmp_path, file_path)
         return True
     except Exception as e:
         if os.path.exists(tmp_path):

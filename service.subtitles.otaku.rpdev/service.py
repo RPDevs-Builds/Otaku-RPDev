@@ -54,6 +54,26 @@ def _ensure_otaku_plugin_on_path() -> Optional[str]:
     return None
 
 
+def _get_service_temp_dir() -> Optional[str]:
+    """Resolve service.subtitles.otaku.rpdev's own profile temp directory."""
+    try:
+        profile_path = xbmcaddon.Addon(SUBTITLE_ADDON_ID).getAddonInfo('profile')
+        if profile_path:
+            translated = xbmcvfs.translatePath(profile_path)
+            if translated:
+                temp_dir = os.path.join(translated, 'temp')
+                try:
+                    if hasattr(xbmcvfs, 'mkdirs'):
+                        xbmcvfs.mkdirs(temp_dir)
+                except Exception:
+                    pass
+                os.makedirs(temp_dir, exist_ok=True)
+                return temp_dir
+    except Exception:
+        pass
+    return None
+
+
 def _parse_query_params(param_string: str) -> Dict[str, str]:
     """Parse Kodi sys.argv[2] query string cleanly."""
     raw = str(param_string or '')
@@ -207,7 +227,8 @@ def handle_request(handle: int, param_string: str) -> int:
                 match_reason=str(data.get('match_reason') or ''),
             )
             meta = subtitles.get_meta_from_player()
-            local_path = subtitles.download_subtitle(result, meta, settings)
+            service_temp_dir = _get_service_temp_dir()
+            local_path = subtitles.download_subtitle(result, meta, settings, dest_dir=service_temp_dir)
             if local_path:
                 li = xbmcgui.ListItem(label=str(local_path), offscreen=True)
                 xbmcplugin.addDirectoryItem(handle=handle, url=str(local_path), listitem=li, isFolder=False)

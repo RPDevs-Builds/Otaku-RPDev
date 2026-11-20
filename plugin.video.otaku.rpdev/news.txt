@@ -1,7 +1,22 @@
 ========================
+[B]OTAKU RPDEV v6.2.18[/B]
+Subtitle VFS Cache Fix
+========================
+
+v6.2.18 Highlights:
+  * Fixed Kodi 22 OnDownloadComplete and OpenStream subtitle failures caused
+    by stale C++ g_directoryCache listings (C-30)
+  * Upgraded control.atomic_write_text to register files via xbmcvfs.rename
+    and removed xbmcvfs.listdir from embed_extractor.del_subs
+  * Staged service.subtitles.otaku.rpdev v1.0.2 OSD downloads in its own
+    profile temp directory with VFS visibility sync
+  * Improved SubSource season-pack and anime dash-episode auto-
+    identification badges (C-31)
+
+--------------------------------
 [B]OTAKU RPDEV v6.2.17[/B]
 Fix Subtitle Service & Auto-DL
-========================
+--------------------------------
 
 v6.2.17 Highlights:
   * Fixed C-28: Bind control.ADDON_ID to plugin.video.otaku.rpdev when

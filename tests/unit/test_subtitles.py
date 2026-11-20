@@ -502,27 +502,56 @@ class TestSubtitleDownloadIntegrationAndIsolation(unittest.TestCase):
         self.assertEqual(res, "Fatestay night Heaven's Feel - S01E01.mkv")
 
     def test_del_subs_purges_temp_subtitles_and_a4k_temp(self):
+        import tempfile
         from resources.lib.ui import embed_extractor
-        with patch('resources.lib.ui.embed_extractor.xbmcvfs.listdir') as mock_listdir, \
-             patch('resources.lib.ui.embed_extractor.xbmcvfs.delete') as mock_delete, \
-             patch('resources.lib.ui.embed_extractor.xbmcvfs.exists', return_value=True):
-            
-            def listdir_side_effect(path):
-                if 'special://temp/' in path:
-                    return ([], ['TemporarySubs.0.eng.ass', 'TempSubtitle.en.ass', 'other.log'])
-                elif 'service.subtitles.a4ksubtitles' in path:
-                    return ([], ['stale_a4k_sub.ass', 'sub.zip'])
-                return ([], [])
 
-            mock_listdir.side_effect = listdir_side_effect
-            embed_extractor.del_subs()
+        with tempfile.TemporaryDirectory() as tmp_root:
+            kodi_temp = os.path.join(tmp_root, 'kodi_temp')
+            a4k_temp = os.path.join(tmp_root, 'a4k_temp')
+            otaku_temp = os.path.join(tmp_root, 'otaku_temp')
+            svc_temp = os.path.join(tmp_root, 'svc_temp')
+            for d in (kodi_temp, a4k_temp, otaku_temp, svc_temp):
+                os.makedirs(d, exist_ok=True)
 
-            deleted_paths = [call[0][0] for call in mock_delete.call_args_list]
-            self.assertIn('special://temp/TemporarySubs.0.eng.ass', deleted_paths)
-            self.assertIn('special://temp/TempSubtitle.en.ass', deleted_paths)
-            self.assertNotIn('special://temp/other.log', deleted_paths)
-            self.assertIn('special://profile/addon_data/service.subtitles.a4ksubtitles/temp/stale_a4k_sub.ass', deleted_paths)
-            self.assertIn('special://profile/addon_data/service.subtitles.a4ksubtitles/temp/sub.zip', deleted_paths)
+            for fname in ('TemporarySubs.0.eng.ass', 'TempSubtitle.en.ass', 'other.log'):
+                with open(os.path.join(kodi_temp, fname), 'w', encoding='utf-8') as f:
+                    f.write('x')
+            for fname in ('stale_a4k_sub.ass', 'sub.zip'):
+                with open(os.path.join(a4k_temp, fname), 'w', encoding='utf-8') as f:
+                    f.write('x')
+            with open(os.path.join(otaku_temp, 'ep10.en.123.srt'), 'w', encoding='utf-8') as f:
+                f.write('x')
+            with open(os.path.join(svc_temp, 'ep10_osd.en.456.srt'), 'w', encoding='utf-8') as f:
+                f.write('x')
+
+            mapping = {
+                'special://temp/': kodi_temp,
+                'special://profile/addon_data/service.subtitles.a4ksubtitles/temp/': a4k_temp,
+                'special://profile/addon_data/plugin.video.otaku.rpdev/temp/subtitles/': otaku_temp,
+                'special://profile/addon_data/service.subtitles.otaku.rpdev/temp/': svc_temp,
+            }
+
+            with patch('resources.lib.ui.embed_extractor.xbmcvfs.translatePath', side_effect=lambda p: mapping.get(p, p)), \
+                 patch('resources.lib.ui.embed_extractor.xbmcvfs.listdir') as mock_listdir, \
+                 patch('resources.lib.ui.embed_extractor.xbmcvfs.delete', return_value=False) as mock_delete:
+                embed_extractor.del_subs()
+
+                # C-30: del_subs() MUST NEVER call xbmcvfs.listdir() (poisons Kodi C++ g_directoryCache)
+                mock_listdir.assert_not_called()
+                deleted_paths = [call[0][0] for call in mock_delete.call_args_list]
+                self.assertIn(os.path.join(kodi_temp, 'TemporarySubs.0.eng.ass'), deleted_paths)
+                self.assertIn(os.path.join(kodi_temp, 'TempSubtitle.en.ass'), deleted_paths)
+                self.assertNotIn(os.path.join(kodi_temp, 'other.log'), deleted_paths)
+                self.assertIn(os.path.join(a4k_temp, 'stale_a4k_sub.ass'), deleted_paths)
+                self.assertIn(os.path.join(a4k_temp, 'sub.zip'), deleted_paths)
+                self.assertIn(os.path.join(otaku_temp, 'ep10.en.123.srt'), deleted_paths)
+                self.assertIn(os.path.join(svc_temp, 'ep10_osd.en.456.srt'), deleted_paths)
+
+                # Files actually removed on disk, non-subtitle other.log preserved
+                self.assertFalse(os.path.exists(os.path.join(kodi_temp, 'TemporarySubs.0.eng.ass')))
+                self.assertTrue(os.path.exists(os.path.join(kodi_temp, 'other.log')))
+                self.assertFalse(os.path.exists(os.path.join(otaku_temp, 'ep10.en.123.srt')))
+                self.assertFalse(os.path.exists(os.path.join(svc_temp, 'ep10_osd.en.456.srt')))
 
     @patch('resources.lib.ui.embed_extractor.get_sub')
     @patch('resources.lib.subtitles.languages.get_preferred_subtitle_language')

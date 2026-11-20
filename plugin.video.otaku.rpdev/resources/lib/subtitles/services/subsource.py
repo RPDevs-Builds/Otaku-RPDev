@@ -61,6 +61,7 @@ class SubSourceService:
                 return []
 
             movie_id = None
+            matched_season = None
             first_season_id = None
             for item in found:
                 if meta.is_movie and meta.imdb_id and item.get('imdbId') and item['imdbId'] != meta.imdb_id:
@@ -70,11 +71,18 @@ class SubSourceService:
                 if meta.is_tvshow and meta.season and str(item.get('season')) != str(meta.season):
                     continue
                 movie_id = item.get('movieId')
+                if item.get('season') is not None:
+                    try:
+                        matched_season = int(item.get('season'))
+                    except (ValueError, TypeError):
+                        matched_season = None
                 break
 
             target_movie_id = movie_id or first_season_id
             if not target_movie_id:
                 return []
+            if matched_season is None and target_movie_id == first_season_id and meta.is_tvshow:
+                matched_season = 1
 
             # 2. Query subtitles for the target movie/season ID
             sub_params = {
@@ -112,6 +120,7 @@ class SubSourceService:
                     rating=rating,
                     sync=(meta.filename_without_ext.lower() in name.lower()) if meta.filename_without_ext else False,
                     impaired=impaired,
+                    season=matched_season if meta.is_tvshow else None,
                     action_args={
                         'sub_id': sub_id,
                         'apikey': apikey,

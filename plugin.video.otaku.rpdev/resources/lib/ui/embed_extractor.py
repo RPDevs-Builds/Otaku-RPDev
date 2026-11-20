@@ -690,32 +690,42 @@ def get_sub(sub_url, sub_lang, headers=None, sub_index=0, display_name=None, sou
     }
 
 
+def _clean_local_sub_dir(special_path, prefix_tuple=None):
+    """Remove temporary subtitle files without calling xbmcvfs.listdir().
+
+    Kodi's xbmcvfs.listdir() invokes CDirectory::GetDirectory() without
+    DIR_FLAG_BYPASS_CACHE, populating C++ g_directoryCache for both the
+    special:// URI and its translated OS path. Any subsequent subtitle file
+    written outside CFile::OpenForWrite() is then hidden from CFile::Open(),
+    causing OpenStream and CGUIDialogSubtitles::OnDownloadComplete failures.
+    """
+    try:
+        local_dir = xbmcvfs.translatePath(special_path)
+        if not local_dir or not os.path.isdir(local_dir):
+            return
+        for fname in os.listdir(local_dir):
+            if prefix_tuple and not fname.startswith(prefix_tuple):
+                continue
+            fpath = os.path.join(local_dir, fname)
+            if not os.path.isfile(fpath):
+                continue
+            try:
+                deleted = False
+                if hasattr(xbmcvfs, 'delete'):
+                    deleted = bool(xbmcvfs.delete(fpath))
+                if not deleted or os.path.exists(fpath):
+                    os.remove(fpath)
+            except OSError:
+                pass
+    except Exception:
+        pass
+
+
 def del_subs():
-    try:
-        dirs, files = xbmcvfs.listdir('special://temp/')
-        for fname in files:
-            if fname.startswith(('TemporarySubs', 'TempSubtitle')):
-                xbmcvfs.delete(f'special://temp/{fname}')
-    except Exception:
-        pass
-
-    try:
-        a4k_temp = 'special://profile/addon_data/service.subtitles.a4ksubtitles/temp/'
-        if xbmcvfs.exists(a4k_temp):
-            dirs, files = xbmcvfs.listdir(a4k_temp)
-            for fname in files:
-                xbmcvfs.delete(f'{a4k_temp}{fname}')
-    except Exception:
-        pass
-
-    try:
-        otaku_sub_temp = 'special://profile/addon_data/plugin.video.otaku.rpdev/temp/subtitles/'
-        if xbmcvfs.exists(otaku_sub_temp):
-            dirs, files = xbmcvfs.listdir(otaku_sub_temp)
-            for fname in files:
-                xbmcvfs.delete(f'{otaku_sub_temp}{fname}')
-    except Exception:
-        pass
+    _clean_local_sub_dir('special://temp/', prefix_tuple=('TemporarySubs', 'TempSubtitle'))
+    _clean_local_sub_dir('special://profile/addon_data/service.subtitles.a4ksubtitles/temp/')
+    _clean_local_sub_dir('special://profile/addon_data/plugin.video.otaku.rpdev/temp/subtitles/')
+    _clean_local_sub_dir('special://profile/addon_data/service.subtitles.otaku.rpdev/temp/')
 
 
 __register_extractor(["https://www.mp4upload.com/",

@@ -1,3 +1,10 @@
+Changelog v6.2.18 (2026-11-20):
+- Subtitle VFS Cache Fix:
+  - Fixed Kodi 22 OnDownloadComplete and OpenStream subtitle failures caused by stale C++ g_directoryCache listings (C-30)
+  - Upgraded control.atomic_write_text to register files via xbmcvfs.rename and removed xbmcvfs.listdir from embed_extractor.del_subs
+  - Staged service.subtitles.otaku.rpdev v1.0.2 OSD downloads in its own profile temp directory with VFS visibility sync
+  - Improved SubSource season-pack and anime dash-episode auto-identification badges (C-31)
+
 Changelog v6.2.17 (2026-11-20):
 - Fix Subtitle Service & Auto-DL:
   - Fixed C-28: Bind control.ADDON_ID to plugin.video.otaku.rpdev when imported from companion service.subtitles.otaku.rpdev / context.otaku.rpdev, eliminating 19x Kodi 22 Invalid setting type exceptions and empty provider credentials in DialogSubtitles

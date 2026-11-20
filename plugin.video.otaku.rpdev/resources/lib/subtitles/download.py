@@ -8,6 +8,7 @@ import os
 import re
 import time
 from typing import Optional, Dict, Any
+import xbmcvfs
 from resources.lib.ui import control, embed_extractor
 from resources.lib.subtitles.models import SubtitleResult, VideoMeta
 from resources.lib.subtitles.services import ALL_SERVICES
@@ -24,25 +25,34 @@ def sanitize_filename(name: str) -> str:
     return clean.strip('_')
 
 
-def purge_temp_subtitles():
+def purge_temp_subtitles(target_dir: Optional[str] = None):
     """Wipes all cached temporary subtitles from addon temp directory."""
+    purge_dir = target_dir or SUBTITLE_TEMP_DIR
     try:
-        if os.path.exists(SUBTITLE_TEMP_DIR):
-            for fname in os.listdir(SUBTITLE_TEMP_DIR):
-                fpath = os.path.join(SUBTITLE_TEMP_DIR, fname)
+        if os.path.exists(purge_dir):
+            for fname in os.listdir(purge_dir):
+                fpath = os.path.join(purge_dir, fname)
                 try:
                     if os.path.isfile(fpath):
-                        os.remove(fpath)
+                        if hasattr(xbmcvfs, 'delete'):
+                            xbmcvfs.delete(fpath)
+                        if os.path.exists(fpath):
+                            os.remove(fpath)
                 except Exception:
                     pass
     except Exception as e:
         control.log(f"Failed to purge temp subtitles: {e}", 'warning')
 
 
-def download_and_prepare_subtitle(result: SubtitleResult, meta: VideoMeta, settings: Dict[str, Any]) -> Optional[str]:
+def download_and_prepare_subtitle(
+    result: SubtitleResult,
+    meta: VideoMeta,
+    settings: Dict[str, Any],
+    dest_dir: Optional[str] = None,
+) -> Optional[str]:
     """
     Downloads, extracts from archive if needed, transcodes to UTF-8,
-    and writes to isolated addon temp directory.
+    and writes to isolated addon temp directory with Kodi VFS cache registration.
     Returns the absolute path of the local subtitle file, or None on failure.
     """
     service_cls = ALL_SERVICES.get(result.service_name)
@@ -50,9 +60,16 @@ def download_and_prepare_subtitle(result: SubtitleResult, meta: VideoMeta, setti
         control.log(f"Unknown subtitle provider: {result.service_name}", 'warning')
         return None
 
-    # Ensure temp dir exists
-    if not os.path.exists(SUBTITLE_TEMP_DIR):
-        os.makedirs(SUBTITLE_TEMP_DIR, exist_ok=True)
+    target_dir = dest_dir or SUBTITLE_TEMP_DIR
+
+    # Ensure temp dir exists via both xbmcvfs (updates Kodi VFS) and os.makedirs
+    try:
+        if hasattr(xbmcvfs, 'mkdirs'):
+            xbmcvfs.mkdirs(target_dir)
+    except Exception:
+        pass
+    if not os.path.exists(target_dir):
+        os.makedirs(target_dir, exist_ok=True)
 
     try:
         raw_bytes = service_cls.download(result, settings)
@@ -97,11 +114,24 @@ def download_and_prepare_subtitle(result: SubtitleResult, meta: VideoMeta, setti
         lang_code = result.lang_code or 'en'
         sub_nonce = int(time.time() * 1000)
         target_filename = f"{sanitize_filename(base_name)}.{lang_code}.{sub_nonce}{ext}"
-        dest_path = os.path.join(SUBTITLE_TEMP_DIR, target_filename)
+        dest_path = os.path.join(target_dir, target_filename)
 
         if control.atomic_write_text(dest_path, normalized_text) is False:
             control.log(f"Native Subtitles: Failed to atomically write {dest_path}", 'error')
             return None
+
+        # Defensive VFS visibility check: if Kodi C++ g_directoryCache still hides
+        # dest_path (e.g., cached by another addon), force CFile::OpenForWrite() so
+        # g_directoryCache.AddFile(dest_path) runs before CFile::Open / OnDownloadComplete.
+        try:
+            if hasattr(xbmcvfs, 'exists') and not xbmcvfs.exists(dest_path):
+                vfs_file = xbmcvfs.File(dest_path, 'w')
+                try:
+                    vfs_file.write(normalized_text.encode('utf-8'))
+                finally:
+                    vfs_file.close()
+        except Exception as vfs_err:
+            control.log(f"Native Subtitles: VFS visibility sync warning for {dest_path}: {vfs_err}", 'debug')
 
         control.log(f"Native Subtitles: Downloaded and prepared {dest_path} (enc={detected_enc})", 'info')
         return dest_path

@@ -131,14 +131,19 @@ def manual_search_subtitles(
     return search_all_services(meta, settings)
 
 
-def download_subtitle(result: SubtitleResult, meta: Optional[VideoMeta] = None, settings: Optional[Dict[str, Any]] = None) -> Optional[str]:
+def download_subtitle(
+    result: SubtitleResult,
+    meta: Optional[VideoMeta] = None,
+    settings: Optional[Dict[str, Any]] = None,
+    dest_dir: Optional[str] = None,
+) -> Optional[str]:
     """Download, validate for Kodi 22, transcode to UTF-8, and return the local filesystem path."""
     if meta is None:
         meta = get_meta_from_player()
     if settings is None:
         settings = get_subtitles_settings()
 
-    return download_and_prepare_subtitle(result, meta, settings)
+    return download_and_prepare_subtitle(result, meta, settings, dest_dir=dest_dir)
 
 
 def auto_download_subtitles(meta: Optional[VideoMeta] = None, settings: Optional[Dict[str, Any]] = None) -> bool:
