@@ -1,7 +1,26 @@
 ========================
+[B]OTAKU RPDEV v6.2.15[/B]
+Native Kodi Subtitles & Auto-DL
+========================
+
+v6.2.15 Highlights:
+  * Added companion service.subtitles.otaku.rpdev (v1.0.0) integrating Otaku
+    RPDev's 6 built-in online subtitle providers into Kodi OSD Subtitle
+    Settings > Download Subtitle with full manual search and Settings -
+    Otaku RPDev > Subtitles single-source config
+  * Added auto-identified subtitle indicators (Kodi SYNC badge, [AUTO •
+    Reason] / [MANUAL] tags, and playback OSD notifications) plus
+    conflicting-episode filename filtering and Kodi 22 subtitle validation
+  * Fixed automatic subtitle downloading in player.py across embed/direct
+    streams and general.kodi_language=true, added 1-click Set as Kodi
+    Default Subtitle Service & Manual Subtitle Search settings buttons, and
+    integrated 10.13.0.16 subtitle config into local Kodi 21/22 test
+    environments
+
+--------------------------------
 [B]OTAKU RPDEV v6.2.14[/B]
 Testing, CI & Docs Overhaul
-========================
+--------------------------------
 
 v6.2.14 Highlights:
   * Unified scripts/verify_all.py verification gate across local pre-flight,

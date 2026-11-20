@@ -24,7 +24,7 @@ def _get_episode_patterns(target_s: int, target_e: int):
 
 def score_result(sub: SubtitleResult, meta: VideoMeta, settings: Dict[str, Any]) -> float:
     """
-    Computes ranking score for a subtitle result.
+    Computes ranking score and auto-identification match metadata for a subtitle result.
     Higher score = better rank.
     """
     score = 0.0
@@ -32,8 +32,18 @@ def score_result(sub: SubtitleResult, meta: VideoMeta, settings: Dict[str, Any])
     pref_lang = meta.preferred_lang.lower()
     sub_lang = (sub.lang_code or sub.lang).lower()
 
+    lang_matched = bool(pref_lang and languages.is_language_match(sub_lang, pref_lang))
+    exact_ep_match = False
+    season_pack_match = False
+    ep_mismatch = False
+    hash_match = bool(sub.sync and meta.filehash)
+    release_match = bool(
+        (sub.sync and not meta.filehash)
+        or (meta.filename_without_ext and meta.filename_without_ext.lower() in name_lower)
+    )
+
     # 1. Language Preference
-    if pref_lang and languages.is_language_match(sub_lang, pref_lang):
+    if lang_matched:
         score += 1.0
     elif sub_lang:
         score -= 1.0
@@ -51,31 +61,48 @@ def score_result(sub: SubtitleResult, meta: VideoMeta, settings: Dict[str, Any])
             # Check parsed season & episode on the result object
             if sub.season == target_s and sub.episode == target_e:
                 score += 0.8
+                exact_ep_match = True
             elif sub.season == target_s and sub.episode is None:
                 # Season pack
                 score += 0.4
+                season_pack_match = True
             elif sub.episodes_range and target_e in sub.episodes_range:
                 # Episode range (e.g. 01-12)
                 score += 0.6
+                season_pack_match = True
             elif sub.season is not None and sub.episode is not None:
                 if sub.season != target_s or sub.episode != target_e:
                     # Mismatched episode/season: strong penalty
                     score -= 1.0
+                    ep_mismatch = True
+
+            # Detect explicit conflicting SxxEyy in filename (e.g. S01E33 returned for S01E05)
+            explicit_se = re.search(r'(?:^|[._\s\-\[])s0*(\d{1,2})e0*(\d{1,4})(?:[._\s\-\]]|$)', name_lower)
+            if explicit_se:
+                fn_s, fn_e = int(explicit_se.group(1)), int(explicit_se.group(2))
+                if fn_s != target_s or fn_e != target_e:
+                    score -= 1.5
+                    exact_ep_match = False
+                    ep_mismatch = True
 
             # Regex search in filename
             s_e_pattern, alt_pattern, single_ep_pattern = _get_episode_patterns(target_s, target_e)
 
-            if s_e_pattern.search(name_lower) or alt_pattern.search(name_lower):
-                score += 0.8
-            elif single_ep_pattern.search(name_lower):
-                score += 0.6
-            elif f"s{target_s:02d}" in name_lower and f"e{target_e:02d}" in name_lower:
-                score += 0.7
+            if not ep_mismatch:
+                if s_e_pattern.search(name_lower) or alt_pattern.search(name_lower):
+                    score += 0.8
+                    exact_ep_match = True
+                elif single_ep_pattern.search(name_lower):
+                    score += 0.6
+                    exact_ep_match = True
+                elif f"s{target_s:02d}" in name_lower and f"e{target_e:02d}" in name_lower:
+                    score += 0.7
+                    exact_ep_match = True
 
     # 3. Filename / Hash match
     if sub.sync:
         score += 0.5
-    elif meta.filename_without_ext and meta.filename_without_ext.lower() in name_lower:
+    elif release_match:
         score += 0.4
 
     # 4. SDH / Hearing Impaired Preference
@@ -109,6 +136,45 @@ def score_result(sub: SubtitleResult, meta: VideoMeta, settings: Dict[str, Any])
     if sub.rating > 0:
         score += (sub.rating / 10.0)
 
+    # 7. Auto-Identification Classification & Reason Badge
+    if ep_mismatch:
+        sub.auto_identified = False
+        sub.match_confidence = 'low'
+        sub.match_reason = 'Mismatch'
+    elif hash_match:
+        sub.auto_identified = True
+        sub.match_confidence = 'exact'
+        sub.match_reason = 'Hash Match'
+    elif release_match and (not meta.is_tvshow or exact_ep_match or not meta.episode):
+        sub.auto_identified = True
+        sub.match_confidence = 'exact'
+        sub.match_reason = 'Release Match'
+    elif not meta.is_manual_search and exact_ep_match:
+        sub.auto_identified = True
+        sub.match_confidence = 'exact' if meta.imdb_id else 'high'
+        sub.match_reason = 'Exact Ep'
+    elif not meta.is_manual_search and season_pack_match:
+        sub.auto_identified = True
+        sub.match_confidence = 'high'
+        sub.match_reason = 'Season Pack'
+    elif not meta.is_manual_search and meta.is_movie and meta.imdb_id and lang_matched:
+        sub.auto_identified = True
+        sub.match_confidence = 'high'
+        sub.match_reason = 'IMDb Match'
+    elif meta.is_manual_search:
+        if exact_ep_match:
+            sub.auto_identified = True
+            sub.match_confidence = 'high'
+            sub.match_reason = 'Exact Ep'
+        else:
+            sub.auto_identified = False
+            sub.match_confidence = 'manual'
+            sub.match_reason = 'Manual'
+    else:
+        sub.auto_identified = False
+        sub.match_confidence = 'medium' if score >= 1.0 else 'low'
+        sub.match_reason = ''
+
     sub.score = score
     return score
 
@@ -116,14 +182,14 @@ def score_result(sub: SubtitleResult, meta: VideoMeta, settings: Dict[str, Any])
 def search_all_services(meta: VideoMeta, settings: Dict[str, Any]) -> List[SubtitleResult]:
     """
     Queries all enabled subtitle services in parallel, applies intelligent scoring,
-    and returns sorted results.
+    and returns sorted results with auto-identified matches prioritized first.
     """
-    if not meta.preferred_lang or meta.preferred_lang.lower() == 'none':
+    if not meta.is_manual_search and (not meta.preferred_lang or meta.preferred_lang.lower() == 'none'):
         control.log("Native Subtitles: Preferred subtitle language is 'none', skipping external provider queries", 'info')
         return []
 
-    timeout = int(settings.get('subtitles.timeout', 15))
-    results_limit = int(settings.get('subtitles.results_limit', 20))
+    timeout = float(settings.get('subtitles.timeout', 15) or 15)
+    results_limit = int(settings.get('subtitles.results_limit', 20) or 20)
 
     enabled_services = []
     for service_name, service_cls in ALL_SERVICES.items():
@@ -144,7 +210,7 @@ def search_all_services(meta: VideoMeta, settings: Dict[str, Any]) -> List[Subti
             # Query with primary title
             res = svc_cls.search(meta, settings)
             # If no results and an alternative original/romaji title exists, probe secondary title
-            if not res and meta.original_title and meta.original_title.lower() != (meta.tvshow or meta.title).lower():
+            if not res and not meta.is_manual_search and meta.original_title and meta.original_title.lower() != (meta.tvshow or meta.title).lower():
                 alt_meta = VideoMeta(
                     title=meta.original_title if meta.is_movie else meta.title,
                     tvshow=meta.original_title if meta.is_tvshow else '',
@@ -184,27 +250,43 @@ def search_all_services(meta: VideoMeta, settings: Dict[str, Any]) -> List[Subti
     if not all_results:
         return []
 
-    # Filter strictly to the preferred language
+    # Filter to requested language(s):
+    # - Multi-language Kodi DialogSubtitles queries (len(meta.languages) > 1): allow any requested language
+    # - Single-language / automatic queries: filter strictly to preferred_lang
+    allowed_langs = set()
+    if meta.languages and len(meta.languages) > 1:
+        for req_l in meta.languages:
+            code = languages.to_iso639_1(req_l)
+            if code:
+                allowed_langs.add(code.lower())
     if meta.preferred_lang and meta.preferred_lang.lower() != 'none':
+        allowed_langs.add(languages.to_iso639_1(meta.preferred_lang).lower())
+    elif meta.languages:
+        for req_l in meta.languages:
+            code = languages.to_iso639_1(req_l)
+            if code:
+                allowed_langs.add(code.lower())
+
+    if allowed_langs:
         filtered: List[SubtitleResult] = []
         for sub in all_results:
             sub_code = (sub.lang_code or languages.to_iso639_1(sub.lang)).lower()
-            if languages.is_language_match(sub_code, meta.preferred_lang):
+            if any(languages.is_language_match(sub_code, target) for target in allowed_langs):
                 filtered.append(sub)
         all_results = filtered
 
     if not all_results:
-        control.log(f"Native Subtitles: Zero results matched preferred language '{meta.preferred_lang}'", 'info')
+        control.log(f"Native Subtitles: Zero results matched requested languages '{sorted(allowed_langs)}'", 'info')
         return []
 
-    # Compute scores for all results
+    # Compute scores & auto-identification flags for all results
     for sub in all_results:
         score_result(sub, meta, settings)
 
-    # Sort descending by score
-    all_results.sort(key=lambda x: -x.score)
+    # Sort descending: auto-identified matches first, then highest score
+    all_results.sort(key=lambda x: (-int(x.auto_identified), -x.score))
 
-    # Deduplicate results with identical name and language
+    # Deduplicate results with identical name, language, and provider
     deduped: List[SubtitleResult] = []
     seen = set()
     for sub in all_results:

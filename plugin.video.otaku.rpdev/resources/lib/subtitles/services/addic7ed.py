@@ -23,8 +23,8 @@ class Addic7edService:
         if not meta.is_tvshow or not meta.season or not meta.episode:
             return []
 
-        timeout = int(settings.get('subtitles.timeout', 15))
-        show_name = meta.tvshow or meta.title
+        timeout = float(settings.get('subtitles.timeout', 15) or 15)
+        show_name = meta.tvshow or meta.title or meta.search_string
         try:
             s_int = int(meta.season)
             ep_int = int(meta.episode)
@@ -101,7 +101,7 @@ class Addic7edService:
 
     @classmethod
     def download(cls, result: SubtitleResult, settings: Dict[str, Any]) -> Optional[bytes]:
-        timeout = int(settings.get('subtitles.timeout', 15))
+        timeout = float(settings.get('subtitles.timeout', 15) or 15)
         url = result.download_url
         if not url:
             return None

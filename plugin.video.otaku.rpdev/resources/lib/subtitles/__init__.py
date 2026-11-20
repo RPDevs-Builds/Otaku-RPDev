@@ -1,11 +1,13 @@
 """__init__.py - Otaku-RPDev Native Subtitles Engine
 ===================================================
-High-level API for searching, downloading, and auto-injecting
-external subtitles across multi-provider backends.
+High-level API for searching, downloading, auto-identifying, and auto-injecting
+external subtitles across multi-provider backends, shared by both WatchlistPlayer
+and the companion Kodi subtitle service (service.subtitles.otaku.rpdev).
 """
 
 # -*- coding: utf-8 -*-
 
+import os
 from typing import Optional, List, Dict, Any
 import xbmc
 import xbmcgui
@@ -13,13 +15,23 @@ import xbmcgui
 from resources.lib.ui import control
 from resources.lib.subtitles.models import VideoMeta, SubtitleResult
 from resources.lib.subtitles import languages
-from resources.lib.subtitles.search import search_all_services
+from resources.lib.subtitles.search import search_all_services, score_result
 from resources.lib.subtitles.download import download_and_prepare_subtitle, purge_temp_subtitles
-from resources.lib.subtitles.meta import get_meta_from_player, get_meta_from_dict
+from resources.lib.subtitles.meta import (
+    get_meta_from_player,
+    get_meta_from_dict,
+    get_meta_for_manual_search,
+    parse_manual_search_query,
+    publish_active_playback_meta,
+    clear_active_playback_meta,
+    get_active_playback_meta,
+)
+
+SUBTITLE_SERVICE_ADDON_ID = 'service.subtitles.otaku.rpdev'
 
 
 def get_subtitles_settings() -> Dict[str, Any]:
-    """Retrieve all subtitle settings from addon configuration."""
+    """Retrieve all subtitle settings from Settings - Otaku RPDev > Subtitles."""
     return {
         'subtitles.enabled': control.getBool('subtitles.enabled', True),
         'subtitles.auto_search': control.getBool('subtitles.auto_search', True),
@@ -43,6 +55,45 @@ def get_subtitles_settings() -> Dict[str, Any]:
     }
 
 
+def format_result_badge(result: SubtitleResult) -> str:
+    """Return a Kodi BBCode indicator badge showing auto-identification status and match reason."""
+    reason = result.match_reason.strip() if result.match_reason else ''
+    if result.auto_identified:
+        color = 'springgreen' if result.match_confidence == 'exact' else 'cyan'
+        tag = f"AUTO • {reason}" if reason else "AUTO"
+        return f"[B][COLOR {color}][{tag}][/COLOR][/B]"
+    if result.match_confidence == 'manual' or reason == 'Manual':
+        return "[B][COLOR gold][MANUAL][/COLOR][/B]"
+    return ""
+
+
+def format_kodi_listitem_label2(result: SubtitleResult) -> str:
+    """Format label2 for Kodi's native DialogSubtitles.xml with auto-identified indicator, ext, provider & flags."""
+    raw_name = str(result.name or 'Subtitle').strip()
+    base, ext = os.path.splitext(raw_name)
+    if ext.lower() in ('.srt', '.ass', '.ssa', '.vtt', '.sub', '.zip', '.gz'):
+        clean_name = (base or raw_name).replace('.', ' ').strip()
+        ext_upper = 'SRT' if ext.lower() in ('.zip', '.gz') else ext.lstrip('.').upper()
+    else:
+        clean_name = raw_name.replace('.', ' ').strip()
+        ext_upper = 'SRT'
+    badge = format_result_badge(result)
+    sdh_tag = " [B][SDH][/B]" if result.impaired else ""
+    forced_tag = " [B][Forced][/B]" if result.forced else ""
+    provider_color = result.color or 'springgreen'
+    prefix = f"{badge} " if badge else ""
+    return f"{prefix}{clean_name} ([B]{ext_upper}[/B]) ([B][COLOR {provider_color}]{result.display_name}[/COLOR][/B]){sdh_tag}{forced_tag}"
+
+
+def format_dialog_label(result: SubtitleResult) -> str:
+    """Format a row label for Otaku's interactive select dialog with auto-identified indicator."""
+    badge = format_result_badge(result)
+    prefix = f"{badge} " if badge else ""
+    sdh_tag = " [SDH]" if result.impaired else ""
+    forced_tag = " [Forced]" if result.forced else ""
+    return f"{prefix}[{result.display_name}] {result.name} ({result.lang}){sdh_tag}{forced_tag}"
+
+
 def search_subtitles(meta: Optional[VideoMeta] = None, settings: Optional[Dict[str, Any]] = None) -> List[SubtitleResult]:
     """Search for subtitles across all enabled providers."""
     if meta is None:
@@ -53,16 +104,35 @@ def search_subtitles(meta: Optional[VideoMeta] = None, settings: Optional[Dict[s
     if not settings.get('subtitles.enabled', True):
         return []
 
-    # If preferred language is "none", do not scrape external subtitles
-    if not meta.preferred_lang or meta.preferred_lang.lower() == 'none':
+    # If preferred language is "none" during automatic search, skip external scraping
+    if not meta.is_manual_search and (not meta.preferred_lang or meta.preferred_lang.lower() == 'none'):
         control.log("Native Subtitles: Preferred subtitle language is 'none', skipping external search", 'info')
         return []
 
     return search_all_services(meta, settings)
 
 
+def manual_search_subtitles(
+    search_string: str,
+    languages_list: Optional[List[str]] = None,
+    preferred_lang: Optional[str] = None,
+    settings: Optional[Dict[str, Any]] = None,
+) -> List[SubtitleResult]:
+    """Execute a manual keyword subtitle search across all enabled providers."""
+    if settings is None:
+        settings = get_subtitles_settings()
+    if not settings.get('subtitles.enabled', True):
+        return []
+    meta = get_meta_for_manual_search(
+        search_string,
+        languages_list=languages_list,
+        preferred_lang=preferred_lang,
+    )
+    return search_all_services(meta, settings)
+
+
 def download_subtitle(result: SubtitleResult, meta: Optional[VideoMeta] = None, settings: Optional[Dict[str, Any]] = None) -> Optional[str]:
-    """Download, transcode to UTF-8, and return the local filesystem path."""
+    """Download, validate for Kodi 22, transcode to UTF-8, and return the local filesystem path."""
     if meta is None:
         meta = get_meta_from_player()
     if settings is None:
@@ -73,8 +143,9 @@ def download_subtitle(result: SubtitleResult, meta: Optional[VideoMeta] = None, 
 
 def auto_download_subtitles(meta: Optional[VideoMeta] = None, settings: Optional[Dict[str, Any]] = None) -> bool:
     """
-    End-to-end auto-search and auto-download pipeline triggered during playback.
-    Finds top match and attaches it to the active Kodi player.
+    End-to-end auto-search and auto-download pipeline triggered during playback
+    when no matching subtitle stream is available.
+    Prioritizes automatically identified candidates and attaches the best valid match.
     """
     if settings is None:
         settings = get_subtitles_settings()
@@ -93,7 +164,11 @@ def auto_download_subtitles(meta: Optional[VideoMeta] = None, settings: Optional
         control.log("Native Subtitles: Preferred subtitle language is 'none', skipping auto-download", 'info')
         return False
 
-    control.log(f"Native Subtitles: Initiating auto-search for {meta.tvshow or meta.title} S{meta.season}E{meta.episode} (pref_lang={meta.preferred_lang})", 'info')
+    control.log(
+        f"Native Subtitles: Initiating auto-search for {meta.tvshow or meta.title} "
+        f"S{meta.season}E{meta.episode} (pref_lang={meta.preferred_lang})",
+        'info',
+    )
     results = search_subtitles(meta, settings)
 
     if not results:
@@ -105,10 +180,15 @@ def auto_download_subtitles(meta: Optional[VideoMeta] = None, settings: Optional
         return manual_select_dialog(results, meta, settings)
 
     # Attempt download on highest ranking candidates matching preferred language
+    # (results are already sorted with auto_identified=True first)
     for candidate in results:
         cand_code = candidate.lang_code or languages.to_iso639_1(candidate.lang)
         if not languages.is_language_match(cand_code, meta.preferred_lang):
-            control.log(f"Native Subtitles: Skipping {candidate.name} ({candidate.lang}) - does not match preferred {meta.preferred_lang}", 'debug')
+            control.log(
+                f"Native Subtitles: Skipping {candidate.name} ({candidate.lang}) - "
+                f"does not match preferred {meta.preferred_lang}",
+                'debug',
+            )
             continue
 
         local_path = download_subtitle(candidate, meta, settings)
@@ -117,43 +197,137 @@ def auto_download_subtitles(meta: Optional[VideoMeta] = None, settings: Optional
             if player.isPlaying():
                 player.setSubtitles(local_path)
                 player.showSubtitles(True)
+                reason = candidate.match_reason or ('Auto' if candidate.auto_identified else 'Match')
+                auto_tag = f"Auto • {reason}" if candidate.auto_identified else reason
+                label_text = f"[{auto_tag}] {candidate.name[:32]} ({candidate.display_name})"
+                control.setGlobalProp('otaku.subtitle.auto_loaded', 'true')
+                control.setGlobalProp('otaku.subtitle.auto_label', label_text)
                 control.notify(
                     control.ADDON_NAME,
-                    f"Subtitles: Loaded {candidate.name[:30]} ({candidate.display_name})",
-                    time=3500
+                    f"Subtitles {label_text}",
+                    time=4000,
                 )
-                control.log(f"Native Subtitles: Successfully attached {local_path} from {candidate.service_name}", 'info')
+                control.log(
+                    f"Native Subtitles: Successfully attached {local_path} from {candidate.service_name} "
+                    f"(auto_identified={candidate.auto_identified}, reason={reason})",
+                    'info',
+                )
                 return True
 
     return False
 
 
-def manual_select_dialog(results: List[SubtitleResult], meta: VideoMeta, settings: Dict[str, Any]) -> bool:
-    """Displays an interactive selection dialog for subtitles."""
-    if not results:
-        control.notify(control.ADDON_NAME, "No subtitles found", time=3000)
-        return False
-
-    items = []
-    for r in results:
-        sdh_tag = " [SDH]" if r.impaired else ""
-        forced_tag = " [Forced]" if r.forced else ""
-        label = f"[{r.display_name}] {r.name} ({r.lang}){sdh_tag}{forced_tag}"
-        items.append(label)
+def manual_select_dialog(
+    results: List[SubtitleResult],
+    meta: Optional[VideoMeta] = None,
+    settings: Optional[Dict[str, Any]] = None,
+    allow_manual_search: bool = True,
+) -> bool:
+    """Displays an interactive selection dialog with auto-identified indicators and manual search."""
+    if meta is None:
+        meta = get_meta_from_player()
+    if settings is None:
+        settings = get_subtitles_settings()
 
     dialog = xbmcgui.Dialog()
-    idx = dialog.select("Select Subtitle", items)
-    if idx < 0:
+    current_results = list(results or [])
+    current_meta = meta
+
+    while True:
+        items = []
+        if allow_manual_search:
+            items.append("[B][COLOR gold][Manual Search...][/COLOR][/B] Enter custom title / episode")
+
+        for r in current_results:
+            items.append(format_dialog_label(r))
+
+        if not current_results and not allow_manual_search:
+            control.notify(control.ADDON_NAME, "No subtitles found", time=3000)
+            return False
+
+        heading = "Select Subtitle" if current_results else "No Automatic Matches — Try Manual Search"
+        idx = dialog.select(heading, items)
+        if idx < 0:
+            return False
+
+        if allow_manual_search and idx == 0:
+            default_query = current_meta.search_string or current_meta.tvshow or current_meta.title or ''
+            query = dialog.input("Manual Subtitle Search", defaultt=default_query)
+            if not query or not str(query).strip():
+                return False
+            current_meta = get_meta_for_manual_search(
+                str(query).strip(),
+                languages_list=current_meta.languages,
+                preferred_lang=current_meta.preferred_lang,
+            )
+            p_dlg = control.progressDialog
+            p_dlg.create(control.ADDON_NAME, f"Searching subtitles for '{current_meta.search_string}'...")
+            try:
+                current_results = search_subtitles(current_meta, settings)
+            finally:
+                p_dlg.close()
+            if not current_results:
+                control.notify(control.ADDON_NAME, f"No subtitles found for '{current_meta.search_string}'", time=3000)
+            continue
+
+        result_idx = idx - 1 if allow_manual_search else idx
+        if result_idx < 0 or result_idx >= len(current_results):
+            return False
+
+        chosen = current_results[result_idx]
+        local_path = download_subtitle(chosen, current_meta, settings)
+        if local_path:
+            player = xbmc.Player()
+            if player.isPlaying():
+                player.setSubtitles(local_path)
+                player.showSubtitles(True)
+                reason = chosen.match_reason or ('Auto' if chosen.auto_identified else 'Manual')
+                control.setGlobalProp('otaku.subtitle.auto_loaded', 'true' if chosen.auto_identified else 'false')
+                control.setGlobalProp('otaku.subtitle.auto_label', f"[{reason}] {chosen.name[:32]} ({chosen.display_name})")
+                control.notify(
+                    control.ADDON_NAME,
+                    f"Subtitles [{reason}]: {chosen.name[:30]} ({chosen.display_name})",
+                    time=3500,
+                )
+                return True
+            return False
+
+        control.notify(control.ADDON_NAME, f"Download failed from {chosen.display_name}", time=3000)
         return False
 
-    chosen = results[idx]
-    local_path = download_subtitle(chosen, meta, settings)
-    if local_path:
-        player = xbmc.Player()
-        if player.isPlaying():
-            player.setSubtitles(local_path)
-            player.showSubtitles(True)
-            control.notify(control.ADDON_NAME, f"Subtitles loaded: {chosen.name[:30]}", time=3000)
-            return True
 
+def set_as_kodi_default_subtitle_service() -> bool:
+    """Configure Kodi's default TV show and movie subtitle service to Otaku RPDev Subtitles."""
+    ok_tv = False
+    ok_movie = False
+    for key in ('subtitles.tv', 'subtitles.movie'):
+        try:
+            res = control.jsonrpc({
+                'jsonrpc': '2.0',
+                'method': 'Settings.SetSettingValue',
+                'params': {'setting': key, 'value': SUBTITLE_SERVICE_ADDON_ID},
+                'id': 1,
+            })
+            success = bool(isinstance(res, dict) and res.get('result') is True)
+            if key == 'subtitles.tv':
+                ok_tv = success
+            else:
+                ok_movie = success
+        except Exception as e:
+            control.log(f"Native Subtitles: Failed setting {key} to {SUBTITLE_SERVICE_ADDON_ID}: {e}", 'warning')
+
+    if ok_tv or ok_movie:
+        control.notify(
+            control.ADDON_NAME,
+            "Kodi default subtitle service set to Otaku RPDev Subtitles",
+            time=3500,
+        )
+        control.log(f"Native Subtitles: Configured Kodi subtitles.tv={ok_tv}, subtitles.movie={ok_movie}", 'info')
+        return True
+
+    control.notify(
+        control.ADDON_NAME,
+        "Install/enable Otaku RPDev Subtitles in Kodi Add-ons first",
+        time=4000,
+    )
     return False

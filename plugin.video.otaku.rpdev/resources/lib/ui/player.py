@@ -384,6 +384,11 @@ class WatchlistPlayer(player):
                     'id': 1
                 }
                 control.jsonrpc(query)
+        try:
+            from resources.lib import subtitles
+            subtitles.clear_active_playback_meta()
+        except Exception:
+            pass
         control.clean_memory()
 
     def onPlayBackEnded(self):
@@ -398,6 +403,11 @@ class WatchlistPlayer(player):
             try:
                 from resources.lib.ui import embed_extractor
                 embed_extractor.del_subs()
+            except Exception:
+                pass
+            try:
+                from resources.lib import subtitles
+                subtitles.clear_active_playback_meta()
             except Exception:
                 pass
         target_file = self._resolve_resume_target_file()
@@ -427,6 +437,11 @@ class WatchlistPlayer(player):
         try:
             from resources.lib.ui import embed_extractor
             embed_extractor.del_subs()
+        except Exception:
+            pass
+        try:
+            from resources.lib import subtitles
+            subtitles.clear_active_playback_meta()
         except Exception:
             pass
         control.clean_memory()
@@ -586,11 +601,30 @@ class WatchlistPlayer(player):
         else:
             control.log(f'Last watched show unchanged ({current_mal_id}) - updated episode {self.episode} in watch history')
 
+        # Publish rich active-playback metadata for auto-download & Kodi OSD Subtitle Download service
+        try:
+            from resources.lib import subtitles as _subs_mod
+            _active_video_info = {
+                'title': self.vtag.getTitle() if self.vtag else '',
+                'tvshowtitle': self.vtag.getTVShowTitle() if self.vtag else '',
+                'originaltitle': self.vtag.getOriginalTitle() if self.vtag else '',
+                'season': self.vtag.getSeason() if self.vtag else '',
+                'episode': self.episode or (self.vtag.getEpisode() if self.vtag else ''),
+                'year': self.vtag.getYear() if self.vtag else '',
+                'UniqueIDs': unique_ids or {},
+            }
+            _subs_mod.publish_active_playback_meta(_active_video_info, mal_id=str(self.mal_id or ''))
+        except Exception as e:
+            control.log(f'Player: Failed publishing active subtitle meta: {e}', 'debug')
+
         # Continue with audio/subtitle setup which is needed immediately
         if self.type not in ['embed', 'direct']:
             self.setup_audio_and_subtitles()
         elif self.provider in EMBED_SKIP_PREFIXES:
             self.setup_audio_and_subtitles()
+        else:
+            # Even for embed/direct streams, verify subtitles exist; auto-download if none attached
+            self._ensure_subtitles_available()
 
         # Handle different media types
         if self.episodes and self.media_type == 'episode' and playList.size() == 1:
@@ -849,145 +883,194 @@ class WatchlistPlayer(player):
 
     # ── Audio & Subtitle Setup ────────────────────────────────────────
 
+    def _query_player_streams(self, max_attempts=10):
+        """Poll Player.GetProperties for audio & subtitle tracks with brief demuxer warmup."""
+        query = {
+            'jsonrpc': '2.0',
+            "method": "Player.GetProperties",
+            "params": {
+                "playerid": 1,
+                "properties": ["subtitles", "audiostreams"]
+            },
+            "id": 1
+        }
+        audio_streams = []
+        subtitle_streams = []
+        for _ in range(max_attempts):
+            response = control.jsonrpc(query)
+            if isinstance(response, dict) and 'result' in response:
+                player_properties = response['result']
+                audio_streams = player_properties.get('audiostreams', []) or []
+                subtitle_streams = player_properties.get('subtitles', []) or []
+                if audio_streams or subtitle_streams:
+                    break
+            if control.monitor.waitForAbort(0.2):
+                break
+        return audio_streams, subtitle_streams
+
+    def _trigger_auto_subtitle_download(self, preferred_subtitle_lang='', is_eng_audio=False):
+        """Trigger automatic external subtitle download when no matching subtitles are available."""
+        if not control.getBool('subtitles.enabled', True) or not control.getBool('subtitles.auto_search', True):
+            return False
+        if preferred_subtitle_lang and str(preferred_subtitle_lang).lower() == 'none':
+            return False
+        # Do not auto-download unwanted full dialogue subs over English Dub unless dubsubtitles or prefer_forced is enabled
+        if is_eng_audio and not control.getBool('general.dubsubtitles', False) and not control.getBool('subtitles.prefer_forced', False):
+            control.log("Player: English audio active with dubsubtitles disabled; skipping external subtitle auto-download", 'debug')
+            return False
+        try:
+            from resources.lib import subtitles
+            control.log("Player: No matching subtitle stream available; triggering native subtitles auto-download", 'info')
+            return bool(subtitles.auto_download_subtitles())
+        except Exception as e:
+            control.log(f"Player: Native subtitles trigger error: {e}", 'warning')
+            return False
+
+    def _ensure_subtitles_available(self):
+        """Verify subtitle presence for embed/direct/kodi-language streams and auto-download if absent."""
+        if not control.getBool('subtitles.enabled', True) or not control.getBool('subtitles.auto_search', True):
+            return False
+        audio_streams, subtitle_streams = self._query_player_streams(max_attempts=5)
+        from resources.lib.subtitles import languages as sub_langs
+        preferred_lang = sub_langs.get_preferred_subtitle_language()
+        if not preferred_lang or preferred_lang == 'none':
+            return False
+
+        # Check if any existing stream already matches preferred language
+        has_matching_sub = any(
+            is_language_match(s.get('language'), s.get('name'), preferred_lang)
+            for s in subtitle_streams
+        )
+        if has_matching_sub:
+            return True
+
+        # Determine if active audio is English (for dubsubtitles guard)
+        is_eng_audio = False
+        if audio_streams:
+            first_audio = audio_streams[0]
+            is_eng_audio = is_language_match(first_audio.get('language'), first_audio.get('name'), 'eng')
+
+        return self._trigger_auto_subtitle_download(preferred_subtitle_lang=preferred_lang, is_eng_audio=is_eng_audio)
+
     def setup_audio_and_subtitles(self):
-        """Handle audio and subtitle setup"""
-        if not control.getBool('general.kodi_language'):
-            query = {
-                'jsonrpc': '2.0',
-                "method": "Player.GetProperties",
-                "params": {
-                    "playerid": 1,
-                    "properties": ["subtitles", "audiostreams"]
-                },
-                "id": 1
-            }
+        """Handle audio and subtitle setup, plus automatic external subtitle download when none exist."""
+        if control.getBool('general.kodi_language'):
+            # Kodi manages language selection, but still auto-download subtitles when no matching track exists
+            self._ensure_subtitles_available()
+            return
 
-            audios = ['jpn', 'eng']
+        audios = ['jpn', 'eng']
 
-            subtitles = [
-                "none", "eng", "jpn", "spa", "fre", "ger",
-                "ita", "dut", "rus", "por", "kor", "chi",
-                "ara", "hin", "tur", "pol", "swe", "nor",
-                "dan", "fin"
-            ]
+        subtitles = [
+            "none", "eng", "jpn", "spa", "fre", "ger",
+            "ita", "dut", "rus", "por", "kor", "chi",
+            "ara", "hin", "tur", "pol", "swe", "nor",
+            "dan", "fin"
+        ]
 
-            types = [
-                "isdefault", "isforced", "isimpaired"
-            ]
+        types = [
+            "isdefault", "isforced", "isimpaired"
+        ]
 
-            # Allow Kodi's demuxer a brief window to asynchronously populate stream lists
-            audio_streams = []
-            subtitle_streams = []
-            for attempt in range(10):
-                response = control.jsonrpc(query)
-                if 'result' in response:
-                    player_properties = response['result']
-                    audio_streams = player_properties.get('audiostreams', [])
-                    subtitle_streams = player_properties.get('subtitles', [])
-                    if audio_streams or subtitle_streams:
-                        break
-                xbmc.sleep(200)
+        # Allow Kodi's demuxer a brief window to asynchronously populate stream lists
+        audio_streams, subtitle_streams = self._query_player_streams(max_attempts=10)
 
-            preferred_audio_streams = audios[self.preferred_audio] if self.preferred_audio < len(audios) else 'jpn'
-            preferred_subtitle_lang = subtitles[self.preferred_subtitle_setting] if self.preferred_subtitle_setting < len(subtitles) else 'eng'
-            preferred_subtitle_type = types[self.preferred_subtitle_type] if self.preferred_subtitle_type < len(types) else 'isdefault'
+        preferred_audio_streams = audios[self.preferred_audio] if self.preferred_audio < len(audios) else 'jpn'
+        preferred_subtitle_lang = subtitles[self.preferred_subtitle_setting] if self.preferred_subtitle_setting < len(subtitles) else 'eng'
+        preferred_subtitle_type = types[self.preferred_subtitle_type] if self.preferred_subtitle_type < len(types) else 'isdefault'
 
-            # Set preferred audio stream using multi-format language and name matching
-            selected_audio_stream = None
+        # Set preferred audio stream using multi-format language and name matching
+        selected_audio_stream = None
+        for stream in audio_streams:
+            s_lang = stream.get('language') or ''
+            s_name = stream.get('name') or ''
+            if is_language_match(s_lang, s_name, preferred_audio_streams):
+                self.setAudioStream(stream['index'])
+                selected_audio_stream = stream
+                control.log(f"Player: Selected audio stream {stream['index']} (lang={s_lang}, name={s_name}) matching '{preferred_audio_streams}'", 'info')
+                break
+        else:
+            # If no preferred audio stream is found, set to the default audio stream
             for stream in audio_streams:
-                s_lang = stream.get('language') or ''
-                s_name = stream.get('name') or ''
-                if is_language_match(s_lang, s_name, preferred_audio_streams):
+                if stream.get('isdefault', False):
                     self.setAudioStream(stream['index'])
                     selected_audio_stream = stream
-                    control.log(f"Player: Selected audio stream {stream['index']} (lang={s_lang}, name={s_name}) matching '{preferred_audio_streams}'", 'info')
+                    control.log(f"Player: Fallback to default audio stream {stream['index']} (lang={stream.get('language')}, name={stream.get('name')})", 'info')
                     break
             else:
-                # If no preferred audio stream is found, set to the default audio stream
-                for stream in audio_streams:
-                    if stream.get('isdefault', False):
-                        self.setAudioStream(stream['index'])
-                        selected_audio_stream = stream
-                        control.log(f"Player: Fallback to default audio stream {stream['index']} (lang={stream.get('language')}, name={stream.get('name')})", 'info')
-                        break
-                else:
-                    # If no default audio stream is found, set to the first available audio stream
-                    if audio_streams:
-                        self.setAudioStream(audio_streams[0]['index'])
-                        selected_audio_stream = audio_streams[0]
-                        control.log(f"Player: Fallback to first audio stream {audio_streams[0]['index']} (lang={audio_streams[0].get('language')}, name={audio_streams[0].get('name')})", 'info')
+                # If no default audio stream is found, set to the first available audio stream
+                if audio_streams:
+                    self.setAudioStream(audio_streams[0]['index'])
+                    selected_audio_stream = audio_streams[0]
+                    control.log(f"Player: Fallback to first audio stream {audio_streams[0]['index']} (lang={audio_streams[0].get('language')}, name={audio_streams[0].get('name')})", 'info')
 
-            is_eng_audio = is_language_match(
-                selected_audio_stream.get('language') if selected_audio_stream else '',
-                selected_audio_stream.get('name') if selected_audio_stream else '',
-                'eng'
-            )
+        is_eng_audio = is_language_match(
+            selected_audio_stream.get('language') if selected_audio_stream else '',
+            selected_audio_stream.get('name') if selected_audio_stream else '',
+            'eng'
+        )
 
-            # Determine target subtitle mode: 'dialog', 'signs', 'custom', or None
-            if control.getBool('general.subtitles.keyword'):
-                kw_setting = self.preferred_subtitle_keyword
-                if kw_setting == 4:
-                    # Option 4: Smart Pair (Dialog for Sub / Signs for Dub)
-                    target_mode = 'signs' if is_eng_audio else 'dialog'
-                elif kw_setting == 2:
-                    # Option 2: Signs & Songs
-                    target_mode = 'signs'
-                elif kw_setting == 3:
-                    # Option 3: Custom Keyword
-                    target_mode = 'custom'
-                else:
-                    # Option 1: Dialog (Forced Full Dialogue everywhere, including English Dub)
-                    target_mode = 'dialog'
+        # Determine target subtitle mode: 'dialog', 'signs', 'custom', or None
+        if control.getBool('general.subtitles.keyword'):
+            kw_setting = self.preferred_subtitle_keyword
+            if kw_setting == 4:
+                # Option 4: Smart Pair (Dialog for Sub / Signs for Dub)
+                target_mode = 'signs' if is_eng_audio else 'dialog'
+            elif kw_setting == 2:
+                # Option 2: Signs & Songs
+                target_mode = 'signs'
+            elif kw_setting == 3:
+                # Option 3: Custom Keyword
+                target_mode = 'custom'
             else:
-                target_mode = None
+                # Option 1: Dialog (Forced Full Dialogue everywhere, including English Dub)
+                target_mode = 'dialog'
+        else:
+            target_mode = None
 
-            custom_keyword = control.getSetting('subtitles.customkeyword') if target_mode == 'custom' else ''
-            preferred_type = preferred_subtitle_type if control.getBool('general.subtitles.type') else None
+        custom_keyword = control.getSetting('subtitles.customkeyword') if target_mode == 'custom' else ''
+        preferred_type = preferred_subtitle_type if control.getBool('general.subtitles.type') else None
 
-            # Select and apply optimal subtitle stream
-            subtitle_int = select_subtitle_stream(
-                subtitle_streams=subtitle_streams,
-                target_mode=target_mode,
-                preferred_lang=preferred_subtitle_lang,
-                custom_keyword=custom_keyword,
-                preferred_type=preferred_type
-            )
+        # Select and apply optimal subtitle stream
+        subtitle_int = select_subtitle_stream(
+            subtitle_streams=subtitle_streams,
+            target_mode=target_mode,
+            preferred_lang=preferred_subtitle_lang,
+            custom_keyword=custom_keyword,
+            preferred_type=preferred_type
+        )
 
-            if subtitle_int is not None:
-                self.setSubtitleStream(subtitle_int)
-                # Enable and Disable Subtitles based on active audio stream
-                if preferred_subtitle_lang == "none":
-                    self.showSubtitles(False)
-                elif is_eng_audio:
-                    # English Dub playing: respect general.dubsubtitles
-                    if control.getBool('general.dubsubtitles'):
-                        self.showSubtitles(True)
-                    else:
-                        self.showSubtitles(False)
-                else:
-                    # Japanese or foreign audio playing: show subtitles
-                    self.showSubtitles(True)
-            elif preferred_subtitle_lang != "none":
-                # No matching internal subtitle stream found in video container:
-                # Trigger native external subtitle search and auto-download if enabled
-                loaded = False
-                if control.getBool('subtitles.enabled', True) and control.getBool('subtitles.auto_search', True):
-                    try:
-                        from resources.lib import subtitles
-                        control.log("Player: No internal subtitle match found, triggering native subtitles engine", 'info')
-                        loaded = bool(subtitles.auto_download_subtitles())
-                    except Exception as e:
-                        control.log(f"Player: Native subtitles trigger error: {e}", 'warning')
-                if not loaded:
-                    if len(subtitle_streams) > 0 and (not is_eng_audio or control.getBool('general.dubsubtitles')):
-                        self.setSubtitleStream(0)
-                        self.showSubtitles(True)
-                    else:
-                        self.showSubtitles(False)
-            elif not subtitle_streams or preferred_subtitle_lang == "none":
-                # No valid subtitle stream found for current stream: ensure subtitles are disabled
-                # so lingering external or temp subtitles from earlier episodes are not displayed
+        if subtitle_int is not None:
+            self.setSubtitleStream(subtitle_int)
+            # Enable and Disable Subtitles based on active audio stream
+            if preferred_subtitle_lang == "none":
                 self.showSubtitles(False)
+            elif is_eng_audio:
+                # English Dub playing: respect general.dubsubtitles
+                if control.getBool('general.dubsubtitles'):
+                    self.showSubtitles(True)
+                else:
+                    self.showSubtitles(False)
+            else:
+                # Japanese or foreign audio playing: show subtitles
+                self.showSubtitles(True)
+        elif preferred_subtitle_lang != "none":
+            # No matching internal subtitle stream found in video container:
+            # Trigger native external subtitle search and auto-download if enabled
+            loaded = self._trigger_auto_subtitle_download(
+                preferred_subtitle_lang=preferred_subtitle_lang,
+                is_eng_audio=is_eng_audio,
+            )
+            if not loaded:
+                if len(subtitle_streams) > 0 and (not is_eng_audio or control.getBool('general.dubsubtitles')):
+                    self.setSubtitleStream(0)
+                    self.showSubtitles(True)
+                else:
+                    self.showSubtitles(False)
+        elif not subtitle_streams or preferred_subtitle_lang == "none":
+            # No valid subtitle stream found for current stream: ensure subtitles are disabled
+            # so lingering external or temp subtitles from earlier episodes are not displayed
+            self.showSubtitles(False)
 
     # ── Skip Time Processing (AniSkip / AnimeSkip / Embed / FFprobe chapters) ─
 

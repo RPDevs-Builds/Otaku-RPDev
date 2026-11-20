@@ -799,11 +799,30 @@ def run_kodi_version_suite(ver, mode, fs_url, mock_server_url=None, skip_playbac
         app_props = jsonrpc("Application.GetProperties", {"properties": ["version", "name"]}).get("result", {})
         print(f"  Connected to {app_props.get('name')} {app_props.get('version')}")
 
-        for aid in ("plugin.video.otaku.rpdev", "context.otaku.rpdev"):
+        for aid in ("plugin.video.otaku.rpdev", "context.otaku.rpdev", "service.subtitles.otaku.rpdev"):
             jsonrpc("Addons.SetAddonEnabled", {"addonid": aid, "enabled": True})
         addon_info = jsonrpc("Addons.GetAddonDetails", {"addonid": "plugin.video.otaku.rpdev", "properties": ["version", "enabled", "broken"]}).get("result", {}).get("addon", {})
         tests["addon_details"] = addon_info
         print(f"  Addon: {addon_info.get('addonid')} v{addon_info.get('version')} enabled={addon_info.get('enabled')} broken={addon_info.get('broken')}")
+
+        # Verify companion subtitle service registers cleanly as xbmc.subtitle.module
+        sub_addons = jsonrpc(
+            "Addons.GetAddons",
+            {"type": "xbmc.subtitle.module", "enabled": True, "properties": ["name", "version", "enabled"]},
+        ).get("result", {}).get("addons", [])
+        sub_registered = any(a.get("addonid") == "service.subtitles.otaku.rpdev" for a in sub_addons)
+        set_tv_ok = jsonrpc("Settings.SetSettingValue", {"setting": "subtitles.tv", "value": "service.subtitles.otaku.rpdev"}).get("result") is True
+        set_mv_ok = jsonrpc("Settings.SetSettingValue", {"setting": "subtitles.movie", "value": "service.subtitles.otaku.rpdev"}).get("result") is True
+        tests["subtitle_service_registration"] = {
+            "registered": sub_registered,
+            "set_default_tv_ok": set_tv_ok,
+            "set_default_movie_ok": set_mv_ok,
+            "ok": bool(sub_registered and set_tv_ok and set_mv_ok),
+        }
+        print(
+            f"  [SubtitleService] registered={sub_registered} "
+            f"default_tv={set_tv_ok} default_movie={set_mv_ok}"
+        )
 
         # 2. Runtime Settings & Localization Probe (/probe_settings)
         runtime_probe = run_runtime_settings_probe(profile_dir)

@@ -229,6 +229,8 @@ SUBTITLES_SETTING_IDS = {
     "subtitles.provider.podnadpisi",
     "subtitles.provider.bsplayer",
     "subtitles.provider.addic7ed",
+    "subtitles.set_kodi_default",
+    "subtitles.manual_search",
     "subtitles.reset_category",
 }
 
@@ -743,8 +745,8 @@ class TestAllSettingsOutcomes(unittest.TestCase):
         Assert that TESTED_SETTING_IDS contains exactly all 471 declared settings
         from resources/settings.xml, ensuring 0 omitted settings across all categories.
         """
-        self.assertEqual(len(self.declared_settings), 488, f"Expected 488 declared settings, got {len(self.declared_settings)}")
-        self.assertEqual(len(TESTED_SETTING_IDS), 488, f"Expected 488 tested settings in registry, got {len(TESTED_SETTING_IDS)}")
+        self.assertEqual(len(self.declared_settings), 490, f"Expected 490 declared settings, got {len(self.declared_settings)}")
+        self.assertEqual(len(TESTED_SETTING_IDS), 490, f"Expected 490 tested settings in registry, got {len(TESTED_SETTING_IDS)}")
         self.assertEqual(
             set(self.declared_settings.keys()), TESTED_SETTING_IDS,
             "TESTED_SETTING_IDS does not match declared_settings in resources/settings.xml"
@@ -756,7 +758,7 @@ class TestAllSettingsOutcomes(unittest.TestCase):
         self.assertEqual(len(SCRAPING_SETTING_IDS), 15)
         self.assertEqual(len(CACHE_SETTING_IDS), 16)
         self.assertEqual(len(PLAYBACK_SETTING_IDS), 39)
-        self.assertEqual(len(SUBTITLES_SETTING_IDS), 26)
+        self.assertEqual(len(SUBTITLES_SETTING_IDS), 28)
         self.assertEqual(len(SORT_AND_FILTER_SETTING_IDS), 43)
         self.assertEqual(len(ACCOUNTS_SETTING_IDS), 40)
         self.assertEqual(len(WATCHLIST_SETTING_IDS), 37)
@@ -1249,9 +1251,9 @@ class TestAllSettingsOutcomes(unittest.TestCase):
         for legacy_key in LEGACY_LEVEL_4_KEYS:
             self.assertIn(legacy_key, level4_settings, f"Legacy key '{legacy_key}' must remain declared as level='4'")
 
-        # Verify clean_settings.get_active_setting_ids() keeps all 491 settings (including legacy keys)
+        # Verify clean_settings.get_active_setting_ids() keeps all declared settings (including legacy keys)
         active_ids = clean_settings.get_active_setting_ids(self.settings_xml_path)
-        self.assertEqual(len(active_ids), 488)
+        self.assertEqual(len(active_ids), 490)
         for legacy_key in LEGACY_LEVEL_4_KEYS:
             self.assertIn(legacy_key, active_ids)
 

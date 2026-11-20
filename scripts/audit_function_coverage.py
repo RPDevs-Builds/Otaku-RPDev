@@ -32,6 +32,7 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, '..'))
 ADDON_DIR = os.path.join(REPO_ROOT, 'plugin.video.otaku.rpdev')
 CONTEXT_DIR = os.path.join(REPO_ROOT, 'context.otaku.rpdev')
+SUBTITLE_SERVICE_DIR = os.path.join(REPO_ROOT, 'service.subtitles.otaku.rpdev')
 TESTS_DIR = os.path.join(REPO_ROOT, 'tests')
 
 for p in (REPO_ROOT, ADDON_DIR, CONTEXT_DIR, TESTS_DIR):
@@ -44,12 +45,14 @@ for p in (REPO_ROOT, ADDON_DIR, CONTEXT_DIR, TESTS_DIR):
 # ---------------------------------------------------------------------------
 def discover_source_files(repo_root=REPO_ROOT):
     """
-    Discover all 139 Python files across plugin.video.otaku.rpdev and context.otaku.rpdev.
+    Discover all Python source files across plugin.video.otaku.rpdev,
+    context.otaku.rpdev, and service.subtitles.otaku.rpdev.
     Returns sorted list of (rel_path, abs_path).
     """
     source_dirs = [
         os.path.join(repo_root, 'plugin.video.otaku.rpdev'),
         os.path.join(repo_root, 'context.otaku.rpdev'),
+        os.path.join(repo_root, 'service.subtitles.otaku.rpdev'),
     ]
     files = []
     for s_dir in source_dirs:
@@ -88,14 +91,20 @@ def get_possible_import_names(rel_path):
             names.add('.'.join(mod_parts[i:]))
 
     basename = os.path.splitext(os.path.basename(rel_path))[0]
-    if basename != 'default':
+    if basename not in ('default', 'service'):
         names.add(basename)
     if parts[0] == 'context.otaku.rpdev':
         names.add('context_default')
         names.add('context.default')
+    elif parts[0] == 'service.subtitles.otaku.rpdev':
+        names.add('subtitle_service_main')
+        names.add('service.subtitles.otaku.rpdev.service')
     elif parts[0] == 'plugin.video.otaku.rpdev' and rel_path.endswith('default.py'):
         names.add('plugin_default')
         names.add('plugin.video.otaku.rpdev.default')
+    elif parts[0] == 'plugin.video.otaku.rpdev' and rel_path.endswith('service.py'):
+        names.add('service')
+        names.add('plugin.video.otaku.rpdev.service')
     return names
 
 

@@ -40,7 +40,7 @@ class BSPlayerService:
 
     @classmethod
     def search(cls, meta: VideoMeta, settings: Dict[str, Any]) -> List[SubtitleResult]:
-        timeout = int(settings.get('subtitles.timeout', 15))
+        timeout = float(settings.get('subtitles.timeout', 15) or 15)
         url = _get_api_url()
 
         lang_code = languages.to_iso639_2(meta.preferred_lang)
@@ -111,7 +111,7 @@ class BSPlayerService:
 
     @classmethod
     def download(cls, result: SubtitleResult, settings: Dict[str, Any]) -> Optional[bytes]:
-        timeout = int(settings.get('subtitles.timeout', 15))
+        timeout = float(settings.get('subtitles.timeout', 15) or 15)
         sub_id = result.action_args.get('sub_id')
         if not sub_id:
             return None

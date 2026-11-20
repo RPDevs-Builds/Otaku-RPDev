@@ -1,0 +1,27 @@
+# Kodi Media Center language file
+# Addon Name: Otaku RPDev Subtitles
+# Addon id: service.subtitles.otaku.rpdev
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: en_GB\n"
+
+msgctxt "#30001"
+msgid "Otaku RPDev Subtitles"
+msgstr ""
+
+msgctxt "#30002"
+msgid "Open Settings - Otaku RPDev > Subtitles"
+msgstr ""
+
+msgctxt "#30003"
+msgid "All subtitle providers, credentials, timeouts, and auto-download preferences are managed centrally inside Settings - Otaku RPDev > Subtitles."
+msgstr ""
+
+msgctxt "#30004"
+msgid "Set as Kodi Default Subtitle Service"
+msgstr ""
+
+msgctxt "#30005"
+msgid "Configure Kodi's default TV show and movie subtitle service to use Otaku RPDev Subtitles."
+msgstr ""

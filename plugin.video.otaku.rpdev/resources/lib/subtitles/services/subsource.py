@@ -22,19 +22,22 @@ class SubSourceService:
         if not apikey:
             return []
 
-        timeout = int(settings.get('subtitles.timeout', 15))
+        timeout = float(settings.get('subtitles.timeout', 15) or 15)
         headers = {
             'X-API-Key': apikey,
             'Accept': 'application/json',
         }
 
         # 1. Search for movie / TV series
-        target_name = meta.tvshow or meta.title
+        target_name = (meta.tvshow or meta.title or meta.search_string) if meta.is_manual_search else (meta.tvshow or meta.title)
+        if not target_name:
+            return []
         search_params: Dict[str, Any] = {
             'searchType': 'text',
             'q': target_name,
-            'type': 'tvseries' if meta.is_tvshow else 'movie',
         }
+        if not meta.is_manual_search or meta.is_tvshow:
+            search_params['type'] = 'tvseries' if meta.is_tvshow else 'movie'
         if meta.is_tvshow and (meta.tvshow_year or meta.year):
             search_params['year'] = str(meta.tvshow_year or meta.year)
         elif not meta.is_tvshow and meta.year:
@@ -52,8 +55,8 @@ class SubSourceService:
             if not res or res.status_code != 200:
                 return []
 
-            search_data = res.json()
-            found = search_data.get('data', [])
+            search_data = res.json(default={})
+            found = search_data.get('data', []) if isinstance(search_data, dict) else []
             if not found:
                 return []
 
@@ -82,8 +85,8 @@ class SubSourceService:
             if not subs_res or subs_res.status_code != 200:
                 return []
 
-            subs_data = subs_res.json()
-            if not subs_data.get('success') or not subs_data.get('data'):
+            subs_data = subs_res.json(default={})
+            if not isinstance(subs_data, dict) or not subs_data.get('success') or not subs_data.get('data'):
                 return []
 
             results = []
@@ -124,7 +127,7 @@ class SubSourceService:
 
     @classmethod
     def download(cls, result: SubtitleResult, settings: Dict[str, Any]) -> Optional[bytes]:
-        timeout = int(settings.get('subtitles.timeout', 15))
+        timeout = float(settings.get('subtitles.timeout', 15) or 15)
         apikey = result.action_args.get('apikey') or settings.get('subtitles.subsource.apikey', '').strip()
         url = result.download_url
         if not url:

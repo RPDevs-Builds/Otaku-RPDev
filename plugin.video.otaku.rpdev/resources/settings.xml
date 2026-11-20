@@ -1705,6 +1705,20 @@
 						<dependency type="visible" setting="subtitles.enabled">true</dependency>
 					</dependencies>
 				</setting>
+				<setting id="subtitles.set_kodi_default" type="action" label="30598" help="30599">
+					<level>1</level>
+					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/set_kodi_subtitle_service)</data>
+					<control type="button" format="action">
+						<close>false</close>
+					</control>
+				</setting>
+				<setting id="subtitles.manual_search" type="action" label="30625" help="30626">
+					<level>1</level>
+					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/search_subtitles)</data>
+					<control type="button" format="action">
+						<close>true</close>
+					</control>
+				</setting>
 				<setting id="subtitles.reset_category" type="action" label="30985" help="30986">
 					<level>1</level>
 					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/reset_category_settings?category=Subtitles&amp;setting=true)</data>

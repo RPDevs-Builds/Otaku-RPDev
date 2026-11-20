@@ -346,11 +346,11 @@ class TestWatchlistPlayerAudioSubtitles(unittest.TestCase):
         self.player.setSubtitleStream.assert_called_with(0)
         self.player.showSubtitles.assert_called_with(True)
 
-    @patch("xbmc.sleep")
+    @patch("resources.lib.ui.control.monitor.waitForAbort", return_value=False)
     @patch("resources.lib.ui.control.getBool")
     @patch("resources.lib.ui.control.getInt")
     @patch("resources.lib.ui.control.jsonrpc")
-    def test_demuxer_async_retry_success(self, mock_jsonrpc, mock_getInt, mock_getBool, mock_sleep):
+    def test_demuxer_async_retry_success(self, mock_jsonrpc, mock_getInt, mock_getBool, mock_wait):
         """
         Verify retry loop in setup_audio_and_subtitles: first call returns empty arrays,
         second call returns populated streams.
@@ -379,7 +379,7 @@ class TestWatchlistPlayerAudioSubtitles(unittest.TestCase):
         self.player.setup_audio_and_subtitles()
 
         self.assertEqual(mock_jsonrpc.call_count, 2)
-        mock_sleep.assert_called_with(200)
+        mock_wait.assert_called_with(0.2)
         self.player.setAudioStream.assert_called_with(0)
 
     @patch("resources.lib.ui.control.getBool")

@@ -80,18 +80,16 @@ class TestEndUserRoutesHistoryAndSubtitles(unittest.TestCase):
         meta = VideoMeta(title='Frieren', season=1, episode=1, preferred_lang='eng')
         settings = {'subtitles.enabled': True}
 
-        # Case 1: No results -> closes progress dialog, notifies user, does NOT open select dialog
+        # Case 1: No automatic results -> closes progress dialog and still opens manual_select_dialog with allow_manual_search=True
         with patch('resources.lib.subtitles.get_meta_from_player', return_value=meta), \
              patch('resources.lib.subtitles.get_subtitles_settings', return_value=settings), \
              patch('resources.lib.subtitles.search_subtitles', return_value=[]), \
              patch('resources.lib.subtitles.manual_select_dialog') as mock_select, \
-             patch.object(control, 'notify') as mock_notify, \
              patch.object(control, 'progressDialog') as mock_prog:
             sub_route.handle_subtitles_search('', {})
             mock_prog.create.assert_called_once()
             mock_prog.close.assert_called_once()
-            mock_notify.assert_called_once()
-            mock_select.assert_not_called()
+            mock_select.assert_called_once_with([], meta, settings, allow_manual_search=True)
 
         # Case 2: Results found -> opens manual_select_dialog with exact results & closes progress dialog
         fake_res = [SubtitleResult(service_name='subdl', display_name='SubDL', name='Frieren.01.srt', lang='English', lang_code='en', download_url='https://sub.test/1.srt')]
@@ -102,7 +100,7 @@ class TestEndUserRoutesHistoryAndSubtitles(unittest.TestCase):
              patch.object(control, 'progressDialog') as mock_prog:
             sub_route.handle_subtitles_search('', {})
             mock_prog.close.assert_called_once()
-            mock_select.assert_called_once_with(fake_res, meta, settings)
+            mock_select.assert_called_once_with(fake_res, meta, settings, allow_manual_search=True)
 
 
 class TestEndUserWindowXMLDialogsAndSkins(unittest.TestCase):

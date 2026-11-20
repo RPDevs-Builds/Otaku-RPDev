@@ -18,11 +18,15 @@ class PodnadpisiService:
 
     @classmethod
     def search(cls, meta: VideoMeta, settings: Dict[str, Any]) -> List[SubtitleResult]:
-        timeout = int(settings.get('subtitles.timeout', 15))
+        timeout = float(settings.get('subtitles.timeout', 15) or 15)
         lang_codes = languages.map_languages_to_iso639_1(meta.languages)
 
+        keywords = (meta.tvshow or meta.title or meta.search_string) if meta.is_manual_search else (meta.tvshow or meta.title)
+        if not keywords:
+            return []
+
         params: Dict[str, Any] = {
-            'keywords': meta.tvshow or meta.title,
+            'keywords': keywords,
             'language': lang_codes,
         }
 
@@ -34,14 +38,16 @@ class PodnadpisiService:
             params['movie_type'] = ['tv-series', 'mini-series']
             if meta.tvshow_year or meta.year:
                 params['year'] = str(meta.tvshow_year or meta.year)
-        else:
+        elif not meta.is_manual_search:
             params['movie_type'] = 'movie'
             if meta.year:
                 params['year'] = str(meta.year)
+        elif meta.year:
+            params['year'] = str(meta.year)
 
         headers = {
             'Accept': 'application/json',
-            'User-Agent': 'OtakuRPDev v5.7',
+            'User-Agent': 'OtakuRPDev v6.2',
         }
 
         try:
@@ -50,8 +56,8 @@ class PodnadpisiService:
             if not res or res.status_code != 200:
                 return []
 
-            data = res.json()
-            items = data.get('data', [])
+            data = res.json(default={})
+            items = data.get('data', []) if isinstance(data, dict) else []
             results = []
 
             for item in items:
@@ -92,7 +98,7 @@ class PodnadpisiService:
 
     @classmethod
     def download(cls, result: SubtitleResult, settings: Dict[str, Any]) -> Optional[bytes]:
-        timeout = int(settings.get('subtitles.timeout', 15))
+        timeout = float(settings.get('subtitles.timeout', 15) or 15)
         url = result.download_url
         if not url:
             return None

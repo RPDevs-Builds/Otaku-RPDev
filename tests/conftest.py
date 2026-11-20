@@ -503,6 +503,7 @@ class MockDialog:
         self.select_response = 0
         self.contextmenu_response = 0
         self.browse_response = ''
+        self.input_response = ''
         self.textviewer_contents = []
 
     def notification(self, heading, message, icon='', time=3000, sound=True):
@@ -520,6 +521,9 @@ class MockDialog:
 
     def select(self, heading, list_, autoclose=0, preselect=-1, useDetails=False):
         return self.select_response
+
+    def input(self, heading='', defaultt='', type=0, autoclose=0):
+        return self.input_response
 
     def multiselect(self, heading, list_, autoclose=0, preselect=None, useDetails=False):
         return preselect or []

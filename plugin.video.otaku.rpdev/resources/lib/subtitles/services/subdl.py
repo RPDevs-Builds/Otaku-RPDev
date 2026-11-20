@@ -23,19 +23,29 @@ class SubDLService:
         if not apikey:
             return []
 
-        timeout = int(settings.get('subtitles.timeout', 15))
+        timeout = float(settings.get('subtitles.timeout', 15) or 15)
         lang_codes = languages.map_languages_to_iso639_1(meta.languages)
 
         params: Dict[str, Any] = {
             'languages': ','.join(lang_codes),
-            'type': 'tv' if meta.is_tvshow else 'movie',
         }
         headers = {
             'Authorization': f'Bearer {apikey}',
             'Accept': 'application/json',
         }
 
-        if meta.is_tvshow:
+        if meta.is_manual_search and meta.search_string:
+            params['film_name'] = meta.tvshow or meta.title or meta.search_string
+            if meta.season:
+                params['season'] = str(meta.season)
+                params['type'] = 'tv'
+            if meta.episode:
+                params['episode'] = str(meta.episode)
+                params['type'] = 'tv'
+            if meta.year:
+                params['year'] = str(meta.year)
+        elif meta.is_tvshow:
+            params['type'] = 'tv'
             params['film_name'] = meta.tvshow or meta.title
             params['file_name'] = meta.filename_without_ext
             if meta.season:
@@ -45,6 +55,7 @@ class SubDLService:
             if meta.tvshow_year or meta.year:
                 params['year'] = str(meta.tvshow_year or meta.year)
         else:
+            params['type'] = 'movie'
             if meta.imdb_id:
                 params['imdb_id'] = meta.imdb_id
             if meta.year:
@@ -58,7 +69,9 @@ class SubDLService:
                 control.log(f"SubDL search returned status {res.status_code if res else 'None'}", 'warning')
                 return []
 
-            data = res.json()
+            data = res.json(default={})
+            if not isinstance(data, dict):
+                return []
             if 'error' in data:
                 err_msg = data['error'].get('message', str(data['error'])) if isinstance(data['error'], dict) else str(data['error'])
                 control.log(f"SubDL error: {err_msg}", 'warning')
@@ -107,7 +120,7 @@ class SubDLService:
 
     @classmethod
     def download(cls, result: SubtitleResult, settings: Dict[str, Any]) -> Optional[bytes]:
-        timeout = int(settings.get('subtitles.timeout', 15))
+        timeout = float(settings.get('subtitles.timeout', 15) or 15)
         url = result.download_url
         if not url:
             return None

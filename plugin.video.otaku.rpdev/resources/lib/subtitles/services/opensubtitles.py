@@ -46,10 +46,10 @@ def authenticate(username: str = '', password: str = '', timeout: int = 10) -> O
         url = f'{API_URL}/login'
         payload = json.dumps({'username': username, 'password': password})
         headers = _get_headers()
-        res = client.post(url, data=payload, headers=headers, timeout=timeout)
+        res = client.post(url, data=payload, headers=headers, timeout=float(timeout))
         if res and res.status_code == 200:
-            data = res.json()
-            token = data.get('token')
+            data = res.json(default={})
+            token = data.get('token') if isinstance(data, dict) else None
             if token:
                 _token_cache = {
                     'token': token,
@@ -70,7 +70,7 @@ class OpenSubtitlesService:
 
     @classmethod
     def search(cls, meta: VideoMeta, settings: Dict[str, Any]) -> List[SubtitleResult]:
-        timeout = int(settings.get('subtitles.timeout', 15))
+        timeout = float(settings.get('subtitles.timeout', 15) or 15)
         username = settings.get('subtitles.opensubtitles.username', '')
         password = settings.get('subtitles.opensubtitles.password', '')
 
@@ -79,35 +79,44 @@ class OpenSubtitlesService:
         lang_codes = languages.map_languages_to_iso639_1(meta.languages)
         params: Dict[str, Any] = {
             'languages': ','.join(lang_codes),
-            'type': 'episode' if meta.is_tvshow else 'movie',
         }
 
-        # Prefer search by IMDb ID if available
-        if meta.imdb_id_int:
-            if meta.is_tvshow and meta.season and meta.episode:
-                params['parent_imdb_id'] = meta.imdb_id_int
-            else:
-                params['imdb_id'] = meta.imdb_id_int
-
-        if meta.is_tvshow and meta.season and meta.episode:
-            params['season_number'] = str(meta.season)
-            params['episode_number'] = str(meta.episode)
-            query_title = meta.tvshow or meta.title
-            if query_title and not meta.imdb_id_int:
-                try:
-                    s_int = int(meta.season)
-                    e_int = int(meta.episode)
-                    params['query'] = f"{query_title} S{s_int:02d}E{e_int:02d}"
-                except (ValueError, TypeError):
-                    params['query'] = f"{query_title} {meta.episode}"
-        else:
+        if meta.is_manual_search and meta.search_string:
+            params['query'] = meta.search_string
+            if meta.season:
+                params['season_number'] = str(meta.season)
+            if meta.episode:
+                params['episode_number'] = str(meta.episode)
             if meta.year:
                 params['year'] = str(meta.year)
-            if not meta.imdb_id_int and meta.title:
-                params['query'] = f"{meta.title} {meta.year}".strip()
+        else:
+            params['type'] = 'episode' if meta.is_tvshow else 'movie'
+            # Prefer search by IMDb ID if available
+            if meta.imdb_id_int:
+                if meta.is_tvshow and meta.season and meta.episode:
+                    params['parent_imdb_id'] = meta.imdb_id_int
+                else:
+                    params['imdb_id'] = meta.imdb_id_int
 
-        if meta.filehash:
-            params['moviehash'] = meta.filehash
+            if meta.is_tvshow and meta.season and meta.episode:
+                params['season_number'] = str(meta.season)
+                params['episode_number'] = str(meta.episode)
+                query_title = meta.tvshow or meta.title
+                if query_title and not meta.imdb_id_int:
+                    try:
+                        s_int = int(meta.season)
+                        e_int = int(meta.episode)
+                        params['query'] = f"{query_title} S{s_int:02d}E{e_int:02d}"
+                    except (ValueError, TypeError):
+                        params['query'] = f"{query_title} {meta.episode}"
+            else:
+                if meta.year:
+                    params['year'] = str(meta.year)
+                if not meta.imdb_id_int and meta.title:
+                    params['query'] = f"{meta.title} {meta.year}".strip()
+
+            if meta.filehash:
+                params['moviehash'] = meta.filehash
 
         try:
             url = f"{API_URL}/subtitles"
@@ -117,8 +126,8 @@ class OpenSubtitlesService:
                 control.log(f"OpenSubtitles: Search failed with code {res.status_code if res else 'None'}", 'warning')
                 return []
 
-            data = res.json()
-            items = data.get('data', [])
+            data = res.json(default={})
+            items = data.get('data', []) if isinstance(data, dict) else []
             results = []
 
             for item in items:
@@ -170,9 +179,13 @@ class OpenSubtitlesService:
 
     @classmethod
     def download(cls, result: SubtitleResult, settings: Dict[str, Any]) -> Optional[bytes]:
-        timeout = int(settings.get('subtitles.timeout', 15))
+        timeout = float(settings.get('subtitles.timeout', 15) or 15)
         file_id = result.action_args.get('file_id')
         token = result.action_args.get('token')
+        if not token:
+            username = settings.get('subtitles.opensubtitles.username', '')
+            password = settings.get('subtitles.opensubtitles.password', '')
+            token = authenticate(username=username, password=password, timeout=timeout)
 
         if not file_id:
             return None
@@ -186,8 +199,8 @@ class OpenSubtitlesService:
                 control.log(f"OpenSubtitles download token request failed: {res.status_code if res else 'None'}", 'warning')
                 return None
 
-            data = res.json()
-            download_link = data.get('link')
+            data = res.json(default={})
+            download_link = data.get('link') if isinstance(data, dict) else None
             if not download_link:
                 control.log("OpenSubtitles download link missing from response", 'warning')
                 return None

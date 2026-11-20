@@ -25,15 +25,18 @@ import xml.etree.ElementTree as ET
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 ADDON_DIR = os.path.join(REPO_ROOT, 'plugin.video.otaku.rpdev')
 CONTEXT_ADDON_DIR = os.path.join(REPO_ROOT, 'context.otaku.rpdev')
+SUBTITLE_ADDON_DIR = os.path.join(REPO_ROOT, 'service.subtitles.otaku.rpdev')
 SKIN_XML_DIR = os.path.join(ADDON_DIR, 'resources', 'skins', 'Default', '1080i')
 CONTROL_PY_PATH = os.path.normpath(os.path.join(ADDON_DIR, 'resources', 'lib', 'ui', 'control.py'))
 
 
 def _iter_addon_py_files(include_context=True):
-    """Yield all Python source files across plugin.video.otaku.rpdev (and context.otaku.rpdev)."""
+    """Yield all Python source files across plugin.video.otaku.rpdev, context.otaku.rpdev, and service.subtitles.otaku.rpdev."""
     roots = [ADDON_DIR]
     if include_context and os.path.isdir(CONTEXT_ADDON_DIR):
         roots.append(CONTEXT_ADDON_DIR)
+    if include_context and os.path.isdir(SUBTITLE_ADDON_DIR):
+        roots.append(SUBTITLE_ADDON_DIR)
     seen = set()
     for root in roots:
         for path in sorted(glob.glob(f"{root}/**/*.py", recursive=True)):

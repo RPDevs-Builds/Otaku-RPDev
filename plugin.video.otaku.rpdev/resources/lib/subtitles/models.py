@@ -26,6 +26,9 @@ class VideoMeta:
         filehash: str = '',
         filesize: int = 0,
         is_tvshow: Optional[bool] = None,
+        search_string: str = '',
+        is_manual_search: bool = False,
+        mal_id: str = '',
     ):
         self.title = str(title or '').strip()
         self.tvshow = str(tvshow or '').strip()
@@ -40,6 +43,9 @@ class VideoMeta:
         self.preferred_lang = str(preferred_lang if preferred_lang is not None else 'eng').strip().lower()
         self.filehash = str(filehash or '').strip()
         self.filesize = int(filesize or 0)
+        self.search_string = str(search_string or '').strip()
+        self.is_manual_search = bool(is_manual_search)
+        self.mal_id = str(mal_id or '').strip()
 
         if is_tvshow is not None:
             self.is_tvshow = bool(is_tvshow)
@@ -80,6 +86,9 @@ class VideoMeta:
             'filesize': self.filesize,
             'is_tvshow': self.is_tvshow,
             'is_movie': self.is_movie,
+            'search_string': self.search_string,
+            'is_manual_search': self.is_manual_search,
+            'mal_id': self.mal_id,
         }
 
     def __repr__(self) -> str:
@@ -106,6 +115,9 @@ class SubtitleResult:
         season: Optional[int] = None,
         episode: Optional[int] = None,
         episodes_range: Optional[List[int]] = None,
+        auto_identified: bool = False,
+        match_confidence: str = 'low',
+        match_reason: str = '',
     ):
         self.service_name = service_name
         self.display_name = display_name
@@ -122,6 +134,9 @@ class SubtitleResult:
         self.season = season
         self.episode = episode
         self.episodes_range = list(episodes_range or [])
+        self.auto_identified = bool(auto_identified)
+        self.match_confidence = str(match_confidence or 'low')
+        self.match_reason = str(match_reason or '')
         self.score = 0.0
 
     def to_dict(self) -> Dict[str, Any]:
@@ -138,6 +153,11 @@ class SubtitleResult:
             'forced': 'true' if self.forced else 'false',
             'color': self.color,
             'action_args': self.action_args,
+            'season': self.season,
+            'episode': self.episode,
+            'auto_identified': self.auto_identified,
+            'match_confidence': self.match_confidence,
+            'match_reason': self.match_reason,
             'score': round(self.score, 3),
         }
 

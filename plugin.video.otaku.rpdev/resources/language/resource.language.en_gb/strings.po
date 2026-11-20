@@ -3941,5 +3941,13 @@ msgctxt "#30998"
 msgid "Query Anime-Skip for intro or outro timestamps when AniSkip has no data (Default: Enabled)."
 msgstr ""
 
+msgctxt "#30598"
+msgid "Set as Kodi Default Subtitle Service"
+msgstr ""
+
+msgctxt "#30599"
+msgid "Configure Kodi's OSD Subtitle Settings > Download Subtitle service for TV shows and movies to use Otaku RPDev Subtitles."
+msgstr ""
+
 
 

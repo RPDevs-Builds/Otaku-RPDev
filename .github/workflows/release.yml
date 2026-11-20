@@ -46,6 +46,7 @@ jobs:
     outputs:
       version: ${{ steps.version_info.outputs.version }}
       context_version: ${{ steps.version_info.outputs.context_version }}
+      subtitle_version: ${{ steps.version_info.outputs.subtitle_version }}
       tag_name: ${{ steps.version_info.outputs.tag_name }}
       zip_name: ${{ steps.version_info.outputs.zip_name }}
     steps:
@@ -71,7 +72,9 @@ jobs:
           # Verify version matches addon.xml
           ADDON_XML_VER=$(python3 -c "import xml.etree.ElementTree as ET; print(ET.parse('plugin.video.otaku.rpdev/addon.xml').getroot().get('version'))")
           CTX_XML_VER=$(python3 -c "import xml.etree.ElementTree as ET; print(ET.parse('context.otaku.rpdev/addon.xml').getroot().get('version'))")
+          SUB_XML_VER=$(python3 -c "import xml.etree.ElementTree as ET; print(ET.parse('service.subtitles.otaku.rpdev/addon.xml').getroot().get('version'))")
           echo "context_version=$CTX_XML_VER" >> $GITHUB_OUTPUT
+          echo "subtitle_version=$SUB_XML_VER" >> $GITHUB_OUTPUT
           if [ "$VERSION" != "$ADDON_XML_VER" ]; then
             echo "ERROR: Tag version ($VERSION) does not match plugin.video.otaku.rpdev/addon.xml ($ADDON_XML_VER)!"
             exit 1
@@ -109,6 +112,7 @@ jobs:
         run: |
           VERSION="${{ steps.version_info.outputs.version }}"
           CTX_VERSION="${{ steps.version_info.outputs.context_version }}"
+          SUB_VERSION="${{ steps.version_info.outputs.subtitle_version }}"
           mkdir -p dist
           python3 - << EOF
           import os, zipfile
@@ -128,6 +132,7 @@ jobs:
 
           package_addon("plugin.video.otaku.rpdev", "$VERSION")
           package_addon("context.otaku.rpdev", "$CTX_VERSION", extra_excludes=('scripts',))
+          package_addon("service.subtitles.otaku.rpdev", "$SUB_VERSION")
           EOF
 
           # Checksums
@@ -186,6 +191,7 @@ jobs:
         run: |
           VERSION="${{ needs.build-and-release.outputs.version }}"
           CTX_VERSION="${{ needs.build-and-release.outputs.context_version }}"
+          SUB_VERSION="${{ needs.build-and-release.outputs.subtitle_version }}"
 
           sync_addon_to_cdn() {
             local ADDON_ID="$1"
@@ -208,6 +214,7 @@ jobs:
 
           sync_addon_to_cdn "plugin.video.otaku.rpdev" "$VERSION"
           sync_addon_to_cdn "context.otaku.rpdev" "$CTX_VERSION"
+          sync_addon_to_cdn "service.subtitles.otaku.rpdev" "$SUB_VERSION"
 
           # Regenerate manifests
           cd cdn-repo

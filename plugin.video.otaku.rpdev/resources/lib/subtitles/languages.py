@@ -127,12 +127,42 @@ def is_language_match(lang_a: str, lang_b: str) -> bool:
     return to_iso639_1(a_clean) == to_iso639_1(b_clean)
 
 
+def get_kodi_preferred_subtitle_language() -> str:
+    """Query Kodi's native subtitle language setting via JSON-RPC."""
+    from resources.lib.ui import control
+    for setting_id in ('locale.subtitlelanguage', 'subtitles.languages'):
+        try:
+            res = control.jsonrpc({
+                'jsonrpc': '2.0',
+                'method': 'Settings.GetSettingValue',
+                'params': {'setting': setting_id},
+                'id': 1,
+            })
+            val = res.get('result', {}).get('value') if isinstance(res, dict) else None
+            if isinstance(val, list) and val:
+                val = val[0]
+            if isinstance(val, str):
+                cleaned = val.strip()
+                if cleaned and cleaned.lower() not in ('default', 'original', 'forced_only', 'none'):
+                    return to_iso639_1(cleaned)
+        except Exception:
+            continue
+    return 'en'
+
+
 def get_preferred_subtitle_language() -> str:
     """
     Returns the preferred subtitle language as a 2-letter ISO 639-1 code (e.g. 'en'),
     or 'none' if subtitles are disabled in settings (general.subtitles == 0).
+    Respects Kodi's native subtitle language when general.kodi_language is enabled.
     """
     from resources.lib.ui import control
+    try:
+        if control.getBool('general.kodi_language', False):
+            return get_kodi_preferred_subtitle_language()
+    except Exception:
+        pass
+
     try:
         sub_setting_idx = control.getInt('general.subtitles')
     except Exception:
