@@ -1115,6 +1115,49 @@ def get_release_info(res):
     return info
 
 
+def expand_sequel_season_aliases(target_title, aliases, season):
+    """For sequel seasons (season >= 2) with arc subtitles (e.g. 'Blue Exorcist: Beyond the Snow Saga'),
+    append '<Title> Season N' and '<Franchise Base> Season N' aliases so season-numbered releases
+    ('Blue Exorcist S04', '[TRC] Blue Exorcist - S04') match cleanly while Season 1 stays isolated.
+    """
+    out = list(aliases) if aliases else []
+    try:
+        season_int = int(season) if season is not None and str(season).isdigit() else None
+    except (ValueError, TypeError):
+        season_int = None
+    if not season_int or season_int < 2:
+        return out
+
+    seen = {str(target_title).strip().lower()} if target_title else set()
+    for a in out:
+        if isinstance(a, str) and a.strip():
+            seen.add(a.strip().lower())
+
+    def _add(val):
+        cleaned = (val or '').strip()
+        if cleaned and cleaned.lower() not in seen:
+            seen.add(cleaned.lower())
+            out.append(cleaned)
+
+    seed_titles = ([target_title] if target_title else []) + list(out)
+    for t in seed_titles:
+        if not isinstance(t, str):
+            continue
+        t_clean = t.strip()
+        if not t_clean:
+            continue
+        if f"season {season_int}" not in t_clean.lower():
+            _add(f"{t_clean} Season {season_int}")
+        base = None
+        if ':' in t_clean:
+            base = t_clean.split(':', 1)[0].strip()
+        elif ' - ' in t_clean:
+            base = t_clean.split(' - ', 1)[0].strip()
+        if base and len(base) >= 3:
+            _add(f"{base} Season {season_int}")
+    return out
+
+
 def filter_sources(provider, torrent_list, mal_id, season=None, episode=None, part=None, anidb_id=True, show_title=None, aliases=None, season_source=None, absolute_episode=None):
     from resources.lib.ui import database
     """
@@ -1131,6 +1174,7 @@ def filter_sources(provider, torrent_list, mal_id, season=None, episode=None, pa
             if thetvdb_season == 'a' or thetvdb_season == 0:
                 season = None
 
+    effective_aliases = expand_sequel_season_aliases(show_title, aliases, season) if (show_title or aliases) else aliases
     check_season = (provider not in _ID_BASED_PROVIDERS) and (season_source != 'default')
 
     def _run_pass(enforce_season):
@@ -1178,9 +1222,9 @@ def filter_sources(provider, torrent_list, mal_id, season=None, episode=None, pa
             )
             title = raw_title.lower()
 
-            if show_title or aliases:
-                target_query = show_title or (aliases[0] if aliases else '')
-                title_score = score_title_candidate(target_query, raw_title, aliases=aliases)
+            if show_title or effective_aliases:
+                target_query = show_title or (effective_aliases[0] if effective_aliases else '')
+                title_score = score_title_candidate(target_query, raw_title, aliases=effective_aliases)
                 if title_score <= 40:
                     continue
                 torrent['relevance'] = title_score

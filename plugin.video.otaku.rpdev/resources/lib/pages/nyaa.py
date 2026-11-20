@@ -11,6 +11,7 @@ class Sources(BrowserBase):
     _BASE_URL = domains.get_domain('nyaa', 'https://nyaa.si/')
 
     def __init__(self):
+        self._BASE_URL = domains.get_domain('nyaa', self._BASE_URL) or self._BASE_URL
         self.media_type = None
         self.cached = []
         self.uncached = []
@@ -107,6 +108,33 @@ class Sources(BrowserBase):
             'params': {'f': '0', 'c': '1_0', 'q': query4.replace(' ', '+')},
             'name': 'additional'
         })
+
+        # C-23: For arc-subtitled sequels (season >= 2 with ':' or ' - '), also search
+        # franchise base + SxxExx / Sxx / Season N in parallel so English Dub/Dual-Audio
+        # releases omitting the MAL arc subtitle are found on the first pass.
+        try:
+            season_int = int(season) if season is not None and str(season).isdigit() else 1
+        except (ValueError, TypeError):
+            season_int = 1
+        if season_int >= 2 and (':' in show or ' - ' in show):
+            base_titles = []
+            for raw_part in show.split('|'):
+                cleaned_p = raw_part.strip('() ')
+                base = None
+                if ':' in cleaned_p:
+                    base = cleaned_p.split(':', 1)[0].strip()
+                elif ' - ' in cleaned_p:
+                    base = cleaned_p.split(' - ', 1)[0].strip()
+                if base and len(base) >= 3 and base not in base_titles:
+                    base_titles.append(base)
+            if base_titles:
+                base_expr = '|'.join(f'({b})' for b in base_titles)
+                query5 = f'{base_expr} "S{season_zfill}E{episode_zfill}"|"S{season_zfill}"|"Season {season_int}"|"Season {season_zfill}"'
+                search_tasks.append({
+                    'query': query5,
+                    'params': {'f': '0', 'c': '1_0', 'q': query5.replace(' ', '+'), 's': 'downloads', 'o': 'desc'},
+                    'name': 'sequel_season_base'
+                })
 
         # Execute all searches in parallel
         control.log(f"Nyaa: Running {len(search_tasks)} searches in parallel for episode {episode_zfill}")

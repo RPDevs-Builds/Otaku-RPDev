@@ -51,10 +51,18 @@ class Sources(BrowserBase):
             meta_ids = database.loads(show_meta['meta_ids'])
             self.anidb_id = meta_ids.get('anidb_id')
             if not self.anidb_id:
-                ids = SIMKLAPI().get_mapping_ids_from_simkl(mal_id, 'mal_id')
-                if ids and ids.get('anidb'):
-                    self.anidb_id = meta_ids['anidb_id'] = ids['anidb']
-                    database.update_show_meta(mal_id, meta_ids, database.loads(show_meta['art']))
+                mp = database.get_mappings(mal_id, 'mal_id')
+                if mp and mp.get('anidb_id'):
+                    self.anidb_id = meta_ids['anidb_id'] = mp['anidb_id']
+                else:
+                    ids = SIMKLAPI().get_mapping_ids_from_simkl(mal_id, 'mal_id')
+                    if ids and ids.get('anidb'):
+                        self.anidb_id = meta_ids['anidb_id'] = ids['anidb']
+                        database.update_show_meta(mal_id, meta_ids, database.loads(show_meta['art']))
+        if not self.anidb_id:
+            mp = database.get_mappings(mal_id, 'mal_id')
+            if mp and mp.get('anidb_id'):
+                self.anidb_id = mp['anidb_id']
 
         season_zfill = str(season).zfill(2) if season else '01'
         episode_zfill = str(episode).zfill(2) if episode is not None else '01'
@@ -110,6 +118,11 @@ class Sources(BrowserBase):
         if self.anidb_id:
             params3['aids'] = self.anidb_id
         search_tasks.append({'params': params3, 'name': 'fallback'})
+
+        # C-23: AniDB ID-only search catches season-numbered Dub/Dual-Audio releases
+        # (e.g. "Blue Exorcist S04") that omit the MAL arc subtitle.
+        if self.anidb_id:
+            search_tasks.append({'params': {'aids': self.anidb_id}, 'name': 'anidb_id'})
 
         # Season variation search
         if 'season' in show.lower():

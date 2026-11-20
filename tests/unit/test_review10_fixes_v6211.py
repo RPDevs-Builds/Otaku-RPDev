@@ -96,6 +96,73 @@ class TestReview10FixesV6211(unittest.TestCase):
         mock_mark.assert_called_once()
         self.assertEqual(mock_mark.call_args.kwargs.get('cooldown'), 3600)
 
+    def test_c21_client_request_uses_ampersand_when_url_has_query_string(self):
+        """C-21: client.request appends params with '&' (not '?') when URL already contains '?' (translate.goog alt URLs)."""
+        from resources.lib.ui import client
+        captured_urls = []
+
+        def _fake_urlopen(req, *a, **kw):
+            captured_urls.append(req.full_url)
+            raise RuntimeError('stop_after_capture')
+
+        with patch('urllib.request.build_opener') as mock_build:
+            mock_opener = MagicMock()
+            mock_opener.open.side_effect = _fake_urlopen
+            mock_build.return_value = mock_opener
+            client.request(
+                'https://animetosho-net.translate.goog/search?_x_tr_sl=es&_x_tr_tl=en&_x_tr_hl=en',
+                params={'q': 'Blue Exorcist', 'qx': 1},
+            )
+        self.assertEqual(len(captured_urls), 1)
+        self.assertEqual(captured_urls[0].count('?'), 1)
+        self.assertIn('&_x_tr_hl=en&q=Blue+Exorcist&qx=1', captured_urls[0])
+
+    def test_c22_filter_sources_retains_season_numbered_dub_torrents_for_arc_sequels(self):
+        """C-22: filter_sources expands sequel season aliases so Blue Exorcist S04 Dub/Dual-Audio torrents survive before debrid check."""
+        torrents = [
+            {'name': '[CRUCiBLE] Blue Exorcist Season 4 (S04) (BD Remux 1080p) [Dual Audio] | Ao no Exorcist: Yuki no Hate-hen', 'hash': '1' * 40},
+            {'name': '[TRC] Blue Exorcist - S04 [English Dub] [CR WEB-RIP 1080p]', 'hash': '2' * 40},
+            {'name': '[Yameii] Blue Exorcist - S04E01 [English Dub] [CR WEB-DL 1080p]', 'hash': '3' * 40},
+            {'name': '[ToonsHub] Blue Exorcist S04E01 1080p CR WEB-DL (Ao no Exorcist, Dual-Audio)', 'hash': '4' * 40},
+            {'name': '[Judas] Ao no Exorcist (Blue Exorcist) (Season 04) [1080p][Dual-Audio] (Batch)', 'hash': '5' * 40},
+            {'name': 'Blue Exorcist S01E01 [Dual Audio] [1080p]', 'hash': '9' * 40},
+        ]
+        with patch('resources.lib.ui.database.get_mappings', return_value={}):
+            kept = source_utils.filter_sources(
+                'animetosho', torrents, 58516, season=4, episode=1,
+                show_title='Ao no Exorcist: Yuki no Hate-hen',
+                aliases=['Blue Exorcist: Beyond the Snow Saga'],
+            )
+        kept_hashes = [t['hash'] for t in kept]
+        self.assertEqual(len(kept_hashes), 5)
+        self.assertNotIn('9' * 40, kept_hashes)
+
+    def test_c23_nyaa_and_animetosho_add_sequel_season_and_anidb_id_tasks(self):
+        """C-23: Nyaa adds parallel sequel_season_base task and AnimeTosho adds anidb_id task for arc-subtitled sequels."""
+        from resources.lib.pages import nyaa, animetosho
+        nyaa_tasks = []
+        with patch('resources.lib.ui.utils.parallel_process', side_effect=lambda tasks, fn: nyaa_tasks.extend(tasks) or [[] for _ in tasks]):
+            nyaa.Sources().get_episode_sources(
+                '(Ao no Exorcist: Yuki no Hate hen)|(Blue Exorcist: Beyond the Snow Saga)',
+                58516, 1, 4, None, 'Finished Airing'
+            )
+        seq_tasks = [t for t in nyaa_tasks if t['name'] == 'sequel_season_base']
+        self.assertEqual(len(seq_tasks), 1)
+        self.assertIn('(Ao no Exorcist)|(Blue Exorcist)', seq_tasks[0]['query'])
+        self.assertIn('"S04E01"|"S04"|"Season 4"|"Season 04"', seq_tasks[0]['query'])
+
+        tosho_tasks = []
+        with patch('resources.lib.ui.database.get_show_meta', return_value=None), \
+             patch('resources.lib.ui.database.get_mappings', return_value={'anidb_id': 18561}), \
+             patch('resources.lib.ui.utils.parallel_process', side_effect=lambda tasks, fn: tosho_tasks.extend(tasks) or [[] for _ in tasks]):
+            animetosho.Sources().get_episode_sources(
+                '(Ao no Exorcist: Yuki no Hate-hen)|(Blue Exorcist: Beyond the Snow Saga)',
+                58516, 1, 4, None, 'Finished Airing'
+            )
+        aid_tasks = [t for t in tosho_tasks if t['name'] == 'anidb_id']
+        self.assertEqual(len(aid_tasks), 1)
+        self.assertEqual(aid_tasks[0]['params'], {'aids': 18561})
+
 
 if __name__ == '__main__':
     unittest.main()

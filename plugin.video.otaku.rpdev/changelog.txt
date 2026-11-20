@@ -1,3 +1,11 @@
+Changelog v6.2.12 (2026-11-20):
+- Torrent Pipeline Fix: Alt Proxy Query Join, Pre-Debrid Sequel Filtering & Parallel Season/AniDB Search:
+  - Fix double '?' URL query joining in client.py that silently broke translate.goog alt providers (provider.animetoshoalt, nyaaalt, animepahealt) returning 0 entries on every episode (C-21)
+  - Expand arc-subtitled sequel season aliases inside source_utils.filter_sources() before Debrid cache checks so Sxx/Season N Dub and Dual-Audio torrents are not dropped prior to torrentCacheCheck() (C-22)
+  - Add parallel franchise-base Sxx search + live domain refresh in nyaa.py and local mappings.db anidb_id + parallel aids-only search in animetosho.py (C-23)
+  - Live Kodi 22 verified on MAL 58516 Ep 1 (Blue Exorcist: Beyond the Snow Saga): torrents increased from raw=2/relevance_gate=1 to raw=66/audio_filter=22/relevance_gate=21 (total_final=27)
+  - Update docs/CONCERNS.md with ONN Review #11 (offset 545562) and resolutions R-27..R-29
+
 Changelog v6.2.11 (2026-11-19):
 - Zero-Wait Subtitle Race Fix & Sequel Arc Relevance Scoring:
   - Fix C-11 Zero-Wait external subtitle deletion race in onPlayBackEnded() with episode-scoped sub_tag & WEBVTT/HTML validation, fix C-20 arc-subtitled sequel Dual-Audio torrent relevance scoring (Blue Exorcist S02/S03), raise AnimePahe WAF cooldown to 3600s, and graduate C-11 & C-20 in docs/CONCERNS.md after live Kodi 22 Zero-Wait verification

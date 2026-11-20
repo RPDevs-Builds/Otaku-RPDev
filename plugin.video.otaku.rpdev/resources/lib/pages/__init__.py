@@ -792,18 +792,7 @@ class Sources(GetSources):
             resolved_season_int = None
 
         if resolved_season_int and resolved_season_int >= 2:
-            for t in list(([target_title] if target_title else []) + target_aliases):
-                if not isinstance(t, str):
-                    continue
-                if f"season {resolved_season_int}" not in t.lower():
-                    _append_alias(f"{t} Season {resolved_season_int}")
-                base = None
-                if ':' in t:
-                    base = t.split(':', 1)[0].strip()
-                elif ' - ' in t:
-                    base = t.split(' - ', 1)[0].strip()
-                if base and len(base) >= 3:
-                    _append_alias(f"{base} Season {resolved_season_int}")
+            target_aliases = source_utils.expand_sequel_season_aliases(target_title, target_aliases, resolved_season_int)
 
         if target_title:
             for s in sortedList:

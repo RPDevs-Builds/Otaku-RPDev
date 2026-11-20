@@ -301,7 +301,9 @@ def request(
         if params is not None:
             if isinstance(params, dict):
                 params = urllib.parse.urlencode(params, doseq=True)
-            url = url + '?' + params
+            if params:
+                sep = '&' if '?' in url else '?'
+                url = url + sep + params
 
         if output == 'cookie' or output == 'extended' or not close:
             cookies = http.cookiejar.LWPCookieJar()
