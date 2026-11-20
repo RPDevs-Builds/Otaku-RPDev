@@ -369,7 +369,7 @@ class Sources(GetSources):
                 self.hosterSources = part_filter.filter_sources(self.hosterSources, mal_id=mal_id, episode=episode, season=season, part=part)
                 self.embedSources = part_filter.filter_sources(self.embedSources, mal_id=mal_id, episode=episode, season=season, part=part)
                 self.cloud_files = part_filter.filter_sources(self.cloud_files, mal_id=mal_id, episode=episode, season=season, part=part)
-                self.return_data = self.sortSources(self.torrentSources, self.hosterSources, self.embedSources, self.cloud_files, self.local_files, media_type, duration, mal_id=mal_id, show_title=query)
+                self.return_data = self.sortSources(self.torrentSources, self.hosterSources, self.embedSources, self.cloud_files, self.local_files, media_type, duration, mal_id=mal_id, show_title=query, season=season)
         except Exception as e:
             control.log(f"Error in getSources: {e}", 'error')
             self.return_data = []
@@ -551,7 +551,7 @@ class Sources(GetSources):
                 control.setInt(f'{prefix}.skipoutro.end', int(outro['end']))
 
     @staticmethod
-    def sortSources(torrent_list, hoster_list, embed_list, cloud_files, local_files, media_type, duration, mal_id=None, show_title=None, aliases=None):
+    def sortSources(torrent_list, hoster_list, embed_list, cloud_files, local_files, media_type, duration, mal_id=None, show_title=None, aliases=None, season=None):
         all_list = torrent_list + hoster_list + embed_list + cloud_files + local_files
         sortedList = [x for x in all_list if control.getInt('general.minResolution') <= x['quality'] <= control.getInt('general.maxResolution')]
 
@@ -776,6 +776,34 @@ class Sources(GetSources):
                         target_year = str(start_date.get('year'))
             except Exception:
                 pass
+
+        # C-20: For sequel seasons (season >= 2) with arc subtitles (e.g. "Blue Exorcist: Shimane Illuminati Saga"),
+        # register "<Franchise Base> Season N" aliases so season-numbered releases ("Blue Exorcist S03") pass the gate.
+        resolved_season_int = None
+        try:
+            if season is not None and str(season).isdigit():
+                resolved_season_int = int(season)
+            elif mal_id:
+                mp = database.get_mappings(mal_id, 'mal_id')
+                tvdb_s = mp.get('thetvdb_season') if isinstance(mp, dict) else None
+                if tvdb_s is not None and str(tvdb_s).isdigit():
+                    resolved_season_int = int(tvdb_s)
+        except Exception:
+            resolved_season_int = None
+
+        if resolved_season_int and resolved_season_int >= 2:
+            for t in list(([target_title] if target_title else []) + target_aliases):
+                if not isinstance(t, str):
+                    continue
+                if f"season {resolved_season_int}" not in t.lower():
+                    _append_alias(f"{t} Season {resolved_season_int}")
+                base = None
+                if ':' in t:
+                    base = t.split(':', 1)[0].strip()
+                elif ' - ' in t:
+                    base = t.split(' - ', 1)[0].strip()
+                if base and len(base) >= 3:
+                    _append_alias(f"{base} Season {resolved_season_int}")
 
         if target_title:
             for s in sortedList:

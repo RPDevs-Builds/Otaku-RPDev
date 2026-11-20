@@ -181,6 +181,7 @@ def PLAY(payload, params):
                         sub_index=sub.get('index', idx),
                         display_name=sub.get('name'),
                         source_url=sub.get('file'),
+                        sub_tag=f"{mal_id}_{episode}",
                     )
                     if entry:
                         sub_entries.append(entry)

@@ -540,7 +540,7 @@ def _detect_sub_ext(sub_url, content):
     return '.srt'
 
 
-def get_sub(sub_url, sub_lang, headers=None, sub_index=0, display_name=None, source_url=None):
+def get_sub(sub_url, sub_lang, headers=None, sub_index=0, display_name=None, source_url=None, sub_tag=None):
     if not sub_url:
         return None
 
@@ -595,11 +595,29 @@ def get_sub(sub_url, sub_lang, headers=None, sub_index=0, display_name=None, sou
         control.log(f"get_sub: empty subtitle body for {sub_url}", level='info')
         return None
 
+    content = content.lstrip('\ufeff')
+    head_lower = content.lstrip()[:64].lower()
+    if head_lower.startswith(('<!doctype', '<html', '<head', '<body')):
+        control.log(f"get_sub: skipping HTML error page disguised as subtitle for {sub_url}", level='warning')
+        return None
+
     ext = _detect_sub_ext(source_url or sub_url, content)
-    if ext == '.vtt' and '<}' in content:
-        # Sanitize malformed upstream WebVTT tag typos (e.g. "<}text</i>") that trigger CWebVTTHandler errors
-        content = re.sub(r'<\}', '', content)
-    fname = 'TemporarySubs.{0}.{1}{2}'.format(sub_index, lang, ext)
+    if ext == '.vtt':
+        if '<}' in content:
+            # Sanitize malformed upstream WebVTT tag typos (e.g. "<}text</i>") that trigger CWebVTTHandler errors
+            content = re.sub(r'<\}', '', content)
+        if not content.lstrip().upper().startswith('WEBVTT'):
+            if '-->' in content:
+                content = 'WEBVTT\n\n' + content.lstrip()
+            else:
+                control.log(f"get_sub: invalid VTT content (no WEBVTT header or cues) for {sub_url}", level='warning')
+                return None
+
+    if sub_tag:
+        safe_tag = re.sub(r'[^A-Za-z0-9_-]', '', str(sub_tag))
+        fname = 'TemporarySubs.{0}.{1}.{2}{3}'.format(safe_tag, sub_index, lang, ext)
+    else:
+        fname = 'TemporarySubs.{0}.{1}{2}'.format(sub_index, lang, ext)
     fname = fname.encode(encoding='ascii', errors='ignore').decode(encoding='ascii')
     subtitle = xbmcvfs.translatePath('special://temp/')
     fpath = os.path.join(subtitle, fname)

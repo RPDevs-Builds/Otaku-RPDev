@@ -390,11 +390,16 @@ class WatchlistPlayer(player):
         self._playback_stopped = True
         self._playback_ended = True
         control.closeAllDialogs()
-        try:
-            from resources.lib.ui import embed_extractor
-            embed_extractor.del_subs()
-        except Exception:
-            pass
+        # Only purge temp subs when no next playlist episode is queued; during Zero-Wait
+        # transitions, the incoming episode writes its own temp subs concurrently and
+        # purges stale ones before writing.
+        has_next_item = playList.size() > 1 and (playList.getposition() < 0 or playList.getposition() < playList.size() - 1)
+        if not has_next_item:
+            try:
+                from resources.lib.ui import embed_extractor
+                embed_extractor.del_subs()
+            except Exception:
+                pass
         target_file = self._resolve_resume_target_file()
         if target_file and (getattr(self, 'total_time', 0) or 0) > 60:
             query = {

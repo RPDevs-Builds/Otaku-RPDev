@@ -1,7 +1,19 @@
 ========================
+[B]OTAKU RPDEV v6.2.11[/B]
+Zero-Wait Subtitle Race Fix & Sequel Arc Relevance Scoring
+========================
+
+v6.2.11 Highlights:
+  * Fix C-11 Zero-Wait external subtitle deletion race in onPlayBackEnded()
+    with episode-scoped sub_tag & WEBVTT/HTML validation, fix C-20 arc-
+    subtitled sequel Dual-Audio torrent relevance scoring (Blue Exorcist
+    S02/S03), raise AnimePahe WAF cooldown to 3600s, and graduate C-11 &
+    C-20 in docs/CONCERNS.md after live Kodi 22 Zero-Wait verification
+
+--------------------------------
 [B]OTAKU RPDEV v6.2.10[/B]
 Upstream PR Parity & Multi-Part/Season Hardening
-========================
+--------------------------------
 
 v6.2.10 Highlights:
   * Fix Nyaa case-sensitive None|None season query (PR #502/#496), guard

@@ -175,12 +175,12 @@ class Sources(BrowserBase):
             headers=headers
         )
         if not r:
-            domains.mark_mirror_failure(base_url)
+            domains.mark_mirror_failure(base_url, cooldown=3600)
             control.log('AnimePahe: search API returned no data', level='info')
             return []
         parsed_r = control.loads_json(r, {})
         if not isinstance(parsed_r, dict):
-            domains.mark_mirror_failure(base_url)
+            domains.mark_mirror_failure(base_url, cooldown=3600)
             control.log('AnimePahe: search API returned invalid JSON', level='info')
             return []
         sitems = parsed_r.get('data')
@@ -246,12 +246,12 @@ class Sources(BrowserBase):
             headers=headers
         )
         if not r:
-            domains.mark_mirror_failure(base_url)
+            domains.mark_mirror_failure(base_url, cooldown=3600)
             control.log('AnimePahe: release API returned no data for slug={0} page={1}'.format(slug, page), level='info')
             return sources
         r = control.loads_json(r, {})
         if not isinstance(r, dict):
-            domains.mark_mirror_failure(base_url)
+            domains.mark_mirror_failure(base_url, cooldown=3600)
             control.log('AnimePahe: release API returned invalid JSON for slug={0}'.format(slug), level='info')
             return sources
         items = r.get('data') or []
