@@ -108,6 +108,31 @@ class TestFunctionCoverage(unittest.TestCase):
         self.assertGreater(summary['covered_functions'], 0)
         self.assertGreater(summary['covered_public_functions'], 0)
 
+    def test_nested_settrace_tracer_preserves_outer_trace(self):
+        """Python 3.11 sys.settrace fallback must chain and restore outer tracers without clobbering."""
+        from resources.lib.ui.colors import normalize_provider_name
+
+        before = sys.gettrace()
+        outer = ExecutionTracer(self.repo_root)
+        inner = ExecutionTracer(self.repo_root)
+        outer.start(force_settrace=True)
+        try:
+            inner.start(force_settrace=True)
+            try:
+                self.assertEqual(normalize_provider_name('realdebrid'), 'realdebrid')
+            finally:
+                inner.stop()
+
+            # Outer trace must still be active after inner.stop() (no sys.settrace(None) clobber)
+            self.assertIsNotNone(sys.gettrace())
+            self.assertEqual(normalize_provider_name('alldebrid'), 'alldebrid')
+        finally:
+            outer.stop()
+
+        self.assertIs(sys.gettrace(), before)
+        self.assertTrue(any('colors.py' in f for f in inner.executed_files))
+        self.assertTrue(any('colors.py' in f for f in outer.executed_files))
+
 
 if __name__ == '__main__':
     unittest.main()

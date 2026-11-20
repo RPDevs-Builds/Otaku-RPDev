@@ -20,6 +20,7 @@ import json
 import os
 import re
 import sys
+import threading
 import time
 import unittest
 from collections import defaultdict
@@ -180,6 +181,8 @@ class ExecutionTracer:
         self.executed_qualnames = defaultdict(set)  # norm_path -> set of (qualname, name)
         self.executed_lines = defaultdict(set)      # norm_path -> set of line numbers
         self.monitoring_tool_id = None
+        self._prev_trace = None
+        self._prev_thread_trace = None
         self._is_active = False
 
     def _normalize_filename(self, fn):
@@ -190,12 +193,12 @@ class ExecutionTracer:
             return norm
         return None
 
-    def start(self):
+    def start(self, force_settrace=False):
         if self._is_active:
             return
         self._is_active = True
 
-        if hasattr(sys, 'monitoring') and hasattr(sys.monitoring, 'COVERAGE_ID'):
+        if not force_settrace and hasattr(sys, 'monitoring') and hasattr(sys.monitoring, 'COVERAGE_ID'):
             tool_id = None
             candidate_ids = [sys.monitoring.COVERAGE_ID, 3, 4, 5]
             if hasattr(sys.monitoring, 'PROFILER_ID'):
@@ -230,26 +233,33 @@ class ExecutionTracer:
                 sys.monitoring.register_callback(tool_id, sys.monitoring.events.PY_START, on_py_start)
                 sys.monitoring.set_events(tool_id, sys.monitoring.events.PY_START)
                 return
-        else:
-            def trace_func(frame, event, arg):
-                if event == 'call':
-                    fn = self._normalize_filename(frame.f_code.co_filename)
-                    if fn:
-                        self.executed_files.add(fn)
-                        rel = os.path.relpath(fn, self.repo_root)
-                        self.executed_files.add(rel)
 
-                        qual = getattr(frame.f_code, 'co_qualname', frame.f_code.co_name)
-                        name = frame.f_code.co_name
-                        self.executed_qualnames[fn].add(qual)
-                        self.executed_qualnames[fn].add(name)
-                        self.executed_qualnames[rel].add(qual)
-                        self.executed_qualnames[rel].add(name)
-                        self.executed_lines[fn].add(frame.f_code.co_firstlineno)
-                        self.executed_lines[rel].add(frame.f_code.co_firstlineno)
-                return trace_func
+        prev_trace = sys.gettrace()
+        self._prev_trace = prev_trace
+        self._prev_thread_trace = getattr(threading, '_trace_hook', None)
 
-            sys.settrace(trace_func)
+        def trace_func(frame, event, arg):
+            if event == 'call':
+                fn = self._normalize_filename(frame.f_code.co_filename)
+                if fn:
+                    self.executed_files.add(fn)
+                    rel = os.path.relpath(fn, self.repo_root)
+                    self.executed_files.add(rel)
+
+                    qual = getattr(frame.f_code, 'co_qualname', frame.f_code.co_name)
+                    name = frame.f_code.co_name
+                    self.executed_qualnames[fn].add(qual)
+                    self.executed_qualnames[fn].add(name)
+                    self.executed_qualnames[rel].add(qual)
+                    self.executed_qualnames[rel].add(name)
+                    self.executed_lines[fn].add(frame.f_code.co_firstlineno)
+                    self.executed_lines[rel].add(frame.f_code.co_firstlineno)
+            if prev_trace is not None:
+                return prev_trace(frame, event, arg)
+            return None
+
+        sys.settrace(trace_func)
+        threading.settrace(trace_func)
 
     def stop(self):
         if not self._is_active:
@@ -262,7 +272,10 @@ class ExecutionTracer:
                 pass
             self.monitoring_tool_id = None
         else:
-            sys.settrace(None)
+            sys.settrace(self._prev_trace)
+            threading.settrace(self._prev_thread_trace)
+            self._prev_trace = None
+            self._prev_thread_trace = None
         self._is_active = False
 
 
