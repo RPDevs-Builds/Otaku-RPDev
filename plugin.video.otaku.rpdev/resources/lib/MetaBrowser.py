@@ -101,6 +101,11 @@ def get_sources(mal_id, episode, media_type, rescrape=False, source_select=False
     episode_data = database.get_episode(mal_id)
     season = episode_data.get('season') if episode_data else None
 
+    hints = {}
+    if media_type != 'movie':
+        from resources.lib.ui import utils
+        season, hints = utils.get_source_context(mal_id, kodi_meta, season, episode)
+
     # Fast-path: Check for cached season pack continuity
     if media_type != 'movie' and not rescrape and not source_select and control.getBool('smartplay.reuse_season_pack', default=True):
         cached_pack = database.get_season_pack(mal_id, season)
@@ -149,6 +154,7 @@ def get_sources(mal_id, episode, media_type, rescrape=False, source_select=False
         'silent': silent,
         'season': season,
         'part': part,
+        'hints': hints,
     }
 
     sources = pages.getSourcesHelper(actionArgs)

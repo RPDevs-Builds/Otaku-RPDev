@@ -1,3 +1,7 @@
+Changelog v6.2.10 (2026-11-19):
+- Upstream PR Parity & Multi-Part/Season Hardening:
+  - Fix Nyaa case-sensitive None|None season query (PR #502/#496), guard AnimeTosho missing AniDB key (PR #505), migrate AnimeTosho to animetosho.net + IEC KiB/MiB/GiB byte sizes (PR #507), add AniList direct Media(idMal:) lookup (PR #506), strip Easynews colons & old-part posts (PR #497/#501), add sequel season resolution & multi-part sibling/episode-title filtering (PR #503/#501), plus live Kodi 22 fixes for versioned episodes (- 02v2) and arc-subtitle S3 scoring
+
 Changelog v6.2.9 (2026-11-19):
 - Deep Concerns Audit & Live Kodi 21/22 Verification:
   - Persist mirror cooldowns & scraper circuit breaker across invocations, fix translate.goog alt URL joins, harden HLS/VTT/subtitle & failover deprioritization, fix read-only mappings.db WAL checkpoint, numeric playlist sorting, smartplay.preresolve getBool & EOF playback guards

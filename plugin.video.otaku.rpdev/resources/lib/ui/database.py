@@ -1078,6 +1078,14 @@ def update_episode(mal_id, season, number, update_time, kodi_meta,
         cur.connection.commit()
 
 
+def update_show_season(mal_id, season):
+    with SQL(control.malSyncDB) as cur:
+        cur.execute(
+            'UPDATE OR REPLACE episodes SET season=? WHERE mal_id=? AND season!=?',
+            (season, mal_id, season))
+        cur.connection.commit()
+
+
 def update_episode_column(mal_id, episode, column, value):
     _validate_identifier(column)
     with SQL(control.malSyncDB) as cur:

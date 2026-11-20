@@ -44,7 +44,7 @@ DEFAULT_DOMAINS = {
     "animekai": "https://animekai.to/",
     "anikoto": "https://anikoto.com/",
     "nyaa": "https://nyaa.si/",
-    "animetosho": "https://animetosho.org/",
+    "animetosho": "https://animetosho.net/",
     "nekobt": "https://nekobt.to/api/v1",
     "torrentio": "https://torrentio.strem.fun",
     "bitsearch": "https://bitsearch.to",
@@ -67,6 +67,15 @@ def _get_profile_domains_path():
     return ''
 
 
+def _normalize_legacy_domains(data):
+    """Migrate retired provider domains in cached profile/remote dictionaries."""
+    if isinstance(data, dict):
+        tosho = data.get('animetosho')
+        if isinstance(tosho, str) and 'animetosho.org' in tosho:
+            data['animetosho'] = tosho.replace('animetosho.org', 'animetosho.net')
+    return data
+
+
 def _load_domains(force_refresh=False):
     """Load domains from memory, disk cache, or bundled fallback."""
     global _DOMAINS_CACHE, _DOMAINS_CACHE_TIME
@@ -80,7 +89,7 @@ def _load_domains(force_refresh=False):
     if not force_refresh and profile_file and os.path.exists(profile_file):
         try:
             with open(profile_file, 'r', encoding='utf-8') as f:
-                data = json.load(f)
+                data = _normalize_legacy_domains(json.load(f))
                 if isinstance(data, dict) and data.get('hianime'):
                     _DOMAINS_CACHE = data
                     _DOMAINS_CACHE_TIME = now
@@ -93,7 +102,7 @@ def _load_domains(force_refresh=False):
     if bundled_file and os.path.exists(bundled_file):
         try:
             with open(bundled_file, 'r', encoding='utf-8') as f:
-                data = json.load(f)
+                data = _normalize_legacy_domains(json.load(f))
                 if isinstance(data, dict) and data.get('hianime'):
                     _DOMAINS_CACHE = data
                     _DOMAINS_CACHE_TIME = now
@@ -114,7 +123,7 @@ def get_domain(provider_key, default=None):
     if provider_key == 'nyaa' and control.getBool('provider.nyaaalt'):
         return 'https://nyaa-si.translate.goog/?_x_tr_sl=es&_x_tr_tl=en&_x_tr_hl=en'
     if provider_key == 'animetosho' and control.getBool('provider.animetoshoalt'):
-        return 'https://animetosho-org.translate.goog/?_x_tr_sl=es&_x_tr_tl=en&_x_tr_hl=en'
+        return 'https://animetosho-net.translate.goog/?_x_tr_sl=es&_x_tr_tl=en&_x_tr_hl=en'
     if provider_key == 'animepahe' and control.getBool('provider.animepahealt'):
         return 'https://animepahe-pw.translate.goog/?_x_tr_sl=auto&_x_tr_tl=en&_x_tr_hl=en&_x_tr_pto=wapp'
 
@@ -304,6 +313,7 @@ def save_profile_domains(data):
     global _DOMAINS_CACHE, _DOMAINS_CACHE_TIME
     if not isinstance(data, dict):
         return False
+    data = _normalize_legacy_domains(data)
     _DOMAINS_CACHE = data
     _DOMAINS_CACHE_TIME = time.time()
     profile_file = _get_profile_domains_path()

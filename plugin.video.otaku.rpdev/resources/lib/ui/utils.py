@@ -138,8 +138,33 @@ def parse_view(base, isfolder, isplayable, dub=False):
 #  Season Detection
 # ═══════════════════════════════════════════════════════════════════════════
 
-def get_season(titles_list, mal_id):
-    import re
+_CJK_NUMERALS = '一二三四五六七八九十'
+_SEASON_PATTERNS = (
+    r'season[\s._-]*(\d{1,2})\b',                        # Season 2, Season2
+    r'\b(\d{1,2})(?:st|nd|rd|th)[\s._-]+season\b',       # 2nd Season
+    r'(?<![a-z0-9])s(\d{1,2})(?![a-z0-9])',              # S2, S02
+    r'第\s*(\d{1,2})\s*[期季]',                           # 第2期
+    rf'第\s*([{_CJK_NUMERALS}])\s*[期季]',                # 第二季
+)
+
+
+def _normalize_title_items(titles_list):
+    normalized = []
+    for item in (titles_list or []):
+        if isinstance(item, dict):
+            t_str = item.get('title') or item.get('name') or ''
+        elif isinstance(item, (list, tuple)):
+            t_str = item[1] if len(item) > 1 else (item[0] if item else '')
+        else:
+            t_str = item
+        if t_str is not None:
+            s = str(t_str).strip()
+            if s:
+                normalized.append(s)
+    return normalized
+
+
+def _mapped_season(mal_id):
     meta_ids = database.get_mappings(mal_id, 'mal_id')
     if meta_ids and meta_ids.get('thetvdb_season') is not None:
         tvdb_season = meta_ids.get('thetvdb_season')
@@ -149,45 +174,108 @@ def get_season(titles_list, mal_id):
             return int(tvdb_season)
         except (ValueError, TypeError):
             pass
+    return None
 
-    normalized_titles = []
-    for item in (titles_list or []):
-        if isinstance(item, (list, tuple)):
-            t_str = item[1] if len(item) > 1 else (item[0] if item else '')
-        else:
-            t_str = item
-        if t_str is not None:
-            s = str(t_str).strip()
-            if s:
-                normalized_titles.append(s)
 
-    regexes = [r'season\s(\d+)', r'\s(\d+)st\sseason\s', r'\s(\d+)nd\sseason\s', r'\s(\d+)rd\sseason\s', r'\s(\d+)th\sseason\s']
-    s_ids = []
-    for regex in regexes:
-        s_ids += [re.findall(regex, name, re.IGNORECASE) for name in normalized_titles]
-    s_ids = [s[0] for s in s_ids if s]
-    if not s_ids:
-        regex = r'\s(\d+)$'
-        cour = False
-        for name in normalized_titles:
-            if ' part ' in name.lower() or ' cour ' in name.lower():
-                cour = True
-                break
-        if not cour:
-            s_ids += [re.findall(regex, name, re.IGNORECASE) for name in normalized_titles]
-    s_ids = [s[0] for s in s_ids if s]
-    if not s_ids:
-        seasonnum = 1
-        for t_str in normalized_titles:
-            m = re.search(r' (\d)[ rnt][ sdh(]', f' {t_str}  ')
-            if m:
-                seasonnum = m.group(1)
-                break
-        s_ids = [seasonnum]
-    season = int(s_ids[0])
-    if season > 10:
-        season = 1
-    return season
+def _parse_season(titles_list):
+    """Read a season from titles. Returns (season, source).
+
+    source is 'title' for an explicit season marker, or 'default' when nothing
+    trustworthy was found, including a bare trailing number ("Kaiju No. 8").
+    """
+    import re
+    titles = _normalize_title_items(titles_list)
+    for pattern in _SEASON_PATTERNS:
+        for title in titles:
+            match = re.search(pattern, title, re.IGNORECASE)
+            if match:
+                value = match.group(1)
+                season = _CJK_NUMERALS.index(value) + 1 if value in _CJK_NUMERALS else int(value)
+                if 1 <= season <= 10:
+                    return season, 'title'
+
+    if not any(' part ' in title.lower() or ' cour ' in title.lower() for title in titles):
+        for title in titles:
+            match = re.search(r'\s(\d+)$', title)
+            if match and 1 <= int(match.group(1)) <= 10:
+                return int(match.group(1)), 'default'
+
+    for t_str in titles:
+        m = re.search(r' (\d)[ rnt][ sdh(]', f' {t_str}  ')
+        if m and 1 <= int(m.group(1)) <= 10:
+            return int(m.group(1)), 'title'
+
+    return 1, 'default'
+
+
+def get_season(titles_list, mal_id):
+    mapped = _mapped_season(mal_id)
+    if mapped is not None:
+        return mapped
+    return _parse_season(titles_list)[0]
+
+
+def _fetch_anizip_summary(mal_id):
+    from resources.lib.indexers import anizip
+    try:
+        data = anizip.ANIZIPAPI().get_anime_info(mal_id)
+    except Exception as e:
+        control.log(f'ani.zip lookup failed for {mal_id}: {e}', 'warning')
+        return None
+    if not data or not isinstance(data, dict):
+        return None
+
+    episodes = data.get('episodes') or {}
+    numbers = sorted(int(number) for number in episodes if str(number).isdigit())
+    first = episodes.get(str(numbers[0]), {}) if numbers else {}
+    season = first.get('seasonNumber')
+    episode_number = first.get('episodeNumber')
+    absolute_number = first.get('absoluteEpisodeNumber')
+    offset = 0
+    if isinstance(episode_number, int) and isinstance(absolute_number, int) and absolute_number > episode_number:
+        offset = absolute_number - episode_number
+
+    return {
+        'season': season if isinstance(season, int) and season > 0 else None,
+        'offset': offset,
+    }
+
+
+def get_anizip_summary(mal_id):
+    return database.get(_fetch_anizip_summary, 24, mal_id, key='anizip_summary') or {}
+
+
+def resolve_season(titles_list, mal_id):
+    """Best known season for a show. Returns (season, source)."""
+    mapped = _mapped_season(mal_id)
+    if mapped is not None:
+        return mapped, 'mapping'
+    anizip_season = get_anizip_summary(mal_id).get('season')
+    if anizip_season:
+        return anizip_season, 'anizip'
+    return _parse_season(titles_list)
+
+
+def get_source_context(mal_id, kodi_meta, stored_season, episode):
+    """Season and filter hints for a scrape. Returns (season, hints)."""
+    kodi_meta = kodi_meta or {}
+    season, source = resolve_season([kodi_meta.get('name'), kodi_meta.get('ename')], mal_id)
+    if source == 'default' and stored_season and int(stored_season) > 1:
+        season, source = int(stored_season), 'title'
+    if stored_season and int(stored_season) != season and source != 'default':
+        control.log(f'Correcting stored season {stored_season} -> {season} for {mal_id} ({source})')
+        database.update_show_season(mal_id, season)
+
+    summary = get_anizip_summary(mal_id)
+    offset = summary.get('offset') or 0
+    try:
+        abs_ep = int(episode) + int(offset) if offset and episode is not None else None
+    except (ValueError, TypeError):
+        abs_ep = None
+    return season, {
+        'season_source': source,
+        'absolute_episode': abs_ep,
+    }
 
 
 # ═══════════════════════════════════════════════════════════════════════════

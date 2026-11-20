@@ -16,12 +16,16 @@ class Sources(BrowserBase):
         self.uncached = []
         self.sources = []
         self.rescrape = False
+        self.filter_kwargs = {}
+        self.absolute_episode = None
 
-    def get_sources(self, query, mal_id, episode, status, media_type, season=None, part=None, rescrape=False):
+    def get_sources(self, query, mal_id, episode, status, media_type, season=None, part=None, rescrape=False, hints=None):
         query = self._clean_title(query).replace('-', ' ')
         self.show = query
         self.media_type = media_type
         self.rescrape = rescrape
+        self.filter_kwargs = source_utils.filter_kwargs(hints)
+        self.absolute_episode = (hints or {}).get('absolute_episode')
         if media_type == 'movie':
             return self.get_movie_sources(query, mal_id)
 
@@ -49,6 +53,8 @@ class Sources(BrowserBase):
 
         # Primary episode search
         query1 = f'{show} "- {episode_zfill}"|"S{season_zfill}E{episode_zfill}"'
+        if self.absolute_episode:
+            query1 += f'|"- {str(self.absolute_episode).zfill(2)}"'
         search_tasks.append({
             'query': query1,
             'params': {'f': '0', 'c': '1_0', 'q': query1.replace(' ', '+'), 's': 'downloads', 'o': 'desc'},
@@ -83,17 +89,18 @@ class Sources(BrowserBase):
 
         # Season search
         query4 = show
-        show_lower = show.lower()
-        if 'season' in show_lower and '|' in show:
-            parts = show.split('|')
-            query1_part, query2_part = parts[0], parts[1]
-            match_1 = re.match(r'.+?(?=season)', query1_part)
-            if match_1:
-                match_1 = match_1.group(0).strip() + ')'
-            match_2 = re.match(r'.+?(?=season)', query2_part)
-            if match_2:
-                match_2 = match_2.group(0).strip() + ')'
-            query4 = f'{match_1}|{match_2}'
+        if 'season' in show.lower():
+            matches = [re.match(r'\(?.+?(?=season)', title.strip(), re.IGNORECASE) for title in show.split('|')]
+            cleaned = []
+            for m in matches:
+                if m:
+                    part_str = m.group(0).strip()
+                    if part_str.startswith('(') and not part_str.endswith(')'):
+                        part_str += ')'
+                    if part_str and part_str != '()':
+                        cleaned.append(part_str)
+            if cleaned:
+                query4 = '|'.join(cleaned)
 
         search_tasks.append({
             'query': query4,
@@ -222,8 +229,14 @@ class Sources(BrowserBase):
                         aliases = parts[1:]
 
             if target_show:
-                return source_utils.filter_sources('nyaa', list_, mal_id, int(season_zfill), int(episode_zfill), part, show_title=target_show, aliases=aliases)
-            return source_utils.filter_sources('nyaa', list_, mal_id, int(season_zfill), int(episode_zfill), part)
+                return source_utils.filter_sources(
+                    'nyaa', list_, mal_id, int(season_zfill), int(episode_zfill), part,
+                    show_title=target_show, aliases=aliases, **self.filter_kwargs
+                )
+            return source_utils.filter_sources(
+                'nyaa', list_, mal_id, int(season_zfill), int(episode_zfill), part,
+                **self.filter_kwargs
+            )
         return []
 
     def process_nyaa_episodes(self, url, params, mal_id, episode_zfill, season_zfill, part, show_title=None, is_show_pack=False):
@@ -302,7 +315,7 @@ class Sources(BrowserBase):
             'episode_re': episode,
             'size': res['size'],
             'byte_size': 0,
-            'info': source_utils.getInfo(res['name']),
+            'info': source_utils.get_release_info(res),
             'lang': source_utils.getAudio_lang(res['name']),
             'channel': source_utils.getAudio_channel(res['name']),
             'sub': source_utils.getSubtitle_lang(res['name']),

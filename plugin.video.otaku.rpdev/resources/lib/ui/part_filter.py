@@ -27,6 +27,112 @@ _ROMAN_PARTS = {
 
 _RE_PART_OR_COUR = re.compile(r'\b(?:part|cour)\s*([0-9]+|[ivx]+)\b', re.IGNORECASE)
 _RE_BATCH_RANGE = re.compile(r'[\(\[\s]([0-9]{1,4})\s*[-~–]\s*([0-9]{1,4})[\)\]\s]')
+_EP_TITLE = re.compile(r'(?i)s\d{1,2}[ ._-]?e\d{1,4}[ ._-]+(.+)')
+_TITLE_END = re.compile(
+    r'(?i)[\[(]|\b(?:\d{3,4}p|4k|uhd|web|webrip|web-dl|bluray|bdrip|bd|hdtv|x26[45]|h\.?26[45]|'
+    r'hevc|avc|av1|aac|ddp?|flac|multi|dual|repack|proper|amzn|cr|dsnp|nf|jc|10bit|subbed|dubbed)\b'
+)
+_SMALL_WORDS = {'the', 'and', 'for', 'part', 'episode', 'final'}
+_SERIES_TYPES = ('TV', 'ONA', 'UNKNOWN', None)
+
+
+def _flat(text):
+    return re.sub(r'[^a-z0-9]', '', (text or '').lower())
+
+
+def _is_part(row):
+    return str(row.get('thetvdb_season')) != '0' and row.get('anime_media_type') in _SERIES_TYPES
+
+
+def part_info(mal_id):
+    """Return (this part's number, its flat subtitle name, flat names of sibling parts) from mappings.db."""
+    if not mal_id:
+        return None, '', []
+    siblings = []
+    title = ''
+    try:
+        from resources.lib.ui import database
+        with database.SQL(control.mappingDB, is_readonly=True) as cur:
+            cur.execute('SELECT mal_title FROM anime WHERE mal_id=?', (mal_id,))
+            row = cur.fetchone()
+            title = (row or {}).get('mal_title') or ''
+            base = title.split(' - ')[0]
+            if not base:
+                return None, '', []
+            cur.execute(
+                "SELECT mal_id, mal_title, thetvdb_season, anime_media_type FROM anime "
+                "WHERE mal_title=? OR mal_title LIKE ?",
+                (base, base + ' - %')
+            )
+            siblings = [r for r in (cur.fetchall() or []) if _is_part(r)]
+    except Exception as e:
+        control.log(f'part_filter: mappings part_info failed: {e}', 'debug')
+        return None, '', []
+    if not siblings:
+        return None, '', []
+
+    siblings.sort(key=lambda r: r['mal_id'])
+    ids = [r['mal_id'] for r in siblings]
+    try:
+        mal_int = int(mal_id)
+    except (ValueError, TypeError):
+        mal_int = mal_id
+    number = ids.index(mal_int) + 1 if mal_int in ids and len(ids) > 1 else None
+
+    def _name(t):
+        return _flat(t.split(' - ', 1)[1]) if ' - ' in (t or '') else ''
+
+    own = _name(title)
+    others = [
+        n for n in (_name(r['mal_title']) for r in siblings if r['mal_id'] != mal_int)
+        if len(n) >= 5 and n != own
+    ]
+    return number, own, others
+
+
+def _words(text):
+    return {w for w in re.findall(r'[a-z]{3,}', (text or '').lower()) if w not in _SMALL_WORDS}
+
+
+def episode_title_words(mal_id, episode):
+    """Return significant words of the episode's own title from Otaku's episode DB."""
+    if not mal_id or episode is None:
+        return set()
+    try:
+        from resources.lib.ui import database
+        row = database.get_episode(mal_id, episode)
+        meta = database.loads(row['kodi_meta']) if row and row.get('kodi_meta') else {}
+        title = (meta.get('info') or {}).get('title') or meta.get('title') or ''
+    except Exception:
+        return set()
+    if re.search(r'(?i)(?:^|\s)(?:episode|ep)\s*\d+\s*$', title):
+        return set()
+    return _words(title)
+
+
+def release_episode_words(name):
+    """Return significant words of the episode title a release names after S01E06.<Title>."""
+    m = _EP_TITLE.search(name or '')
+    if not m:
+        return set()
+    rest = re.sub(r'[._]', ' ', m.group(1))
+    cut = _TITLE_END.search(rest)
+    return _words(rest[:cut.start()] if cut else rest)
+
+
+def part_queries(titles, episode, number):
+    """Generate part-specific search queries for text providers (e.g. Easynews)."""
+    ep = str(episode).zfill(2) if episode is not None else '01'
+    out = []
+    for t in (titles or []):
+        clean = re.sub(r'\s+', ' ', (t or '').replace(':', ' ')).strip()
+        if ' - ' in clean:
+            series, part_name = clean.split(' - ', 1)
+            show = t.split(':', 1)[0].strip() if ':' in t else series
+            out.append(f'{show} {part_name} {ep}')
+            if number:
+                out.append(f'{series} Part {number} {ep}')
+    return out
 
 
 def _get_mappings_info(mal_id):
@@ -133,6 +239,8 @@ def filter_sources(sources, mal_id=None, episode=1, season=None, part=None):
 
     allow_chinese = _user_wants_chinese()
     mapping_info = _get_mappings_info(mal_id) if mal_id else None
+    sib_number, own_part_name, other_part_names = part_info(mal_id) if mal_id else (None, '', [])
+    own_ep_words = episode_title_words(mal_id, ep_num) if mal_id else set()
 
     # Calculate part and global episode offset if mapping info is available
     target_part = part
@@ -150,6 +258,9 @@ def filter_sources(sources, mal_id=None, episode=1, season=None, part=None):
             offset = g_start - a_start
             global_ep = ep_num + offset
 
+    if target_part is None and sib_number is not None:
+        target_part = sib_number
+
     try:
         target_part = int(target_part) if target_part is not None else None
     except (ValueError, TypeError):
@@ -163,17 +274,29 @@ def filter_sources(sources, mal_id=None, episode=1, season=None, part=None):
     for src in sources:
         title = src.get('name') or src.get('release_title') or src.get('title') or ''
         title_lower = title.lower()
+        flat_title = _flat(title_lower)
 
         # 1. Chinese Hardsub Filter
         if not allow_chinese and _has_chinese_hardsub(title_lower):
             dropped_chinese += 1
             continue
 
-        # 2. Multi-Part Franchise Filter
+        # 2. Multi-Part Sibling Subtitle & Part Number Filter
+        if other_part_names and any(o in flat_title for o in other_part_names) and not (own_part_name and own_part_name in flat_title):
+            dropped_part_mismatch += 1
+            continue
+
         if target_part is not None:
             found_part = _extract_part_from_title(title_lower)
             if found_part is not None and found_part != target_part:
                 # Release explicitly declares a different part (e.g. Part 1 when watching Part 2)
+                dropped_part_mismatch += 1
+                continue
+
+        # 2b. Episode title mismatch after SxxExx.<Title>
+        if own_ep_words:
+            rel_ep_words = release_episode_words(title)
+            if rel_ep_words and not (rel_ep_words & own_ep_words):
                 dropped_part_mismatch += 1
                 continue
 

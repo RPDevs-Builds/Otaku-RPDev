@@ -80,6 +80,7 @@ class Easynews:
                     'name': display_name,
                     'rawSize': int(item.get('rawSize', 0)),
                     'language': language,
+                    'ts': item.get('ts'),
                 })
             except Exception as e:
                 control.log(f'Easynews row parse: {e}', 'warning')

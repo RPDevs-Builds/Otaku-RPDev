@@ -11,9 +11,10 @@ from resources.lib.endpoints import anidb
 
 
 class Sources(BrowserBase):
-    _BASE_URL = domains.get_domain('animetosho', 'https://animetosho.org/')
+    _BASE_URL = domains.get_domain('animetosho', 'https://animetosho.net/')
 
     def __init__(self):
+        self._BASE_URL = domains.get_domain('animetosho', self._BASE_URL) or self._BASE_URL
         self.sources = []
         self.cached = []
         self.uncached = []
@@ -21,10 +22,14 @@ class Sources(BrowserBase):
         self.anidb_ep_id = None
         self.paging = control.getInt('animetosho.paging')
         self.rescrape = False
+        self.filter_kwargs = {}
+        self.absolute_episode = None
 
-    def get_sources(self, show, mal_id, episode, status, media_type, season=None, part=None, rescrape=False):
+    def get_sources(self, show, mal_id, episode, status, media_type, season=None, part=None, rescrape=False, hints=None):
         self.show = show
         self.rescrape = rescrape
+        self.filter_kwargs = source_utils.filter_kwargs(hints)
+        self.absolute_episode = (hints or {}).get('absolute_episode')
         control.log(f"Animetosho: Starting search for '{show}' episode {episode}")
         if media_type == "movie":
             return self.get_movie_sources(show, mal_id)
@@ -47,7 +52,7 @@ class Sources(BrowserBase):
             self.anidb_id = meta_ids.get('anidb_id')
             if not self.anidb_id:
                 ids = SIMKLAPI().get_mapping_ids_from_simkl(mal_id, 'mal_id')
-                if ids:
+                if ids and ids.get('anidb'):
                     self.anidb_id = meta_ids['anidb_id'] = ids['anidb']
                     database.update_show_meta(mal_id, meta_ids, database.loads(show_meta['art']))
 
@@ -59,6 +64,8 @@ class Sources(BrowserBase):
 
         # Primary episode search
         query = f'{show} "- {episode_zfill}"|"S{season_zfill}E{episode_zfill}"'
+        if self.absolute_episode:
+            query += f'|"- {str(self.absolute_episode).zfill(2)}"'
         params1 = {
             'q': self._sphinx_clean(query),
             'qx': 1,
@@ -122,7 +129,7 @@ class Sources(BrowserBase):
         def run_search(task):
             try:
                 sources = self.process_animetosho_episodes(
-                    domains.join_url(domains.get_domain('animetosho', self._BASE_URL) or self._BASE_URL, 'search'),
+                    domains.join_url(self._BASE_URL, 'search'),
                     task['params'],
                     mal_id,
                     episode_zfill,
@@ -161,7 +168,7 @@ class Sources(BrowserBase):
         if self.anidb_id:
             params['aids'] = self.anidb_id
 
-        search_url = domains.join_url(domains.get_domain('animetosho', self._BASE_URL) or self._BASE_URL, 'search')
+        search_url = domains.join_url(self._BASE_URL, 'search')
         animetosho_sources = self.process_animetosho_episodes(search_url, params, mal_id, episode_zfill, season_zfill, part, show=show, is_show_pack=True)
         return animetosho_sources
 
@@ -173,7 +180,7 @@ class Sources(BrowserBase):
             self.anidb_id = meta_ids.get('anidb_id')
             if not self.anidb_id:
                 ids = SIMKLAPI().get_mapping_ids_from_simkl(mal_id, 'mal_id')
-                if ids:
+                if ids and ids.get('anidb'):
                     self.anidb_id = meta_ids['anidb_id'] = ids['anidb']
                     database.update_show_meta(mal_id, meta_ids, database.loads(show_meta['art']))
 
@@ -187,7 +194,7 @@ class Sources(BrowserBase):
         if self.anidb_id:
             params['aids'] = self.anidb_id
 
-        search_url = domains.join_url(domains.get_domain('animetosho', self._BASE_URL) or self._BASE_URL, 'search')
+        search_url = domains.join_url(self._BASE_URL, 'search')
         self.sources = self.process_animetosho_movie(search_url, params, mal_id)
         self.append_cache_uncached_noduplicates()
         return {'cached': self.cached, 'uncached': self.uncached}
@@ -236,7 +243,7 @@ class Sources(BrowserBase):
                     continue
 
                 size_div = entry.find('div', class_='size')
-                size = size_div.text.strip() if size_div else 'NA'
+                size = size_div.text.strip().replace('iB', 'B') if size_div else 'NA'
 
                 list_item = {
                     'name': name,
@@ -269,12 +276,13 @@ class Sources(BrowserBase):
             if target_show:
                 filtered_list = source_utils.filter_sources(
                     'animetosho', list_, mal_id, int(season), int(episode), part,
-                    anidb_id=self.anidb_id, show_title=target_show, aliases=aliases
+                    anidb_id=self.anidb_id, show_title=target_show, aliases=aliases,
+                    **self.filter_kwargs
                 )
             else:
                 filtered_list = source_utils.filter_sources(
                     'animetosho', list_, mal_id, int(season), int(episode), part,
-                    anidb_id=self.anidb_id
+                    anidb_id=self.anidb_id, **self.filter_kwargs
                 )
 
             cache_list, uncashed_list_ = Debrid().torrentCacheCheck(filtered_list, mal_id=mal_id, episode=episode, media_type='episode', rescrape=self.rescrape)
@@ -320,7 +328,7 @@ class Sources(BrowserBase):
                     continue
 
                 size_div = entry.find('div', class_='size')
-                size = size_div.text.strip() if size_div else 'NA'
+                size = size_div.text.strip().replace('iB', 'B') if size_div else 'NA'
 
                 list_item = {
                     'name': name,
@@ -367,7 +375,7 @@ class Sources(BrowserBase):
             'provider': 'animetosho',
             'episode_re': episode,
             'size': res['size'],
-            'info': source_utils.getInfo(res['name']),
+            'info': source_utils.get_release_info(res),
             'byte_size': 0,
             'lang': source_utils.getAudio_lang(res['name']),
             'channel': source_utils.getAudio_channel(res['name']),

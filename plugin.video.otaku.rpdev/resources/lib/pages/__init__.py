@@ -243,6 +243,7 @@ class Sources(GetSources):
         rescrape = args['rescrape']
         season = args.get('season')
         part = args.get('part')
+        hints = args.get('hints')
 
         self.setProperty('process_started', 'true')
 
@@ -258,7 +259,7 @@ class Sources(GetSources):
         ]
 
         debrid_on = any(enabled_debrids.values())
-        t_args = (query, mal_id, episode, status, media_type, rescrape, season, part)
+        t_args = (query, mal_id, episode, status, media_type, rescrape, season, part, hints)
 
         if rescrape:
             circuit_breaker.reset()
@@ -377,17 +378,29 @@ class Sources(GetSources):
             self.close()
         return self.return_data
 
-    def _torrent_sources_worker(self, provider, query, mal_id, episode, status, media_type, rescrape, season, part):
+    def _torrent_sources_worker(self, provider, query, mal_id, episode, status, media_type, rescrape, season, part, hints=None):
         if self.canceled or control.abort_requested():
             return
         try:
+            import inspect
             mod, cache_key = _TORRENT_MODULES[provider]
             get_sources = mod.Sources().get_sources
             call_args = (query, mal_id, episode, status, media_type, season, part)
+            accepts_hints = False
+            try:
+                accepts_hints = 'hints' in inspect.signature(get_sources).parameters
+            except Exception:
+                pass
             if rescrape:
-                all_sources = get_sources(*call_args, rescrape=True)
+                if accepts_hints:
+                    all_sources = get_sources(*call_args, rescrape=True, hints=hints)
+                else:
+                    all_sources = get_sources(*call_args, rescrape=True)
             else:
-                all_sources = database.get(get_sources, _scraper_cache_ttl(), *call_args, key=cache_key)
+                if accepts_hints and hints:
+                    all_sources = database.get(get_sources, _scraper_cache_ttl(), *call_args, False, hints, key=cache_key)
+                else:
+                    all_sources = database.get(get_sources, _scraper_cache_ttl(), *call_args, key=cache_key)
             if self.canceled or control.abort_requested():
                 return
             if not all_sources:
@@ -412,17 +425,29 @@ class Sources(GetSources):
                 if provider in self.remainingProviders:
                     self.remainingProviders.remove(provider)
 
-    def _hoster_sources_worker(self, hoster, query, mal_id, episode, status, media_type, rescrape, season, part):
+    def _hoster_sources_worker(self, hoster, query, mal_id, episode, status, media_type, rescrape, season, part, hints=None):
         if self.canceled or control.abort_requested():
             return
         try:
+            import inspect
             mod, cache_key, _, merge_mode = _HOSTER_MODULES[hoster]
             get_sources = mod.Sources().get_sources
             call_args = (query, mal_id, episode, status, media_type, season, part)
+            accepts_hints = False
+            try:
+                accepts_hints = 'hints' in inspect.signature(get_sources).parameters
+            except Exception:
+                pass
             if rescrape:
-                all_sources = get_sources(*call_args)
+                if accepts_hints:
+                    all_sources = get_sources(*call_args, rescrape=True, hints=hints)
+                else:
+                    all_sources = get_sources(*call_args)
             else:
-                all_sources = database.get(get_sources, _scraper_cache_ttl(), *call_args, key=cache_key)
+                if accepts_hints and hints:
+                    all_sources = database.get(get_sources, _scraper_cache_ttl(), *call_args, False, hints, key=cache_key)
+                else:
+                    all_sources = database.get(get_sources, _scraper_cache_ttl(), *call_args, key=cache_key)
             if self.canceled or control.abort_requested():
                 return
             if not all_sources:

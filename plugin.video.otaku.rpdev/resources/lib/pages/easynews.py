@@ -101,7 +101,37 @@ class Sources(BrowserBase):
             return self._uniq_queries([f'{t} {year}'.strip() for t in search_titles])
         return self._uniq_queries(list(search_titles))
 
-    def get_sources(self, query, mal_id, episode, status, media_type, season=None, part=None):
+    @staticmethod
+    def _start_ts(mal_id):
+        """Unix time this anime entry started airing, from its start_date, or None."""
+        import time
+        try:
+            row = database.get_show(mal_id)
+            meta = database.loads(row['kodi_meta']) if row and row.get('kodi_meta') else {}
+            start = str(meta.get('start_date') or '')[:10]
+            return time.mktime(time.strptime(start, '%Y-%m-%d')) if start else None
+        except Exception:
+            return None
+
+    def _this_part_only(self, dicts, by_hash, mal_id):
+        """Drop Usenet posts uploaded >2 days before this anime part started airing."""
+        start = self._start_ts(mal_id)
+        if start:
+            kept = []
+            for d in dicts:
+                ts = (by_hash.get(d['hash']) or {}).get('ts')
+                try:
+                    ts = float(ts)
+                except (TypeError, ValueError):
+                    ts = None
+                if ts is None or ts >= start - 2 * 86400:
+                    kept.append(d)
+            if len(kept) != len(dicts):
+                control.log(f'Easynews: {len(dicts) - len(kept)} hits posted before this part aired', 'info')
+            dicts = kept
+        return dicts
+
+    def get_sources(self, query, mal_id, episode, status, media_type, season=None, part=None, rescrape=False, hints=None):
         if not control.easynews_enabled():
             return {'cached': [], 'uncached': []}
 
@@ -123,7 +153,12 @@ class Sources(BrowserBase):
             for t in search_titles:
                 queries.append(f'{t} - {ep_str}')
                 queries.append(f'{t} S{sz}E{ep_str}')
-            queries = self._uniq_queries(queries)
+            from resources.lib.ui import part_filter
+            number = part_filter.part_info(mal_id)[0]
+            queries += part_filter.part_queries(originals, episode, number)
+
+        # ':' in a title ("BLEACH: Thousand-Year Blood War") makes Easynews return an HTML error page instead of JSON
+        queries = self._uniq_queries([re.sub(r'\s+', ' ', q.replace(':', ' ')).strip() for q in queries])
 
         if not queries:
             return {'cached': [], 'uncached': []}
@@ -168,11 +203,13 @@ class Sources(BrowserBase):
             prepared = [{'name': r['name'], 'hash': r['url_dl']} for r in relevant]
             ep_int = int(episode) if episode is not None else 1
             filtered_dicts = source_utils.filter_sources(
-                'easynews', prepared, mal_id, season_int, ep_int, part)
+                'easynews', prepared, mal_id, season_int, ep_int, part, **source_utils.filter_kwargs(hints))
 
         control.log(f'Easynews: {len(filtered_dicts)} hits after episode/season filter', 'info')
 
         by_hash = {r['url_dl']: r for r in relevant}
+        if media_type != 'movie':
+            filtered_dicts = self._this_part_only(filtered_dicts, by_hash, mal_id)
         cached = []
         for d in filtered_dicts:
             url_dl = d['hash']
@@ -195,7 +232,7 @@ class Sources(BrowserBase):
                 'episode_re': str(episode).zfill(2) if episode is not None else '01',
                 'size': source_utils.get_size(raw),
                 'byte_size': raw,
-                'info': source_utils.getInfo(name),
+                'info': source_utils.get_release_info(d),
                 'lang': source_utils.getAudio_lang(name),
                 'channel': source_utils.getAudio_channel(name),
                 'sub': source_utils.getSubtitle_lang(name),

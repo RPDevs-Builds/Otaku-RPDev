@@ -362,8 +362,10 @@ def get_cache_check_reg(episode):
 
 
 def convert_to_bytes(size, units):
-    unit = units.upper()
-    if unit == 'KB':
+    unit = (units or '').upper().replace('IB', 'B')
+    if unit == 'B':
+        byte_size = size
+    elif unit == 'KB':
         byte_size = size * 2**10
     elif unit == 'MB':
         byte_size = size * 2**20
@@ -372,7 +374,7 @@ def convert_to_bytes(size, units):
     elif unit == 'TB':
         byte_size = size * 2**40
     else:
-        raise ValueError("Unit must be 'KB', 'MB', 'GB', 'TB' ")
+        raise ValueError("Unit must be 'B', 'KB', 'MB', 'GB', 'TB'")
     return byte_size
 
 
@@ -721,7 +723,14 @@ def _score_single_candidate(target_list, candidate_title, passed_year=None, rele
         # Disqualify mismatched sequel seasons (S01 / Season 01 stays eligible for Season 1)
         target_seasons = _extract_season_numbers(raw_target_lower)
         target_sequel_seasons = {s for s in target_seasons if s >= 2}
-        if cand_sequel_seasons and not target_sequel_seasons:
+        target_isolated = isolate_show_title(target) or str(target)
+        target_no_season_clean = cleanTitle(_RE_STRIP_SEASON_MARKER.sub('', str(target_isolated)))
+        has_exact_arc_subtitle = (
+            ' - ' in str(target)
+            and bool(cand_no_season_clean)
+            and cand_no_season_clean == target_no_season_clean
+        )
+        if cand_sequel_seasons and not target_sequel_seasons and not has_exact_arc_subtitle:
             continue
         if target_sequel_seasons and cand_seasons and not (cand_seasons & target_sequel_seasons):
             continue
@@ -731,9 +740,7 @@ def _score_single_candidate(target_list, candidate_title, passed_year=None, rele
             continue
 
         target_stripped_clean = cleanTitle(re.sub(r'[\(\[]?\b(19\d{2}|20\d{2})\b[\)\]]?', '', str(target)))
-        target_isolated = isolate_show_title(target) or str(target)
         target_isolated_clean = cleanTitle(target_isolated)
-        target_no_season_clean = cleanTitle(_RE_STRIP_SEASON_MARKER.sub('', str(target_isolated)))
 
         # Equivalent forms when both target and candidate explicitly match the same sequel season (>= 2)
         same_sequel_season = bool(
@@ -873,6 +880,18 @@ def get_fuzzy_match(query, filenames):
 
     if not query or not filenames:
         return []
+
+    if '|' in str(query):
+        titles = [t.strip() for t in re.findall(r'\(([^)]+)\)', str(query)) if t.strip()]
+        if not titles:
+            titles = [t.strip('() ') for t in str(query).split('|') if t.strip('() ')]
+        if len(titles) > 1:
+            merged = []
+            for t in titles:
+                for idx in get_fuzzy_match(t, filenames):
+                    if idx not in merged:
+                        merged.append(idx)
+            return merged
 
     # Normalize query for matching
     query_isolated = isolate_show_title(query) or str(query)
@@ -1051,16 +1070,21 @@ def get_best_match(dict_key, dictionary_list, episode, pack_select=False, filena
 #  Torrent Filtering
 # ═══════════════════════════════════════════════════════════════════════════
 
+UNVERIFIED_TAG = 'UNVERIFIED-SEASON'
+_ID_BASED_PROVIDERS = {'torrentio'}
+
 _RE_FILTER_SEASON = re.compile(r"(?i)\b(?:s(?:eason)?[ ._-]?(\d{1,2}))(?!\d)")
+_RE_FILTER_ORDINAL_SEASON = re.compile(r"(?i)\b(\d{1,2})(?:st|nd|rd|th)[ ._-]+season\b")
+_RE_FILTER_SEASON_PACK = re.compile(r"(?i)\b(?:seasons?[ ._-]?\d{1,2}[~-]\d{1,2}|s\d{1,2}\s*[~-]\s*s\d{1,2})(?!\d)")
 _RE_FILTER_EPISODE = re.compile(r"""(?ix)
     (?:^|[\s._-])                     # separator
-    (?:e(?:p)?\s?(\d{1,4}))           # E12, EP12
+    (?:e(?:p)?\s?(\d{1,4})(?:v\d+)?\b) # E12, EP12, E12v2
     |
-    -\s?(\d{1,4})\b                   # - 12
+    -\s?(\d{1,4})(?:v\d+)?\b          # - 12, - 02v2
     |
-    \b(?:episode|ep|e)\s?(\d{1,4})\b   # ep 03
+    \b(?:episode|ep|e)\s?(\d{1,4})(?:v\d+)?\b # ep 03, ep 03v2
     |
-    s\d{1,2}e(\d{1,4})                # s01e07 format
+    s\d{1,2}e(\d{1,4})(?:v\d+)?\b     # s01e07, s01e07v2
     |
     (\d{1,4})\s+(\d{1,4})             # standalone episode range
 """)
@@ -1074,7 +1098,24 @@ _RE_FILTER_S_E = re.compile(r"s\d{1,2}e(\d{1,4})", re.IGNORECASE)
 _RE_BTIH_HASH = re.compile(r'btih:(.*?)(?:&|$)', re.IGNORECASE)
 
 
-def filter_sources(provider, torrent_list, mal_id, season=None, episode=None, part=None, anidb_id=True, show_title=None, aliases=None):
+def filter_kwargs(hints):
+    """filter_sources keyword arguments from a scrape's hints."""
+    hints = hints or {}
+    return {
+        'season_source': hints.get('season_source'),
+        'absolute_episode': hints.get('absolute_episode'),
+    }
+
+
+def get_release_info(res):
+    """getInfo for a scraped release, flagging a season the filter could not confirm."""
+    info = getInfo(res.get('name') or res.get('release_title') or '')
+    if res.get('relaxed'):
+        info.append(UNVERIFIED_TAG)
+    return info
+
+
+def filter_sources(provider, torrent_list, mal_id, season=None, episode=None, part=None, anidb_id=True, show_title=None, aliases=None, season_source=None, absolute_episode=None):
     from resources.lib.ui import database
     """
     Filter torrents based on season, episode, and part information.
@@ -1090,209 +1131,209 @@ def filter_sources(provider, torrent_list, mal_id, season=None, episode=None, pa
             if thetvdb_season == 'a' or thetvdb_season == 0:
                 season = None
 
-    # Pre-compiled regex references
-    regex_season = _RE_FILTER_SEASON
-    regex_episode = _RE_FILTER_EPISODE
-    regex_episode_range = _RE_FILTER_EPISODE_RANGE
-    regex_part = _RE_FILTER_PART
-    regex_trailing_number = _RE_FILTER_TRAILING_NUMBER
-    regex_ordinal_check = _RE_FILTER_ORDINAL_CHECK
+    check_season = (provider not in _ID_BASED_PROVIDERS) and (season_source != 'default')
 
-    filtered = []
-    seen_hashes = set()
+    def _run_pass(enforce_season):
+        regex_season = _RE_FILTER_SEASON
+        regex_ordinal_season = _RE_FILTER_ORDINAL_SEASON
+        regex_season_pack = _RE_FILTER_SEASON_PACK
+        regex_episode = _RE_FILTER_EPISODE
+        regex_episode_range = _RE_FILTER_EPISODE_RANGE
+        regex_part = _RE_FILTER_PART
+        regex_trailing_number = _RE_FILTER_TRAILING_NUMBER
+        regex_ordinal_check = _RE_FILTER_ORDINAL_CHECK
 
-    # Loop over each torrent in the list
-    for torrent in torrent_list:
-        # Set up the torrent hash as in the original function
-        if provider in ('animetosho', 'nekobt', 'bitsearch', 'piratebay'):
-            if 'hash' not in torrent:
+        filtered = []
+        seen_hashes = set()
+
+        for torrent in torrent_list:
+            if provider in ('animetosho', 'nekobt', 'bitsearch', 'piratebay'):
+                if 'hash' not in torrent:
+                    continue
+            elif provider == 'nyaa':
+                if not torrent.get('hash'):
+                    m = _RE_BTIH_HASH.search(torrent.get('magnet', ''))
+                    torrent['hash'] = m.group(1) if m else ''
+            elif provider == 'realdebrid':
+                torrent['hash'] = torrent.get('hash', '')
+            elif provider == 'alldebrid':
+                torrent['hash'] = torrent.get('hash', '')
+            elif provider == 'premiumize':
+                torrent['hash'] = torrent.get('id', '')
+            elif provider == 'torbox':
+                torrent['hash'] = torrent.get('hash', '')
+            elif provider == 'torrentio':
+                if 'hash' not in torrent:
+                    continue
+            elif provider == 'local':
+                torrent['hash'] = torrent.get('path', '')
+            elif provider == 'easynews':
+                if 'hash' not in torrent or 'name' not in torrent:
+                    continue
+            else:
                 continue
-        elif provider == 'nyaa':
-            if not torrent.get('hash'):
-                m = _RE_BTIH_HASH.search(torrent.get('magnet', ''))
-                torrent['hash'] = m.group(1) if m else ''
-        elif provider == 'realdebrid':
-            torrent['hash'] = torrent.get('hash', '')
-        elif provider == 'alldebrid':
-            torrent['hash'] = torrent.get('hash', '')
-        elif provider == 'premiumize':
-            torrent['hash'] = torrent.get('id', '')
-        elif provider == 'torbox':
-            torrent['hash'] = torrent.get('hash', '')
-        elif provider == 'torrentio':
-            if 'hash' not in torrent:
-                continue
-        elif provider == 'local':
-            torrent['hash'] = torrent.get('path', '')
-        elif provider == 'easynews':
-            if 'hash' not in torrent or 'name' not in torrent:
-                continue
-        else:
-            continue
 
-        # Select the title based on provider
-        raw_title = torrent.get('release_title') or (
-            torrent.get('filename', '') if provider in ['realdebrid', 'alldebrid'] else torrent.get('name', '')
-        )
-        title = raw_title.lower()
+            raw_title = torrent.get('release_title') or (
+                torrent.get('filename', '') if provider in ['realdebrid', 'alldebrid'] else torrent.get('name', '')
+            )
+            title = raw_title.lower()
 
-        # Validate title against show_title or aliases when provided
-        if show_title or aliases:
-            target_query = show_title or (aliases[0] if aliases else '')
-            title_score = score_title_candidate(target_query, raw_title, aliases=aliases)
-            if title_score <= 40:
-                continue
-            torrent['relevance'] = title_score
+            if show_title or aliases:
+                target_query = show_title or (aliases[0] if aliases else '')
+                title_score = score_title_candidate(target_query, raw_title, aliases=aliases)
+                if title_score <= 40:
+                    continue
+                torrent['relevance'] = title_score
 
-        # Clean the title for extraction
-        clean_title = clean_text(title)
+            clean_title = clean_text(title)
 
-        # Extract parts
-        part_matches = regex_part.findall(title)
-        extracted_parts = []
-        for match in part_matches:
-            for group in match:
-                if group:
-                    extracted_parts.append(group)
+            part_matches = regex_part.findall(title)
+            extracted_parts = []
+            for match in part_matches:
+                for group in match:
+                    if group:
+                        extracted_parts.append(group)
 
-        # Extract seasons
-        season_matches = regex_season.findall(title)
-        extracted_seasons = None
-        if season_matches:
-            extracted_seasons = ", ".join(season_matches)
+            season_matches = regex_season.findall(title) + regex_ordinal_season.findall(title)
+            extracted_seasons = ", ".join(season_matches) if season_matches else None
 
-        # For episode extraction, remove part tokens from the clean title
-        clean_title_no_parts = regex_part.sub("", clean_title)
+            clean_title_no_parts = regex_part.sub("", clean_title)
+            extracted_episode = None
 
-        # Extract episode using the improved logic from testing.py
-        extracted_episode = None
+            se_match = _RE_FILTER_S_E.search(clean_title_no_parts)
+            if se_match:
+                epnum = se_match.group(1)
+                if not (extracted_parts and epnum in extracted_parts):
+                    extracted_episode = epnum
 
-        # First, if an sXXeYY pattern exists, extract the episode number directly
-        se_match = _RE_FILTER_S_E.search(clean_title_no_parts)
-        if se_match:
-            epnum = se_match.group(1)
-            if not (extracted_parts and epnum in extracted_parts):
-                extracted_episode = epnum
+            clean_title_no_parts = regex_season_pack.sub(" ", clean_title_no_parts)
+            clean_title_no_parts = regex_ordinal_season.sub(" ", regex_season.sub(" ", clean_title_no_parts))
 
-        # Otherwise, check for a dedicated episode range using "~" or "-"
-        if not extracted_episode:
-            range_match = regex_episode_range.search(clean_title_no_parts)
-            if range_match:
-                start, end = range_match.group(1), range_match.group(2)
-                if not (extracted_parts and (start in extracted_parts or end in extracted_parts)):
-                    extracted_episode = f"{start}-{end}"
+            if not extracted_episode:
+                range_match = regex_episode_range.search(clean_title_no_parts)
+                if range_match:
+                    start, end = range_match.group(1), range_match.group(2)
+                    if int(start) <= int(end) and not (extracted_parts and (start in extracted_parts or end in extracted_parts)):
+                        extracted_episode = f"{start}-{end}"
 
-        # Fallback: use the regex_episode findall approach
-        if not extracted_episode:
-            ep_match = regex_episode.findall(clean_title_no_parts)
-            if ep_match:
-                episodes = []
-                for match in ep_match:
-                    for group in match:
-                        if group and group not in extracted_parts:
-                            episodes.append(group)
+            if not extracted_episode:
+                ep_match = regex_episode.findall(clean_title_no_parts)
+                if ep_match:
+                    episodes = []
+                    for match in ep_match:
+                        for group in match:
+                            if group and group not in extracted_parts:
+                                episodes.append(group)
 
-                # If season is detected, drop a leading number equal to a season
-                if extracted_seasons and episodes:
-                    try:
-                        season_nums = [int(s.strip()) for s in extracted_seasons.split(",") if s.strip().isdigit()]
-                        if episodes[0].isdigit() and int(episodes[0]) in season_nums:
-                            episodes = episodes[1:]
-                    except Exception:
-                        season_nums = []
-
-                if len(episodes) >= 2 and episodes[0].isdigit() and episodes[-1].isdigit():
-                    extracted_episode = f"{episodes[0]}-{episodes[-1]}"
-                elif episodes:
-                    extracted_episode = ", ".join(episodes)
-
-        # Fallback: get final word-number match (unless it matches a part)
-        if not extracted_episode:
-            trail_matches = regex_trailing_number.findall(clean_title_no_parts)
-            if trail_matches:
-                last_num = trail_matches[-1]
-                if not (extracted_parts and last_num in extracted_parts):
-                    if extracted_seasons:
+                    if extracted_seasons and episodes:
                         try:
                             season_nums = [int(s.strip()) for s in extracted_seasons.split(",") if s.strip().isdigit()]
-                            if last_num.isdigit() and int(last_num) in season_nums:
-                                extracted_episode = None
-                            elif not regex_ordinal_check.search(clean_title_no_parts):
-                                extracted_episode = last_num
+                            if episodes[0].isdigit() and int(episodes[0]) in season_nums:
+                                episodes = episodes[1:]
                         except Exception:
-                            season_nums = []
-                    elif not regex_ordinal_check.search(clean_title_no_parts):
-                        extracted_episode = last_num
+                            pass
 
-        # Determine if we have any metadata to filter by
-        has_info = bool(extracted_episode or extracted_seasons or extracted_parts)
+                    if len(episodes) >= 2 and episodes[0].isdigit() and episodes[-1].isdigit():
+                        extracted_episode = f"{episodes[0]}-{episodes[-1]}"
+                    elif episodes:
+                        extracted_episode = ", ".join(episodes)
 
-        # For the inverted filter, torrents with no info are immediately added.
-        if not has_info:
-            filtered.append(torrent)
-            continue
+            if not extracted_episode:
+                trail_matches = regex_trailing_number.findall(clean_title_no_parts)
+                if trail_matches:
+                    last_num = trail_matches[-1]
+                    if not (extracted_parts and last_num in extracted_parts):
+                        if extracted_seasons:
+                            try:
+                                season_nums = [int(s.strip()) for s in extracted_seasons.split(",") if s.strip().isdigit()]
+                                if last_num.isdigit() and int(last_num) in season_nums:
+                                    extracted_episode = None
+                                elif not regex_ordinal_check.search(clean_title_no_parts):
+                                    extracted_episode = last_num
+                            except Exception:
+                                pass
+                        elif not regex_ordinal_check.search(clean_title_no_parts):
+                            extracted_episode = last_num
 
-        valid = True
+            has_info = bool(extracted_episode or extracted_seasons or extracted_parts)
+            if not has_info:
+                filtered.append(torrent)
+                continue
 
-        # Check episode match if applicable
-        if episode and extracted_episode:
-            # Handle episode ranges without allocating large lists
-            if "-" in extracted_episode:
-                try:
-                    start, end = extracted_episode.split("-", 1)
-                    if not (int(start) <= int(episode) <= int(end)):
+            valid = True
+            absolute_match = False
+
+            if episode and extracted_episode:
+                if "-" in extracted_episode:
+                    try:
+                        start, end = extracted_episode.split("-", 1)
+                        req_ep = int(episode)
+                        if not (int(start) <= req_ep <= int(end)):
+                            if absolute_episode is not None and (int(start) <= int(absolute_episode) <= int(end)):
+                                absolute_match = True
+                            else:
+                                valid = False
+                    except (ValueError, TypeError):
                         valid = False
-                except (ValueError, TypeError):
-                    valid = False
-            # Handle single episode
-            else:
-                try:
-                    if int(episode) != int(extracted_episode):
+                else:
+                    try:
+                        req_ep = int(episode)
+                        episode_nums = [int(e.strip()) for e in extracted_episode.split(",") if e.strip().isdigit()]
+                        if req_ep not in episode_nums:
+                            if absolute_episode is not None and int(absolute_episode) in episode_nums:
+                                absolute_match = True
+                            else:
+                                valid = False
+                    except (ValueError, TypeError):
                         valid = False
-                except (ValueError, TypeError):
-                    valid = False
 
-        # Check season match if applicable
-        if season and extracted_seasons:
-            season_nums = []
-            for s in extracted_seasons.split(","):
-                try:
-                    season_nums.append(int(s.strip()))
-                except (ValueError, TypeError):
-                    pass
+            if enforce_season and season and extracted_seasons and not absolute_match:
+                season_nums = []
+                for s in extracted_seasons.split(","):
+                    try:
+                        season_nums.append(int(s.strip()))
+                    except (ValueError, TypeError):
+                        pass
 
-            if season_nums:
-                try:
-                    req_season = int(season)
-                    if req_season not in season_nums:
+                if season_nums:
+                    try:
+                        req_season = int(season)
+                        if req_season not in season_nums:
+                            valid = False
+                    except (ValueError, TypeError):
                         valid = False
-                except (ValueError, TypeError):
-                    valid = False
 
-        # Check part match if applicable
-        if part and extracted_parts:
-            part_nums = []
-            for p in extracted_parts:
-                try:
-                    part_nums.append(int(p))
-                except (ValueError, TypeError):
-                    pass
+            if part and extracted_parts:
+                part_nums = []
+                for p in extracted_parts:
+                    try:
+                        part_nums.append(int(p))
+                    except (ValueError, TypeError):
+                        pass
 
-            if part_nums:
-                try:
-                    req_part = int(part)
-                    if req_part not in part_nums:
+                if part_nums:
+                    try:
+                        req_part = int(part)
+                        if req_part not in part_nums:
+                            valid = False
+                    except (ValueError, TypeError):
                         valid = False
-                except (ValueError, TypeError):
-                    valid = False
 
-        if valid:
-            thash = (torrent.get('hash') or '').strip().lower()
-            if thash:
-                if thash in seen_hashes:
-                    continue
-                seen_hashes.add(thash)
-            filtered.append(torrent)
+            if valid:
+                thash = (torrent.get('hash') or '').strip().lower()
+                if thash:
+                    if thash in seen_hashes:
+                        continue
+                    seen_hashes.add(thash)
+                filtered.append(torrent)
+
+        return filtered
+
+    filtered = _run_pass(check_season)
+    if not filtered and torrent_list and check_season and season_source == 'title':
+        filtered = _run_pass(False)
+        for torrent in filtered:
+            torrent['relaxed'] = True
 
     return filtered
 
