@@ -403,7 +403,14 @@ class _MonitorProxy:
 
 try:
     _init_addon = xbmcaddon.Addon()
-    ADDON_ID = _init_addon.getAddonInfo('id')
+    _detected_id = _init_addon.getAddonInfo('id')
+    # When imported by companion add-ons (service.subtitles.otaku.rpdev, context.otaku.rpdev),
+    # always bind settings, dataPath, and identity to plugin.video.otaku.rpdev so Kodi 22
+    # resolves Settings - Otaku RPDev > Subtitles cleanly without Invalid setting type errors.
+    if _detected_id in ('service.subtitles.otaku.rpdev', 'context.otaku.rpdev'):
+        ADDON_ID = 'plugin.video.otaku.rpdev'
+    else:
+        ADDON_ID = _detected_id
     _target_addon = xbmcaddon.Addon(ADDON_ID)
     ADDON_NAME = _target_addon.getAddonInfo('name')
     ADDON_VERSION = _target_addon.getAddonInfo('version')
@@ -694,7 +701,7 @@ def getBool(key, default=False):
     if ck in _settings_cache:
         return _settings_cache[ck]
     try:
-        val = settings.getBool(key)
+        val = settings.getBool(key, default)
         _settings_cache[ck] = val
         return val
     except Exception:

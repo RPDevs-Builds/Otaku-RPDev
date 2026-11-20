@@ -915,7 +915,7 @@ class WatchlistPlayer(player):
         if preferred_subtitle_lang and str(preferred_subtitle_lang).lower() == 'none':
             return False
         # Do not auto-download unwanted full dialogue subs over English Dub unless dubsubtitles or prefer_forced is enabled
-        if is_eng_audio and not control.getBool('general.dubsubtitles', False) and not control.getBool('subtitles.prefer_forced', False):
+        if is_eng_audio and not control.getBool('general.dubsubtitles') and not control.getBool('subtitles.prefer_forced'):
             control.log("Player: English audio active with dubsubtitles disabled; skipping external subtitle auto-download", 'debug')
             return False
         try:
@@ -1041,19 +1041,50 @@ class WatchlistPlayer(player):
         )
 
         if subtitle_int is not None:
-            self.setSubtitleStream(subtitle_int)
-            # Enable and Disable Subtitles based on active audio stream
-            if preferred_subtitle_lang == "none":
-                self.showSubtitles(False)
-            elif is_eng_audio:
-                # English Dub playing: respect general.dubsubtitles
-                if control.getBool('general.dubsubtitles'):
-                    self.showSubtitles(True)
-                else:
+            # Detect if the only available subtitle is a Signs/Forced-only track while Full Dialogue is requested
+            selected_sub = next(
+                (s for idx, s in enumerate(subtitle_streams) if s.get('index', idx) == subtitle_int),
+                {},
+            )
+            sub_name_l = (selected_sub.get('name') or '').lower()
+            is_signs_only_sub = bool(
+                selected_sub.get('isforced', False)
+                or any(kw in sub_name_l for kw in SIGNS_SUBTITLE_KEYWORDS)
+                or (len(subtitle_streams) == 1 and control.getGlobalProp('otaku.embed_sub_signs_only') == 'true')
+            )
+            want_full_dialogue = (
+                target_mode == 'dialog'
+                and preferred_subtitle_lang != "none"
+                and not control.getBool('subtitles.prefer_forced')
+                and (not is_eng_audio or control.getBool('general.dubsubtitles'))
+            )
+
+            auto_upgraded = False
+            if is_signs_only_sub and want_full_dialogue:
+                control.log(
+                    "Player: Only Signs/Forced subtitle track available while Full Dialogue is requested; "
+                    "triggering native subtitles auto-download",
+                    'info',
+                )
+                auto_upgraded = self._trigger_auto_subtitle_download(
+                    preferred_subtitle_lang=preferred_subtitle_lang,
+                    is_eng_audio=is_eng_audio,
+                )
+
+            if not auto_upgraded:
+                self.setSubtitleStream(subtitle_int)
+                # Enable and Disable Subtitles based on active audio stream
+                if preferred_subtitle_lang == "none":
                     self.showSubtitles(False)
-            else:
-                # Japanese or foreign audio playing: show subtitles
-                self.showSubtitles(True)
+                elif is_eng_audio:
+                    # English Dub playing: respect general.dubsubtitles
+                    if control.getBool('general.dubsubtitles'):
+                        self.showSubtitles(True)
+                    else:
+                        self.showSubtitles(False)
+                else:
+                    # Japanese or foreign audio playing: show subtitles
+                    self.showSubtitles(True)
         elif preferred_subtitle_lang != "none":
             # No matching internal subtitle stream found in video container:
             # Trigger native external subtitle search and auto-download if enabled

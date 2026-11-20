@@ -9,10 +9,10 @@ Do **not** re-read the whole log. Start the next review at the saved offset and 
 
 | Field | Value |
 |---|---|
-| Log session started | 2026-11-20 06:09:21 (Kodi restart / log rotation) |
-| Last line reviewed | 2026-11-20 17:00:22.415 |
-| **Next review offset** | **295022** (`/tail?offset=295022` / `adb shell tail -c +295023 kodi.log`) |
-| Add-on version at last review | v6.2.12 (live on device; `v6.2.15` update blocked by `C-27` circular dependency — hotfixed in `v6.2.16`) |
+| Log session started | 2026-11-20 17:13:25 (Kodi restart after C-27 freeze) |
+| Last line reviewed | 2026-11-20 17:17:50.602 |
+| **Next review offset** | **69665** (`/tail?offset=69665` / `adb shell tail -c +69666 kodi.log`) |
+| Add-on version at last review | v6.2.16 + `service.subtitles.otaku.rpdev v1.0.1` (live on device since 17:14:38; C-28 & C-29 fixes landing in v6.2.17) |
 
 Notes:
 - If Kodi restarts, the log rotates and the offset resets to 0. A review that returns far fewer bytes than the saved offset means a new session, so start from 0 and update the "session started" row.
@@ -36,6 +36,7 @@ Notes:
 | 12 | 2026-11-20 09:24 | 06:09 to 09:13 (new Kodi session, kodi.log bytes 0 to 160471) | Full new-session review spanning live ONN update to **v6.2.12** (06:22:18). Verified **0** Otaku Python tracebacks, **0** `C-06` directory errors, **0** `clean_settings` re-prunes, AnimePahe 1-hour cooldown working cleanly, strong torrent recovery on *Mushoku Tensei S3* (`59193`: `raw=98 -> relevance_gate=24`) and *Wistoria S2* (`59983`: `raw=60 -> relevance_gate=18`), and 7 consecutive *Wistoria S2* episodes (Ep 6–12) playing cleanly via cached `[Judas]` Dual-Audio season pack. Logged new **C-24** (`animetosho` returning `0 cached, 0 uncached` in 0.35–0.59s on all 3 scrapes with `provider.animetoshoalt=true` and no fallback/diagnostic logging) and noted standalone **C-11** recurrence (2 events at `06:14:07`/`06:14:10` on first-play HLS `58516` Ep 1 under `v6.2.11`). |
 | 13 | 2026-11-20 13:55 | 09:17 to 13:55 (kodi.log bytes 160472 to 184328) | Incremental review under **v6.2.12**. Verified **0** Otaku tracebacks, **0** `C-11` errors, **0** `C-06` errors, **0** `C-14` drops. Caught **C-25** (`general.timeout` 15s cutting off `nyaa` and `animetosho` on `MAL 63752` at `09:43` and `MAL 58516` at `13:54` because `show_pack` ran sequentially after `episode_sources` with multiple Debrid cache checks) and **C-26** (`SIMKLAPI.get_unique_ids: 'ids' not found` warning noise for brand-new unmapped show `63752`). Fixed **C-24**, **C-25**, **C-11**, and **C-26** and verified live in local Flatpak Kodi 22 (`animetosho` 3.37s / 20 sources, `nyaa` 3.63s / 22 sources, full scrape 5.47s, 0 errors) for **v6.2.13**. |
 | 14 | 2026-11-20 17:02 | 13:55 to 17:00 (kodi.log bytes 184329 to 295022) | Incremental review under **v6.2.12** during attempted update to **v6.2.15**. Verified 3 consecutive Zero-Wait hits (`58516` Ep 7–9) with 0 Otaku tracebacks, 0 `C-11` subtitle parser errors, and clean `clean_settings`. Caught **C-27 (Critical)**: Kodi 22 froze on `DialogAddonInfo.xml` (`17:00:22.415`) due to circular `<requires>/<import>` dependency between `plugin.video.otaku.rpdev` (`v6.2.15`) and `service.subtitles.otaku.rpdev` (`v1.0.0`). Removed back-edge `<import addon="plugin.video.otaku.rpdev"/>` from `service.subtitles.otaku.rpdev` (`v1.0.1`), added mechanical cycle-detector `test_zero_circular_addon_dependencies` in `test_ast_integrity.py`, and published hotfix **v6.2.16**. |
+| 15 | 2026-11-20 17:18 | 17:13 to 17:18 (new Kodi session, kodi.log bytes 0 to 69665) | Confirmed clean update to **v6.2.16** + **`service.subtitles.otaku.rpdev v1.0.1`** (`17:14:38`, 0 freeze, clean `clean_settings`). Root-caused why subtitles didn't auto-apply on `58516 Ep 9` and why `DialogSubtitles.xml` failed: **C-28** (`control.py` bound `ADDON_ID` to `service.subtitles.otaku.rpdev` when imported from the companion subtitle addon, throwing 19× `Invalid setting type` in Kodi 22 and returning `subtitles.enabled=False` + empty credentials) and **C-29** (HiAnime/Anikoto English Dub shipped a 16-cue / 924-byte Signs-only `.vtt` sidecar with `isforced=False`, fooling `player.py` into thinking Full Dialogue was present). Fixed both in **v6.2.17**. |
 
 ---
 

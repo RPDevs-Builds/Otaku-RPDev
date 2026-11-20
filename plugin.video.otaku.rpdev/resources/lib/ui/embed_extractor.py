@@ -589,6 +589,15 @@ def _validate_and_normalize_sub_content(content, sub_url, source_url=None):
     return content, ext, 'ok'
 
 
+def _count_subtitle_cues(content, ext):
+    """Count timed subtitle cues to distinguish full dialogue tracks from sparse Signs & Songs sidecars."""
+    if not content:
+        return 0
+    if ext in ('.ass', '.ssa'):
+        return len(re.findall(r'(?im)^dialogue:', content))
+    return content.count('-->')
+
+
 def get_sub(sub_url, sub_lang, headers=None, sub_index=0, display_name=None, source_url=None, sub_tag=None):
     if not sub_url:
         return None
@@ -659,10 +668,25 @@ def get_sub(sub_url, sub_lang, headers=None, sub_index=0, display_name=None, sou
     if control.atomic_write_text(fpath, normalized_content) is False:
         control.log(f"get_sub: failed to write subtitle file {fpath}", level='warning')
         return None
+
+    cue_count = _count_subtitle_cues(normalized_content, ext)
+    is_signs_only = bool(0 < cue_count < 45 and len(normalized_content) < 3500)
+    if is_signs_only:
+        # Mark signs-only embed sidecar so WatchlistPlayer can auto-download full dialogue
+        # when the user requests Full Dialogue (subtitles.keywords=1 + dubsubtitles=true)
+        if control.getGlobalProp('otaku.embed_sub_has_full_dialog') != 'true':
+            control.setGlobalProp('otaku.embed_sub_signs_only', 'true')
+        control.log(f"get_sub: detected sparse Signs-only sidecar ({cue_count} cues, {len(normalized_content)} bytes): {fname}", level='info')
+    else:
+        control.setGlobalProp('otaku.embed_sub_has_full_dialog', 'true')
+        control.setGlobalProp('otaku.embed_sub_signs_only', 'false')
+
     return {
         'path': 'special://temp/{0}'.format(fname),
         'lang': lang,
         'name': str(label) if label else lang,
+        'is_signs_only': is_signs_only,
+        'cue_count': cue_count,
     }
 
 

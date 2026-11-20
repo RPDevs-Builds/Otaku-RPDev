@@ -1,7 +1,22 @@
 ========================
+[B]OTAKU RPDEV v6.2.17[/B]
+Fix Subtitle Service & Auto-DL
+========================
+
+v6.2.17 Highlights:
+  * Fixed C-28: Bind control.ADDON_ID to plugin.video.otaku.rpdev when
+    imported from companion service.subtitles.otaku.rpdev /
+    context.otaku.rpdev, eliminating 19x Kodi 22 Invalid setting type
+    exceptions and empty provider credentials in DialogSubtitles
+  * Fixed C-29: Detect sparse Signs-only embed sidecar VTT/SRT tracks (<45
+    cues) and automatically trigger full-dialogue external subtitle auto-
+    download when Full Dialogue is requested (e.g. English Dub with
+    dubsubtitles=true)
+
+--------------------------------
 [B]OTAKU RPDEV v6.2.16[/B]
 Fix Subtitle Addon Dep Cycle
-========================
+--------------------------------
 
 v6.2.16 Highlights:
   * Fixed critical circular dependency between plugin.video.otaku.rpdev and

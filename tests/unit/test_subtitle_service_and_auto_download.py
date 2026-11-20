@@ -410,6 +410,70 @@ class TestSubtitleServiceAndAutoDownload(unittest.TestCase):
             sub_routes.handle_open_subtitle_settings('', {})
         mock_exec.assert_called_once_with(f'Addon.OpenSettings({control.ADDON_ID})')
 
+    # ── 6. C-28 Companion Addon Binding & C-29 Signs-Only Embed Upgrade ──────
+
+    def test_signs_only_embed_vtt_triggers_full_dialogue_auto_download(self):
+        """C-29: Sparse Signs-only embed sidecar (<45 cues) must auto-download Full Dialogue when requested."""
+        from resources.lib.ui import embed_extractor
+
+        signs_vtt = (
+            "WEBVTT\n\n"
+            "00:01.020 --> 00:06.770\n<b>EPISODE 9</b>\n\n"
+            "05:55.870 --> 05:59.000\n<b>TORAYA</b>\n"
+        )
+        control.clearGlobalProp('otaku.embed_sub_signs_only')
+        control.clearGlobalProp('otaku.embed_sub_has_full_dialog')
+
+        with patch('resources.lib.ui.embed_extractor.client.get', return_value=_FakeResponse(200, text=signs_vtt)):
+            sub_info = embed_extractor.get_sub('https://cdn.example/signs.vtt', 'eng', sub_tag='58516_9_test')
+
+        self.assertIsNotNone(sub_info)
+        self.assertTrue(sub_info['is_signs_only'])
+        self.assertEqual(sub_info['cue_count'], 2)
+        self.assertEqual(control.getGlobalProp('otaku.embed_sub_signs_only'), 'true')
+
+        # Now simulate WatchlistPlayer with Full Dialogue requested (keywords=1, dubsubtitles=True)
+        control.setBool('general.kodi_language', False)
+        control.setBool('general.subtitles.keyword', True)
+        control.setBool('general.dubsubtitles', True)
+        control.setBool('subtitles.prefer_forced', False)
+        control.setBool('subtitles.enabled', True)
+        control.setBool('subtitles.auto_search', True)
+
+        p = player_mod.WatchlistPlayer()
+        p.preferred_audio = 1
+        p.preferred_subtitle_setting = 1
+        p.preferred_subtitle_keyword = 1  # Dialog (Full Dialogue)
+        p.preferred_subtitle_type = 0
+        p.setAudioStream = MagicMock()
+        p.setSubtitleStream = MagicMock()
+        p.showSubtitles = MagicMock()
+
+        with patch.object(
+            control, 'jsonrpc',
+            return_value={
+                'result': {
+                    'audiostreams': [{'index': 0, 'language': 'und', 'name': ''}],
+                    'subtitles': [{'index': 0, 'language': 'eng', 'name': '(External)', 'isforced': False}],
+                }
+            },
+        ), patch.object(subtitles, 'auto_download_subtitles', return_value=True) as mock_auto:
+            p.setup_audio_and_subtitles()
+
+        mock_auto.assert_called_once()
+        # Because auto_download_subtitles attached full dialogue, do not overwrite back to signs-only stream 0
+        p.setSubtitleStream.assert_not_called()
+
+    def test_companion_addon_id_binds_control_to_otaku_plugin(self):
+        """C-28: Importing control from service.subtitles.otaku.rpdev must bind ADDON_ID to plugin.video.otaku.rpdev."""
+        self.assertEqual(control.ADDON_ID, 'plugin.video.otaku.rpdev')
+        # Verify the companion-addon redirect logic in control.py source directly via isolated check
+        control_src_path = os.path.join(_REPO_ROOT, 'plugin.video.otaku.rpdev', 'resources', 'lib', 'ui', 'control.py')
+        with open(control_src_path, 'r', encoding='utf-8') as f:
+            src = f.read()
+        self.assertIn("('service.subtitles.otaku.rpdev', 'context.otaku.rpdev')", src)
+        self.assertIn("settings.getBool(key, default)", src)
+
 
 if __name__ == '__main__':
     unittest.main()

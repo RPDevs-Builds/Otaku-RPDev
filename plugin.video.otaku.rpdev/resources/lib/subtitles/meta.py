@@ -51,6 +51,8 @@ def clear_active_playback_meta() -> None:
         control.clearGlobalProp(ACTIVE_SUB_META_PROP)
         control.clearGlobalProp('otaku.subtitle.auto_loaded')
         control.clearGlobalProp('otaku.subtitle.auto_label')
+        control.clearGlobalProp('otaku.embed_sub_signs_only')
+        control.clearGlobalProp('otaku.embed_sub_has_full_dialog')
     except Exception:
         pass
 
