@@ -1,7 +1,20 @@
 ========================
+[B]OTAKU RPDEV v6.2.16[/B]
+Fix Subtitle Addon Dep Cycle
+========================
+
+v6.2.16 Highlights:
+  * Fixed critical circular dependency between plugin.video.otaku.rpdev and
+    service.subtitles.otaku.rpdev (v1.0.1) that froze Kodi 22
+    DialogAddonInfo when installing v6.2.15
+  * Added automated test_zero_circular_addon_dependencies guardrail in
+    tests/lint/test_ast_integrity.py to prevent circular addon.xml
+    dependencies in CI
+
+--------------------------------
 [B]OTAKU RPDEV v6.2.15[/B]
 Native Kodi Subtitles & Auto-DL
-========================
+--------------------------------
 
 v6.2.15 Highlights:
   * Added companion service.subtitles.otaku.rpdev (v1.0.0) integrating Otaku

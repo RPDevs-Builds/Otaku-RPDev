@@ -468,6 +468,42 @@ class TestASTIntegrity(unittest.TestCase):
                 violations.append((os.path.relpath(client_path, REPO_ROOT), node.lineno))
         self.assertEqual(violations, [], f"int(timeout) truncation detected in client.py: {violations}")
 
+    def test_zero_circular_addon_dependencies(self):
+        """All repo addon.xml <requires>/<import> graphs must be acyclic (Kodi 22 freezes on circular deps)."""
+        addon_xmls = sorted(glob.glob(os.path.join(REPO_ROOT, '*', 'addon.xml')))
+        self.assertGreaterEqual(len(addon_xmls), 3, f"Expected >= 3 addon.xml files, found {len(addon_xmls)}")
+
+        graph = {}
+        for xml_path in addon_xmls:
+            root = ET.parse(xml_path).getroot()
+            aid = root.attrib.get('id', '').strip()
+            deps = [
+                imp.attrib.get('addon', '').strip()
+                for imp in root.findall('./requires/import')
+                if imp.attrib.get('addon', '').strip()
+            ]
+            if aid:
+                graph[aid] = deps
+
+        cycles = []
+
+        def _dfs(node, path, visiting):
+            visiting.add(node)
+            for dep in graph.get(node, []):
+                if dep in visiting:
+                    cycles.append(' -> '.join(path + [dep]))
+                elif dep in graph:
+                    _dfs(dep, path + [dep], visiting)
+            visiting.remove(node)
+
+        for aid in sorted(graph):
+            _dfs(aid, [aid], set())
+
+        self.assertEqual(
+            cycles, [],
+            "Circular add-on dependency cycle(s) detected (causes Kodi DialogAddonInfo freeze):\n  " + "\n  ".join(cycles),
+        )
+
 
 if __name__ == '__main__':
     unittest.main()
