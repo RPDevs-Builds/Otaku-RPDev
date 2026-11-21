@@ -1,7 +1,23 @@
 ========================
+[B]OTAKU RPDEV v6.3.3[/B]
+Otaku-Mapping-DB v2.1 Client
+========================
+
+v6.3.3 Highlights:
+  * Switch automated mappings sync to RPDevs-Builds/Otaku-Mapping-DB v2.1
+    rolling .xz + manifest.json SHA-256 verification (1.86 MB LZMA, indexed
+    queries, 32,228 rows, 2,868 tvdb_rules)
+  * Add database.resolve_mappings_with_fallback() live cache.db -> AniZip ->
+    Simkl overlay for newly airing shows
+  * Wire tvdb_rules split-cour episode matching into
+    playback.tmdb_mapping_match() and indexed part_filter sibling discovery
+  * Surface live mapping DB row/rule/staleness metrics and INSPECT_MAPPINGS
+    overlay details in System Health Diagnostics
+
+--------------------------------
 [B]OTAKU RPDEV v6.3.2[/B]
 Polish, Context v1.0.47 & Metrics
-========================
+--------------------------------
 
 v6.3.2 Highlights:
   * Harden C-37 across read-only info.db/mappings.db pools (PRAGMA mmap_size=0

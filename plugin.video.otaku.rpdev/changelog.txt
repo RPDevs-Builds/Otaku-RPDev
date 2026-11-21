@@ -1,3 +1,10 @@
+Changelog v6.3.3 (2026-11-21):
+- Otaku-Mapping-DB v2.1 Client:
+  - Switch automated mappings sync to RPDevs-Builds/Otaku-Mapping-DB v2.1 rolling .xz + manifest.json SHA-256 verification (1.86 MB LZMA, indexed queries, 32,228 rows, 2,868 tvdb_rules)
+  - Add database.resolve_mappings_with_fallback() live cache.db -> AniZip -> Simkl overlay for newly airing shows
+  - Wire tvdb_rules split-cour episode matching into playback.tmdb_mapping_match() and indexed part_filter sibling discovery
+  - Surface live mapping DB row/rule/staleness metrics and INSPECT_MAPPINGS overlay details in System Health Diagnostics
+
 Changelog v6.3.2 (2026-11-21):
 - Polish, Context v1.0.47 & Metrics:
   - Harden C-37 SQLite mmap_size=0 across both read-write and read-only (info.db/mappings.db) pools and verify sub-2s service.py worker/PASSIVE WAL shutdown
