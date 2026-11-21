@@ -18,6 +18,21 @@ from resources.lib.subtitles.encoding import fix_subtitle_encoding
 SUBTITLE_TEMP_DIR = os.path.join(control.dataPath, 'temp', 'subtitles')
 
 
+def strip_sdh_hearing_impaired_tags(sub_text: str) -> str:
+    """Strip SDH hearing-impaired bracketed sound effects ([sighs], (applause)) and speaker prefixes."""
+    if not sub_text:
+        return sub_text
+    cleaned = re.sub(r'\[[^\]\n]{1,48}\]', '', sub_text)
+    cleaned = re.sub(r'\([^\)\n]{1,48}\)', '', cleaned)
+    cleaned = re.sub(
+        r'(?m)^((?:Dialogue:[^,\n]*,[^,\n]*,[^,\n]*,[^,\n]*,[^,\n]*,[^,\n]*,[^,\n]*,[^,\n]*,[^,\n]*,)?(?:[ \t]*\{[^}\n]*\})*)[ \t]*[A-Z][A-Z0-9 _\-\.]{1,20}:\s*',
+        r'\1',
+        cleaned,
+    )
+    cleaned = re.sub(r'[ \t]{2,}', ' ', cleaned)
+    return cleaned
+
+
 def sanitize_filename(name: str) -> str:
     """Strip illegal filesystem characters from a subtitle filename."""
     clean = re.sub(r'[\\/*?:"<>|]', '_', name)
@@ -88,6 +103,9 @@ def download_and_prepare_subtitle(
         # Transcode encoding to UTF-8
         use_chardet = settings.get('subtitles.use_chardet', True)
         utf8_text, detected_enc = fix_subtitle_encoding(sub_content, use_chardet=use_chardet)
+
+        if settings.get('subtitles.strip_sdh_tags', False) or control.getBool('subtitles.strip_sdh_tags', False):
+            utf8_text = strip_sdh_hearing_impaired_tags(utf8_text)
 
         # Validate & normalize against Kodi 22 CDVDFactorySubtitle::CreateParser() contract
         normalized_text, detected_ext, reject_reason = embed_extractor._validate_and_normalize_sub_content(

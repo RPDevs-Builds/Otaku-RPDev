@@ -387,8 +387,14 @@ def seed_test_databases(profile_dir):
     # 1. malSync.db (shows & episodes)
     db_path = os.path.join(addon_data_dir, "malSync.db")
     try:
-        conn = sqlite3.connect(db_path)
+        conn = sqlite3.connect(db_path, timeout=30.0)
         cur = conn.cursor()
+        cur.execute(
+            "CREATE TABLE IF NOT EXISTS activities ("
+            "sync_id INTEGER PRIMARY KEY, "
+            "otaku_version TEXT NOT NULL)"
+        )
+        cur.execute("REPLACE INTO activities VALUES (1, '1.0.14')")
         cur.execute(
             "CREATE TABLE IF NOT EXISTS shows ("
             "mal_id INTEGER PRIMARY KEY, "
@@ -507,7 +513,7 @@ def seed_test_databases(profile_dir):
     # 2. search.db
     search_db_path = os.path.join(addon_data_dir, "search.db")
     try:
-        conn = sqlite3.connect(search_db_path)
+        conn = sqlite3.connect(search_db_path, timeout=30.0)
         cur = conn.cursor()
         cur.execute("CREATE TABLE IF NOT EXISTS anime (value TEXT UNIQUE)")
         cur.execute("REPLACE INTO anime (value) VALUES (?)", ("Frieren",))

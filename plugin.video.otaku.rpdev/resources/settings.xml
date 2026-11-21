@@ -331,6 +331,11 @@
 					<default>false</default>
 					<control type="toggle" />
 				</setting>
+				<setting id="interface.filler.badges" type="boolean" label="30582" help="30583">
+					<level>2</level>
+					<default>false</default>
+					<control type="toggle" />
+				</setting>
 			</group>
 			<group id="5" label="30104">
 				<setting id="interface.icons" type="string" label="30117" help="30739">
@@ -1133,6 +1138,11 @@
 					<default>false</default>
 					<control type="toggle" />
 				</setting>
+				<setting id="smartplay.skip_filler" type="boolean" label="30584" help="30585">
+					<level>2</level>
+					<default>false</default>
+					<control type="toggle" />
+				</setting>
 			</group>
 			<group id="3" label="30471">
 				<setting id="chapters.python.enable" type="boolean" label="30987" help="30988">
@@ -1483,6 +1493,14 @@
 					</dependencies>
 				</setting>
 				<setting id="subtitles.prefer_forced" type="boolean" label="30608" help="30664" parent="subtitles.enabled">
+					<level>2</level>
+					<default>false</default>
+					<control type="toggle" />
+					<dependencies>
+						<dependency type="visible" setting="subtitles.enabled">true</dependency>
+					</dependencies>
+				</setting>
+				<setting id="subtitles.strip_sdh_tags" type="boolean" label="30586" help="30587" parent="subtitles.enabled">
 					<level>2</level>
 					<default>false</default>
 					<control type="toggle" />
@@ -2766,6 +2784,18 @@
 					<dependencies>
 						<dependency type="visible" setting="watchlist.update.enabled">true</dependency>
 					</dependencies>
+				</setting>
+				<setting id="watchlist.sync.conflict_policy" type="integer" label="30588" help="30589">
+					<level>2</level>
+					<default>0</default>
+					<constraints>
+						<options>
+							<option label="Highest Progress Wins">0</option>
+							<option label="Primary Tracker Wins">1</option>
+							<option label="Latest Updated Wins">2</option>
+						</options>
+					</constraints>
+					<control type="spinner" format="integer" />
 				</setting>
 				<setting id="watchlist.prefetch.enabled" type="boolean" label="30450" help="30898">
 					<level>0</level>

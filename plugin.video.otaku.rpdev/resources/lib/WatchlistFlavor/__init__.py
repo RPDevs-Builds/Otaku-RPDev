@@ -39,12 +39,14 @@ class WatchlistFlavor:
 
     @staticmethod
     def get_merged_watchlist_eps_watched(mal_id):
-        """Highest eps_watched among all enabled watchlists with a list entry for this title.
-
-        Used when ``interface.watchlist.data`` is on and ``kodi_meta`` has no local progress yet.
+        """Resolve eps_watched across all enabled watchlists using the configured conflict policy:
+          0 = highest_progress (default: max episode count across trackers)
+          1 = primary_wins (first enabled tracker wins)
+          2 = latest_updated (tracker with highest updated_at timestamp wins, tie-broken by max episode)
         """
-        max_eps = None
-        for flavor in WatchlistFlavor.get_enabled_watchlists():
+        policy = control.getInt('watchlist.sync.conflict_policy', default=0)
+        candidates = []
+        for idx, flavor in enumerate(WatchlistFlavor.get_enabled_watchlists()):
             try:
                 data = flavor.get_watchlist_anime_entry(mal_id)
                 if not data:
@@ -53,11 +55,185 @@ class WatchlistFlavor:
                 if ew is None or ew == '':
                     continue
                 ew_int = int(ew)
-                if max_eps is None or ew_int > max_eps:
-                    max_eps = ew_int
+                updated_at = str(data.get('updated_at') or data.get('last_updated') or '')
+                candidates.append((idx, ew_int, updated_at, flavor.flavor_name))
             except Exception as e:
                 control.log(f'get_merged_watchlist_eps_watched ({flavor.flavor_name}): {e}', 'debug')
-        return max_eps
+        if not candidates:
+            return None
+        if policy == 1:
+            # primary_wins: first enabled tracker with an entry
+            return candidates[0][1]
+        if policy == 2:
+            # latest_updated: highest ISO/epoch updated_at string, tie-broken by highest progress
+            candidates.sort(key=lambda item: (item[2], item[1]), reverse=True)
+            return candidates[0][1]
+        # Default (0 = highest_progress)
+        return max(item[1] for item in candidates)
+
+    @staticmethod
+    def compute_watchlist_drift():
+        """Compare cached watchlist entries across all enabled services and return a list of drift items."""
+        from resources.lib.ui import database
+        from resources.lib.ui.database_sync import SyncDatabase
+        enabled = control.enabled_watchlists()
+        if len(enabled) < 2:
+            return []
+        by_mal = {}
+        try:
+            SyncDatabase._build_watchlist_cache()
+            with database.SQL(control.malSyncDB) as cur:
+                cur.execute(
+                    'SELECT service, status, mal_id, data, last_updated '
+                    'FROM watchlist_cache WHERE mal_id IS NOT NULL AND mal_id > 0'
+                )
+                for row in cur.fetchall() or []:
+                    svc = row.get('service')
+                    if svc not in enabled:
+                        continue
+                    mid = int(row['mal_id'])
+                    payload = database.loads(row.get('data'))
+                    if not isinstance(payload, dict):
+                        payload = {}
+                    title = (
+                        payload.get('media', {}).get('title', {}).get('english')
+                        or payload.get('media', {}).get('title', {}).get('romaji')
+                        or payload.get('node', {}).get('alternative_titles', {}).get('en')
+                        or payload.get('node', {}).get('title')
+                        or payload.get('anime', {}).get('attributes', {}).get('canonicalTitle')
+                        or payload.get('show', {}).get('title')
+                        or f'MAL #{mid}'
+                    )
+                    ew = (
+                        payload.get('progress')
+                        if payload.get('progress') is not None
+                        else (
+                            payload.get('list_status', {}).get('num_episodes_watched')
+                            if payload.get('list_status', {}).get('num_episodes_watched') is not None
+                            else (
+                                payload.get('watched_episodes_count')
+                                if payload.get('watched_episodes_count') is not None
+                                else payload.get('entry', {}).get('attributes', {}).get('progress')
+                            )
+                        )
+                    )
+                    updated_at = str(
+                        payload.get('updatedAt')
+                        or payload.get('list_status', {}).get('updated_at')
+                        or payload.get('last_watched_at')
+                        or payload.get('entry', {}).get('attributes', {}).get('updatedAt')
+                        or row.get('last_updated')
+                        or ''
+                    )
+                    entry = by_mal.setdefault(mid, {'mal_id': mid, 'title': title, 'trackers': {}})
+                    entry['trackers'][svc] = {
+                        'episodes_watched': int(ew or 0),
+                        'status': str(row.get('status') or ''),
+                        'updated_at': updated_at,
+                    }
+        except Exception as e:
+            control.log(f"compute_watchlist_drift error: {e}", 'warning')
+            return []
+
+        drifts = []
+        policy = control.getInt('watchlist.sync.conflict_policy', default=0)
+        for mid, info in sorted(by_mal.items()):
+            trackers = info['trackers']
+            if len(trackers) < 2:
+                continue
+            eps_set = {v['episodes_watched'] for v in trackers.values()}
+            if len(eps_set) > 1:
+                if policy == 1:
+                    primary = next((s for s in enabled if s in trackers), list(trackers.keys())[0])
+                    target_ep = trackers[primary]['episodes_watched']
+                elif policy == 2:
+                    best_svc = max(trackers.keys(), key=lambda s: (trackers[s]['updated_at'], trackers[s]['episodes_watched']))
+                    target_ep = trackers[best_svc]['episodes_watched']
+                else:
+                    target_ep = max(eps_set)
+                drifts.append({
+                    'mal_id': mid,
+                    'title': info['title'],
+                    'trackers': trackers,
+                    'target_episode': target_ep,
+                })
+        return drifts
+
+    @staticmethod
+    def count_watchlist_drift_mutations(drifts=None):
+        """Return dry-run count of tracker updates required to reconcile all detected drifts."""
+        items = drifts if drifts is not None else WatchlistFlavor.compute_watchlist_drift()
+        planned = 0
+        for item in items:
+            target_ep = int(item.get('target_episode') or 0)
+            for _, tdata in item.get('trackers', {}).items():
+                if int(tdata.get('episodes_watched') or 0) != target_ep:
+                    planned += 1
+        return planned
+
+    @staticmethod
+    def reconcile_watchlist_drift(drifts=None, dry_run=False):
+        """Reconcile episode progress drift across enabled trackers using the active conflict policy."""
+        from resources.lib.ui import database
+        items = drifts if drifts is not None else WatchlistFlavor.compute_watchlist_drift()
+        if dry_run:
+            return WatchlistFlavor.count_watchlist_drift_mutations(items)
+        reconciled = 0
+        for item in items:
+            mid = item['mal_id']
+            target_ep = int(item['target_episode'])
+            for svc, tdata in item.get('trackers', {}).items():
+                if int(tdata.get('episodes_watched') or 0) != target_ep:
+                    ok = WatchlistFlavor.watchlist_update_episode_for_flavor(svc, mid, target_ep)
+                    if ok:
+                        reconciled += 1
+                    else:
+                        database.enqueue_scrobble_retry(svc, 'update_episode', mid, episode=target_ep, error='drift_reconcile_failed')
+        return reconciled
+
+    @staticmethod
+    def process_scrobble_retry_queue(limit=25):
+        """Drain due items from scrobble_retry_queue and return count of succeeded retries."""
+        from resources.lib.ui import database
+        due = database.get_due_scrobble_retries(limit=limit)
+        succeeded = 0
+        for row in due:
+            if control.abort_requested():
+                break
+            svc = row.get('service')
+            action = row.get('action')
+            mid = row.get('mal_id')
+            ep = int(row.get('episode') or 0)
+            status = row.get('status') or ''
+            score = int(row.get('score') or 0)
+            ok = False
+            exc_err = None
+            try:
+                if action == 'update_episode':
+                    ok = bool(WatchlistFlavor.watchlist_update_episode_for_flavor(svc, mid, ep))
+                elif action == 'set_status':
+                    ok = bool(WatchlistFlavor.watchlist_set_status_for_flavor(svc, mid, status))
+                elif action == 'set_score':
+                    ok = bool(WatchlistFlavor.watchlist_set_score_for_flavor(svc, mid, score))
+            except Exception as e:
+                ok = False
+                exc_err = str(e)
+            if ok:
+                database.remove_scrobble_retry(svc, action, mid)
+                succeeded += 1
+            elif int(row.get('attempts') or 0) >= 5:
+                database.remove_scrobble_retry(svc, action, mid)
+            else:
+                database.enqueue_scrobble_retry(
+                    svc,
+                    action,
+                    mid,
+                    episode=ep,
+                    status=status,
+                    score=score,
+                    error=exc_err or row.get('last_error') or 'retry_failed',
+                )
+        return succeeded
 
     @staticmethod
     def get_flavor_by_name(name):
@@ -195,8 +371,10 @@ class WatchlistFlavor:
             try:
                 updated = flavor.update_num_episodes(mal_id, episode, up_to=up_to)
                 if not updated:
-                    control.log(f'Failed to update episode {episode} on {flavor.flavor_name} (returned False)', 'warning')
+                    control.log(f'Failed to update episode {episode} on {flavor.flavor_name} (returned False); queuing retry', 'warning')
+                    database.enqueue_scrobble_retry(flavor.flavor_name, 'update_episode', mal_id, episode=int(episode or 0), error='update_returned_false')
                     continue
+                database.remove_scrobble_retry(flavor.flavor_name, 'update_episode', mal_id)
                 control.log(f'Updated episode {episode} on {flavor.flavor_name}')
 
                 # Per-flavor completion detection using each service's own total episode count
@@ -222,7 +400,8 @@ class WatchlistFlavor:
                         control.log(f'Set watching on {flavor.flavor_name} (ep {episode}/{total})')
 
             except Exception as e:
-                control.log(f'Failed to update on {flavor.flavor_name}: {e}', 'warning')
+                control.log(f'Failed to update on {flavor.flavor_name}: {e}; queuing retry', 'warning')
+                database.enqueue_scrobble_retry(flavor.flavor_name, 'update_episode', mal_id, episode=int(episode or 0), error=str(e))
 
         return any_completed
 

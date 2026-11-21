@@ -1,6 +1,6 @@
 # Otaku-RPDev Architecture & Subsystem Guide
 
-Detailed reference for developers and contributors working on `plugin.video.otaku.rpdev` and `context.otaku.rpdev`. For strict engineering invariants and guardrails, see [AGENTS.md](../AGENTS.md).
+Detailed reference for developers and contributors working on `plugin.video.otaku.rpdev`, `context.otaku.rpdev`, and `service.subtitles.otaku.rpdev`. For strict engineering invariants and guardrails, see [AGENTS.md](../AGENTS.md).
 
 ---
 
@@ -24,7 +24,8 @@ Otaku-RPDev/
 │           ├── endpoints/              # AniList, MAL, TMDb, TVDB, AniZip, AnimeFiller, AniSkip, IntroDB
 │           ├── WatchlistFlavor/        # AniList, MyAnimeList, Kitsu, Simkl watchlist sync & views
 │           └── windows/                # Custom WindowXML controllers (resolver, source_select, get_sources, filter_select, stats_window, anichart, etc.)
-├── context.otaku.rpdev/                # Standalone context menu add-on + 580 coloured/white studio logo packs
+├── context.otaku.rpdev/                # Standalone context menu add-on + 530 coloured/white studio logo packs
+├── service.subtitles.otaku.rpdev/      # Native Kodi xbmc.subtitle.module companion add-on (OSD search & auto-download)
 ├── scripts/                            # verify_all.py, release_addon.py, audit_function_coverage.py, test_kodi_installs.py, kodi_e2e_mock_server.py
 ├── tests/                              # 1,014+ hermetic offline tests (dual Kodi 21/22 mocks, AST/quality/doc lints, 576-title dataset)
 └── docs/                               # README.md, ARCHITECTURE.md, TESTING.md, AUTOMATION.md, CONCERNS.md, CONFIGURATION_GUIDE.md

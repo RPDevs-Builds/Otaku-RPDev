@@ -43,7 +43,7 @@ The Otaku-RPDev configuration interface is organized into **12 dedicated, domain
 ├── 3. Scraping              ── Scraper concurrency, timeouts, cloud filters, and local media
 ├── 4. Cache                 ── TTL lifetimes, SQLite performance PRAGMAs, and selective purges
 ├── 5. Playback              ── SmartPlay, audio track preferences, chapter marks, intro/outro skipping
-├── 6. Subtitles             ── Unified subtitle engine: auto-download, embedded track matching, APIs
+├── 6. Subtitles             ── Unified subtitle engine (`service.subtitles.otaku.rpdev`): auto-download, embedded track matching, APIs
 ├── 7. Sort and Filter       ── Content catalog filters (year, season, format) + stream quality filters
 ├── 8. Accounts              ── Debrid authorization (Real-Debrid, Premiumize, TorBox, AllDebrid, etc.)
 ├── 9. Watchlist             ── Cloud sync (AniList, Kitsu, MyAnimeList, Simkl, Trakt) and pagination

@@ -437,6 +437,12 @@ def export_settings(scope: str, dest_dir: str) -> tuple[bool, str, int]:
         'settings_count': len(active_data),
         'settings': active_data,
     }
+    if scope in ('all', 'settings'):
+        try:
+            from resources.lib.ui import database
+            payload['series_overrides'] = database.list_series_overrides()
+        except Exception as e:
+            control.log(f"export_settings: Could not include series_overrides: {e}", 'warning')
 
     try:
         with open(dest_path, 'w', encoding='utf-8') as f:
@@ -468,6 +474,7 @@ def import_settings(scope: str, filepath: str) -> tuple[bool, int]:
 
     canonical = get_canonical_settings()
     imported_map = {}
+    imported_overrides = []
 
     try:
         if filepath.endswith('.json'):
@@ -476,6 +483,8 @@ def import_settings(scope: str, filepath: str) -> tuple[bool, int]:
             if isinstance(data, dict):
                 # If wrapped in backup schema
                 imported_map = data.get('settings', data)
+                if isinstance(data.get('series_overrides'), list):
+                    imported_overrides = data.get('series_overrides')
         elif filepath.endswith('.xml'):
             tree = ET.parse(filepath)
             root = tree.getroot()
@@ -506,6 +515,25 @@ def import_settings(scope: str, filepath: str) -> tuple[bool, int]:
     # Reconcile and auto-heal account state if importing logins or all settings
     if scope in ('all', 'logins'):
         reconcile_authenticated_accounts(imported_map)
+
+    if scope in ('all', 'settings') and imported_overrides:
+        try:
+            from resources.lib.ui import database
+            for ov in imported_overrides:
+                if isinstance(ov, dict) and ov.get('mal_id'):
+                    database.set_series_override(
+                        ov['mal_id'],
+                        audio_lang=ov.get('audio_lang'),
+                        sub_lang=ov.get('sub_lang'),
+                        sub_mode=ov.get('sub_mode'),
+                        preferred_provider=ov.get('preferred_provider'),
+                        intro_offset_s=ov.get('intro_offset_s', 0),
+                        outro_offset_s=ov.get('outro_offset_s', 0),
+                        skip_filler_mode=ov.get('skip_filler_mode', 'default'),
+                        episode_offset=ov.get('episode_offset', 0),
+                    )
+        except Exception as e:
+            control.log(f"import_settings: Could not restore series_overrides: {e}", 'warning')
 
     control.clearSettingsCache()
     control.log(f"import_settings: Successfully applied {applied_count} settings from {filepath}", 'info')

@@ -27,7 +27,7 @@ class SyncDatabase:
     # Bump this whenever the metadata schema changes;
     # a mismatch triggers re_build_database(silent=True) and refreshes
     # embed host defaults (see check_database_version).
-    SCHEMA_VERSION = '1.0.13'
+    SCHEMA_VERSION = '1.0.14'
 
     def __init__(self):
         self.activites = None
@@ -53,6 +53,8 @@ class SyncDatabase:
         self._build_watchlist_activity()
         self._build_watchlist_view()
         self._build_anilist_enrichment()
+        self._build_series_overrides()
+        self._build_scrobble_retry_queue()
 
     # --- individual table builders (static, idempotent) ---------------
 
@@ -274,6 +276,42 @@ class SyncDatabase:
                 'last_updated INTEGER NOT NULL)')
             cur.connection.commit()
 
+    @staticmethod
+    def _build_series_overrides():
+        with SQL(control.malSyncDB) as cur:
+            cur.execute(
+                'CREATE TABLE IF NOT EXISTS series_overrides ('
+                'mal_id INTEGER PRIMARY KEY, '
+                'audio_lang TEXT, '
+                'sub_lang TEXT, '
+                'sub_mode TEXT, '
+                'preferred_provider TEXT, '
+                'intro_offset_s INTEGER DEFAULT 0, '
+                'outro_offset_s INTEGER DEFAULT 0, '
+                'episode_offset INTEGER DEFAULT 0, '
+                'skip_filler_mode TEXT DEFAULT "default", '
+                'updated_at INTEGER NOT NULL)')
+            cur.connection.commit()
+
+    @staticmethod
+    def _build_scrobble_retry_queue():
+        with SQL(control.malSyncDB) as cur:
+            cur.execute(
+                'CREATE TABLE IF NOT EXISTS scrobble_retry_queue ('
+                'id INTEGER PRIMARY KEY AUTOINCREMENT, '
+                'service TEXT NOT NULL, '
+                'action TEXT NOT NULL, '
+                'mal_id INTEGER NOT NULL, '
+                'episode INTEGER DEFAULT 0, '
+                'status TEXT DEFAULT "", '
+                'score INTEGER DEFAULT 0, '
+                'attempts INTEGER DEFAULT 0, '
+                'next_retry_at INTEGER NOT NULL, '
+                'last_error TEXT DEFAULT "", '
+                'created_at INTEGER NOT NULL, '
+                'UNIQUE(service, action, mal_id))')
+            cur.connection.commit()
+
     # ─── Activities & Version Management ─────────────────────────────
 
     def refresh_activites(self):
@@ -323,6 +361,17 @@ class SyncDatabase:
                     except Exception:
                         pass
 
+            # Check series_overrides table for episode_offset
+            cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='series_overrides'")
+            if cur.fetchone():
+                cur.execute("PRAGMA table_info(series_overrides)")
+                cols = {col['name'] for col in cur.fetchall()}
+                if 'episode_offset' not in cols:
+                    try:
+                        cur.execute("ALTER TABLE series_overrides ADD COLUMN episode_offset INTEGER DEFAULT 0")
+                    except Exception:
+                        pass
+
             # Update otaku_version in activities
             cur.execute(
                 'INSERT OR REPLACE INTO activities(sync_id, otaku_version) VALUES(1, ?)',
@@ -357,7 +406,7 @@ class SyncDatabase:
                 elif choice == 0:
                     control.setBool('first_time', False)
 
-                self.re_build_database(True)
+                self._migrate_database()
                 # Clear last_watched setting on first install
                 control.setSetting('addon.last_watched', '')
             else:
@@ -449,7 +498,8 @@ class SyncDatabase:
                 for tbl in (
                     'episodes', 'shows_meta', 'show_data', 'shows',
                     'watchlist_cache', 'watchlist_activity',
-                    'anilist_enrichment', 'activities'
+                    'anilist_enrichment', 'series_overrides',
+                    'scrobble_retry_queue', 'activities'
                 ):
                     cur.execute(f'DROP TABLE IF EXISTS {tbl}')
                 cur.execute('VACUUM')

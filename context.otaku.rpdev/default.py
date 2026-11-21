@@ -18,17 +18,17 @@ def get_video_info(li: xbmcgui.ListItem) -> dict:
         params['plot'] = plot
     if year := vinfo.getYear():
         params['year'] = str(year)
-    if premiered := vinfo.getPremieredAsW3C():
+    if premiered := (vinfo.getPremieredAsW3C() if hasattr(vinfo, 'getPremieredAsW3C') else (vinfo.getPremiered() if hasattr(vinfo, 'getPremiered') else '')):
         params['premiered'] = premiered
     if season := vinfo.getSeason():
         params['season'] = str(season)
     if episode := vinfo.getEpisode():
         params['episode'] = str(episode)
-    if aired := vinfo.getFirstAiredAsW3C():
+    if aired := (vinfo.getFirstAiredAsW3C() if hasattr(vinfo, 'getFirstAiredAsW3C') else (vinfo.getFirstAired() if hasattr(vinfo, 'getFirstAired') else '')):
         params['aired'] = aired
     if rating := vinfo.getRating():
         params['rating'] = {'score': rating, 'votes': 0}  # Assuming votes are not available
-    if resume := vinfo.getResumeTime():
+    if resume := (vinfo.getResumeTime() if hasattr(vinfo, 'getResumeTime') else (vinfo.getResumePoint() if hasattr(vinfo, 'getResumePoint') else 0)):
         params['resume'] = str(resume)
 
     # Artwork
@@ -51,16 +51,64 @@ def get_video_info(li: xbmcgui.ListItem) -> dict:
     if clearlogo := li.getArt('clearlogo'):
         params['clearlogo'] = clearlogo
 
+    # NF-02: Widget & UniqueID resolution
+    uids = vinfo.getUniqueIDs() if hasattr(vinfo, 'getUniqueIDs') else {}
+    mal_id = (
+        (uids.get('mal_id') or uids.get('mal') if isinstance(uids, dict) else '')
+        or (li.getProperty('mal_id') if hasattr(li, 'getProperty') else '')
+        or (li.getProperty('otaku.mal_id') if hasattr(li, 'getProperty') else '')
+    )
+    if mal_id:
+        params['mal_id'] = str(mal_id)
+
     return params
 
 
-def _extract_subpath(path: str, prefix: str, default: str = '') -> str:
-    """Extract subpath after prefix safely without raising IndexError."""
-    if not path:
-        return default
-    if prefix in path:
+def _resolve_widget_mal_id(item: xbmcgui.ListItem, path: str) -> str:
+    """Resolve mal_id from ListItem UniqueIDs, properties, or URL query parameters."""
+    try:
+        vinfo = item.getVideoInfoTag()
+        if hasattr(vinfo, 'getUniqueIDs'):
+            uids = vinfo.getUniqueIDs() or {}
+            mal_val = uids.get('mal_id') or uids.get('mal')
+            if mal_val:
+                return str(mal_val)
+        if hasattr(vinfo, 'getUniqueID'):
+            for uk in ('mal_id', 'mal'):
+                uval = vinfo.getUniqueID(uk)
+                if uval:
+                    return str(uval)
+    except Exception:
+        pass
+    for prop in ('mal_id', 'otaku.mal_id', 'UniqueID(mal_id)', 'UniqueID(mal)'):
+        try:
+            val = item.getProperty(prop)
+            if val and str(val).isdigit():
+                return str(val)
+        except Exception:
+            pass
+    if path and '?' in path:
+        qs = parse.parse_qs(path.split('?', 1)[1])
+        for qk in ('mal_id', 'id'):
+            vals = qs.get(qk)
+            if vals and str(vals[0]).isdigit():
+                return str(vals[0])
+    return ''
+
+
+def _extract_subpath(path: str, prefix: str, default: str = '', item=None) -> str:
+    """Extract subpath after prefix safely without raising IndexError, falling back to widget properties."""
+    if path and prefix in path:
         parts = path.split(prefix, 1)
-        return parts[1] if len(parts) > 1 else default
+        sub = parts[1].split('?', 1)[0] if len(parts) > 1 else ''
+        if sub:
+            return sub
+    if item is not None:
+        wid_mal = _resolve_widget_mal_id(item, path or '')
+        if wid_mal:
+            return f"/{wid_mal}"
+    if not path or path.startswith(('videodb://', 'library://')):
+        return default
     clean = path.split('?', 1)[0].rstrip('/')
     if clean:
         parts = [p for p in clean.split('/') if p]
@@ -68,9 +116,18 @@ def _extract_subpath(path: str, prefix: str, default: str = '') -> str:
     return default
 
 
-def _extract_watch_target(path: str, plugin: str) -> str:
+def _extract_watch_target(path: str, plugin: str, item=None) -> str:
     """Extracts '/mal_id/episode' from various plugin URL schemes safely without index errors."""
-    clean_path = path.split('?', 1)[0]
+    if item is not None and (not path or plugin not in path):
+        wid_mal = _resolve_widget_mal_id(item, path or '')
+        if wid_mal:
+            try:
+                ep = int(item.getVideoInfoTag().getEpisode() or 1)
+            except Exception:
+                ep = 1
+            return f"/{wid_mal}/{max(1, ep)}"
+
+    clean_path = (path or '').split('?', 1)[0]
     if plugin in clean_path:
         sub = clean_path.split(plugin, 1)[1].strip('/')
     else:
@@ -112,55 +169,61 @@ def main():
     path = item.getPath()
     plugin = 'plugin://plugin.video.otaku.rpdev'
     if arg == 'findrecommendations':
-        subpath = _extract_subpath(path, plugin)
+        subpath = _extract_subpath(path, plugin, item=item)
         xbmc.executebuiltin(f"Container.Update({plugin}/find_recommendations{subpath})")
     elif arg == 'findrelations':
-        subpath = _extract_subpath(path, plugin)
+        subpath = _extract_subpath(path, plugin, item=item)
         xbmc.executebuiltin(f"Container.Update({plugin}/find_relations{subpath})")
     elif arg == 'getwatchorder':
-        subpath = _extract_subpath(path, plugin)
+        subpath = _extract_subpath(path, plugin, item=item)
         xbmc.executebuiltin(f"Container.Update({plugin}/watch_order{subpath})")
     elif arg == 'viewreviews':
-        subpath = _extract_subpath(path, plugin)
+        subpath = _extract_subpath(path, plugin, item=item)
         xbmc.executebuiltin(f"Container.Update({plugin}/anime_reviews{subpath})")
     elif arg == 'viewstatistics':
-        subpath = _extract_subpath(path, plugin)
+        subpath = _extract_subpath(path, plugin, item=item)
         xbmc.executebuiltin(f"Container.Update({plugin}/anime_statistics{subpath})")
     elif arg == 'rescrape':
         params = get_video_info(item)
         params['rescrape'] = 'true'
-        base_path = path.split('?', 1)[0] if path else plugin
+        base_path = path.split('?', 1)[0] if (path and plugin in path) else f"{plugin}/play{_extract_watch_target(path, plugin, item=item)}"
         path = f"{base_path}?{parse.urlencode(params)}"
         xbmc.executebuiltin(f"PlayMedia({path})")
     elif arg == 'sourceselect':
         params = get_video_info(item)
         params['source_select'] = 'true'
-        base_path = path.split('?', 1)[0] if path else plugin
+        base_path = path.split('?', 1)[0] if (path and plugin in path) else f"{plugin}/play{_extract_watch_target(path, plugin, item=item)}"
         path = f"{base_path}?{parse.urlencode(params)}"
         xbmc.executebuiltin(f"PlayMedia({path})")
     elif arg == 'logout':
-        subpath = _extract_subpath(path, f'{plugin}/watchlist')
+        subpath = _extract_subpath(path, f'{plugin}/watchlist', item=item)
         xbmc.executebuiltin(f"RunPlugin({plugin}/watchlist_logout{subpath})")
     elif arg == 'deletefromdatabase':
-        subpath = _extract_subpath(path, plugin)
+        subpath = _extract_subpath(path, plugin, item=item)
         xbmc.executebuiltin(f"RunPlugin({plugin}/delete_anime_database{subpath})")
     elif arg == 'watchlist':
-        subpath = _extract_subpath(path, plugin)
+        subpath = _extract_subpath(path, plugin, item=item)
         xbmc.executebuiltin(f"RunPlugin({plugin}/watchlist_manager{subpath})")
     elif arg == 'markedaswatched':
-        target = _extract_watch_target(path, plugin)
+        target = _extract_watch_target(path, plugin, item=item)
         xbmc.executebuiltin(f"RunPlugin({plugin}/marked_as_watched{target})")
     elif arg == 'markedasunwatched':
-        target = _extract_watch_target(path, plugin)
+        target = _extract_watch_target(path, plugin, item=item)
         xbmc.executebuiltin(f"RunPlugin({plugin}/marked_as_unwatched{target})")
     elif arg == 'markpreviouswatched':
-        target = _extract_watch_target(path, plugin)
+        target = _extract_watch_target(path, plugin, item=item)
         xbmc.executebuiltin(f"RunPlugin({plugin}/mark_previous_watched{target})")
     elif arg == 'clearcache':
         xbmc.executebuiltin(f"RunPlugin({plugin}/clear_cache)")
     elif arg == 'fanartselect':
-        subpath = _extract_subpath(path, plugin)
+        subpath = _extract_subpath(path, plugin, item=item)
         xbmc.executebuiltin(f"Container.Update({plugin}/fanart_select{subpath})")
+    elif arg == 'seriesprofile':
+        subpath = _extract_subpath(path, plugin, item=item)
+        if subpath:
+            xbmc.executebuiltin(f"RunPlugin({plugin}/series_profile{subpath})")
+    elif arg == 'manualsubtitles':
+        xbmc.executebuiltin(f"RunPlugin({plugin}/search_subtitles)")
     else:
         raise KeyError("Could Not find %s in Context Menu Action" % arg)
 

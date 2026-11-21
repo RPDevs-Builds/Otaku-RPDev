@@ -19,16 +19,19 @@ class JikanAPI:
     def _throttle_3req_per_second(cls):
         """Global Jikan guard: max 3 requests over any 1 second window."""
         while True:
+            if control.abort_requested():
+                return False
             wait_for = 0
             with cls._rate_lock:
                 now = time.monotonic()
                 cls._request_timestamps = [t for t in cls._request_timestamps if (now - t) < 1.0]
                 if len(cls._request_timestamps) < 3:
                     cls._request_timestamps.append(now)
-                    return
+                    return True
                 wait_for = max(0.0, 1.0 - (now - cls._request_timestamps[0]))
             if wait_for > 0:
-                time.sleep(wait_for + 0.01)
+                if control.monitor.waitForAbort(wait_for + 0.01):
+                    return False
 
     def get_anime_info(self, mal_id):
         response = client.get(f'{self.baseUrl}/anime/{mal_id}')
@@ -38,7 +41,10 @@ class JikanAPI:
     def get_anime_synopsis(self, mal_id):
         """Return synopsis/background for a MAL anime ID."""
         try:
-            self._throttle_3req_per_second()
+            if self._throttle_3req_per_second() is False:
+                return None
+            if control.abort_requested():
+                return None
             data = self.get_anime_info(mal_id)
             if not data:
                 return None
@@ -80,8 +86,11 @@ class JikanAPI:
 
         all_page_results = []
         for i, batch in enumerate(batches):
+            if control.abort_requested():
+                break
             if i > 0:
-                time.sleep(1.1)  # Wait 1.1 seconds between batches (safe margin)
+                if control.monitor.waitForAbort(1.1):
+                    break
 
             # Fetch 3 pages in parallel (respects 3 req/sec limit)
             batch_results = utils.parallel_process(batch, fetch_page)

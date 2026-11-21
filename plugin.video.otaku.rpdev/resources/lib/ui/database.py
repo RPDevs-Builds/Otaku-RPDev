@@ -258,8 +258,8 @@ def _quarantine_and_recover_db(path):
             _ensure_search_tables()
             control.log("Auto-recovery: Re-initialized search.db schema", level='info')
         elif abs_path == malsync_path:
-            from resources.lib.ui.database_sync import OtakuDatabase
-            OtakuDatabase.create_tables()
+            from resources.lib.ui.database_sync import SyncDatabase
+            SyncDatabase()
             control.log("Auto-recovery: Re-initialized malSync.db schema", level='info')
         elif abs_path == mapping_path:
             control.log("Auto-recovery: mappings.db quarantined; will be restored on next service sync", level='info')
@@ -973,17 +973,33 @@ def checkpoint_databases(truncate=True):
 
 def get_show(mal_id):
     with SQL(control.malSyncDB) as cur:
-        cur.execute('SELECT * FROM shows WHERE mal_id=?', (mal_id,))
-        return cur.fetchone()
+        try:
+            cur.execute('SELECT * FROM shows WHERE mal_id=?', (mal_id,))
+            return cur.fetchone()
+        except OperationalError as e:
+            if 'no such table' in str(e).lower():
+                from resources.lib.ui.database_sync import SyncDatabase
+                SyncDatabase._build_shows()
+                return None
+            raise
 
 
 def update_show(mal_id, kodi_meta, anime_schedule_route=''):
-    with SQL(control.malSyncDB) as cur:
-        cur.execute(
-            'INSERT INTO shows (mal_id, kodi_meta, anime_schedule_route) VALUES (?, ?, ?) '
-            'ON CONFLICT(mal_id) DO UPDATE SET kodi_meta=excluded.kodi_meta, anime_schedule_route=excluded.anime_schedule_route',
-            (mal_id, kodi_meta, anime_schedule_route))
-        cur.connection.commit()
+    for attempt in range(2):
+        with SQL(control.malSyncDB) as cur:
+            try:
+                cur.execute(
+                    'INSERT INTO shows (mal_id, kodi_meta, anime_schedule_route) VALUES (?, ?, ?) '
+                    'ON CONFLICT(mal_id) DO UPDATE SET kodi_meta=excluded.kodi_meta, anime_schedule_route=excluded.anime_schedule_route',
+                    (mal_id, kodi_meta, anime_schedule_route))
+                cur.connection.commit()
+                return
+            except OperationalError as e:
+                if attempt == 0 and 'no such table' in str(e).lower():
+                    from resources.lib.ui.database_sync import SyncDatabase
+                    SyncDatabase._build_shows()
+                    continue
+                raise
 
 
 def get_show_meta(mal_id):
@@ -1115,6 +1131,8 @@ def update_episode_batch(episode_batch):
 def get_mappings(anime_id, send_id):
     if not anime_id or not send_id:
         return {}
+    if not getattr(control, 'mappingDB', None) or not os.path.exists(control.mappingDB):
+        return {}
     try:
         _validate_identifier(send_id)
         with SQL(control.mappingDB, is_readonly=True) as cur:
@@ -1129,6 +1147,8 @@ def get_mappings(anime_id, send_id):
 
 def get_unique_ids(anime_id, send_id):
     if not anime_id or not send_id:
+        return {}
+    if not getattr(control, 'mappingDB', None) or not os.path.exists(control.mappingDB):
         return {}
     try:
         _validate_identifier(send_id)
@@ -1159,6 +1179,8 @@ def get_unique_ids(anime_id, send_id):
 
 def get_mal_ids(anime_id, send_id):
     if not anime_id or not send_id:
+        return []
+    if not getattr(control, 'mappingDB', None) or not os.path.exists(control.mappingDB):
         return []
     try:
         _validate_identifier(send_id)
@@ -1312,6 +1334,8 @@ def get_watchlist_cache_last_updated(service, status):
 
 def save_watchlist_cache(service, status, items):
     """Replace all cache entries for a service / status pair."""
+    from resources.lib.ui.database_sync import SyncDatabase
+    SyncDatabase._build_watchlist_cache()
     now = int(time.time())
     rows = [
         (service, status, _extract_mal_id(service, item), idx, dumps(item), now)
@@ -2220,5 +2244,286 @@ def prune_stale_multipage_jobs(max_age_seconds=86400, running_timeout=300):
     except Exception as e:
         control.log(f"prune_stale_multipage_jobs error: {e}", level='error')
     return total_affected
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  Per-Series Playback & Scraper Override Profiles (NF-06)
+# ═══════════════════════════════════════════════════════════════════════════
+
+def _ensure_series_overrides_table():
+    cache_key = f"{control.malSyncDB}:series_overrides"
+    if cache_key in _tables_ready:
+        return
+    with SQL(control.malSyncDB) as cur:
+        cur.execute(
+            'CREATE TABLE IF NOT EXISTS series_overrides ('
+            'mal_id INTEGER PRIMARY KEY, '
+            'audio_lang TEXT, '
+            'sub_lang TEXT, '
+            'sub_mode TEXT, '
+            'preferred_provider TEXT, '
+            'intro_offset_s INTEGER DEFAULT 0, '
+            'outro_offset_s INTEGER DEFAULT 0, '
+            'episode_offset INTEGER DEFAULT 0, '
+            'skip_filler_mode TEXT DEFAULT "default", '
+            'updated_at INTEGER NOT NULL)'
+        )
+        cur.execute("PRAGMA table_info(series_overrides)")
+        cols = {col['name'] for col in cur.fetchall()}
+        if 'episode_offset' not in cols:
+            try:
+                cur.execute("ALTER TABLE series_overrides ADD COLUMN episode_offset INTEGER DEFAULT 0")
+            except Exception:
+                pass
+        cur.connection.commit()
+    _tables_ready.add(cache_key)
+
+
+def get_series_override(mal_id):
+    """Retrieve per-series playback/scraper overrides for a MAL ID."""
+    if not mal_id or not str(mal_id).isdigit():
+        return None
+    _ensure_series_overrides_table()
+    try:
+        with SQL(control.malSyncDB) as cur:
+            cur.execute('SELECT * FROM series_overrides WHERE mal_id=?', (int(mal_id),))
+            return cur.fetchone()
+    except Exception as e:
+        control.log(f"get_series_override error for {mal_id}: {e}", level='warning')
+        return None
+
+
+def set_series_override(
+    mal_id,
+    audio_lang=None,
+    sub_lang=None,
+    sub_mode=None,
+    preferred_provider=None,
+    intro_offset_s=0,
+    outro_offset_s=0,
+    skip_filler_mode='default',
+    episode_offset=0,
+):
+    """Create or update per-series playback/scraper overrides for a MAL ID."""
+    if not mal_id or not str(mal_id).isdigit():
+        return False
+    _ensure_series_overrides_table()
+    now = int(time.time())
+    try:
+        with SQL(control.malSyncDB) as cur:
+            execute_write_with_retry(
+                cur,
+                'INSERT OR REPLACE INTO series_overrides '
+                '(mal_id, audio_lang, sub_lang, sub_mode, preferred_provider, '
+                'intro_offset_s, outro_offset_s, episode_offset, skip_filler_mode, updated_at) '
+                'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                (
+                    int(mal_id),
+                    str(audio_lang or '').strip() or None,
+                    str(sub_lang or '').strip() or None,
+                    str(sub_mode or '').strip() or None,
+                    str(preferred_provider or '').strip() or None,
+                    int(intro_offset_s or 0),
+                    int(outro_offset_s or 0),
+                    int(episode_offset or 0),
+                    str(skip_filler_mode or 'default').strip(),
+                    now,
+                ),
+            )
+            cur.connection.commit()
+            return True
+    except Exception as e:
+        control.log(f"set_series_override error for {mal_id}: {e}", level='error')
+        return False
+
+
+def delete_series_override(mal_id):
+    """Remove per-series override profile for a MAL ID."""
+    if not mal_id or not str(mal_id).isdigit():
+        return False
+    _ensure_series_overrides_table()
+    try:
+        with SQL(control.malSyncDB) as cur:
+            cur.execute('DELETE FROM series_overrides WHERE mal_id=?', (int(mal_id),))
+            cur.connection.commit()
+            return cur.rowcount > 0
+    except Exception as e:
+        control.log(f"delete_series_override error for {mal_id}: {e}", level='error')
+        return False
+
+
+def list_series_overrides():
+    """Return all configured per-series override profiles ordered by updated_at DESC."""
+    _ensure_series_overrides_table()
+    try:
+        with SQL(control.malSyncDB) as cur:
+            cur.execute('SELECT * FROM series_overrides ORDER BY updated_at DESC')
+            return cur.fetchall() or []
+    except Exception as e:
+        control.log(f"list_series_overrides error: {e}", level='warning')
+        return []
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  Persistent Watchlist Scrobble 429/5xx Retry Queue (NF-01)
+# ═══════════════════════════════════════════════════════════════════════════
+
+def _ensure_scrobble_retry_queue_table():
+    cache_key = f"{control.malSyncDB}:scrobble_retry_queue"
+    if cache_key in _tables_ready:
+        return
+    with SQL(control.malSyncDB) as cur:
+        cur.execute(
+            'CREATE TABLE IF NOT EXISTS scrobble_retry_queue ('
+            'id INTEGER PRIMARY KEY AUTOINCREMENT, '
+            'service TEXT NOT NULL, '
+            'action TEXT NOT NULL, '
+            'mal_id INTEGER NOT NULL, '
+            'episode INTEGER DEFAULT 0, '
+            'status TEXT DEFAULT "", '
+            'score INTEGER DEFAULT 0, '
+            'attempts INTEGER DEFAULT 0, '
+            'next_retry_at INTEGER NOT NULL, '
+            'last_error TEXT DEFAULT "", '
+            'created_at INTEGER NOT NULL, '
+            'UNIQUE(service, action, mal_id))'
+        )
+        cur.connection.commit()
+    _tables_ready.add(cache_key)
+
+
+def enqueue_scrobble_retry(service_name, action, mal_id, episode=0, status='', score=0, error='', delay_seconds=60, retry_after=None):
+    """Insert or update a pending watchlist scrobble retry entry with Retry-After and exponential backoff."""
+    if not service_name or not action or not mal_id or not str(mal_id).isdigit():
+        return False
+    _ensure_scrobble_retry_queue_table()
+    now = int(time.time())
+    base_delay = max(0, int(delay_seconds if delay_seconds is not None else 60))
+    if retry_after is None and error:
+        m = re.search(r'retry[-_ ]?after[:=\s]+(\d+)', str(error), re.IGNORECASE)
+        if m:
+            retry_after = int(m.group(1))
+    if retry_after is not None:
+        try:
+            base_delay = max(base_delay, int(float(retry_after)))
+        except (ValueError, TypeError):
+            pass
+    try:
+        with SQL(control.malSyncDB) as cur:
+            cur.execute(
+                'SELECT attempts FROM scrobble_retry_queue WHERE service=? AND action=? AND mal_id=?',
+                (str(service_name), str(action), int(mal_id)),
+            )
+            existing = cur.fetchone()
+            attempts = (int(existing.get('attempts') or 0) + 1) if existing else 1
+            backoff = min(3600, base_delay * (2 ** max(0, attempts - 1)))
+            next_retry = now + backoff
+            execute_write_with_retry(
+                cur,
+                'INSERT OR REPLACE INTO scrobble_retry_queue '
+                '(service, action, mal_id, episode, status, score, attempts, next_retry_at, last_error, created_at) '
+                'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                (
+                    str(service_name),
+                    str(action),
+                    int(mal_id),
+                    int(episode or 0),
+                    str(status or ''),
+                    int(score or 0),
+                    attempts,
+                    next_retry,
+                    str(error or '')[:256],
+                    now,
+                ),
+            )
+            cur.connection.commit()
+            return True
+    except Exception as e:
+        control.log(f"enqueue_scrobble_retry error: {e}", level='error')
+        return False
+
+
+def get_due_scrobble_retries(now_ts=None, limit=25):
+    """Fetch pending scrobble retry items due at or before now_ts."""
+    _ensure_scrobble_retry_queue_table()
+    now = int(now_ts if now_ts is not None else time.time())
+    try:
+        with SQL(control.malSyncDB) as cur:
+            cur.execute(
+                'SELECT * FROM scrobble_retry_queue WHERE next_retry_at <= ? ORDER BY next_retry_at ASC LIMIT ?',
+                (now, int(limit or 25)),
+            )
+            return cur.fetchall() or []
+    except Exception as e:
+        control.log(f"get_due_scrobble_retries error: {e}", level='warning')
+        return []
+
+
+def list_scrobble_retry_queue():
+    """Return all queued scrobble retry entries for telemetry inspection."""
+    _ensure_scrobble_retry_queue_table()
+    try:
+        with SQL(control.malSyncDB) as cur:
+            cur.execute('SELECT * FROM scrobble_retry_queue ORDER BY next_retry_at ASC')
+            return cur.fetchall() or []
+    except Exception as e:
+        control.log(f"list_scrobble_retry_queue error: {e}", level='warning')
+        return []
+
+
+def remove_scrobble_retry(service_name, action, mal_id):
+    """Remove a completed or expired scrobble retry entry."""
+    _ensure_scrobble_retry_queue_table()
+    try:
+        with SQL(control.malSyncDB) as cur:
+            cur.execute(
+                'DELETE FROM scrobble_retry_queue WHERE service=? AND action=? AND mal_id=?',
+                (str(service_name), str(action), int(mal_id)),
+            )
+            cur.connection.commit()
+            return cur.rowcount > 0
+    except Exception as e:
+        control.log(f"remove_scrobble_retry error: {e}", level='warning')
+        return False
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  SQLite Quick-Check Verification Helper (NF-05)
+# ═══════════════════════════════════════════════════════════════════════════
+
+def verify_sqlite_integrity(db_path, required_tables=('anime',)):
+    """Verify a candidate SQLite database file passes PRAGMA quick_check and contains required tables."""
+    if not db_path or not os.path.isfile(db_path):
+        return False, 'missing_file'
+    try:
+        with open(db_path, 'rb') as fp:
+            header = fp.read(16)
+        if not header.startswith(b'SQLite format 3\x00'):
+            return False, 'invalid_sqlite_header'
+        abs_path = os.path.abspath(db_path)
+        conn = dbapi2.connect(f"file:{abs_path}?mode=ro", uri=True, timeout=10.0)
+        try:
+            cur = conn.cursor()
+            cur.execute('PRAGMA quick_check(1)')
+            row = cur.fetchone()
+            if not row or str(row[0]).lower() != 'ok':
+                return False, f"quick_check_failed:{row[0] if row else 'empty'}"
+            if required_tables:
+                cur.execute("SELECT name FROM sqlite_master WHERE type='table'")
+                found = {r[0] for r in cur.fetchall() if r and r[0]}
+                for req in required_tables:
+                    if req not in found:
+                        return False, f"missing_table:{req}"
+                for req in required_tables:
+                    cur.execute(f"SELECT COUNT(*) FROM {req}")
+                    cnt = cur.fetchone()[0]
+                    if cnt <= 0:
+                        return False, f"empty_table:{req}"
+            return True, 'ok'
+        finally:
+            conn.close()
+    except Exception as e:
+        return False, f"sqlite_error:{e}"
+
 
 

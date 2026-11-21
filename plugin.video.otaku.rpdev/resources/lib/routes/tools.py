@@ -26,7 +26,11 @@ def SOURCE_FILTER(payload, params):
         window = FilterSelect("filter_select.xml", control.ADDON_PATH)
         window.doModal()
     finally:
-        if window:
+        if window is not None:
+            try:
+                window.close()
+            except Exception:
+                pass
             del window
 
 
@@ -178,12 +182,14 @@ def CHANGE_LOG(payload, params):
     control.setSetting('otaku.version', control.ADDON_VERSION)
     import service
     service.getChangeLog()
+    return control.exit_code()
 
 
 @Route('solver_inst')
 def SOLVER_INST(payload, params):
     import service
     service.getInstructions()
+    return control.exit_code()
 
 
 @Route('clear_cache')
@@ -544,7 +550,17 @@ def COMPLETED_SYNC(payload, params):
 @Route('sort_select')
 def SORT_SELECT(payload, params):
     from resources.lib.windows.sort_select import SortSelect
-    SortSelect('sort_select.xml', control.ADDON_PATH).doModal()
+    dlg = None
+    try:
+        dlg = SortSelect('sort_select.xml', control.ADDON_PATH)
+        dlg.doModal()
+    finally:
+        if dlg is not None:
+            try:
+                dlg.close()
+            except Exception:
+                pass
+            del dlg
 
 
 @Route('download_manager')
@@ -1057,6 +1073,79 @@ def MENU_ORDER(payload, params):
     from resources.lib.windows.menu_order import open_menu_order_dialog
     menu_key = params.get('menu', 'menu.mainmenu')
     open_menu_order_dialog(menu_key)
+
+
+@Route('series_profile/*')
+def SERIES_PROFILE(payload, params):
+    """Configure or reset per-series playback and scraper overrides for a MAL ID."""
+    from resources.lib import Main
+    mal_id = Main._extract_mal_id(payload)
+    if not mal_id or not str(mal_id).isdigit():
+        control.notify(control.ADDON_NAME, 'Unable to resolve MAL ID for Series Profile')
+        return control.exit_code()
+
+    if params and (
+        any(k in params for k in ('audio_lang', 'sub_lang', 'sub_mode', 'preferred_provider', 'intro_offset_s', 'outro_offset_s', 'episode_offset', 'skip_filler_mode', 'reset'))
+    ):
+        if str(params.get('reset', '')).lower() == 'true':
+            database.delete_series_override(mal_id)
+            control.notify(control.ADDON_NAME, f'Reset Series Profile for MAL #{mal_id}')
+            return control.exit_code()
+        existing = database.get_series_override(mal_id) or {}
+        database.set_series_override(
+            mal_id,
+            audio_lang=params.get('audio_lang', existing.get('audio_lang')),
+            sub_lang=params.get('sub_lang', existing.get('sub_lang')),
+            sub_mode=params.get('sub_mode', existing.get('sub_mode')),
+            preferred_provider=params.get('preferred_provider', existing.get('preferred_provider')),
+            intro_offset_s=int(params.get('intro_offset_s', existing.get('intro_offset_s') or 0)),
+            outro_offset_s=int(params.get('outro_offset_s', existing.get('outro_offset_s') or 0)),
+            episode_offset=int(params.get('episode_offset', existing.get('episode_offset') or 0)),
+            skip_filler_mode=params.get('skip_filler_mode', existing.get('skip_filler_mode') or 'default'),
+        )
+        control.notify(control.ADDON_NAME, f'Saved Series Profile for MAL #{mal_id}')
+        return control.exit_code()
+
+    existing = database.get_series_override(mal_id) or {}
+    options = [
+        f"Audio Preference: {existing.get('audio_lang') or 'Default'}",
+        f"Subtitle Language: {existing.get('sub_lang') or 'Default'}",
+        f"Subtitle Mode: {existing.get('sub_mode') or 'Default'}",
+        f"Preferred Provider: {existing.get('preferred_provider') or 'Default'}",
+        f"Filler Auto-Skip: {existing.get('skip_filler_mode') or 'default'}",
+        "Reset Series Profile to Global Defaults",
+    ]
+    choice = control.select_dialog(f"{control.ADDON_NAME}: Series Profile (MAL #{mal_id})", options)
+    if choice == 0:
+        a_idx = control.select_dialog("Select Audio Preference", ["Default", "Japanese (Sub)", "English (Dub)"])
+        if a_idx >= 0:
+            val = [None, 'jpn', 'eng'][a_idx]
+            database.set_series_override(mal_id, audio_lang=val, sub_lang=existing.get('sub_lang'), sub_mode=existing.get('sub_mode'), preferred_provider=existing.get('preferred_provider'), intro_offset_s=existing.get('intro_offset_s', 0), outro_offset_s=existing.get('outro_offset_s', 0), skip_filler_mode=existing.get('skip_filler_mode', 'default'))
+    elif choice == 1:
+        s_idx = control.select_dialog("Select Subtitle Language", ["Default", "English", "None"])
+        if s_idx >= 0:
+            val = [None, 'eng', 'none'][s_idx]
+            database.set_series_override(mal_id, audio_lang=existing.get('audio_lang'), sub_lang=val, sub_mode=existing.get('sub_mode'), preferred_provider=existing.get('preferred_provider'), intro_offset_s=existing.get('intro_offset_s', 0), outro_offset_s=existing.get('outro_offset_s', 0), skip_filler_mode=existing.get('skip_filler_mode', 'default'))
+    elif choice == 2:
+        m_idx = control.select_dialog("Select Subtitle Mode", ["Default", "Full Dialogue", "Signs & Songs", "Smart Pair"])
+        if m_idx >= 0:
+            val = [None, 'dialog', 'signs', 'smart'][m_idx]
+            database.set_series_override(mal_id, audio_lang=existing.get('audio_lang'), sub_lang=existing.get('sub_lang'), sub_mode=val, preferred_provider=existing.get('preferred_provider'), intro_offset_s=existing.get('intro_offset_s', 0), outro_offset_s=existing.get('outro_offset_s', 0), skip_filler_mode=existing.get('skip_filler_mode', 'default'))
+    elif choice == 3:
+        providers = ["Default", "nyaa", "animetosho", "torrentio", "hianime", "animepahe", "anikoto"]
+        p_idx = control.select_dialog("Select Preferred Provider", providers)
+        if p_idx >= 0:
+            val = None if p_idx == 0 else providers[p_idx]
+            database.set_series_override(mal_id, audio_lang=existing.get('audio_lang'), sub_lang=existing.get('sub_lang'), sub_mode=existing.get('sub_mode'), preferred_provider=val, intro_offset_s=existing.get('intro_offset_s', 0), outro_offset_s=existing.get('outro_offset_s', 0), skip_filler_mode=existing.get('skip_filler_mode', 'default'))
+    elif choice == 4:
+        f_idx = control.select_dialog("Select Filler Episode Handling", ["Use Global Setting", "Auto-Skip Filler Episodes", "Keep Filler Episodes"])
+        if f_idx >= 0:
+            val = ['default', 'skip', 'keep'][f_idx]
+            database.set_series_override(mal_id, audio_lang=existing.get('audio_lang'), sub_lang=existing.get('sub_lang'), sub_mode=existing.get('sub_mode'), preferred_provider=existing.get('preferred_provider'), intro_offset_s=existing.get('intro_offset_s', 0), outro_offset_s=existing.get('outro_offset_s', 0), skip_filler_mode=val)
+    elif choice == 5:
+        database.delete_series_override(mal_id)
+        control.notify(control.ADDON_NAME, f"Reset Series Profile for MAL #{mal_id}")
+    return control.exit_code()
 
 
 @Route('probe_settings')

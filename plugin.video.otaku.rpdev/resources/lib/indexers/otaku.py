@@ -59,7 +59,11 @@ class OtakuAPI:
 
         def fetch_page(page_num):
             try:
-                time.sleep((page_num % 3) * 0.7)  # Stagger requests to respect rate limit
+                delay = (page_num % 3) * 0.7
+                if delay > 0 and control.monitor.waitForAbort(delay):
+                    return []
+                if control.abort_requested():
+                    return []
                 params = {
                     'page[limit]': 20,
                     'page[offset]': page_num * 20
@@ -107,7 +111,6 @@ class OtakuAPI:
         return meta_ids.get('anidb_id')
 
     def get_anidb_episode_meta(self, mal_id):
-        import time
         anidb_id = self.get_anidb_id(mal_id)
         if not anidb_id:
             return []
@@ -117,7 +120,10 @@ class OtakuAPI:
         if last_request > 0:
             elapsed = now - last_request
             if elapsed < 4:
-                time.sleep(4 - elapsed)
+                if control.monitor.waitForAbort(4 - elapsed):
+                    return []
+        if control.abort_requested():
+            return []
         params = {
             'request': 'anime',
             'client': self.anidbClientName,
@@ -239,8 +245,11 @@ class OtakuAPI:
 
         all_page_results = []
         for i, batch in enumerate(batches):
+            if control.abort_requested():
+                break
             if i > 0:
-                time.sleep(1.1)  # Wait 1.1 seconds between batches (safe margin)
+                if control.monitor.waitForAbort(1.1):
+                    break
 
             # Fetch 3 pages in parallel (respects 3 req/sec limit)
             batch_results = utils.parallel_process(batch, fetch_page)

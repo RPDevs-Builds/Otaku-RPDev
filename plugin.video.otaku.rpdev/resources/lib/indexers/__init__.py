@@ -1,6 +1,7 @@
 
 from datetime import date
 from functools import partial
+import re
 from resources.lib import endpoints
 from resources.lib.ui import database, control, utils
 
@@ -31,6 +32,22 @@ def _apply_spoiler_shield(parsed):
             parsed['image'] = shield_art
 
 
+def _apply_filler_badge(parsed, filler_val):
+    """Append colored [FILLER] or [RECAP] badge to episode title when interface.filler.badges is enabled."""
+    if not filler_val or not control.getBool('interface.filler.badges', default=False):
+        return
+    clean_f = re.sub(r'\[/?COLOR[^\]]*\]|\[/?B\]', '', str(filler_val)).strip().lower()
+    badge = ''
+    if 'recap' in clean_f:
+        badge = '[COLOR orange][RECAP][/COLOR]'
+    elif 'filler' in clean_f:
+        badge = '[COLOR red][FILLER][/COLOR]'
+    if badge and badge not in str(parsed.get('name', '')):
+        parsed['name'] = f"{parsed['name']} {badge}".strip()
+        if isinstance(parsed.get('info'), dict):
+            parsed['info']['title'] = parsed['name']
+
+
 def parse_episodes(res, eps_watched, dub_data=None):
     parsed = database.loads(res['kodi_meta'])
     if eps_watched and int(eps_watched) >= res['number']:
@@ -43,6 +60,7 @@ def parse_episodes(res, eps_watched, dub_data=None):
         _apply_spoiler_shield(parsed)
     code = endpoints.get_second_label(parsed['info'], dub_data, res['filler'])
     parsed['info']['code'] = code
+    _apply_filler_badge(parsed, res.get('filler'))
     if control.getBool('interface.aired.show_countdown', default=True):
         aired_str = parsed['info'].get('aired')
         if aired_str:
@@ -149,6 +167,8 @@ def update_database(mal_id, update_time, res, url, image, info, season, episode,
 
     if control.getBool('interface.spoilers.hide_thumbs') and info.get('playcount') != 1:
         _apply_spoiler_shield(parsed)
+
+    _apply_filler_badge(parsed, filler)
 
     if control.getBool('interface.aired.show_countdown', default=True):
         aired_str = info.get('aired')

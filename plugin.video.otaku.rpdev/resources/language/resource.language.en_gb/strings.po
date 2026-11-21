@@ -3949,5 +3949,38 @@ msgctxt "#30599"
 msgid "Configure Kodi's OSD Subtitle Settings > Download Subtitle service for TV shows and movies to use Otaku RPDev Subtitles."
 msgstr ""
 
+msgctxt "#30582"
+msgid "Display Filler & Recap Episode Badges"
+msgstr ""
+
+msgctxt "#30583"
+msgid "Append [FILLER] and [RECAP] indicator badges to episode titles in episode listings (Default: Disabled)."
+msgstr ""
+
+msgctxt "#30584"
+msgid "Auto-Skip Filler Episodes During Binge Playback"
+msgstr ""
+
+msgctxt "#30585"
+msgid "Automatically exclude episodes tagged as Filler when building the upcoming binge playlist (Default: Disabled)."
+msgstr ""
+
+msgctxt "#30586"
+msgid "Strip SDH Hearing-Impaired Bracket Tags"
+msgstr ""
+
+msgctxt "#30587"
+msgid "Remove bracketed sound-effect annotations ([sighs], (applause)) and speaker prefixes from downloaded external subtitles (Default: Disabled)."
+msgstr ""
+
+msgctxt "#30588"
+msgid "Multi-Tracker Watchlist Conflict Policy"
+msgstr ""
+
+msgctxt "#30589"
+msgid "Choose how episode progress differences across multiple enabled watchlists (AniList, MAL, Kitsu, Simkl) are resolved."
+msgstr ""
+
+
 
 

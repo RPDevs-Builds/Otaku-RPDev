@@ -1,6 +1,6 @@
 # Otaku-RPDev Documentation Hub
 
-Central index of user guides, engineering references, testing standards, automation specs, and project skills.
+Central index of user guides, engineering references, testing standards, automation specs, and project skills across `plugin.video.otaku.rpdev`, `context.otaku.rpdev`, and `service.subtitles.otaku.rpdev`.
 
 | Document | Audience | Purpose |
 |---|---|---|

@@ -69,6 +69,7 @@ class TestAuditOnnLogs(unittest.TestCase):
         self.assertEqual(report['counts']['subtitles'], 3)
         self.assertEqual(report['counts']['clean_settings'], 1)
         self.assertEqual(report['counts']['concerns']['C-06'], 1)
+        self.assertEqual(report['counts']['concerns']['C-11'], 1)
         self.assertEqual(report['counts']['concerns']['C-14'], 1)
         self.assertEqual(report['counts']['concerns']['C-34'], 1)
         self.assertEqual(report['counts']['concerns']['C-35'], 1)

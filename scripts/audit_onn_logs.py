@@ -50,7 +50,8 @@ ADDON_VERSION_RE = re.compile(
 
 CONCERN_PATTERNS = {
     'C-06': re.compile(r'CHANGE_LOG.*(?:exit_code|directory|error)|exit_code.*CHANGE_LOG', re.IGNORECASE),
-    'C-14': re.compile(r'Unable to create subtitle parser', re.IGNORECASE),
+    'C-11': re.compile(r'Unable to create subtitle parser', re.IGNORECASE),
+    'C-14': re.compile(r'FillBuffer Failed.*peer\(56\)|receiving data from the peer\(56\)', re.IGNORECASE),
     'C-34': re.compile(r'resolve_silent.*(?:pruned|failed|error)|Zero-Wait.*failed', re.IGNORECASE),
     'C-35': re.compile(r'WatchlistFlavorAuth|wlf_auth_|Closing unattended|window 12600', re.IGNORECASE),
 }

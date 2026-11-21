@@ -282,6 +282,30 @@ class WatchlistPlayer(player):
                 'info',
             )
 
+        # NF-06 / NF-03: Apply per-series override profile if configured
+        self.series_override = database.get_series_override(self.mal_id) if self.mal_id else None
+        if isinstance(self.series_override, dict):
+            ov_audio = (self.series_override.get('audio_lang') or '').lower()
+            if ov_audio in ('jpn', 'ja', 'japanese', 'sub'):
+                self.preferred_audio = 0
+            elif ov_audio in ('eng', 'en', 'english', 'dub'):
+                self.preferred_audio = 1
+            ov_sub = (self.series_override.get('sub_lang') or '').lower()
+            _sub_idx_map = {'none': 0, 'eng': 1, 'en': 1, 'jpn': 2, 'ja': 2, 'spa': 3, 'es': 3, 'fre': 4, 'fr': 4, 'ger': 5, 'de': 5}
+            if ov_sub in _sub_idx_map:
+                self.preferred_subtitle_setting = _sub_idx_map[ov_sub]
+            ov_mode = (self.series_override.get('sub_mode') or '').lower()
+            if ov_mode == 'dialog':
+                self.preferred_subtitle_keyword = 1
+            elif ov_mode == 'signs':
+                self.preferred_subtitle_keyword = 2
+            elif ov_mode == 'smart':
+                self.preferred_subtitle_keyword = 4
+            if self.series_override.get('intro_offset_s') is not None:
+                self.skipintro_offset = int(self.series_override.get('intro_offset_s') or 0)
+            if self.series_override.get('outro_offset_s') is not None:
+                self.skipoutro_offset = int(self.series_override.get('outro_offset_s') or 0)
+
         # Process skip times asynchronously to not block playback
         if not self._skip_processed:
             self._async_process_skip_times()
@@ -470,6 +494,26 @@ class WatchlistPlayer(player):
             current_ep = 0
 
         upcoming_episodes = [ep for ep in sorted_episodes if _ep_num(ep) > current_ep]
+
+        # NF-03: Binge Auto-Skip Filler Episodes (per-series override or global smartplay.skip_filler)
+        ov_skip_filler = ''
+        if isinstance(getattr(self, 'series_override', None), dict):
+            ov_skip_filler = (self.series_override.get('skip_filler_mode') or '').lower()
+        should_skip_filler = (
+            True if ov_skip_filler in ('skip', 'true', 'on', 'enabled')
+            else (False if ov_skip_filler in ('off', 'false', 'disabled', 'keep') else control.getBool('smartplay.skip_filler', default=False))
+        )
+        if should_skip_filler and upcoming_episodes:
+            non_filler = [
+                ep for ep in upcoming_episodes
+                if 'filler' not in str(ep.get('filler') or '').lower()
+            ]
+            if non_filler:
+                skipped_cnt = len(upcoming_episodes) - len(non_filler)
+                if skipped_cnt > 0:
+                    control.log(f"Player: Binge auto-skip excluded {skipped_cnt} filler episode(s) from playlist", 'info')
+                upcoming_episodes = non_filler
+
         video_data = indexers.process_episodes(upcoming_episodes, '') if upcoming_episodes else []
         playlist = control.bulk_dir_list(video_data, True)
 

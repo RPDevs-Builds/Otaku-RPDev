@@ -8,7 +8,7 @@ import concurrent.futures
 import functools
 import re
 from typing import List, Dict, Any, Optional
-from resources.lib.ui import control
+from resources.lib.ui import control, domains
 from resources.lib.subtitles.models import VideoMeta, SubtitleResult
 from resources.lib.subtitles.services import ALL_SERVICES
 from resources.lib.subtitles import languages
@@ -200,6 +200,9 @@ def search_all_services(meta: VideoMeta, settings: Dict[str, Any]) -> List[Subti
         # Check setting: subtitles.provider.<service_name>
         setting_key = f"subtitles.provider.{service_name}"
         if settings.get(setting_key, True):
+            if domains.adaptive_circuit_breaker.is_tripped(f"sub_{service_name}", category="subtitle"):
+                control.log(f"Native Subtitles: Skipping tripped provider {service_name}", 'debug')
+                continue
             enabled_services.append((service_name, service_cls))
 
     if not enabled_services:
@@ -231,8 +234,10 @@ def search_all_services(meta: VideoMeta, settings: Dict[str, Any]) -> List[Subti
                     is_tvshow=meta.is_tvshow,
                 )
                 res = svc_cls.search(alt_meta, settings)
+            domains.adaptive_circuit_breaker.record_success(f"sub_{svc_name}", category="subtitle")
             return res
         except Exception as e:
+            domains.adaptive_circuit_breaker.record_failure(f"sub_{svc_name}", category="subtitle")
             control.log(f"Native Subtitles provider {svc_name} error: {e}", 'warning')
             return []
 

@@ -31,6 +31,8 @@ class KitsuAPI:
         res_data = []
         page = 1
         while True:
+            if control.abort_requested():
+                break
             params = {
                 'page[limit]': 20,
                 'page[offset]': (page - 1) * 20
@@ -43,7 +45,8 @@ class KitsuAPI:
                     break
                 page += 1
                 if page % 3 == 0:
-                    time.sleep(2)
+                    if control.monitor.waitForAbort(2):
+                        break
             else:
                 break
         return res_data

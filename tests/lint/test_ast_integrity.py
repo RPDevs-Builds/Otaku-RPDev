@@ -588,6 +588,35 @@ class TestASTIntegrity(unittest.TestCase):
             "Circular add-on dependency cycle(s) detected (causes Kodi DialogAddonInfo freeze):\n  " + "\n  ".join(cycles),
         )
 
+    def test_zero_case_insensitive_asset_collisions_and_oversized_pngs(self):
+        """CR-01: Zero case-insensitive filename collisions across all 3 add-ons and root PNG size limits."""
+        png_magic = b'\x89PNG\r\n\x1a\n'
+        collisions = []
+        for addon_dir in (ADDON_DIR, CONTEXT_ADDON_DIR, SUBTITLE_ADDON_DIR):
+            for dirpath, _dirnames, filenames in os.walk(addon_dir):
+                if '__pycache__' in dirpath:
+                    continue
+                seen_lower = {}
+                for fn in filenames:
+                    low = fn.lower()
+                    if low in seen_lower:
+                        collisions.append((os.path.relpath(dirpath, REPO_ROOT), seen_lower[low], fn))
+                    else:
+                        seen_lower[low] = fn
+
+            poster_path = os.path.join(addon_dir, 'poster.png')
+            icon_path = os.path.join(addon_dir, 'icon.png')
+            self.assertTrue(os.path.isfile(poster_path), f"Missing {poster_path}")
+            self.assertTrue(os.path.isfile(icon_path), f"Missing {icon_path}")
+            self.assertLess(os.path.getsize(poster_path), 350 * 1024, f"Oversized poster.png in {addon_dir}")
+            self.assertLess(os.path.getsize(icon_path), 150 * 1024, f"Oversized icon.png in {addon_dir}")
+            with open(poster_path, 'rb') as pf:
+                self.assertEqual(pf.read(8), png_magic)
+            with open(icon_path, 'rb') as icf:
+                self.assertEqual(icf.read(8), png_magic)
+
+        self.assertEqual(collisions, [], f"Case-insensitive filename collisions found: {collisions}")
+
 
 if __name__ == '__main__':
     unittest.main()

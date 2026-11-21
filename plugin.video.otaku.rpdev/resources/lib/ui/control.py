@@ -572,7 +572,9 @@ def get_studio_logo_path(studio_name: str, style: str = 'coloured') -> str:
 _SENSITIVE_SETTING_KEYS = (
     'realdebrid.token', 'alldebrid.token', 'premiumize.token', 'torbox.token',
     'debridlink.token', 'easydebrid.token', 'simkl.token',
-    'mal.token', 'kitsu.token'
+    'mal.token', 'kitsu.token',
+    'subtitles.subdl.apikey', 'subtitles.subsource.apikey',
+    'subtitles.opensubtitles.password', 'animeskip.apikey', 'easynews.password',
 )
 
 

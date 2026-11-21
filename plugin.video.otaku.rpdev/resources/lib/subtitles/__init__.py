@@ -38,6 +38,7 @@ def get_subtitles_settings() -> Dict[str, Any]:
         'subtitles.auto_download': control.getBool('subtitles.auto_download', True),
         'subtitles.prefer_sdh': control.getBool('subtitles.prefer_sdh', False),
         'subtitles.prefer_forced': control.getBool('subtitles.prefer_forced', False),
+        'subtitles.strip_sdh_tags': control.getBool('subtitles.strip_sdh_tags', False),
         'subtitles.use_chardet': control.getBool('subtitles.use_chardet', True),
         'subtitles.timeout': control.getInt('subtitles.timeout') or 15,
         'subtitles.results_limit': control.getInt('subtitles.results_limit') or 20,

@@ -148,7 +148,7 @@ def update_news_txt(news_path, new_ver, title, highlights):
 
     # Demote previous top-level ================================ header to --------------------------------
     demoted_old = re.sub(
-        r"^={16,}\n(\[B\]OTAKU RPDEV v[^\n]+\[/B\]\n[^\n]+\n)={16,}",
+        r"^={16,}\n(\[B\]OTAKU RPDEV v[^\n]+\[/B\](?:\n[^\n=]+)?\n)={16,}",
         r"--------------------------------\n\1--------------------------------",
         old_content.lstrip(),
         count=1,

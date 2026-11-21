@@ -6,6 +6,20 @@ from resources.lib.ui import client, control, database
 url = "https://www.animefillerlist.com/shows"
 
 
+def classify_filler_tag(raw_tag):
+    """Normalize raw AnimeFillerList span text into 'Filler', 'Recap', 'Mixed Canon/Filler', or ''."""
+    if not raw_tag:
+        return ''
+    low = str(raw_tag).strip().lower()
+    if 'recap' in low:
+        return 'Recap'
+    if 'mostly filler' in low or low == 'filler':
+        return 'Filler'
+    if 'mixed' in low or 'canon/filler' in low:
+        return 'Mixed Canon/Filler'
+    return ''
+
+
 def _fetch_filler_data(anime_eng_title):
     filler_list = []
     if anime_eng_title:
@@ -21,7 +35,8 @@ def _fetch_filler_data(anime_eng_title):
                     for row in table.tbody.find_all('tr'):
                         span = row.find('span')
                         if span and span.text:
-                            filler_list.append(span.text.strip())
+                            raw_txt = span.text.strip()
+                            filler_list.append(classify_filler_tag(raw_txt) or raw_txt)
         except Exception as e:
             control.log(f"anime_filler lookup error for {anime_eng_title}: {e}", 'debug')
 

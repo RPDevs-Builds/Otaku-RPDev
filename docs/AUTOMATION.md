@@ -50,7 +50,7 @@ For step-by-step LLM triage and test authoring recipes, see [otaku-testing-and-q
 | `tests/lint/test_ast_integrity.py` | Bare `except:`, BS4 `.select()`/`.select_one()`, direct `json.loads()`, `super(Cls, self)`, mutable default args, raw `print()`, unchecked `waitForAbort()`, deprecated `ssl.PROTOCOL_TLS*`, deprecated `ListItem.setInfo()`, `int(timeout)` in `client.py`, invalid 1080i skin XML / `<defaultcontrol>` / BBCode. |
 | `tests/lint/test_suite_quality.py` | Zero-assertion tests, tautological `assertTrue(True)`, broad `except Exception: pass` inside tests, unexecuted `module_from_spec`, and `assertIsNotNone`-only placeholder tests. |
 | `tests/lint/test_docs_and_customizations.py` | `AGENTS.md >= 22 KB` (preventing silent 24 KB truncation), invalid `.agents/skills/*/SKILL.md` YAML frontmatter, broken relative Markdown links across `README.md`/`AGENTS.md`/`docs/*.md`, `news.txt` dividers `> 32` chars, and malformed `docs/CONCERNS.md` cursor. |
-| `tests/lint/test_function_coverage.py` | Dynamic discovery of 100% of plugin + context `.py` modules with zero unreferenced/failing imports. |
+| `tests/lint/test_function_coverage.py` | Dynamic discovery of 100% of `plugin.video.otaku.rpdev`, `context.otaku.rpdev`, and `service.subtitles.otaku.rpdev` `.py` modules with zero unreferenced/failing imports. |
 
 ---
 

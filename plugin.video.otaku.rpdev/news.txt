@@ -1,7 +1,24 @@
 ========================
+[B]OTAKU RPDEV v6.3.0[/B]
+Major v6.3.0 Release
+========================
+
+v6.3.0 Highlights:
+  * Per-Series Playback Profiles, Unified Adaptive Circuit Breaker, and
+    Multi-Tracker Conflict Engine with persistent 429 retry queue
+  * Filler/Recap episode badges, Binge Filler Auto-Skip, Per-Series OP/ED
+    offset tuning, and Cross-Watchlist Drift Auditor
+  * Subtitle Intelligence v2 (service.subtitles.otaku.rpdev v1.0.3), Widget-
+    Aware Context Menu (context.otaku.rpdev v1.0.46), and verified
+    mappings.db sync with .bak rollback
+  * Closed C-06, C-34, and C-35; deduplicated 530 studio logos, compressed
+    root artwork, and completed full abort-safe waitForAbort & SQLite
+    hardening
+
+--------------------------------
 [B]OTAKU RPDEV v6.2.19[/B]
 Auto-Sub Signs Reset Fix
-========================
+--------------------------------
 
 v6.2.19 Highlights:
   * Fixed stale otaku.embed_sub_has_full_dialog property persisting across

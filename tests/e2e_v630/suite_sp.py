@@ -374,6 +374,7 @@ class TestSP03AuditOnnLogsAndHygiene(unittest.TestCase):
             "2026-11-21 10:00:03.100 T:100 info <general>: Subtitle Service: action=search returned 3 result(s)\n"
             "2026-11-21 10:00:04.100 T:100 error <general>: OTAKU RPDEV (1): resolve_silent failed for candidate\n"
             "2026-11-21 10:00:05.100 T:100 error <general>: OpenStream - Unable to create subtitle parser\n"
+            "2026-11-21 10:00:05.500 T:100 error <general>: CCurlFile::CReadState::FillBuffer Failed: Failure when receiving data from the peer(56)\n"
             "2026-11-21 10:00:06.100 T:100 warning <general>: OTAKU RPDEV (1): WatchlistFlavorAuth idle timeout\n"
             "2026-11-21 10:00:07.100 T:100 error <general>: plugin.video.umbrella: ignored noise\n"
         )
@@ -398,6 +399,7 @@ class TestSP03AuditOnnLogsAndHygiene(unittest.TestCase):
             self.assertEqual(report['counts']['otaku_warnings'], 1)
             self.assertEqual(report['counts']['non_otaku_noise_filtered'], 1)
             self.assertEqual(report['counts']['concerns']['C-34'], 1)
+            self.assertEqual(report['counts']['concerns']['C-11'], 1)
             self.assertEqual(report['counts']['concerns']['C-14'], 1)
             self.assertEqual(report['counts']['concerns']['C-35'], 1)
             self.assertEqual(report['addon_versions'].get('plugin.video.otaku.rpdev'), '6.3.0')

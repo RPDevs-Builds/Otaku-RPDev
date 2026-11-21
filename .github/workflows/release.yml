@@ -37,7 +37,8 @@ jobs:
 
       - name: Run Unified Multi-Silo Verification Gate (ruff, compileall, unittest, coverage)
         run: |
-          python3 scripts/verify_all.py --fail-below 60 --verbose
+          python3 scripts/verify_all.py --fail-below 65 --verbose
+          python3 scripts/e2e_v630_suite.py
 
   build-and-release:
     name: Package Add-on & Publish GitHub Release
@@ -119,7 +120,7 @@ jobs:
 
           def package_addon(addon_id, version, extra_excludes=()):
               zip_name = f"dist/{addon_id}-{version}.zip"
-              exclude_dirs = {'__pycache__', 'tests', 'scratch', *extra_excludes}
+              exclude_dirs = {'__pycache__', 'tests', 'docs', 'teamwork', 'scratch', *extra_excludes}
               with zipfile.ZipFile(zip_name, 'w', compression=zipfile.ZIP_DEFLATED) as zf:
                   for root, dirs, files in os.walk(addon_id):
                       dirs[:] = [d for d in dirs if d not in exclude_dirs and not d.startswith('.')]

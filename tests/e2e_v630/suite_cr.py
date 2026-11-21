@@ -961,8 +961,10 @@ class TestCR04CIReleaseAndPackaging(unittest.TestCase):
                 sf.writelines(sha_lines)
             with open(md5_file, 'w', encoding='utf-8') as mf:
                 mf.writelines(md5_lines)
-            self.assertEqual(len(open(sha_file, encoding='utf-8').readlines()), 3)
-            self.assertEqual(len(open(md5_file, encoding='utf-8').readlines()), 3)
+            with open(sha_file, encoding='utf-8') as sf_in:
+                self.assertEqual(len(sf_in.readlines()), 3)
+            with open(md5_file, encoding='utf-8') as mf_in:
+                self.assertEqual(len(mf_in.readlines()), 3)
 
     @tier(1)
     @feature('CR-04')
@@ -1121,7 +1123,8 @@ class TestCR04CIReleaseAndPackaging(unittest.TestCase):
             with open(news_p, 'w', encoding='utf-8') as f:
                 f.write("========================================\n[B]OTAKU RPDEV v6.2.19[/B]\n========================================\nOld item\n")
             release_addon.update_news_txt(news_p, '6.3.0', 'v6.3.0 Release', ['Feature one'])
-            content = open(news_p, encoding='utf-8').read()
+            with open(news_p, encoding='utf-8') as nf:
+                content = nf.read()
             self.assertIn('[B]OTAKU RPDEV v6.3.0[/B]', content)
             self.assertIn('-' * 32, content)
             for ln in content.splitlines():
@@ -1433,7 +1436,8 @@ class TestCR05AbortLoopsAndSanitizeLog(unittest.TestCase):
             res_b = api.get_episode_meta(52991)
             self.assertLess(time.monotonic() - t1, 0.5)
             self.assertEqual(len(anidb_hits), 1)
-            self.assertEqual(len(res_b), 1)
+            self.assertEqual(len(res_b['episodes']), 1)
+            self.assertEqual(res_b['episodes'][0]['episode'], 1)
 
     @tier(2)
     @feature('CR-05')
@@ -1451,8 +1455,8 @@ class TestCR05AbortLoopsAndSanitizeLog(unittest.TestCase):
             self.assertNotIn('123456', san_6)
             self.assertIn('[REDACTED]', san_6)
 
-            self.assertIn('1234567', control.sanitize_log('Bearer 1234567'))
-            self.assertEqual(control.sanitize_log('Bearer 12345678'), 'Bearer [REDACTED]')
+            self.assertIn('abc4567', control.sanitize_log('Bearer abc4567'))
+            self.assertEqual(control.sanitize_log('Bearer abc45678'), 'Bearer [REDACTED]')
 
     @tier(2)
     @feature('CR-05')

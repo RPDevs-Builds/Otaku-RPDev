@@ -28,7 +28,10 @@ class ANIDBAPI:
         if last_request > 0:
             elapsed = now - last_request
             if elapsed < 4:
-                time.sleep(4 - elapsed)
+                if control.monitor.waitForAbort(4 - elapsed):
+                    return []
+        if control.abort_requested():
+            return []
         params = {
             'request': 'anime',
             'client': self.client_name,

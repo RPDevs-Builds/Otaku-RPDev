@@ -1,6 +1,6 @@
 # Otaku-RPDev Development & Engineering Rules
 
-Authoritative engineering invariants and operational mandates for `Otaku-RPDev` (`plugin.video.otaku.rpdev` & `context.otaku.rpdev`). See [docs/README.md](docs/README.md) for the full documentation index ([docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/TESTING.md](docs/TESTING.md), [docs/AUTOMATION.md](docs/AUTOMATION.md), [docs/CONFIGURATION_GUIDE.md](docs/CONFIGURATION_GUIDE.md), [docs/CONCERNS.md](docs/CONCERNS.md)), and `.agents/skills/` for operational runbooks.
+Authoritative engineering invariants and operational mandates for `Otaku-RPDev` (`plugin.video.otaku.rpdev`, `context.otaku.rpdev`, and `service.subtitles.otaku.rpdev`). See [docs/README.md](docs/README.md) for the full documentation index ([docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/TESTING.md](docs/TESTING.md), [docs/AUTOMATION.md](docs/AUTOMATION.md), [docs/CONFIGURATION_GUIDE.md](docs/CONFIGURATION_GUIDE.md), [docs/CONCERNS.md](docs/CONCERNS.md)), and `.agents/skills/` for operational runbooks.
 
 ---
 
@@ -8,7 +8,8 @@ Authoritative engineering invariants and operational mandates for `Otaku-RPDev` 
 - **`plugin.video.otaku.rpdev/`**: Primary video add-on targeting Kodi 20 (Nexus), Kodi 21 (Omega), and Kodi 22 (Piers).
   - `default.py` (plugin router; dispatches auto-changelog asynchronously so modal dialogs never block root `GetDirectory`), `service.py` (`clean_settings`, 15m proactive OAuth refresh, passive SQLite WAL checkpoints).
   - `resources/lib/ui/` (`control.py`, `database.py`, `client.py`, `player.py`, `source_utils.py`, `embed_extractor.py`, `domains.py`), `Main.py` & `routes/`, `pages/`, `debrid/`, `endpoints/`, `WatchlistFlavor/`, `subtitles/`, `windows/` & `resources/skins/Default/1080i/` (41 XML templates).
-- **`context.otaku.rpdev/`**: Standalone context menu add-on (`_extract_subpath()` regex parsing for skin widgets; read-only `info.db`; 580 coloured/white studio logos under `resources/images/studios/`).
+- **`context.otaku.rpdev/`**: Standalone context menu add-on (`_extract_subpath()` regex parsing for skin widgets; read-only `info.db`; 530 coloured/white studio logos under `resources/images/studios/`).
+- **`service.subtitles.otaku.rpdev/`**: Native Kodi `xbmc.subtitle.module` service add-on bridging Kodi's VideoOSD subtitle dialog to `plugin.video.otaku.rpdev`'s multi-provider subtitle engine (SubDL, SubSource, OpenSubtitles, Podnapisi, Animetosho).
 - **`tests/`**: Hermetic offline suite (`tests/conftest.py` socket guard + SWIG mocks, `tests/kodi_profile.py` Kodi 21/22 simulation, `tests/unit/`, `tests/integration/`, `tests/lint/`, `tests/fixtures/`).
 
 ---

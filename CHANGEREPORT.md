@@ -26,7 +26,8 @@
 | **Database Concurrency** | Lockfiles on filesystem (`.lock`) | **In-memory thread locks + WAL checkpoints** | Prevents SQLite database corruption and stale lock freezes |
 | **Database Migrations** | `re_build_database(True)` table wipes | **Non-destructive schema migrations** | Preserves user watch history, shows, and episode caches across updates |
 | **Menu Customization** | Static multi-select list controls | **Interactive WindowXML Manager (`menu_order.xml`)** | Universal reordering, in-place toggle, and bulk toggle across 24 menus |
-| **Context Menu Architecture** | Monolithic embedded context files | **Decoupled Addon (`context.otaku.rpdev` v1.0.44)** | Crash-proof path extraction, independent lifecycle, and DELETE journal mode |
+| **Context Menu Architecture** | Monolithic embedded context files | **Decoupled Addon (`context.otaku.rpdev` v1.0.46)** | Crash-proof path extraction, independent lifecycle, and DELETE journal mode |
+| **Native Subtitle Service** | None | **Tri-Addon (`service.subtitles.otaku.rpdev` v1.0.3)** | Native Kodi `xbmc.subtitle.module` OSD integration & auto-download engine |
 | **Scraper Concurrency & Safety** | Potential zombie thread hangs | **Abort-responsive worker threads + 30s ceiling** | Sub-second shutdown aborts; 0 zombie thread leaks on stream cancel |
 
 ---

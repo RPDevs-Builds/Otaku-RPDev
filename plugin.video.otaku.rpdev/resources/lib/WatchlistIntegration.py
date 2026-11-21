@@ -249,3 +249,80 @@ def set_watchlist_score(mal_id, score):
 def delete_watchlist_anime(mal_id):
     """Delete anime from ALL enabled watchlists."""
     return WatchlistFlavor.watchlist_delete_all_anime(mal_id)
+
+
+@Route('watchlist_telemetry')
+def WATCHLIST_TELEMETRY(payload, params):
+    """Display multi-tracker watchlist sync telemetry and pending 429 retry queue."""
+    queue = database.list_scrobble_retry_queue()
+    drifts = WatchlistFlavor.compute_watchlist_drift()
+    policy_map = {0: 'Highest Progress Wins', 1: 'Primary Tracker Wins', 2: 'Latest Updated Timestamp Wins'}
+    policy_name = policy_map.get(control.getInt('watchlist.sync.conflict_policy', default=0), 'Highest Progress Wins')
+    enabled = control.enabled_watchlists()
+
+    lines = [
+        "=" * 60,
+        f"  {control.ADDON_NAME} Multi-Tracker Watchlist Telemetry",
+        "=" * 60,
+        f"  • Enabled Trackers:  {', '.join(enabled) if enabled else 'None'}",
+        f"  • Conflict Policy:   {policy_name}",
+        f"  • Pending Retries:   {len(queue)}",
+        f"  • Detected Drifts:   {len(drifts)}",
+        "",
+        "[Pending Scrobble Retry Queue]",
+    ]
+    if not queue:
+        lines.append("  • Queue is empty (0 pending retries).")
+    else:
+        for q in queue:
+            lines.append(
+                f"  • [{q.get('service')}] MAL #{q.get('mal_id')} ({q.get('action')} ep={q.get('episode')}) "
+                f"attempts={q.get('attempts')} err={q.get('last_error')}"
+            )
+    control.textviewer_dialog('Watchlist Sync Telemetry & Retry Queue', '\n'.join(lines))
+    return control.exit_code()
+
+
+@Route('watchlist_drift_auditor')
+def WATCHLIST_DRIFT_AUDITOR(payload, params):
+    """Audit and optionally reconcile episode progress drift across enabled watchlist trackers."""
+    drifts = WatchlistFlavor.compute_watchlist_drift()
+    if not drifts:
+        control.notify(control.ADDON_NAME, 'All enabled watchlists are in sync (0 drifts found)', time=4000)
+        return control.exit_code()
+
+    planned_mutations = WatchlistFlavor.count_watchlist_drift_mutations(drifts)
+    params = params or {}
+    is_dry_run = str(params.get('dry_run', '')).lower() == 'true'
+    want_reconcile = str(params.get('reconcile', '')).lower() == 'true'
+
+    lines = [
+        "=" * 60,
+        f"  Cross-Watchlist Drift Report ({len(drifts)} show(s) out of sync)",
+        f"  Dry-Run Planned Mutations: {planned_mutations} tracker update(s)",
+        "=" * 60,
+        "",
+    ]
+    for d in drifts:
+        t_parts = [f"{svc}: Ep {td.get('episodes_watched', 0)}" for svc, td in sorted(d['trackers'].items())]
+        lines.append(f"• {d['title']} (MAL #{d['mal_id']}) -> Target Ep {d['target_episode']}")
+        lines.append(f"    Trackers: {' | '.join(t_parts)}")
+    control.textviewer_dialog('Cross-Watchlist Drift Auditor', '\n'.join(lines))
+
+    if is_dry_run:
+        return control.exit_code()
+
+    if want_reconcile:
+        skip_confirm = str(params.get('confirm', '')).lower() == 'true'
+        confirmed = True if skip_confirm else bool(control.yesno_dialog(
+            f"{control.ADDON_NAME}: Cross-Watchlist Drift Auditor",
+            f"Dry-Run Summary: {planned_mutations} tracker update(s) across {len(drifts)} show(s).\n\n"
+            f"Confirm bulk watchlist reconciliation?"
+        ))
+        if confirmed:
+            count = WatchlistFlavor.reconcile_watchlist_drift(drifts)
+            control.notify(control.ADDON_NAME, f'Reconciled {count} tracker drift entry/entries', time=4000)
+        else:
+            control.notify(control.ADDON_NAME, 'Drift reconciliation cancelled (dry-run only)', time=3000)
+    return control.exit_code()
+

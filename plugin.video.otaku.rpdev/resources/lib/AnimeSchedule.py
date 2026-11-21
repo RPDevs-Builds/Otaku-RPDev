@@ -89,6 +89,8 @@ class AnimeScheduleCalendar:
                 season = 'fall'
 
             # STEP 1: Fetch timetables and collect unique routes
+            if control.abort_requested():
+                return []
             all_timetable_anime = []
             unique_routes = set()
 
@@ -120,6 +122,8 @@ class AnimeScheduleCalendar:
             control.log(f"AnimESchedule: Found {unique_count} unique anime from timetables", "info")
 
             # STEP 2: Fetch season anime in parallel (fixed number of pages)
+            if control.abort_requested():
+                return []
             season_anime = {}
             matched_routes = set()
 
@@ -155,6 +159,8 @@ class AnimeScheduleCalendar:
             control.log(f"AnimESchedule: Matched {len(matched_routes)}/{unique_count} from season pages", "info")
 
             # STEP 3: Individual searches for unmatched routes (parallel with retry)
+            if control.abort_requested():
+                return []
             unmatched_routes = unique_routes - matched_routes
             if unmatched_routes:
                 control.log(f"AnimESchedule: Fetching {len(unmatched_routes)} unmatched routes individually", "info")
@@ -186,13 +192,13 @@ class AnimeScheduleCalendar:
 
                 # Retry any remaining failures with reduced workers (only if needed)
                 still_unmatched = unmatched_routes - matched_routes
-                if still_unmatched and len(still_unmatched) > 0:
-                    import time
+                if still_unmatched and len(still_unmatched) > 0 and not control.abort_requested():
                     control.log(f"AnimESchedule: Retrying {len(still_unmatched)} failed routes", "info")
 
                     # Only delay if many failures (>10) to avoid rate limiting
                     if len(still_unmatched) > 10:
-                        time.sleep(0.5)
+                        if control.monitor.waitForAbort(0.5):
+                            return []
 
                     retry_requests = [
                         {
@@ -509,13 +515,13 @@ class AnimeScheduleCalendar:
         Returns:
             dict: Anime data if found, None otherwise
         """
-        import time
-
         max_attempts = 2
         retry_delay = 0.2  # Reduced from 0.3 for faster retries
         headers = {'Authorization': f'Bearer {self.token}'} if self.token else {}
 
         for attempt in range(max_attempts):
+            if control.abort_requested():
+                return None
             try:
                 # Use direct route endpoint: /anime/{route}
                 url = f"{BASE_URL}/anime/{route}"
@@ -530,11 +536,13 @@ class AnimeScheduleCalendar:
 
                 # If we got here, no results or bad status - try again
                 if attempt < max_attempts - 1:
-                    time.sleep(retry_delay)
+                    if control.monitor.waitForAbort(retry_delay):
+                        return None
 
             except Exception as e:
                 if attempt < max_attempts - 1:
-                    time.sleep(retry_delay)
+                    if control.monitor.waitForAbort(retry_delay):
+                        return None
                 else:
                     control.log(f"Error fetching route {route} after {max_attempts} attempts: {str(e)}", "debug")
 

@@ -53,10 +53,28 @@ def update_calendars():
     control.log("### Calendars updated successfully")
 
 
-def update_mappings_db():
+def _decompress_mappings_payload(raw_bytes, url=''):
+    """Decompress .xz or .gz mappings payload if compressed, or return raw SQLite bytes."""
+    if not raw_bytes:
+        return b''
+    import gzip
+    import lzma
+    if raw_bytes.startswith(b'\xfd7zXZ\x00') or str(url).lower().endswith('.xz'):
+        return lzma.decompress(raw_bytes)
+    if raw_bytes.startswith(b'\x1f\x8b') or str(url).lower().endswith('.gz'):
+        return gzip.decompress(raw_bytes)
+    return raw_bytes
+
+
+def update_mappings_db(url=None, expected_sha256=None):
     control.log("### Updating Mappings")
-    url = 'https://github.com/Goldenfreddy0703/Otaku-Mappings/raw/refs/heads/main/anime_mappings.db'
+    from resources.lib.ui import database
+    import hashlib
+    import shutil
+    target_url = url or 'https://github.com/Goldenfreddy0703/Otaku-Mappings/raw/refs/heads/main/anime_mappings.db'
     dest_path = os.path.join(control.dataPath, 'mappings.db')
+    bak_path = f"{dest_path}.bak"
+    tmp_path = f"{dest_path}.candidate.tmp"
     headers = {}
     saved_etag = control.getSetting('mappings.etag')
     saved_mtime = control.getSetting('mappings.last_modified')
@@ -67,12 +85,52 @@ def update_mappings_db():
             headers['If-Modified-Since'] = saved_mtime
 
     try:
-        response = client.get(url, headers=headers, timeout=20)
+        response = client.get(target_url, headers=headers, timeout=20)
         if response and response.status_code == 304:
             control.log("### Mappings unchanged (304 Not Modified)")
-            return
+            return True
         if response and response.status_code == 200 and response.content:
-            if control.atomic_write_bytes(dest_path, response.content):
+            raw_payload = _decompress_mappings_payload(response.content, target_url)
+            sha_header = (
+                expected_sha256
+                or (response.headers.get('X-Checksum-Sha256') if hasattr(response, 'headers') and response.headers else None)
+            )
+            if sha_header:
+                actual_sha = hashlib.sha256(raw_payload).hexdigest().lower()
+                if actual_sha != str(sha_header).strip().lower():
+                    control.log(f"### Mappings SHA-256 mismatch: expected {sha_header}, got {actual_sha}", 'error')
+                    return False
+
+            os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+            with open(tmp_path, 'wb') as tf:
+                tf.write(raw_payload)
+
+            # If existing mappings.db exists, verify candidate passes PRAGMA quick_check
+            # (or if raw_payload starts with SQLite format 3 header, verify integrity before swapping)
+            if raw_payload.startswith(b'SQLite format 3\x00') or os.path.exists(dest_path):
+                ok_check, reason = database.verify_sqlite_integrity(tmp_path, required_tables=())
+                if not ok_check:
+                    control.log(f"### Candidate mappings.db failed quick_check ({reason}); keeping existing DB", 'warning')
+                    try:
+                        os.remove(tmp_path)
+                    except OSError:
+                        pass
+                    if (not os.path.exists(dest_path) or not database.verify_sqlite_integrity(dest_path, required_tables=())[0]) and os.path.exists(bak_path):
+                        shutil.copy2(bak_path, dest_path)
+                    return False
+
+            if os.path.exists(dest_path) and database.verify_sqlite_integrity(dest_path, required_tables=())[0]:
+                try:
+                    shutil.copy2(dest_path, bak_path)
+                except OSError:
+                    pass
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                pass
+
+            if control.atomic_write_bytes(dest_path, raw_payload):
+                database.close_all_connections(dest_path)
                 new_etag = response.headers.get('Etag') or response.headers.get('ETag', '')
                 new_mtime = response.headers.get('Last-Modified', '')
                 if new_etag:
@@ -80,12 +138,23 @@ def update_mappings_db():
                 if new_mtime:
                     control.setSetting('mappings.last_modified', new_mtime)
                 control.log("### Mappings updated successfully")
+                return True
             else:
                 control.log("### Failed to save mappings atomically")
+                if os.path.exists(bak_path) and not os.path.exists(dest_path):
+                    shutil.copy2(bak_path, dest_path)
+                return False
         else:
             control.log(f"### Failed to update mappings: HTTP {getattr(response, 'status_code', 'unknown')}")
+            return False
     except Exception as e:
         control.log(f"### Failed to update mappings: {e}")
+        try:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+        except OSError:
+            pass
+        return False
 
 
 def cleanup_cache_databases():
@@ -93,9 +162,11 @@ def cleanup_cache_databases():
     try:
         from resources.lib.ui import database
         from resources.lib.debrid import debrid_cache
+        from resources.lib.WatchlistFlavor import WatchlistFlavor
         database.prune_expired_cache(30)
         debrid_cache.prune_expired_hashes()
         database.prune_stale_multipage_jobs()
+        WatchlistFlavor.process_scrobble_retry_queue(limit=25)
         database.checkpoint_databases(truncate=True)
         control.log("### Cache cleanup complete")
     except Exception as e:
@@ -271,9 +342,17 @@ def getChangeLog():
 
     heading = '[B]%s -  v%s - ChangeLog & News[/B]' % (control.ADDON_NAME, control.ADDON_VERSION)
     from resources.lib.windows.textviewer import TextViewerXML
-    windows = TextViewerXML('textviewer.xml', control.ADDON_PATH, heading=heading, changelog_text=changelog_text, news_text=news_text)
-    windows.run()
-    del windows
+    windows = None
+    try:
+        windows = TextViewerXML('textviewer.xml', control.ADDON_PATH, heading=heading, changelog_text=changelog_text, news_text=news_text)
+        windows.run()
+    finally:
+        if windows is not None:
+            try:
+                windows.close()
+            except Exception:
+                pass
+            del windows
 
 
 def getInstructions():
@@ -287,9 +366,17 @@ def getInstructions():
 
     heading = '[B]%s -  v%s - Instructions[/B]' % (control.ADDON_NAME, control.ADDON_VERSION)
     from resources.lib.windows.textviewer import TextViewerXML
-    windows = TextViewerXML('textviewer_1.xml', control.ADDON_PATH, heading=heading, instructions_text=instructions_text)
-    windows.run()
-    del windows
+    windows = None
+    try:
+        windows = TextViewerXML('textviewer_1.xml', control.ADDON_PATH, heading=heading, instructions_text=instructions_text)
+        windows.run()
+    finally:
+        if windows is not None:
+            try:
+                windows.close()
+            except Exception:
+                pass
+            del windows
 
 
 def toggle_reuselanguageinvoker(forced_state=None):
@@ -801,6 +888,13 @@ if __name__ == "__main__":
             refresh_apis()
         except Exception as e:
             control.log(f"Periodic API token refresh notice: {e}", 'debug')
+        try:
+            from resources.lib.WatchlistFlavor import WatchlistFlavor
+            replayed = WatchlistFlavor.process_scrobble_retry_queue()
+            if replayed:
+                control.log(f"Periodic scrobble retry queue replayed {replayed} item(s)", 'info')
+        except Exception as e:
+            control.log(f"Periodic scrobble retry queue notice: {e}", 'debug')
         try:
             from resources.lib.ui import database
             database.close_thread_connections()

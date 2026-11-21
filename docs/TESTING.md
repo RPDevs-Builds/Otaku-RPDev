@@ -13,7 +13,7 @@ Otaku-RPDev uses a **6-silo testing architecture** designed so every test produc
 | **3. Behavioral Unit Matrix** | `tests/unit/` | Dual Kodi 21/22 compatibility (`KodiProfile`), exhaustive 467-setting consumer-outcome checks (`test_all_settings_outcomes.py`), WindowXML/skin/route behavior (`test_end_user_ui_and_routes.py`), scrapers, debrid, subtitles, and 576-title scoring regression (`test_top100_hermetic_regression.py`). |
 | **4. End-to-End Integration** | `tests/integration/` (`test_end_to_end_user_journeys.py`, `test_full_system_lifecycle.py`, `test_resolvers_and_routes.py`) | Cross-subsystem offline user journeys: Browse/Sort/Pin → Parallel Scrape + Failover + Filter + Debrid + `sortSources` → Subtitle Validation + Kodi 22 Player Selection → Season-Pack Caching. |
 | **5. Coverage Gate** | `scripts/audit_function_coverage.py --fail-below 60` | 100% source module import coverage and `>= 60%` live-traced function coverage (`sys.monitoring` / `sys.settrace`). |
-| **6. Headless Real Kodi 21/22** | `scripts/test_kodi_installs.py` / `kodi-env headless 22` | Real Flatpak Kodi 21.3 (Omega) & 22.0 (Piers) execution under Xvfb with zero-tolerance `kodi.log` audits. |
+| **6. Headless Real Kodi 21/22** | `scripts/test_kodi_installs.py` / `kodi-env headless 22` | Real Flatpak Kodi 21.3 (Omega) & 22.0 (Piers) execution under Xvfb across `plugin.video.otaku.rpdev`, `context.otaku.rpdev`, and `service.subtitles.otaku.rpdev` with zero-tolerance `kodi.log` audits. |
 
 Run Silos 1–5 identically anywhere via:
 ```bash

@@ -141,13 +141,26 @@ def get_sources(mal_id, episode, media_type, rescrape=False, source_select=False
     if mal_mapping and 'thetvdb_part' in mal_mapping:
         part = mal_mapping['thetvdb_part']
 
+    # NF-06: Apply per-series episode_offset strictly to scraper queries (never alters canonical watchlist scrobble episode)
+    scrape_episode = episode
+    series_override = database.get_series_override(mal_id)
+    if isinstance(series_override, dict) and series_override.get('episode_offset'):
+        try:
+            ep_off = int(series_override.get('episode_offset') or 0)
+            if ep_off != 0 and str(episode).isdigit():
+                scrape_episode = str(max(1, int(episode) + ep_off))
+                control.log(f"MetaBrowser: Applied per-series episode_offset={ep_off:+d} for MAL {mal_id} (canonical ep {episode} -> scrape ep {scrape_episode})", level='info')
+        except (ValueError, TypeError):
+            scrape_episode = episode
+
     actionArgs = {
-        'query': kodi_meta['query'],
+        'query': kodi_meta.get('query', kodi_meta.get('name', '')),
         'mal_id': mal_id,
-        'episode': episode,
-        'episodes': kodi_meta['episodes'],
-        'status': kodi_meta['status'],
-        'duration': kodi_meta['duration'],
+        'episode': scrape_episode,
+        'canonical_episode': episode,
+        'episodes': kodi_meta.get('episodes'),
+        'status': kodi_meta.get('status'),
+        'duration': kodi_meta.get('duration'),
         'media_type': media_type,
         'rescrape': rescrape,
         'source_select': source_select,

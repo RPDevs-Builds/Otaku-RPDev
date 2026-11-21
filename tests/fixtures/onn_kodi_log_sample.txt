@@ -8,6 +8,7 @@
 2026-11-21 04:48:18.500 T:1212 info <general>: CDVDSubtitlesLibass: [ASS] Loaded external subtitle TemporarySubs.29854_3.0.eng.ass
 2026-11-21 04:48:18.900 T:1212 info <general>: OTAKU RPDEV (12): Subtitle Service: OnDownloadComplete saved 142 cues
 2026-11-21 04:49:02.111 T:1220 error <general>: OpenStream - Unable to create subtitle parser for special://temp/TemporarySubs.bad.vtt
+2026-11-21 04:49:30.000 T:1225 error <general>: CCurlFile::CReadState::FillBuffer Failed: Failure when receiving data from the peer(56)
 2026-11-21 04:50:10.000 T:1230 info <general>: OTAKU RPDEV (-1): WatchlistFlavorAuth: Closing unattended 'mal' auth dialog after 300s inactivity
 2026-11-21 04:51:00.500 T:1240 error <general>: OTAKU RPDEV (15): Traceback in CHANGE_LOG route: exit_code directory error
 2026-11-21 04:52:00.000 T:1250 warning <general>: ActiveAE - audio sink underrun

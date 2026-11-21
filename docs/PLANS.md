@@ -145,3 +145,19 @@ flowchart TD
 3. **Asset & Lint Cleanliness:** Zero case-insensitive studio logo filename collisions across `context.otaku.rpdev`, all root `poster.png`/`icon.png` assets optimized `< 600 KB`, and `AGENTS.md < 22,000` bytes.
 4. **Dual Headless Kodi 21 & 22 E2E Verification:** `python3 scripts/test_kodi_installs.py --versions 21 22 --mode hermetic` passes 15/15 gates across all 3 add-ons (`plugin.video.otaku.rpdev v6.3.0`, `context.otaku.rpdev v1.0.46`, `service.subtitles.otaku.rpdev v1.0.3`) with 0 C++ setting deserialization errors, 0 SWIG leaks, and 0 Python tracebacks.
 5. **Release & CDN Verification:** Published via `scripts/release_addon.py` to GitHub Releases and verified HTTP 200 live on `https://kodi.repo.iamrp.dev/` with zero direct modifications to `10.13.0.16`.
+
+---
+
+## 8. Post-`v6.3.0` Forward Roadmap (`v6.4.0` Backlog: `NF-10`–`NF-13` & Deferred Sub-Features)
+
+Items intentionally scoped beyond `v6.3.0` and scheduled for **`v6.4.0`**:
+
+- **`NF-10` — Offline Watchlist & Metadata Snapshot Bundles**: Exportable/importable encrypted `.tar.xz` snapshot bundles containing `malSync.db`, `search.db`, and user `series_overrides` for 1-click LAN migration between Kodi devices.
+- **`NF-11` — Adaptive Debrid Multi-Host Failover & Stream Health Telemetry**: Mid-playback CDN stall detector (`CURL-56` frequency monitor) that automatically re-resolves an alternate debrid CDN mirror or secondary cached torrent hash at the current playback timestamp.
+- **`NF-12` — Custom WindowXML Series Profile Editor & Per-Season Rule Matrix**: Dedicated skin-themed `series_profile.xml` WindowXMLDialog with per-cour/per-season `episode_offset`, custom regex release group pinning, and visual OP/ED timestamp preview.
+- **`NF-13` — Local LAN Peer Cache Discovery (mDNS / ZeroConf)**: Optional opt-in read-only SQLite metadata & `mappings.db` LAN peer sync so secondary Kodi boxes on the same home subnet reuse pre-fetched metadata without redundant upstream API calls.
+- **Deferred `NF-02` Sub-Features (`context.otaku.rpdev v1.1.0`)**:
+  - Direct context-menu *"Copy Diagnostics Summary"* and *"Pin Release Group for Series"* quick actions on episode rows.
+- **Deferred `NF-07` Sub-Features (`service.subtitles.otaku.rpdev v1.1.0`)**:
+  - Automatic ASS/SRT dialogue timing shift calibration (`±ms` audio-energy / chapter-boundary alignment) and multi-language dual-subtitle (`jpn` + `eng` top/bottom ASS) muxing.
+

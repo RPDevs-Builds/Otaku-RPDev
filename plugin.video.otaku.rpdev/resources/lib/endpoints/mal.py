@@ -12,19 +12,26 @@ class Mal:
         list_ = []
 
         for day in days_of_week:
+            if control.abort_requested():
+                return
             day_results = []
             current_page = page
             request_count = 0
 
             while True:
+                if control.abort_requested():
+                    return
                 retries = 3
                 popular = None
                 while retries > 0:
+                    if control.abort_requested():
+                        return
                     popular = self.get_airing_calendar_res(day, current_page)
                     if popular and 'data' in popular:
                         break
                     retries -= 1
-                    time.sleep(1)  # Add delay before retrying
+                    if retries > 0 and control.monitor.waitForAbort(1):
+                        return
 
                 if not popular or 'data' not in popular:
                     break
@@ -38,7 +45,8 @@ class Mal:
                 request_count += 1
 
                 if request_count >= 3:
-                    time.sleep(1)  # Add delay to respect API rate limit
+                    if control.monitor.waitForAbort(1):
+                        return
                     request_count = 0
 
             day_results.reverse()

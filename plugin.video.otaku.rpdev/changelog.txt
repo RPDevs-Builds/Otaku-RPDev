@@ -1,3 +1,13 @@
+Changelog v6.3.0 (2026-11-21):
+- Major v6.3.0 Release:
+  - Per-Series Playback Override Profiles (NF-06), Unified Adaptive Provider Circuit Breaker (NF-04), and Multi-Tracker Watchlist Conflict Engine with persistent 429 retry queue & Telemetry Inspector (NF-01)
+  - Filler & Recap episode badges, Binge Filler Auto-Skip, and Per-Series OP/ED offset tuning (NF-03)
+  - Subtitle Intelligence v2 in service.subtitles.otaku.rpdev v1.0.3 with top-3 fallback and SDH tag stripping (NF-07)
+  - Widget-Aware Context Menu Quick Actions in context.otaku.rpdev v1.0.46 (NF-02) and Cross-Watchlist Drift Auditor (NF-08)
+  - Compressed & SHA-256/PRAGMA quick_check verified mappings.db sync with automatic .bak rollback (NF-05)
+  - Closed C-06 (change_log disposal), C-34 (resolve_silent lead-candidate pruning), and C-35 (wlf_auth 300s idle watchdog & modal disposal)
+  - Deduplicated 530 studio logos to zero case collisions, compressed root PNGs, and completed CR-01..CR-05 SQLite/abort-safe/log-redaction hardening
+
 Changelog v6.2.19 (2026-11-20):
 - Auto-Sub Signs Reset Fix:
   - Fixed stale otaku.embed_sub_has_full_dialog property persisting across Zero-Wait and failed-start transitions and blocking Signs-only full-dialogue auto-download (C-32)
