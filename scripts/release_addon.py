@@ -240,12 +240,15 @@ def validate_release_metadata(addon_xml_path, news_path, changelog_path, target_
 
 
 def run_preflight_gate(repo_root, with_flatpak_e2e=False):
-    """Execute the unified multi-silo pre-flight verification gate via scripts/verify_all.py."""
-    print("\n🧪 Step 2: Running Unified Pre-Flight Verification Gate (scripts/verify_all.py)...")
+    """Execute the unified multi-silo pre-flight verification gate via scripts/verify_all.py and scripts/e2e_v630_suite.py."""
+    print("\n🧪 Step 2: Running Unified Pre-Flight Verification Gate (scripts/verify_all.py + scripts/e2e_v630_suite.py)...")
     cmd = [sys.executable, "scripts/verify_all.py", "--fail-below", "65"]
     if with_flatpak_e2e:
         cmd.append("--e2e")
     run_cmd(cmd, cwd=repo_root, capture=False)
+    e2e_script = os.path.join(repo_root, "scripts", "e2e_v630_suite.py")
+    if os.path.isfile(e2e_script):
+        run_cmd([sys.executable, "scripts/e2e_v630_suite.py"], cwd=repo_root, capture=False)
 
 
 def ensure_gh_default_repo(repo_root):

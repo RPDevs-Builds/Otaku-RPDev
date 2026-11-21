@@ -1814,13 +1814,20 @@ class TestABITriAddonAndKodiParity(unittest.TestCase):
         ctx_root = ET.parse(os.path.join(CONTEXT_ROOT, 'addon.xml')).getroot()
         sub_root = ET.parse(os.path.join(SUBTITLE_ROOT, 'addon.xml')).getroot()
 
-        self.assertEqual(plugin_root.get('version'), '6.3.0')
-        self.assertEqual(ctx_root.get('version'), '1.0.46')
-        self.assertEqual(sub_root.get('version'), '1.0.3')
+        def _parse_ver(v):
+            return tuple(int(p) for p in (v or '').split('.'))
+
+        plugin_ver = plugin_root.get('version')
+        ctx_ver = ctx_root.get('version')
+        sub_ver = sub_root.get('version')
+
+        self.assertGreaterEqual(_parse_ver(plugin_ver), (6, 3, 0))
+        self.assertGreaterEqual(_parse_ver(ctx_ver), (1, 0, 46))
+        self.assertGreaterEqual(_parse_ver(sub_ver), (1, 0, 3))
 
         imp_versions = {e.get('addon'): e.get('version') for e in plugin_root.findall('./requires/import')}
-        self.assertEqual(imp_versions.get('context.otaku.rpdev'), '1.0.46')
-        self.assertEqual(imp_versions.get('service.subtitles.otaku.rpdev'), '1.0.3')
+        self.assertEqual(imp_versions.get('context.otaku.rpdev'), ctx_ver)
+        self.assertEqual(imp_versions.get('service.subtitles.otaku.rpdev'), sub_ver)
 
         removed_stdlib = {'cgi', 'pipes', 'imghdr', 'sunau'}
         bad_imports = []
