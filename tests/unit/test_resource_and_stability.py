@@ -188,7 +188,7 @@ class TestResourceAndStability(unittest.TestCase):
             self.assertEqual(collector, [mock_hashes[0]] * 3)
 
     def test_database_low_memory_mmap_clamping(self):
-        """Verify database connection clamps PRAGMA mmap_size on low memory."""
+        """Verify database connection disables PRAGMA mmap_size (0) on low memory."""
         database.close_thread_connections()
         with patch('resources.lib.ui.control.is_low_memory', return_value=True), \
              patch('sqlite3.dbapi2.connect') as mock_connect:
@@ -198,12 +198,12 @@ class TestResourceAndStability(unittest.TestCase):
             with database.SQL(control.cacheFile):
                 pass
 
-            # Check that PRAGMA mmap_size = 4194304 was executed
+            # Check that PRAGMA mmap_size = 0 was executed (C-37 32-bit virtual-memory mitigation)
             mmap_calls = [
                 call_args[0][0] for call_args in mock_conn.execute.call_args_list
                 if 'mmap_size' in call_args[0][0]
             ]
-            self.assertTrue(any('4194304' in sql for sql in mmap_calls))
+            self.assertTrue(any('mmap_size = 0' in sql for sql in mmap_calls))
 
 
 if __name__ == '__main__':

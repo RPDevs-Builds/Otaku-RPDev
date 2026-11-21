@@ -1,3 +1,9 @@
+Changelog v6.3.1 (2026-11-21):
+- C-36/C-37 Fixes & QA Hardening:
+  - Fix C-36: use canonical easynews.user key in System Health & Diagnostics and scan indirect dotted setting literals in AST suite
+  - Harden C-37: disable SQLite mmap (mmap_size=0) on 32-bit/low-RAM devices and switch service.py shutdown WAL checkpoint to non-blocking PASSIVE with 1s worker join
+  - Persist v6.3.0 /learn synthesis: unconditional column migrations, --fail-below 65 parity, CONCERN_PATTERNS taxonomy/PLANs linters, updated AGENTS.md, docs/*, teamwork/*, and skills
+
 Changelog v6.3.0 (2026-11-21):
 - Major v6.3.0 Release:
   - Per-Series Playback Override Profiles (NF-06), Unified Adaptive Provider Circuit Breaker (NF-04), and Multi-Tracker Watchlist Conflict Engine with persistent 429 retry queue & Telemetry Inspector (NF-01)

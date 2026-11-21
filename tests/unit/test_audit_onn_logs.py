@@ -41,12 +41,24 @@ class TestAuditOnnLogs(unittest.TestCase):
     def test_read_concerns_offset_parses_real_concerns_md(self):
         concerns_path = os.path.join(_REPO_ROOT, 'docs', 'CONCERNS.md')
         offset = audit_onn_logs.read_concerns_offset(concerns_path)
+        with open(concerns_path, 'r', encoding='utf-8') as f:
+            text = f.read()
+        match = audit_onn_logs.CURSOR_RE.search(text) or audit_onn_logs.CURSOR_FALLBACK_RE.search(text)
+        self.assertIsNotNone(match)
+        expected_offset = int(match.group(1))
         self.assertGreaterEqual(offset, 0)
-        self.assertEqual(offset, 433385)
+        self.assertEqual(offset, expected_offset)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            sample = os.path.join(tmpdir, 'CONCERNS_SAMPLE.md')
+            with open(sample, 'w', encoding='utf-8') as f:
+                f.write('| **Next review offset** | **433385** |\n')
+            self.assertEqual(audit_onn_logs.read_concerns_offset(sample), 433385)
 
     def test_offline_fixture_classification_and_noise_filtering(self):
         fixture_path = os.path.join(_REPO_ROOT, 'tests', 'fixtures', 'onn_kodi_log_sample.txt')
         concerns_path = os.path.join(_REPO_ROOT, 'docs', 'CONCERNS.md')
+        expected_offset = audit_onn_logs.read_concerns_offset(concerns_path)
 
         with tempfile.TemporaryDirectory() as tmpdir:
             out_json = os.path.join(tmpdir, 'audit_report.json')
@@ -60,7 +72,7 @@ class TestAuditOnnLogs(unittest.TestCase):
                 report = json.load(f)
 
         self.assertEqual(report['status'], 'ok')
-        self.assertEqual(report['requested_offset'], 433385)
+        self.assertEqual(report['requested_offset'], expected_offset)
         self.assertEqual(report['addon_versions'].get('plugin.video.otaku.rpdev'), '6.2.19')
         self.assertEqual(report['counts']['otaku_errors'], 1)
         self.assertEqual(report['counts']['otaku_warnings'], 1)
