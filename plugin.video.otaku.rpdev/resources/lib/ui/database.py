@@ -283,6 +283,14 @@ def execute_write_with_retry(cur, sql, params=(), max_retries=3):
                 raise
 
 
+def _resolve_mmap_size_bytes():
+    """Return SQLite mmap_size in bytes; disabled (0) on low-memory / 32-bit hardware (C-37)."""
+    if control.is_low_memory():
+        return 0
+    mmap_setting_mb = control.getInt('db.sqlite.mmap_size_mb') or 32
+    return max(0, int(mmap_setting_mb)) * 1048576
+
+
 class SQL:
     """Thread-local pooled SQLite context manager with optimized PRAGMAs.
 
@@ -379,15 +387,16 @@ class SQL:
                         if cache_mb > 0:
                             conn.execute(f"PRAGMA cache_size = -{cache_mb * 1024}")
                         # Memory map size setting (disable mmap on 32-bit / low-RAM to avoid std::bad_alloc fragmentation)
-                        mmap_setting_mb = control.getInt('db.sqlite.mmap_size_mb') or 32
-                        if control.is_low_memory():
-                            mmap_size = 0
-                        else:
-                            mmap_size = mmap_setting_mb * 1048576
-                        conn.execute(f"PRAGMA mmap_size = {mmap_size}")
+                        conn.execute(f"PRAGMA mmap_size = {_resolve_mmap_size_bytes()}")
                         # Temp store in RAM
                         if control.getBool('db.sqlite.temp_store_ram', default=True):
                             conn.execute("PRAGMA temp_store = MEMORY")
+                    elif control.is_low_memory():
+                        # Disable virtual-memory mmap on read-only pools (info.db/mappings.db) on 32-bit / low-RAM devices
+                        try:
+                            conn.execute("PRAGMA mmap_size = 0")
+                        except dbapi2.DatabaseError:
+                            pass
                     if os.path.exists(abs_path):
                         try:
                             st_ino = os.stat(abs_path).st_ino

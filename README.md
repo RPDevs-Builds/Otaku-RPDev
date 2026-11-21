@@ -3,7 +3,7 @@
 [![Kodi version](https://img.shields.io/badge/Kodi-20%20(Nexus)%20%7C%2021%20(Omega)%20%7C%2022%20(Piers%20RC)-blue?style=for-the-badge&logo=kodi)](https://kodi.tv/)
 [![Python versions](https://img.shields.io/badge/Python-3.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue?style=for-the-badge&logo=python)](https://python.org/)
 [![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/GPL-3.0)
-[![Test Suite](https://img.shields.io/badge/Tests-1062%2B%20Passing-brightgreen?style=for-the-badge&logo=checkmarx)](https://github.com/RPDevs-Builds/Otaku-RPDev/actions)
+[![Test Suite](https://img.shields.io/badge/Tests-1076%2B%20Passing-brightgreen?style=for-the-badge&logo=checkmarx)](https://github.com/RPDevs-Builds/Otaku-RPDev/actions)
 [![CDN Repository](https://img.shields.io/badge/CDN-kodi.repo.iamrp.dev-blueviolet?style=for-the-badge)](https://kodi.repo.iamrp.dev/)
 [![Original Project](https://img.shields.io/badge/Forked%20From-Goldenfreddy0703%2FOtaku-orange?style=for-the-badge&logo=github)](https://github.com/Goldenfreddy0703/Otaku)
 
@@ -25,7 +25,7 @@ We extend our deepest gratitude to **Goldenfreddy0703** and all contributors to 
 
 ## 📖 The Origin Story: *"I Honestly Didn't Mean To Go This Far"*
 
-I originally set out with a very modest, well-mannered plan: clone upstream [Goldenfreddy0703/Otaku](https://github.com/Goldenfreddy0703/Otaku) at **v5.4.3**, fix a couple of minor scraping bugs, clean up a couple of variable names, and submit a tidy pull request.
+I originally set out with a very modest, well-mannered plan: clone upstream [Goldenfreddy0703/Otaku](https://github.com/Goldenfreddy0703/Otaku) at **v5.3.4**, fix a couple of minor scraping bugs, clean up a couple of variable names, and submit a tidy pull request.
 
 Then things took a turn.
 
@@ -88,7 +88,15 @@ All future updates (including scraper hotfixes and performance enhancements) wil
 
 ---
 
-## ⚡ What Changed Since Upstream v5.4.3?
+## 🧩 Tri-Addon Ecosystem (`v6.3.2`)
+
+- **`plugin.video.otaku.rpdev` (`v6.3.2`)**: Primary video add-on with Zero-Wait binge pre-caching, SmartPlay embed continuity, Multi-Debrid auto-failover, native in-process stream decryption, per-series override profiles (`series_overrides`), multi-tracker conflict resolution + 429 retry queue, and `AdaptiveCircuitBreaker`.
+- **`context.otaku.rpdev` (`v1.0.47`)**: Standalone acyclic context menu add-on with widget `mal_id` resolution, clean non-Otaku `videodb://` safety, *Inspect ID Mappings* (`inspectmappings`), *Series Playback Profile* (`seriesprofile`), *Manual Subtitle Search* (`manualsubtitles`), and **494** deduplicated studio logos per style (`coloured` / `white`).
+- **`service.subtitles.otaku.rpdev` (`v1.0.3`)**: Native Kodi `xbmc.subtitle.module` service bridging Kodi VideoOSD Download Subtitles to Otaku RPDev's 6-provider subtitle engine (`OpenSubtitles`, `SubDL`, `SubSource`, `Podnadpisi`, `BSPlayer`, `Addic7ed`) with ASS-safe SDH tag stripping and Signs-only auto-upgrade.
+
+---
+
+## ⚡ What Changed Since Upstream v5.3.4?
 
 Every single subsystem has been audited, benchmarked, hardened, and expanded:
 
@@ -146,6 +154,9 @@ Every single subsystem has been audited, benchmarked, hardened, and expanded:
 
 | Version | Highlights |
 | :--- | :--- |
+| **v6.3.1 – v6.3.2** | **Stability, Memory & Tri-Addon Polish (`context.otaku.rpdev v1.0.47`)**: Fixed Easynews diagnostics setting key (`C-36`), disabled SQLite `mmap_size = 0` across both RW and RO (`info.db`/`mappings.db`) pools on 32-bit/low-RAM hardware + fast passive shutdown WAL checkpoint (`C-37`), added toggleable *Inspect ID Mappings* context action + non-Otaku `videodb://` widget safety, deduplicated & compressed 72 redundant studio logos (**494/style**), single-pass PEP 669 coverage gate, and longitudinal ONN metrics telemetry. |
+| **v6.3.0** | **Feature & Modernization Release**: Background `scrobble_retry_queue` replay + multi-tracker conflict policies (`NF-01`), widget-aware `context.otaku.rpdev v1.0.46` (`NF-02`), Filler/Recap badges & binge skip (`NF-03`), `AdaptiveCircuitBreaker` (`NF-04`), `.xz`/`.gz` + SHA-256 + `.bak` rollback `mappings.db` sync (`NF-05`), `series_overrides` + scraper-only `episode_offset` (`NF-06`), Subtitle Intelligence v2 SDH stripper (`NF-07`), `watchlist_drift_auditor` dry-run reconciliation (`NF-08`), `service.subtitles.otaku.rpdev v1.0.3`, and Zero-Wait `resolve_silent()` pruning (`C-34`). |
+| **v6.2.15 – v6.2.19** | **Kodi 22 VFS Subtitle & Modal Lifecycle Hardening**: Byte-0 BOM stripping and `g_directoryCache` atomic VFS registration (`C-11`/`C-29`..`C-33`), unattended auth modal inactivity watchdog (`C-35`), `SetDefaultSubtitleService` fix, and passive WAL checkpoints. |
 | **v6.2.0 – v6.2.14** | **Kodi 22.0-RC2 (Piers) Certified, Unified Verification & Scraper/Subtitle Hardening**: Automatic direct ↔ `translate.goog` host failover and parallel single-batch scraping (`nyaa.py`, `animetosho.py`, ~3.5s scrapes), pre-Debrid & sort-stage sequel alias parity (`expand_sequel_season_aliases`), Kodi 22 `CDVDFactorySubtitle`-aligned external `.vtt`/`.srt`/`.ass` validation + unique `sub_tag` VFS cache isolation, full upstream `Goldenfreddy0703/Otaku` PR parity (`#496`–`#507`, `animetosho.net`, IEC sizes, AniList direct GraphQL fallback, multi-part filtering), persistent cross-invocation mirror cooldowns, unified `scripts/verify_all.py` CI/release gate with strict project warnings-as-errors, and **1,014+ hermetic tests** (100% module coverage) across Python 3.11–3.14. |
 | **v5.9.0 – v5.9.2** | Full codebase audit remediation across all 123 Python modules and 38 skin XMLs; hardened window controllers (`skip_intro`, `still_watching`, `resolver`, `playing_next`, `source_select`, `sort_select`, `filter_select`, `download_manager`, `anichart`), skin XML layout/color/navigation fixes, hermetic 412+ test suite, and live scraper health monitor enhancements. |
 | **v5.8.0 – v5.8.x** | Multi-debrid provider resilience, season pack rescrape failover, enhanced subtitle selection & forced track prioritization, and watchlist synchronization hardening. |
@@ -171,21 +182,24 @@ Every single subsystem has been audited, benchmarked, hardened, and expanded:
 
 - **Documentation Hub**: [docs/README.md](docs/README.md)
 - **Architecture & Subsystems**: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- **Roadmap & Deferred Items**: [docs/PLANS.md](docs/PLANS.md)
 - **Testing Standards & Silos**: [docs/TESTING.md](docs/TESTING.md)
 - **CI, Release & LLM Automation**: [docs/AUTOMATION.md](docs/AUTOMATION.md)
 - **End-User Configuration Guide**: [docs/CONFIGURATION_GUIDE.md](docs/CONFIGURATION_GUIDE.md)
 - **Device Log Concerns & Audit History**: [docs/CONCERNS.md](docs/CONCERNS.md)
+- **Multi-Agent Teamwork Playbooks**: [docs/teamwork/README.md](docs/teamwork/README.md)
 - **Engineering Invariants**: [AGENTS.md](AGENTS.md)
 
-Otaku RPDev includes a hermetic offline test suite (**1,014+ tests**, 100% module coverage, strict project warnings-as-errors) with dual Kodi 21/22 simulation that executes in pure Python without requiring a live Kodi installation:
+Otaku RPDev includes a hermetic offline test suite (**1,080+ unit/lint/integration tests** + **130+ opaque-box `e2e_v630` tests**, 100% module coverage, strict project warnings-as-errors) with dual Kodi 21/22 simulation that executes in pure Python without requiring a live Kodi installation:
 
 ```bash
 # Clone the repository
 git clone https://github.com/RPDevs-Builds/Otaku-RPDev.git
 cd Otaku-RPDev
 
-# Run the unified multi-silo verification gate (ruff, compileall, 1,014+ tests, coverage)
-python3 scripts/verify_all.py --fail-below 60
+# Run the unified multi-silo verification gate (ruff, compileall, 1,080+ tests, >=65% coverage)
+python3 scripts/verify_all.py --fail-below 65
+python3 scripts/e2e_v630_suite.py
 ```
 
 ### Packaging & Release

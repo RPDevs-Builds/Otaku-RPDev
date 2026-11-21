@@ -188,7 +188,7 @@ class TestResourceAndStability(unittest.TestCase):
             self.assertEqual(collector, [mock_hashes[0]] * 3)
 
     def test_database_low_memory_mmap_clamping(self):
-        """Verify database connection disables PRAGMA mmap_size (0) on low memory."""
+        """Verify database connection disables PRAGMA mmap_size (0) on low memory across both RW and RO pools."""
         database.close_thread_connections()
         with patch('resources.lib.ui.control.is_low_memory', return_value=True), \
              patch('sqlite3.dbapi2.connect') as mock_connect:
@@ -197,13 +197,57 @@ class TestResourceAndStability(unittest.TestCase):
 
             with database.SQL(control.cacheFile):
                 pass
-
-            # Check that PRAGMA mmap_size = 0 was executed (C-37 32-bit virtual-memory mitigation)
-            mmap_calls = [
+            rw_mmap = [
                 call_args[0][0] for call_args in mock_conn.execute.call_args_list
                 if 'mmap_size' in call_args[0][0]
             ]
-            self.assertTrue(any('mmap_size = 0' in sql for sql in mmap_calls))
+            self.assertTrue(any('mmap_size = 0' in sql for sql in rw_mmap))
+
+            mock_conn.reset_mock()
+            with database.SQL(control.mappingDB, is_readonly=True):
+                pass
+            ro_mmap = [
+                call_args[0][0] for call_args in mock_conn.execute.call_args_list
+                if 'mmap_size' in call_args[0][0]
+            ]
+            self.assertTrue(any('mmap_size = 0' in sql for sql in ro_mmap))
+
+    def test_service_shutdown_cleanup_order_and_sub_2s_worker_teardown(self):
+        """P32-01 (C-37): service._shutdown_cleanup executes stop -> 1s join -> clean_settings -> passive WAL checkpoint -> close_all in <2s."""
+        import threading
+        import time
+        import service
+        from resources.lib.ui import clean_settings
+
+        events = []
+
+        class _FakeWorker:
+            def __init__(self):
+                self._stop = threading.Event()
+                self._t = threading.Thread(target=self._run, daemon=True)
+                self._t.start()
+
+            def _run(self):
+                self._stop.wait(timeout=2.0)
+
+            def stop(self):
+                events.append('stop')
+                self._stop.set()
+
+            def join(self, timeout=None):
+                events.append(('join', timeout))
+                self._t.join(timeout=timeout)
+
+        worker = _FakeWorker()
+        t0 = time.perf_counter()
+        with patch.object(clean_settings, 'clean_settings', side_effect=lambda **kw: events.append('clean_settings') or (0, [])), \
+             patch.object(database, 'checkpoint_databases', side_effect=lambda **kw: events.append(('checkpoint', kw.get('truncate')))), \
+             patch.object(database, 'close_all_connections', side_effect=lambda: events.append('close_all')):
+            service._shutdown_cleanup(worker)
+        elapsed = time.perf_counter() - t0
+
+        self.assertLess(elapsed, 2.0, f"Shutdown teardown exceeded 2.0s budget: {elapsed:.2f}s")
+        self.assertEqual(events, ['stop', ('join', 1.0), 'clean_settings', ('checkpoint', False), 'close_all'])
 
 
 if __name__ == '__main__':

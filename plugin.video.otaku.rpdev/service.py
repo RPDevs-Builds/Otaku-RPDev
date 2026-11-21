@@ -835,6 +835,28 @@ class MultipageWorker(threading.Thread):
             database.mark_multipage_job_failed(job_id, error_msg or "Failed to fetch all pages")
 
 
+def _shutdown_cleanup(multipage_worker=None):
+    """Enforce deterministic shutdown sequence: abort/stop -> 1s worker join -> clean_settings -> passive WAL checkpoint -> close pools."""
+    if multipage_worker is not None:
+        try:
+            multipage_worker.stop()
+            multipage_worker.join(timeout=1.0)
+        except Exception:
+            pass
+    # Final settings prune after Kodi stops writing settings, then passive non-blocking WAL checkpoint (<5s CPythonInvoker limit)
+    try:
+        from resources.lib.ui import clean_settings
+        clean_settings.clean_settings(silent=True)
+    except Exception as e:
+        control.log(f"Shutdown clean_settings notice: {e}", 'debug')
+    try:
+        from resources.lib.ui import database
+        database.checkpoint_databases(truncate=False)
+        database.close_all_connections()
+    except Exception:
+        pass
+
+
 if __name__ == "__main__":
     control.log('##################  RUNNING MAINTENANCE  ######################')
     if control.getBool('general.kodi.cache'):
@@ -901,20 +923,4 @@ if __name__ == "__main__":
             database.checkpoint_databases(truncate=False)
         except Exception as e:
             control.log(f"Periodic WAL checkpoint notice: {e}", 'debug')
-    multipage_worker.stop()
-    try:
-        multipage_worker.join(timeout=1.0)
-    except Exception:
-        pass
-    # Final settings prune after Kodi stops writing settings, then passive non-blocking WAL checkpoint (<5s CPythonInvoker limit)
-    try:
-        from resources.lib.ui import clean_settings
-        clean_settings.clean_settings(silent=True)
-    except Exception as e:
-        control.log(f"Shutdown clean_settings notice: {e}", 'debug')
-    try:
-        from resources.lib.ui import database
-        database.checkpoint_databases(truncate=False)
-        database.close_all_connections()
-    except Exception:
-        pass
+    _shutdown_cleanup(multipage_worker)

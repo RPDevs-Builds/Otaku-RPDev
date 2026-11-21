@@ -163,33 +163,66 @@ def _extract_watch_target(path: str, plugin: str, item=None) -> str:
     return f"/{'/'.join(parts)}"
 
 
+def _has_resolved_target(item, path, plugin):
+    """Return True only when item belongs to Otaku plugin or resolves a concrete widget mal_id."""
+    if path and plugin in path:
+        return True
+    return bool(_resolve_widget_mal_id(item, path or ''))
+
+
 def main():
     arg = sys.argv[1]
     item = sys.listitem
     path = item.getPath()
     plugin = 'plugin://plugin.video.otaku.rpdev'
     if arg == 'findrecommendations':
+        if not _has_resolved_target(item, path, plugin):
+            return
         subpath = _extract_subpath(path, plugin, item=item)
-        xbmc.executebuiltin(f"Container.Update({plugin}/find_recommendations{subpath})")
+        if subpath:
+            xbmc.executebuiltin(f"Container.Update({plugin}/find_recommendations{subpath})")
     elif arg == 'findrelations':
+        if not _has_resolved_target(item, path, plugin):
+            return
         subpath = _extract_subpath(path, plugin, item=item)
-        xbmc.executebuiltin(f"Container.Update({plugin}/find_relations{subpath})")
+        if subpath:
+            xbmc.executebuiltin(f"Container.Update({plugin}/find_relations{subpath})")
     elif arg == 'getwatchorder':
+        if not _has_resolved_target(item, path, plugin):
+            return
         subpath = _extract_subpath(path, plugin, item=item)
-        xbmc.executebuiltin(f"Container.Update({plugin}/watch_order{subpath})")
+        if subpath:
+            xbmc.executebuiltin(f"Container.Update({plugin}/watch_order{subpath})")
     elif arg == 'viewreviews':
+        if not _has_resolved_target(item, path, plugin):
+            return
         subpath = _extract_subpath(path, plugin, item=item)
-        xbmc.executebuiltin(f"Container.Update({plugin}/anime_reviews{subpath})")
+        if subpath:
+            xbmc.executebuiltin(f"Container.Update({plugin}/anime_reviews{subpath})")
     elif arg == 'viewstatistics':
+        if not _has_resolved_target(item, path, plugin):
+            return
         subpath = _extract_subpath(path, plugin, item=item)
-        xbmc.executebuiltin(f"Container.Update({plugin}/anime_statistics{subpath})")
+        if subpath:
+            xbmc.executebuiltin(f"Container.Update({plugin}/anime_statistics{subpath})")
+    elif arg == 'inspectmappings':
+        if not _has_resolved_target(item, path, plugin):
+            return
+        target = _extract_watch_target(path, plugin, item=item)
+        mal_seg = target.strip('/').split('/')[0] if target else ''
+        if mal_seg and mal_seg.isdigit():
+            xbmc.executebuiltin(f"RunPlugin({plugin}/inspect_mappings/{mal_seg})")
     elif arg == 'rescrape':
+        if not _has_resolved_target(item, path, plugin):
+            return
         params = get_video_info(item)
         params['rescrape'] = 'true'
         base_path = path.split('?', 1)[0] if (path and plugin in path) else f"{plugin}/play{_extract_watch_target(path, plugin, item=item)}"
         path = f"{base_path}?{parse.urlencode(params)}"
         xbmc.executebuiltin(f"PlayMedia({path})")
     elif arg == 'sourceselect':
+        if not _has_resolved_target(item, path, plugin):
+            return
         params = get_video_info(item)
         params['source_select'] = 'true'
         base_path = path.split('?', 1)[0] if (path and plugin in path) else f"{plugin}/play{_extract_watch_target(path, plugin, item=item)}"
@@ -199,30 +232,49 @@ def main():
         subpath = _extract_subpath(path, f'{plugin}/watchlist', item=item)
         xbmc.executebuiltin(f"RunPlugin({plugin}/watchlist_logout{subpath})")
     elif arg == 'deletefromdatabase':
+        if not _has_resolved_target(item, path, plugin):
+            return
         subpath = _extract_subpath(path, plugin, item=item)
-        xbmc.executebuiltin(f"RunPlugin({plugin}/delete_anime_database{subpath})")
+        if subpath:
+            xbmc.executebuiltin(f"RunPlugin({plugin}/delete_anime_database{subpath})")
     elif arg == 'watchlist':
+        if not _has_resolved_target(item, path, plugin):
+            return
         subpath = _extract_subpath(path, plugin, item=item)
-        xbmc.executebuiltin(f"RunPlugin({plugin}/watchlist_manager{subpath})")
+        if subpath:
+            xbmc.executebuiltin(f"RunPlugin({plugin}/watchlist_manager{subpath})")
     elif arg == 'markedaswatched':
+        if not _has_resolved_target(item, path, plugin):
+            return
         target = _extract_watch_target(path, plugin, item=item)
         xbmc.executebuiltin(f"RunPlugin({plugin}/marked_as_watched{target})")
     elif arg == 'markedasunwatched':
+        if not _has_resolved_target(item, path, plugin):
+            return
         target = _extract_watch_target(path, plugin, item=item)
         xbmc.executebuiltin(f"RunPlugin({plugin}/marked_as_unwatched{target})")
     elif arg == 'markpreviouswatched':
+        if not _has_resolved_target(item, path, plugin):
+            return
         target = _extract_watch_target(path, plugin, item=item)
         xbmc.executebuiltin(f"RunPlugin({plugin}/mark_previous_watched{target})")
     elif arg == 'clearcache':
         xbmc.executebuiltin(f"RunPlugin({plugin}/clear_cache)")
     elif arg == 'fanartselect':
+        if not _has_resolved_target(item, path, plugin):
+            return
         subpath = _extract_subpath(path, plugin, item=item)
-        xbmc.executebuiltin(f"Container.Update({plugin}/fanart_select{subpath})")
+        if subpath:
+            xbmc.executebuiltin(f"Container.Update({plugin}/fanart_select{subpath})")
     elif arg == 'seriesprofile':
+        if not _has_resolved_target(item, path, plugin):
+            return
         subpath = _extract_subpath(path, plugin, item=item)
         if subpath:
             xbmc.executebuiltin(f"RunPlugin({plugin}/series_profile{subpath})")
     elif arg == 'manualsubtitles':
+        if path and path.startswith(('videodb://', 'library://')) and not _resolve_widget_mal_id(item, path):
+            return
         xbmc.executebuiltin(f"RunPlugin({plugin}/search_subtitles)")
     else:
         raise KeyError("Could Not find %s in Context Menu Action" % arg)

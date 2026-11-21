@@ -12,6 +12,7 @@ Strictly read-only:
 """
 
 import argparse
+import datetime
 import json
 import os
 import re
@@ -198,6 +199,12 @@ def main(argv=None):
         default=None,
         help="Write JSON report ('-' or omitted value prints to stdout)",
     )
+    parser.add_argument(
+        '--metrics-out',
+        dest='metrics_out',
+        default=None,
+        help="Append compact longitudinal JSONL telemetry record to path",
+    )
     args = parser.parse_args(argv)
 
     offset = int(args.offset) if args.offset is not None else 0
@@ -240,6 +247,23 @@ def main(argv=None):
         x_seek_offset=x_seek,
         raw_bytes_len=len(raw_bytes),
     )
+
+    if args.metrics_out:
+        metrics_dir = os.path.dirname(os.path.abspath(args.metrics_out))
+        if metrics_dir:
+            os.makedirs(metrics_dir, exist_ok=True)
+        metric_record = {
+            'timestamp_utc': datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
+            'addon_versions': report['addon_versions'],
+            'requested_offset': report['requested_offset'],
+            'next_offset': report['next_offset'],
+            'rotated': report['rotated'],
+            'total_lines': report['total_lines'],
+            'bytes_read': report['bytes_read'],
+            'counts': report['counts'],
+        }
+        with open(args.metrics_out, 'a', encoding='utf-8') as mf:
+            mf.write(json.dumps(metric_record, ensure_ascii=False) + '\n')
 
     if args.json_target == '-':
         print(json.dumps(report, indent=2))

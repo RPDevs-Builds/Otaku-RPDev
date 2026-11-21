@@ -1450,5 +1450,67 @@ def UI_REVIEW_WINDOW(payload, params):
     return control.exit_code()
 
 
+@Route('inspect_mappings/*')
+def INSPECT_MAPPINGS(payload, params):
+    """Display resolved cross-provider anime ID mappings from mappings.db in a safe modal dialog."""
+    raw_parts = [seg for seg in str(payload or '').strip('/').split('/') if seg]
+    mal_id = next((seg for seg in raw_parts if seg.isdigit()), '')
+    if not mal_id or not mal_id.isdigit():
+        control.notify(control.ADDON_NAME, "No anime MAL ID found for item.")
+        return control.exit_code()
+
+    mapping_row = database.get_mappings(mal_id, 'mal_id') or {}
+    unique_ids = database.get_unique_ids(mal_id, 'mal_id') or {}
+    show_row = database.get_show(mal_id) or {}
+    show_meta = database.loads(show_row.get('kodi_meta')) if show_row.get('kodi_meta') else {}
+    title = (
+        show_meta.get('title_userPreferred')
+        or show_meta.get('ename')
+        or show_meta.get('name')
+        or mapping_row.get('mal_title')
+        or f"Anime {mal_id}"
+    )
+
+    def _fmt(val):
+        return str(val) if val not in (None, '', 0, '0') else '—'
+
+    lines = [
+        f"[B]Title:[/B] {title}",
+        "",
+        "[B]Resolved Cross-Tracker IDs (mappings.db read-only URI):[/B]",
+        f"  • MyAnimeList (MAL): {_fmt(unique_ids.get('mal_id') or mapping_row.get('mal_id') or mal_id)}",
+        f"  • MAL Dub ID:        {_fmt(unique_ids.get('mal_dub_id') or mapping_row.get('mal_dub_id'))}",
+        f"  • AniList ID:        {_fmt(unique_ids.get('anilist_id') or mapping_row.get('anilist_id'))}",
+        f"  • Kitsu ID:          {_fmt(unique_ids.get('kitsu_id') or mapping_row.get('kitsu_id'))}",
+        f"  • Simkl ID:          {_fmt(unique_ids.get('simkl') or mapping_row.get('simkl_id'))}",
+        f"  • AniDB ID:          {_fmt(unique_ids.get('anidb') or mapping_row.get('anidb_id'))}",
+        f"  • TheTVDB (TVDB):    {_fmt(unique_ids.get('tvdb') or mapping_row.get('thetvdb_id'))}",
+        f"  • TMDb ID:           {_fmt(unique_ids.get('tmdb') or mapping_row.get('themoviedb_id'))}",
+        f"  • IMDb ID:           {_fmt(unique_ids.get('imdb') or mapping_row.get('imdb_id'))}",
+        f"  • Trakt ID:          {_fmt(unique_ids.get('trakt') or mapping_row.get('trakt_id'))}",
+        "",
+        f"  • Type / Season / Part: {_fmt(mapping_row.get('anime_media_type'))} / S{_fmt(mapping_row.get('thetvdb_season'))} / P{_fmt(mapping_row.get('thetvdb_part'))}",
+    ]
+
+    from resources.lib.windows.textviewer import TextViewerXML
+    window = None
+    try:
+        window = TextViewerXML(
+            'textviewer_1.xml',
+            control.ADDON_PATH,
+            heading=f"[B]ID Mappings — MAL #{mal_id}[/B]",
+            instructions_text="\n".join(lines),
+        )
+        window.run()
+    finally:
+        if window is not None:
+            try:
+                window.close()
+            except Exception:
+                pass
+            del window
+    return control.exit_code()
+
+
 
 

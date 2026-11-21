@@ -458,6 +458,7 @@ CONTEXT_CUSTOMIZATION_SETTING_IDS = {
     "context.otaku.markpreviouswatched",
     "context.otaku.fanartselect",
     "context.otaku.clearcache",
+    "context.otaku.inspectmappings",
     "context_customization.reset_category",
 }
 
@@ -749,8 +750,8 @@ class TestAllSettingsOutcomes(unittest.TestCase):
         Assert that TESTED_SETTING_IDS contains exactly all 471 declared settings
         from resources/settings.xml, ensuring 0 omitted settings across all categories.
         """
-        self.assertEqual(len(self.declared_settings), 494, f"Expected 494 declared settings, got {len(self.declared_settings)}")
-        self.assertEqual(len(TESTED_SETTING_IDS), 494, f"Expected 494 tested settings in registry, got {len(TESTED_SETTING_IDS)}")
+        self.assertEqual(len(self.declared_settings), 495, f"Expected 495 declared settings, got {len(self.declared_settings)}")
+        self.assertEqual(len(TESTED_SETTING_IDS), 495, f"Expected 495 tested settings in registry, got {len(TESTED_SETTING_IDS)}")
         self.assertEqual(
             set(self.declared_settings.keys()), TESTED_SETTING_IDS,
             "TESTED_SETTING_IDS does not match declared_settings in resources/settings.xml"
@@ -767,7 +768,7 @@ class TestAllSettingsOutcomes(unittest.TestCase):
         self.assertEqual(len(ACCOUNTS_SETTING_IDS), 40)
         self.assertEqual(len(WATCHLIST_SETTING_IDS), 38)
         self.assertEqual(len(MENU_CUSTOMIZATION_SETTING_IDS), 73)
-        self.assertEqual(len(CONTEXT_CUSTOMIZATION_SETTING_IDS), 15)
+        self.assertEqual(len(CONTEXT_CUSTOMIZATION_SETTING_IDS), 16)
         self.assertEqual(len(MAINTENANCE_SETTING_IDS), 118)
 
     # ── Category 1: General (45 settings) ──────────────────────────────────────
@@ -1148,12 +1149,15 @@ class TestAllSettingsOutcomes(unittest.TestCase):
         for sid in sorted(CONTEXT_CUSTOMIZATION_SETTING_IDS):
             self._test_generic_setting_toggle(sid)
 
-        # Behavioral outcome: Each context toggle reflects correctly in control.getBool
+        # Behavioral outcome: Each context toggle reflects in control.getBool and Window(home) props via process_context()
         for sid in CONTEXT_CUSTOMIZATION_SETTING_IDS:
             control.setBool(sid, True)
             self.assertTrue(control.getBool(sid), f"Context setting '{sid}' should be True")
             control.setBool(sid, False)
             self.assertFalse(control.getBool(sid), f"Context setting '{sid}' should be False")
+        control.setBool('context.otaku.inspectmappings', True)
+        control.process_context()
+        self.assertEqual(control.homeWindow.getProperty('context.otaku.rpdev.inspectmappings'), 'true')
 
     # ── Category 12: Maintenance & Tools (113 settings) ────────────────────────
 
@@ -1257,7 +1261,7 @@ class TestAllSettingsOutcomes(unittest.TestCase):
 
         # Verify clean_settings.get_active_setting_ids() keeps all declared settings (including legacy keys)
         active_ids = clean_settings.get_active_setting_ids(self.settings_xml_path)
-        self.assertEqual(len(active_ids), 494)
+        self.assertEqual(len(active_ids), 495)
         for legacy_key in LEGACY_LEVEL_4_KEYS:
             self.assertIn(legacy_key, active_ids)
 

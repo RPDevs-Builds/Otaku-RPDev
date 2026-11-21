@@ -694,6 +694,148 @@ class TestWave3FeaturesNF01ToNF08(unittest.TestCase):
             self.assertEqual(mmap_val, 0)
             database.close_all_connections()
 
+    def test_p32_backup_restore_all_scopes_and_v632_settings_parity(self):
+        """P32-02: Verify easynews.user, v6.3.0 settings, and inspectmappings round-trip across all/settings/logins."""
+        import json
+        import os
+        import tempfile
+        with E2EHermeticEnv('22'):
+            from resources.lib.ui import control, settings_manager
+
+            with tempfile.TemporaryDirectory() as td:
+                for scope in ('all', 'settings', 'logins'):
+                    control.setSetting('easynews.user', 'en_tester_p32')
+                    control.setInt('watchlist.sync.conflict_policy', 2)
+                    control.setBool('interface.filler.badges', True)
+                    control.setBool('smartplay.skip_filler', True)
+                    control.setBool('subtitles.strip_sdh_tags', True)
+                    control.setBool('context.otaku.inspectmappings', False)
+                    ok, out_p, exported_count = settings_manager.export_settings(scope, td)
+                    self.assertTrue(ok, f"export failed for scope={scope}: {(ok, out_p, exported_count)}")
+                    self.assertGreater(exported_count, 0)
+                    with open(out_p, 'r', encoding='utf-8') as f:
+                        payload = json.load(f)
+                    exported_s = payload.get('settings', {})
+                    if scope in ('all', 'logins'):
+                        self.assertEqual(exported_s.get('easynews.user'), 'en_tester_p32')
+                    if scope in ('all', 'settings'):
+                        self.assertEqual(exported_s.get('watchlist.sync.conflict_policy'), 2)
+                        for expected_key in (
+                            'watchlist.sync.conflict_policy',
+                            'interface.filler.badges',
+                            'smartplay.skip_filler',
+                            'subtitles.strip_sdh_tags',
+                            'context.otaku.inspectmappings',
+                        ):
+                            self.assertIn(expected_key, exported_s, f"Missing {expected_key} in scope={scope}")
+                    if scope == 'settings':
+                        self.assertNotIn('easynews.user', exported_s)
+
+                    # Mutate runtime before restore, then restore and assert round-trip
+                    control.setSetting('easynews.user', 'wiped_user')
+                    control.setInt('watchlist.sync.conflict_policy', 0)
+                    control.setBool('context.otaku.inspectmappings', True)
+                    imp_ok, imp_count = settings_manager.import_settings(scope, out_p)
+                    self.assertTrue(imp_ok, f"import failed for scope={scope}")
+                    self.assertGreater(imp_count, 0)
+                    if scope in ('all', 'logins'):
+                        self.assertEqual(control.getSetting('easynews.user'), 'en_tester_p32')
+                    if scope in ('all', 'settings'):
+                        self.assertEqual(control.getInt('watchlist.sync.conflict_policy'), 2)
+                        self.assertFalse(control.getBool('context.otaku.inspectmappings'))
+
+    def test_p32_studio_dedup_aliases_and_context_inspectmappings_and_videodb_safety(self):
+        """P32-03: Verify deduplicated studio aliases resolve cleanly, inspectmappings modal works, and non-Otaku videodb:// items safely no-op."""
+        import os
+        import xbmcgui
+        with E2EHermeticEnv('22') as env:
+            from resources.lib.ui import control, database
+            from resources.lib import MetaBrowser
+            from resources.lib.windows.source_select import SourceSelect
+
+            # 1. Deduplicated studio alias resolution (coloured & white)
+            for alias_name, expected_base in (
+                ('Eight Bit', '8-Bit.png'),
+                ('BNP', 'BN Pictures.png'),
+                ('Bandai Namco Pictures', 'BN Pictures.png'),
+                ('Diomedéa', 'Diomedea.png'),
+                ('Studio 4°C', 'Studio 4C.png'),
+                ('Studio Ghibli', 'Ghibli.png'),
+                ('J.C. Staff', 'J.C.Staff.png'),
+                ('SILVER LINK..', 'Silver Link.png'),
+            ):
+                resolved_c = control.get_studio_logo_path(alias_name, 'coloured')
+                resolved_w = control.get_studio_logo_path(alias_name, 'white')
+                self.assertEqual(os.path.basename(resolved_c), expected_base)
+                self.assertEqual(os.path.basename(resolved_w), expected_base)
+                self.assertTrue(os.path.isfile(resolved_c), f"Missing coloured studio file for {alias_name}: {resolved_c}")
+                self.assertTrue(os.path.isfile(resolved_w), f"Missing white studio file for {alias_name}: {resolved_w}")
+
+            # 2. inspect_mappings/* route happy + invalid ID negative path
+            captured_modals = []
+
+            class _SpyTextViewer:
+                def __init__(self, xml_file, addon_path, **kwargs):
+                    self.rec = {'xml_file': xml_file, 'heading': kwargs.get('heading', ''), 'text': kwargs.get('instructions_text', ''), 'ran': False, 'closed': False}
+                    captured_modals.append(self.rec)
+
+                def run(self):
+                    self.rec['ran'] = True
+
+                def close(self):
+                    self.rec['closed'] = True
+
+            import resources.lib.windows.textviewer as tv_mod
+            with patch.object(database, 'get_mappings', return_value={
+                'mal_id': 52991, 'anilist_id': 154587, 'kitsu_id': 46789,
+                'simkl_id': 12345, 'anidb_id': 17617, 'thetvdb_id': 424536, 'themoviedb_id': 209867,
+                'anime_media_type': 'TV', 'thetvdb_season': 1, 'thetvdb_part': 1,
+            }), patch.object(database, 'get_unique_ids', return_value={
+                'mal_id': 52991, 'anilist_id': 154587, 'kitsu_id': 46789,
+                'simkl': 12345, 'anidb': 17617, 'tvdb': 424536, 'tmdb': 209867,
+            }), patch.object(tv_mod, 'TextViewerXML', _SpyTextViewer):
+                invoke_plugin_route('inspect_mappings/52991')
+            self.assertEqual(len(captured_modals), 1)
+            self.assertTrue(captured_modals[0]['ran'] and captured_modals[0]['closed'])
+            self.assertIn('154587', captured_modals[0]['text'])
+            self.assertIn('424536', captured_modals[0]['text'])
+            self.assertIn('209867', captured_modals[0]['text'])
+
+            captured_modals.clear()
+            with patch.object(tv_mod, 'TextViewerXML', _SpyTextViewer):
+                res_bad = invoke_plugin_route('inspect_mappings/not_a_number')
+            self.assertEqual(captured_modals, [])
+            self.assertTrue(res_bad['notifications'])
+
+            # 3. Context inspectmappings + rescrape/sourceselect Zero-Wait clearing & autoplay bypass
+            li_otaku = xbmcgui.ListItem('Frieren', path='plugin://plugin.video.otaku.rpdev/play/52991/4')
+            self.assertEqual(
+                invoke_context_action('inspectmappings', li_otaku),
+                ['RunPlugin(plugin://plugin.video.otaku.rpdev/inspect_mappings/52991)'],
+            )
+
+            control.playerWindow.setProperty('otaku.preResolved_url', 'http://stale/ep4.mkv')
+            control.playerWindow.setProperty('otaku.preResolved_malId', '52991')
+            control.playerWindow.setProperty('otaku.preResolved_episode', '4')
+            control.setBool('general.smartplay', True)
+            control.setInt('general.playstyle.episode', 0)
+            with patch.object(MetaBrowser, 'get_sources', return_value=[{'release_title': 'Test.1080p', 'quality': '1080p', 'type': 'torrent', 'hash': 'h1'}]), \
+                 patch.object(SourceSelect, 'doModal', return_value=None) as mock_ss:
+                invoke_plugin_route('play/52991/4', params={'source_select': 'true'})
+            mock_ss.assert_called_once()
+            self.assertEqual(control.playerWindow.getProperty('otaku.preResolved_url'), '')
+
+            # 4. Non-Otaku videodb:// items across Estuary/Arctic Fuse 2/Arctic Horizon 2/AuraMOD/Nimbus must cleanly no-op
+            for skin_path in (
+                'videodb://tvshows/titles/42/1/1?xsp=...',
+                'videodb://movies/titles/99',
+                'library://video/tvshows/recentepisodes.xml',
+            ):
+                li_non_otaku = xbmcgui.ListItem('Non-Otaku Movie', path=skin_path)
+                for act in ('inspectmappings', 'seriesprofile', 'rescrape', 'sourceselect', 'findrecommendations', 'markedaswatched', 'manualsubtitles'):
+                    self.assertEqual(invoke_context_action(act, li_non_otaku), [], f"{act} leaked command on {skin_path}")
+            self.assertTrue(env)
+
 
 if __name__ == '__main__':
     unittest.main()

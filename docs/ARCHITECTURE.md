@@ -8,11 +8,11 @@ Detailed reference for developers and contributors working on `plugin.video.otak
 
 ```text
 Otaku-RPDev/
-├── plugin.video.otaku.rpdev/           # v6.3.0 primary video add-on
+├── plugin.video.otaku.rpdev/           # v6.3.2 primary video add-on
 │   ├── default.py                      # Plugin router dispatch (async changelog offload)
 │   ├── service.py                      # Background service (clean_settings, 15m OAuth & retry drain, .xz/.gz mappings sync, WAL checkpoint)
 │   └── resources/
-│       ├── settings.xml                # 494 declared settings (367 user-visible levels 0-3, 127 internal level 4)
+│       ├── settings.xml                # 495 declared settings (368 user-visible levels 0-3, 127 internal level 4)
 │       ├── data/domains.json           # Dynamic provider domain registry & mirror lists
 │       ├── skins/Default/1080i/        # 41 custom 1080i WindowXML / WindowXMLDialog templates
 │       └── lib/
@@ -24,10 +24,10 @@ Otaku-RPDev/
 │           ├── endpoints/              # AniList, MAL, TMDb, TVDB, AniZip, AnimeFiller, AniSkip, IntroDB
 │           ├── WatchlistFlavor/        # AniList, MyAnimeList, Kitsu, Simkl sync, Conflict Engine & Drift Auditor
 │           └── windows/                # Custom WindowXML controllers (resolver, source_select, get_sources, filter_select, stats_window, anichart, etc.)
-├── context.otaku.rpdev/                # v1.0.46 standalone widget-aware context menu add-on + 530 canonical PNGs per style (coloured/white)
+├── context.otaku.rpdev/                # v1.0.47 standalone widget-aware context menu add-on + 494 deduplicated PNGs per style (coloured/white)
 ├── service.subtitles.otaku.rpdev/      # v1.0.3 native Kodi xbmc.subtitle.module companion add-on (OSD search & auto-download)
 ├── scripts/                            # verify_all.py, qa_fast.py, e2e_v630_suite.py, audit_onn_logs.py, release_addon.py, audit_function_coverage.py, test_kodi_installs.py
-├── tests/                              # 1,070+ discover tests + 126 E2E suite tests (dual Kodi 21/22 mocks, AST/quality/doc lints, 576-title dataset)
+├── tests/                              # 1,080+ discover tests + 130+ E2E suite tests (dual Kodi 21/22 mocks, AST/quality/doc lints, 576-title dataset)
 └── docs/                               # README.md, ARCHITECTURE.md, PLANS.md, TESTING.md, AUTOMATION.md, CONCERNS.md, CONFIGURATION_GUIDE.md, teamwork/
 ```
 
@@ -54,6 +54,10 @@ Key design principles:
 - **Automatic direct ↔ `translate.goog` failover**: If a scraper's configured host returns an HTTP error or missing content container, it transparently retries the opposite host (`animetosho.net` ↔ `animetosho-net.translate.goog`, `nyaa.si` ↔ `nyaa-si.translate.goog`) and sticky-switches for the remainder of the scrape.
 - **Unified 0–200 scoring (`source_utils.score_title_candidate`)**: Exact matches (`>=140`), aliases (`140`), approved descriptors (`115–125`), and strict rejection of derivatives/wrong seasons (`<=40`). Sequel season aliases (`expand_sequel_season_aliases`) are applied both pre-Debrid (`filter_sources`) and post-Debrid (`sortSources`).
 - **Unified Adaptive Circuit Breaker (`domains.AdaptiveCircuitBreaker`)**: Tracks failures across all provider classes (`torrent`, `embed`, `subtitle`, `metadata`, `debrid`) using exponential cooldown tiers (`300s` $\rightarrow$ `900s` $\rightarrow$ `3600s`), `HALF_OPEN` recovery probes, and `Window(10000)` persistence (`pages.circuit_breaker` / `ScraperCircuitBreaker` aliased cleanly).
+- **HTTP Transport, WAF, Query Joining & Embed Resilience**:
+  - Cast timeouts via `float(timeout)` (never `int(timeout)`), join parameters with `'&' if '?' in url else '?'` (`domains.join_url()` for `translate.goog` `?_x_tr_*`), probe redirects with `Range: bytes=0-0` + `limit=1`, normalize base URLs with `.rstrip('/')` and smart quotes before slugging, and parse JSON strictly via `control.safe_json()` / `control.loads_json()` / `r.json(default={})`.
+  - Probe TCP port `443` HTTPS endpoints before port `53` in `control.is_internet_available()`. Use `'returnOnlyCookies': False` for FlareSolverr JA3/JA4 TLS parity, fail fast (`<500ms`) on hard Cloudflare IP blocks with 600s negative Turnstile cooldowns, and probe direct CDNs before lazy FlareSolverr on `403`/`429`/`503`.
+  - Process WCO SUB/DUB sequentially (`inc/embed/index.php` + `/ad-verify`), retain multi-server fallback lists, check `Goldenfreddy0703/Otaku` history/PRs and evaluate `tmdb_mapping_match()` before fuzzy matching, keep `BrowserBase`/`AniListBrowser`/`MalBrowser`/`OtakuBrowser` signatures synced, reject proxy-only scrapers, and keep defunct scrapers as 0ms `[]` stubs.
 - **Per-Series `episode_offset` Isolation (`MetaBrowser.get_sources`)**: Applies `series_overrides.episode_offset` strictly to outbound scraper `actionArgs['episode']` while keeping `canonical_episode` untouched for local history and remote watchlist scrobbling.
 
 ---
@@ -78,7 +82,7 @@ Key design principles:
 | Database | Mode | Notes |
 |---|---|---|
 | `cache.db`, `search.db`, `malSync.db` | Read-Write WAL | `malSync.db` (`SCHEMA_VERSION = '1.0.14'`) stores `shows`, `episodes`, `shows_meta`, `show_data`, `watchlist_cache` / `v_watchlist_items`, `series_overrides`, and `scrobble_retry_queue`. `SyncDatabase._ensure_column_migrations()` runs `PRAGMA table_info` + `ALTER TABLE` unconditionally on startup so mid-sprint columns never drift. |
-| `info.db`, `mappings.db` | Read-Only URI (`?mode=ro`) | Static reference dictionaries; skips all write PRAGMAs and WAL checkpoints; safe for concurrent reads from `context.otaku.rpdev`. `service.update_mappings_db()` supports `.xz`/`.gz`, SHA-256 verification, `PRAGMA quick_check(1)` staging, `mappings.db.bak` backup, and automatic corruption rollback. |
+| `info.db`, `mappings.db` | Read-Only URI (`?mode=ro`) | Static reference dictionaries; skips all write PRAGMAs and WAL checkpoints while still enforcing `PRAGMA mmap_size = 0` on `is_low_memory()` (`C-37`); safe for concurrent reads from `context.otaku.rpdev`. `service.update_mappings_db()` supports `.xz`/`.gz`, SHA-256 verification, `PRAGMA quick_check(1)` staging, `mappings.db.bak` backup, and automatic corruption rollback. |
 
 - **Multi-Tracker Conflict Engine & Drift Auditor (`WatchlistFlavor/` & `WatchlistIntegration.py`)**: Resolves multi-tracker progress using `watchlist.sync.conflict_policy` (`0=highest_progress`, `1=primary_wins`, `2=latest_updated`), persists HTTP 429/5xx scrobble failures with `Retry-After` + exponential backoff into `scrobble_retry_queue` (replayed in `service.py`), exposes `watchlist_telemetry`, and provides `watchlist_drift_auditor` with dry-run mutation counts + confirmation dialogs.
 - **64 KB Window Property Ceiling**: `_WindowProxy.setProperty` enforces `<= 65,536` UTF-8 bytes; large payloads reside in SQLite WAL tables.

@@ -11,7 +11,6 @@ Ported and enhanced from upstream Goldenfreddy0703/Otaku PR #501.
 
 import os
 import re
-import sqlite3
 from resources.lib.ui import control
 
 _CHINESE_TAGS = (

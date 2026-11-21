@@ -1,0 +1,13 @@
+Changelog v1.0.3 (2026-11-21):
+- Harden Kodi 22 external subtitle VFS cache compliance, BOM/whitespace stripping, and fallback origin fetches for proxy hosts
+- Add ASS override tag preservation during SDH hearing-impaired bracket/speaker stripping
+
+Changelog v1.0.2 (2026-11-20):
+- Align cross-addon setting lookups cleanly with statically pinned plugin.video.otaku.rpdev settings registry (C-28)
+- Acyclic xbmc.python dependency enforcement with zero circular references back to the main video add-on (C-27)
+
+Changelog v1.0.1 (2026-11-18):
+- Add multi-candidate subtitle fallback with AdaptiveCircuitBreaker cooldown tracking across all 6 subtitle providers
+
+Changelog v1.0.0 (2026-11-14):
+- Initial release of companion native xbmc.subtitle.module service bridging Kodi VideoOSD Download Subtitles to Otaku RPDev's 6-provider subtitle engine (OpenSubtitles, SubDL, SubSource, Podnadpisi, BSPlayer, Addic7ed)

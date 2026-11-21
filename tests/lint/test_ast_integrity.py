@@ -617,6 +617,100 @@ class TestASTIntegrity(unittest.TestCase):
 
         self.assertEqual(collisions, [], f"Case-insensitive filename collisions found: {collisions}")
 
+    def test_studio_logos_zero_slug_or_sha256_duplicates(self):
+        """P32-03: context.otaku.rpdev studio logos must have 0 alphanumeric-slug or SHA-256 duplicates."""
+        import hashlib
+        import unicodedata
+
+        c_dir = os.path.join(CONTEXT_ADDON_DIR, 'resources', 'images', 'studios', 'coloured')
+        w_dir = os.path.join(CONTEXT_ADDON_DIR, 'resources', 'images', 'studios', 'white')
+        self.assertTrue(os.path.isdir(c_dir))
+        self.assertTrue(os.path.isdir(w_dir))
+
+        c_files = sorted(os.listdir(c_dir))
+        w_files = sorted(os.listdir(w_dir))
+        self.assertGreaterEqual(len(c_files), 450)
+        self.assertEqual(c_files, w_files, "coloured and white studio logo filenames must match identically")
+
+        for style_name, d_path, fns in (('coloured', c_dir, c_files), ('white', w_dir, w_files)):
+            slugs = {}
+            hashes = {}
+            for fn in fns:
+                stem = os.path.splitext(fn)[0]
+                ascii_stem = unicodedata.normalize('NFKD', stem).encode('ascii', 'ignore').decode('ascii')
+                slug = re.sub(r'[^a-z0-9]', '', ascii_stem.lower())
+                slugs.setdefault(slug, []).append(fn)
+                with open(os.path.join(d_path, fn), 'rb') as fp:
+                    digest = hashlib.sha256(fp.read()).hexdigest()
+                hashes.setdefault(digest, []).append(fn)
+            slug_dups = {k: v for k, v in slugs.items() if len(v) > 1}
+            sha_dups = {k[:10]: v for k, v in hashes.items() if len(v) > 1}
+            self.assertEqual(slug_dups, {}, f"{style_name} studio alphanumeric-slug duplicates: {slug_dups}")
+            self.assertEqual(sha_dups, {}, f"{style_name} studio SHA-256 duplicates: {sha_dups}")
+
+    def test_c36_indirect_and_template_setting_keys_resolve_in_settings_xml(self):
+        """P32-02 (C-36): Resolve f-string template setting keys (provider/flavor/embed) against settings.xml."""
+        settings_xml = os.path.join(ADDON_DIR, 'resources', 'settings.xml')
+        declared_ids = {
+            e.attrib['id']
+            for e in ET.parse(settings_xml).getroot().findall('.//setting')
+            if e.attrib.get('id')
+        }
+        self.assertGreaterEqual(len(declared_ids), 495)
+
+        setting_funcs = {'getSetting', 'getBool', 'getInt', 'getStr', 'getNumber', 'getStringList', 'setSetting', 'setBool', 'setInt'}
+        template_domains = {
+            ('name', 'userid'): ('anilist', 'kitsu', 'mal', 'simkl'),
+            ('name', 'authvar'): ('anilist', 'kitsu', 'mal', 'simkl'),
+            ('name', 'token'): ('anilist', 'kitsu', 'mal', 'simkl'),
+            ('name', 'refresh'): ('anilist', 'kitsu', 'mal', 'simkl'),
+            ('name', 'username'): ('anilist', 'kitsu', 'mal', 'simkl'),
+            ('name', 'password'): ('anilist', 'kitsu', 'mal', 'simkl'),
+            ('name', 'sort'): ('anilist', 'kitsu', 'mal', 'simkl'),
+            ('name', 'order'): ('anilist', 'kitsu', 'mal', 'simkl'),
+            ('flavor', 'token'): ('anilist', 'kitsu', 'mal', 'simkl'),
+            ('flavor', 'password'): ('anilist', 'kitsu', 'mal', 'simkl'),
+            ('flavor', 'username'): ('anilist', 'kitsu', 'mal', 'simkl'),
+            ('prefix', 'skipintro.start'): ('hianime', 'animekai', 'anikoto'),
+            ('prefix', 'skipintro.end'): ('hianime', 'animekai', 'anikoto'),
+            ('prefix', 'skipoutro.start'): ('hianime', 'animekai', 'anikoto'),
+            ('prefix', 'skipoutro.end'): ('hianime', 'animekai', 'anikoto'),
+            ('embed', 'skipintro.start'): ('hianime', 'animekai', 'anikoto'),
+            ('embed', 'skipintro.end'): ('hianime', 'animekai', 'anikoto'),
+            ('embed', 'skipoutro.start'): ('hianime', 'animekai', 'anikoto'),
+            ('embed', 'skipoutro.end'): ('hianime', 'animekai', 'anikoto'),
+        }
+
+        missing = []
+        templates_checked = 0
+        for path in _iter_addon_py_files(include_context=False):
+            with open(path, 'r', encoding='utf-8') as f:
+                tree = ast.parse(f.read(), filename=path)
+            for node in ast.walk(tree):
+                if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr in setting_funcs and node.args):
+                    continue
+                arg0 = node.args[0]
+                if isinstance(arg0, ast.JoinedStr) and len(arg0.values) >= 2:
+                    v0 = arg0.values[0]
+                    if (
+                        isinstance(v0, ast.FormattedValue)
+                        and isinstance(v0.value, ast.Name)
+                        and all(isinstance(p, ast.Constant) and isinstance(p.value, str) for p in arg0.values[1:])
+                    ):
+                        suffix = ''.join(p.value for p in arg0.values[1:])
+                        if suffix.startswith('.'):
+                            suffix = suffix[1:]
+                        domain = template_domains.get((v0.value.id, suffix))
+                        if domain:
+                            for prefix_val in domain:
+                                resolved = f"{prefix_val}.{suffix}"
+                                templates_checked += 1
+                                if resolved not in declared_ids:
+                                    missing.append((os.path.relpath(path, REPO_ROOT), node.lineno, resolved))
+
+        self.assertGreaterEqual(templates_checked, 40, f"Expected >= 40 resolved template keys, got {templates_checked}")
+        self.assertEqual(missing, [], f"Undeclared template setting keys detected: {missing}")
+
 
 if __name__ == '__main__':
     unittest.main()

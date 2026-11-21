@@ -224,19 +224,19 @@ As part of this comprehensive code review, the following suspect patterns and le
 
 ### 3.1 Non-Blocking Abort-Responsive Playback & Countdown Loops
 - **Status:** **Resolved in v6.0.0**
-- **Implementation:** Replaced hard `xbmc.sleep(3000)`, `xbmc.sleep(5000)`, and `xbmc.sleep(1000)` in [`player.py`](file:///mnt/sharedroot/projects/RPDevs-Builds/Otaku-RPDev/plugin.video.otaku.rpdev/resources/lib/ui/player.py) and [`skip_intro.py`](file:///mnt/sharedroot/projects/RPDevs-Builds/Otaku-RPDev/plugin.video.otaku.rpdev/resources/lib/windows/skip_intro.py) with abort-responsive `control.monitor.waitForAbort()` loops. Kodi shutdown and stream switches now terminate immediately without freezing.
+- **Implementation:** Replaced hard `xbmc.sleep(3000)`, `xbmc.sleep(5000)`, and `xbmc.sleep(1000)` in [`player.py`](plugin.video.otaku.rpdev/resources/lib/ui/player.py) and [`skip_intro.py`](plugin.video.otaku.rpdev/resources/lib/windows/skip_intro.py) with abort-responsive `control.monitor.waitForAbort()` loops. Kodi shutdown and stream switches now terminate immediately without freezing.
 
 ### 3.2 Deprecation / Stripping of Defunct Scrapers
 - **Status:** **Resolved in v6.0.0**
-- **Implementation:** Completely stripped `provider.aniwave`, `provider.animix`, and obsolete `aniwave.skipintro.*` settings from `resources/settings.xml`. Pruned `animixplay` from module imports in `pages/__init__.py`. Replaced [`aniwave.py`](file:///mnt/sharedroot/projects/RPDevs-Builds/Otaku-RPDev/plugin.video.otaku.rpdev/resources/lib/pages/aniwave.py) and [`animixplay.py`](file:///mnt/sharedroot/projects/RPDevs-Builds/Otaku-RPDev/plugin.video.otaku.rpdev/resources/lib/pages/animixplay.py) with defunct 0ms stubs returning `[]` immediately with zero worker thread or network waste. Updated Setup Wizard presets and diagnostics in `tools.py`.
+- **Implementation:** Completely stripped `provider.aniwave`, `provider.animix`, and obsolete `aniwave.skipintro.*` settings from `resources/settings.xml`. Pruned `animixplay` from module imports in `pages/__init__.py`. Replaced [`aniwave.py`](plugin.video.otaku.rpdev/resources/lib/pages/aniwave.py) and [`animixplay.py`](plugin.video.otaku.rpdev/resources/lib/pages/animixplay.py) with defunct 0ms stubs returning `[]` immediately with zero worker thread or network waste. Updated Setup Wizard presets and diagnostics in `tools.py`.
 
 ### 3.3 Live Scraper Health Monitor Execution Environment
 - **Status:** **Resolved in v6.0.0**
-- **Implementation:** Removed `.github/workflows/scraper_health.yml` from GitHub Actions CI to prevent failed builds caused by datacenter IP blocks and Cloudflare protections on public streaming domains. Updated [`check_scraper_health.py`](file:///mnt/sharedroot/projects/RPDevs-Builds/Otaku-RPDev/scripts/check_scraper_health.py) to document local residential/VPN execution, while CI relies exclusively on deterministic offline fixtures in `tests/fixtures/scrapers/`.
+- **Implementation:** Removed `.github/workflows/scraper_health.yml` from GitHub Actions CI to prevent failed builds caused by datacenter IP blocks and Cloudflare protections on public streaming domains. Updated [`check_scraper_health.py`](scripts/check_scraper_health.py) to document local residential/VPN execution, while CI relies exclusively on deterministic offline fixtures in `tests/fixtures/scrapers/`.
 
 ### 3.4 Unify Auxiliary SQLite Connections to Read-Only URI Mode
 - **Status:** **Resolved in v6.0.0**
-- **Implementation:** Enforced SQLite URI read-only mode (`file:...db?mode=ro`) with `uri=True` across `info.db` and lookups in `mappings.db` within [`database.py`](file:///mnt/sharedroot/projects/RPDevs-Builds/Otaku-RPDev/plugin.video.otaku.rpdev/resources/lib/ui/database.py). Added separate cache keys (`cache_key = f"{abs_path}:ro" if is_readonly else abs_path`) to completely isolate read-only and read-write connection pools on the same thread, preventing connection collisions or database locks.
+- **Implementation:** Enforced SQLite URI read-only mode (`file:...db?mode=ro`) with `uri=True` across `info.db` and lookups in `mappings.db` within [`database.py`](plugin.video.otaku.rpdev/resources/lib/ui/database.py). Added separate cache keys (`cache_key = (abs_path, is_readonly)`) to completely isolate read-only and read-write connection pools on the same thread, preventing connection collisions or database locks.
 
 ---
 
@@ -259,16 +259,16 @@ Every enhancement detailed in this report has undergone rigorous validation:
 
 ---
 
-## 5. `v6.0.0 -> v6.3.0` Architectural Evolution Addendum
+## 5. `v6.0.0 -> v6.3.2` Architectural Evolution Addendum
 
-Since `v6.0.0`, the codebase expanded across three major hardening and capability waves (`v6.2.x` Kodi 22 stabilization + **`v6.3.0` Tri-Addon Feature Release**):
+Since `v6.0.0`, the codebase expanded across three major hardening waves (`v6.2.x` Kodi 22 stabilization, **`v6.3.0`** Tri-Addon Feature Release, and **`v6.3.1`–`v6.3.2`** memory/packaging polish):
 
-| Subsystem | `v6.0.0` Baseline | `v6.3.0` Verified State | Key Commits / Tickets |
+| Subsystem | `v6.0.0` Baseline | `v6.3.2` Verified State | Key Commits / Tickets |
 | :--- | :--- | :--- | :--- |
-| **Tri-Addon Lockstep Architecture** | 2 add-ons (`plugin.video` + `context`) | **3 acyclic add-ons**: `plugin.video.otaku.rpdev v6.3.0`, `context.otaku.rpdev v1.0.46`, `service.subtitles.otaku.rpdev v1.0.3` (`C-27`/`C-28` fixed; AST cycle detector) | `SP-01`..`CR-04`, `NF-02`, `NF-07` |
+| **Tri-Addon Lockstep Architecture** | 2 add-ons (`plugin.video` + `context`) | **3 acyclic add-ons**: `plugin.video.otaku.rpdev v6.3.2`, `context.otaku.rpdev v1.0.47`, `service.subtitles.otaku.rpdev v1.0.3` (`C-27`/`C-28` fixed; AST cycle detector; `inspectmappings` quick action) | `SP-01`..`CR-04`, `NF-02`, `NF-07`, `P32-03` |
 | **Subtitle Intelligence v2 & Kodi 22 VFS** | Basic `embed_extractor.get_sub()` | `g_directoryCache`-safe `control.atomic_write_text(..., vfs_path=...)`, `os.listdir()` in `del_subs()`, `<45`-cue Signs-only auto-upgrade, 6 native providers, multi-candidate fallback, ASS `{...}`-preserving SDH tag stripper | `C-11`, `C-29`..`C-33`, `NF-07` |
-| **Playback, Zero-Wait & Series Profiles** | Global-only settings; manual episode offsets impossible | Zero-Wait `resolve_silent()` lead-candidate pruning (`C-34`), `WindowXML` `try...finally` disposal + idle watchdog (`C-35`/`C-06`), `series_overrides` (`SCHEMA_VERSION='1.0.14'`), scraper-only `episode_offset`, Filler/Recap badges & binge skip | `SP-02`, `NF-03`, `NF-06` |
-| **Watchlists, Circuit Breaker & `mappings.db`** | Independent tracker updates; raw `.db` download; scraper-only breaker | `AdaptiveCircuitBreaker` across all 5 provider classes (`domains.py`), `scrobble_retry_queue` (`Retry-After` backoff drained in `service.py`), 3 conflict policies, `watchlist_drift_auditor` with dry-run confirmation, `.xz`/`.gz` + SHA-256 + `PRAGMA quick_check` + `.bak` rollback for `mappings.db` | `NF-01`, `NF-04`, `NF-05`, `NF-08` |
-| **Asset Hygiene & Verification Gate** | 512 tests; ~60% coverage; duplicate studio PNGs | **1,070 `unittest` + 126 `e2e_v630_suite.py` tests** (`66.01%` fn coverage, `--fail-below 65` gate), **530** canonical studio PNGs/style (`0` case collisions), optimized root assets (`112.8 KB`/`31.9 KB`), headless Kodi 21/22 E2E | `CR-01`..`CR-05`, `SP-03`, `QA-01` |
+| **Playback, Zero-Wait & Series Profiles** | Global-only settings; manual episode offsets impossible | Zero-Wait `resolve_silent()` lead-candidate pruning (`C-34`), `WindowXML` `try...finally` disposal + idle watchdog (`C-35`/`C-06`), `series_overrides` (`SCHEMA_VERSION='1.0.14'` + unconditional column migrations), scraper-only `episode_offset`, Filler/Recap badges & binge skip | `SP-02`, `NF-03`, `NF-06` |
+| **Memory, SQLite `mmap_size=0`, Watchlists & `mappings.db`** | `mmap` enabled everywhere; unbatched retries | Low-RAM/32-bit `PRAGMA mmap_size = 0` across **both** RW and RO (`info.db`, `mappings.db`) pools + passive shutdown WAL checkpoint (`C-37`), `AdaptiveCircuitBreaker` across all 5 provider classes (`domains.py`), `scrobble_retry_queue` drained in `service.py`, 3 conflict policies, `watchlist_drift_auditor` dry-run confirmation, `.xz`/`.gz` + `.bak` rollback for `mappings.db` | `NF-01`, `NF-04`, `NF-05`, `NF-08`, `C-37`, `P32-01` |
+| **Asset Hygiene & Verification Gate** | 512 tests; ~60% coverage; duplicate studio PNGs | **1,080+ `unittest` + 130+ `e2e_v630_suite.py` tests** (`>= 65%` PEP 669 single-pass coverage gate), **494** deduplicated & compressed studio PNGs/style (`0` case/slug/SHA collisions), `news.txt` `<=32`-char dividers, headless Kodi 21/22 E2E | `CR-01`..`CR-05`, `SP-03`, `QA-01`, `P32-03` |
 
-*Report compiled and validated by Antigravity — updated for `v6.3.0` on November 21, 2026.*
+*Report compiled and validated by Antigravity — updated for `v6.3.2` on November 21, 2026.*

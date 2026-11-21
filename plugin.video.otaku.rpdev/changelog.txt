@@ -1,3 +1,10 @@
+Changelog v6.3.2 (2026-11-21):
+- Polish, Context v1.0.47 & Metrics:
+  - Harden C-37 SQLite mmap_size=0 across both read-write and read-only (info.db/mappings.db) pools and verify sub-2s service.py worker/PASSIVE WAL shutdown
+  - Extend C-36 AST validator to resolve f-string setting templates and verify all-scope backup/restore parity across v6.3.0-v6.3.2 settings
+  - context.otaku.rpdev v1.0.47: deduplicate 72 redundant studio PNGs (zero slug/SHA-256 duplicates, NFKD alias normalization), optimize PNG assets (~7.7 MB saved), guard non-Otaku videodb:// items, clear otaku.preResolved_* on Rescrape/SourceSelect, and add Inspect ID Mappings quick action (#30590/#30591)
+  - Compact AGENTS.md under 18 KB (soft warn 19.5 KB), sync README.md & companion changelogs, add --metrics-out JSONL to audit_onn_logs.py, and update ONN Review #20
+
 Changelog v6.3.1 (2026-11-21):
 - C-36/C-37 Fixes & QA Hardening:
   - Fix C-36: use canonical easynews.user key in System Health & Diagnostics and scan indirect dotted setting literals in AST suite

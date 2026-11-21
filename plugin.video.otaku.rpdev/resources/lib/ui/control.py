@@ -534,6 +534,32 @@ _RE_JSON_FIELDS = re.compile(r'(?i)(["\']?[a-zA-Z0-9_\-\.]*?(?:key|token|auth|se
 _RE_BASIC_AUTH = re.compile(r'(?i)(https?://[^:\s@]+:)([^@\s]+)(@)')
 
 _studio_logo_index_cache = {}
+_STUDIO_LOGO_ALIASES = {
+    'ajiadoanimationworks': 'ajiado',
+    'bandainamcopictures': 'bnpictures',
+    'bnp': 'bnpictures',
+    'bibury': 'biburyanimationstudios',
+    'biburyanimationstudio': 'biburyanimationstudios',
+    'bonesfilm': 'bones',
+    'cygames': 'cygamespictures',
+    'eightbit': '8bit',
+    'gokumi': 'studiogokumi',
+    'haoliners': 'haolinersanimation',
+    'haolinersanimationleague': 'haolinersanimation',
+    'nbcuniversal': 'nbcuniversalentertainmentjapan',
+    'olmdigital': 'olm',
+    'pierrotfilms': 'pierrot',
+    'studio4degc': 'studio4c',
+    'studioghibli': 'ghibli',
+    'studiogokimi': 'studiogokumi',
+    'studiopierrot': 'pierrot',
+}
+
+
+def _normalize_studio_slug(name: str) -> str:
+    import unicodedata
+    ascii_name = unicodedata.normalize('NFKD', str(name or '')).encode('ascii', 'ignore').decode('ascii')
+    return re.sub(r'[^a-z0-9]+', '', ascii_name.lower())
 
 
 def get_studio_logo_path(studio_name: str, style: str = 'coloured') -> str:
@@ -553,7 +579,7 @@ def get_studio_logo_path(studio_name: str, style: str = 'coloured') -> str:
         try:
             if os.path.exists(studios_root):
                 _studio_logo_index_cache[style_dir] = {
-                    re.sub(r'[^a-z0-9]+', '', os.path.splitext(f)[0].lower()): os.path.join(studios_root, f)
+                    _normalize_studio_slug(os.path.splitext(f)[0]): os.path.join(studios_root, f)
                     for f in os.listdir(studios_root) if f.lower().endswith('.png')
                 }
             else:
@@ -561,7 +587,8 @@ def get_studio_logo_path(studio_name: str, style: str = 'coloured') -> str:
         except Exception:
             _studio_logo_index_cache[style_dir] = {}
 
-    norm_target = re.sub(r'[^a-z0-9]+', '', str(studio_name).lower())
+    norm_target = _normalize_studio_slug(studio_name)
+    norm_target = _STUDIO_LOGO_ALIASES.get(norm_target, norm_target)
     match = _studio_logo_index_cache[style_dir].get(norm_target)
     if match and os.path.exists(match):
         return match
@@ -1044,7 +1071,8 @@ def process_context():
         "context.otaku.markedaswatched",
         "context.otaku.markpreviouswatched",
         "context.otaku.fanartselect",
-        "context.otaku.clearcache"
+        "context.otaku.clearcache",
+        "context.otaku.inspectmappings",
     ]
     for s_id in context_settings:
         try:

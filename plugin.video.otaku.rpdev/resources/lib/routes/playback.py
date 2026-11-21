@@ -53,13 +53,36 @@ def _show_resolver(mock_args, sources):
             del dlg
 
 
+def _param_flag_true(params, key):
+    if not isinstance(params, dict):
+        return False
+    val = params.get(key)
+    if isinstance(val, bool):
+        return val
+    if val is None:
+        return False
+    return str(val).strip().lower() in ('true', '1', 'yes')
+
+
+def _clear_preresolved_handoff():
+    for prop in (
+        'otaku.preResolved_url',
+        'otaku.preResolved_malId',
+        'otaku.preResolved_episode',
+        'otaku.preResolved_data',
+    ):
+        control.playerWindow.clearProperty(prop)
+
+
 @Route('play/*')
 def PLAY(payload, params):
     parts = [p for p in payload.strip('/').split('/') if p]
     mal_id = parts[0] if parts else ''
     episode = parts[1] if len(parts) > 1 else '1'
-    source_select = bool(params.get('source_select'))
-    rescrape = bool(params.get('rescrape'))
+    source_select = _param_flag_true(params, 'source_select')
+    rescrape = _param_flag_true(params, 'rescrape')
+    if source_select or rescrape:
+        _clear_preresolved_handoff()
     last_played = control.getSetting('last_played_source')
     last_watched = control.getSetting('last_watched_series')
     resume = params.get('resume')
@@ -271,8 +294,10 @@ def PLAY_MOVIE(payload, params):
     parts = [p for p in payload.strip('/').split('/') if p]
     mal_id = parts[0] if parts else ''
     eps_watched = parts[1] if len(parts) > 1 else '0'
-    source_select = bool(params.get('source_select'))
-    rescrape = bool(params.get('rescrape'))
+    source_select = _param_flag_true(params, 'source_select')
+    rescrape = _param_flag_true(params, 'rescrape')
+    if source_select or rescrape:
+        _clear_preresolved_handoff()
     resume = params.get('resume')
     params['path'] = f"{control.addon_url(f'play_movie/{payload}')}"
 

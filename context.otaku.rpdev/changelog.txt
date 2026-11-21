@@ -1,3 +1,12 @@
+Changelog v1.0.47 (2026-11-21):
+- Add toggleable Inspect ID Mappings context action (MAL, AniList, Kitsu, Simkl, AniDB, TVDB, TMDB) backed by read-only mappings.db lookups and safe modal disposal
+- Guard all context menu dispatchers cleanly on non-Otaku videodb:// / library:// items without resolved mal_id, and harden Rescrape / Source Select Zero-Wait cache clearing
+- Deduplicate remaining alphanumeric-slug and SHA-256 identical studio logo variants (530 -> 494 per style) and compress genre, studio, and fanart assets cleanly
+
+Changelog v1.0.46 (2026-11-21):
+- Add widget mal_id fallback resolution (_resolve_widget_mal_id) across InfoTagVideo UniqueIDs, ListItem properties, and query strings
+- Add Series Playback Profile (seriesprofile) and Manual Subtitle Search (manualsubtitles) quick actions
+
 Changelog v1.0.45 (2026-11-14):
 - Consolidated 580 coloured and 580 white anime studio logos into resources/images/studios/ and aligned addon metadata with RPDev distribution
 

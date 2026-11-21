@@ -15,6 +15,8 @@ import os
 import re
 import sys
 import unittest
+import warnings
+import xml.etree.ElementTree as ET
 
 _TEST_DIR = os.path.dirname(os.path.abspath(__file__))
 _REPO_ROOT = os.path.dirname(os.path.dirname(_TEST_DIR))
@@ -26,6 +28,7 @@ if _TESTS_DIR not in sys.path:
 
 import conftest  # noqa: F401
 
+AGENTS_MD_SOFT_WARN_BYTES = 19500  # Soft budget warning before approaching 22 KB hard cap
 AGENTS_MD_MAX_BYTES = 22000  # 2 KB safety buffer below Antigravity's 24,000-byte per-file rule cap
 MD_LINK_RE = re.compile(r'(?<!!)\[[^\]]+\]\(([^)]+)\)')
 
@@ -65,6 +68,12 @@ class TestDocsAndCustomizations(unittest.TestCase):
         agents_path = os.path.join(_REPO_ROOT, 'AGENTS.md')
         self.assertTrue(os.path.isfile(agents_path), "AGENTS.md missing at repo root")
         size_bytes = os.path.getsize(agents_path)
+        if size_bytes >= AGENTS_MD_SOFT_WARN_BYTES:
+            warnings.warn(
+                f"AGENTS.md is {size_bytes} bytes (>= {AGENTS_MD_SOFT_WARN_BYTES} soft warning; move verbose prose to docs/ARCHITECTURE.md)",
+                UserWarning,
+                stacklevel=2,
+            )
         self.assertLess(
             size_bytes,
             AGENTS_MD_MAX_BYTES,
@@ -144,6 +153,7 @@ class TestDocsAndCustomizations(unittest.TestCase):
     def test_coverage_fail_below_threshold_parity_across_ci_scripts_and_docs(self):
         """Enforce identical --fail-below 65 threshold across CI, scripts, rules, and docs."""
         targets = [
+            'README.md',
             '.github/workflows/ci.yml',
             '.github/workflows/release.yml',
             'scripts/release_addon.py',
@@ -209,6 +219,24 @@ class TestDocsAndCustomizations(unittest.TestCase):
                 nums.append(int(m.group(1)))
         self.assertGreaterEqual(len(nums), 7, f"Expected >= 7 numbered sections in docs/PLANS.md, found {nums}")
         self.assertEqual(nums, list(range(1, len(nums) + 1)), f"Non-sequential section numbering in docs/PLANS.md: {nums}")
+
+    def test_companion_addon_changelog_version_parity(self):
+        """Ensure context.otaku.rpdev and service.subtitles.otaku.rpdev addon.xml versions match changelog.txt top headers."""
+        companions = ('context.otaku.rpdev', 'service.subtitles.otaku.rpdev')
+        for aid in companions:
+            xml_path = os.path.join(_REPO_ROOT, aid, 'addon.xml')
+            chg_path = os.path.join(_REPO_ROOT, aid, 'changelog.txt')
+            self.assertTrue(os.path.isfile(xml_path), f"Missing {xml_path}")
+            self.assertTrue(os.path.isfile(chg_path), f"Missing {chg_path}")
+            ver = ET.parse(xml_path).getroot().attrib.get('version', '').strip()
+            self.assertTrue(ver, f"Missing version in {xml_path}")
+            with open(chg_path, 'r', encoding='utf-8') as cf:
+                first_line = cf.readline().strip()
+            self.assertRegex(
+                first_line,
+                rf'^Changelog v{re.escape(ver)}\b',
+                f"{aid}/changelog.txt top header '{first_line}' does not match addon.xml version v{ver}",
+            )
 
 
 if __name__ == '__main__':

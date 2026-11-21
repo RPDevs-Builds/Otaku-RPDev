@@ -76,6 +76,7 @@ class TestContextMenuAndActions(unittest.TestCase):
             "clearcache",
             "seriesprofile",
             "manualsubtitles",
+            "inspectmappings",
         }
         self.assertEqual(expected_args, set(args), "Mismatch in context menu actions declared in addon.xml")
 

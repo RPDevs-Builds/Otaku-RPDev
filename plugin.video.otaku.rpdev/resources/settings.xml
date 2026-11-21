@@ -4431,6 +4431,11 @@
 					<default>true</default>
 					<control type="toggle" />
 				</setting>
+				<setting id="context.otaku.inspectmappings" type="boolean" label="30590" help="30591">
+					<level>2</level>
+					<default>true</default>
+					<control type="toggle" />
+				</setting>
 				<setting id="context_customization.reset_category" type="action" label="30985" help="30986">
 					<level>1</level>
 					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/reset_category_settings?category=Context%20Customization&amp;setting=true)</data>

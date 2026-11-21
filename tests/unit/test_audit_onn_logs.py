@@ -193,6 +193,26 @@ class TestAuditOnnLogs(unittest.TestCase):
             with self.assertRaises(ValueError):
                 audit_onn_logs.analyze_log_text('line1\n', requested_offset=-1)
 
+    def test_metrics_out_appends_longitudinal_jsonl_record(self):
+        fixture_path = os.path.join(_REPO_ROOT, 'tests', 'fixtures', 'onn_kodi_log_sample.txt')
+        concerns_path = os.path.join(_REPO_ROOT, 'docs', 'CONCERNS.md')
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            metrics_path = os.path.join(tmpdir, 'telemetry', 'onn_metrics.jsonl')
+            rc1 = audit_onn_logs.main(['--concerns', concerns_path, '--input', fixture_path, '--metrics-out', metrics_path])
+            rc2 = audit_onn_logs.main(['--concerns', concerns_path, '--input', fixture_path, '--metrics-out', metrics_path])
+            self.assertEqual(rc1, 0)
+            self.assertEqual(rc2, 0)
+
+            with open(metrics_path, 'r', encoding='utf-8') as f:
+                lines = [ln.strip() for ln in f if ln.strip()]
+            self.assertEqual(len(lines), 2)
+            rec = json.loads(lines[0])
+            self.assertIn('timestamp_utc', rec)
+            self.assertEqual(rec['addon_versions'].get('plugin.video.otaku.rpdev'), '6.2.19')
+            self.assertEqual(rec['counts']['zero_wait'], 3)
+            self.assertEqual(rec['counts']['concerns']['C-14'], 1)
+
 
 if __name__ == '__main__':
     unittest.main()

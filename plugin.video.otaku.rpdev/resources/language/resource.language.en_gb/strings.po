@@ -3981,6 +3981,14 @@ msgctxt "#30589"
 msgid "Choose how episode progress differences across multiple enabled watchlists (AniList, MAL, Kitsu, Simkl) are resolved."
 msgstr ""
 
+msgctxt "#30590"
+msgid "Inspect ID Mappings"
+msgstr ""
+
+msgctxt "#30591"
+msgid "Show the Inspect ID Mappings context menu option to display cross-tracker MAL, AniList, Kitsu, Simkl, AniDB, TVDB, and TMDB IDs (Default: Enabled)."
+msgstr ""
+
 
 
 

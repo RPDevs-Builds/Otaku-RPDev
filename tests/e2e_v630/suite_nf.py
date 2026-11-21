@@ -114,6 +114,12 @@ class TestSuiteNFWave3Features(TestWave3FeaturesNF01ToNF08):
         super().test_nf06_column_level_migration_idempotency_under_same_schema_version()
         self.assertTrue(callable(self.test_nf06_column_level_migration_idempotency_under_same_schema_version))
 
+    @tier(2)
+    @feature('NF-02')
+    def test_p32_studio_dedup_aliases_and_context_inspectmappings_and_videodb_safety(self):
+        super().test_p32_studio_dedup_aliases_and_context_inspectmappings_and_videodb_safety()
+        self.assertTrue(callable(self.test_p32_studio_dedup_aliases_and_context_inspectmappings_and_videodb_safety))
+
 
 if __name__ == '__main__':
     unittest.main()

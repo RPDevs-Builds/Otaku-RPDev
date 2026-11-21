@@ -149,7 +149,7 @@ Connect personal anime tracking accounts:
 
 ### Category 10 & 11: Menu, Context Menu & Per-Series Overrides
 - **Menu Customization**: Toggle, reorder, and reset all 24 Main, Sub, and Genre menus via the interactive `menu_order.xml` manager.
-- **Widget-Aware `context.otaku.rpdev` (`v1.0.46`) Quick Actions**: Right-click items both inside Otaku directories and third-party skin widgets (resolving `mal_id` from `InfoTagVideo.getUniqueIDs()`, `ListItem` properties, or URLs) for *Find Recommendations*, *Find Relations*, *Watch Order*, *Rescrape*, *Source Select*, *Series Playback Profile* (`seriesprofile`), and *Manual Subtitle Search* (`manualsubtitles`).
+- **Widget-Aware `context.otaku.rpdev` (`v1.0.47`) Quick Actions**: Right-click items both inside Otaku directories and third-party skin widgets (resolving `mal_id` from `InfoTagVideo.getUniqueIDs()`, `ListItem` properties, or URLs, with clean no-op safety on non-Otaku `videodb://` items) for *Find Recommendations*, *Find Relations*, *Watch Order*, *Rescrape*, *Source Select*, *Inspect ID Mappings* (`inspectmappings`), *Series Playback Profile* (`seriesprofile`), and *Manual Subtitle Search* (`manualsubtitles`).
 - **Per-Series Playback & Scraper Override Profiles (`NF-06`)**: Customize audio preference, subtitle language/mode, preferred provider, filler auto-skip mode, OP/ED skip offsets, and scraper-only `episode_offset` per `mal_id` (canonical episode numbers sent to watchlist trackers are never altered by `episode_offset`). Profiles are stored in `series_overrides` and automatically exported/restored by **Backup & Restore**.
 
 ### Category 12: Maintenance, Diagnostics & Storage
@@ -169,8 +169,8 @@ Connect personal anime tracking accounts:
 Located under: `Cache -> SQLite Performance PRAGMAs`
 
 1. **`db.sqlite.mmap_size_mb` (Memory-Mapped I/O)**:
-   - *Safe Values*: `0` (Disabled) on FireSticks / 1GB RAM devices; `64` to `128` on Shield / PC.
-   - *Danger*: Setting MMAP to 256MB+ on a 32-bit Android streaming stick will cause memory allocation failures (`std::bad_alloc`) and crash Kodi to the home screen.
+   - *Safe Values*: Automatically forced to `PRAGMA mmap_size = 0` (Disabled) across both read-write and read-only (`info.db`, `mappings.db`) pools whenever `control.is_low_memory()` detects 32-bit/low-RAM hardware (`C-37`); `64` to `128` on 64-bit Shield / PC.
+   - *Danger*: Setting large MMAP sizes on a 32-bit Android streaming stick causes virtual-address-space fragmentation and native `std::bad_alloc` crashes to the home screen.
 2. **`db.sqlite.temp_store_ram` (In-Memory Temp Store)**:
    - *Safe Values*: `false` (Disk) on low-end devices; `true` on Shield/PC.
    - *Danger*: When enabled on devices with <2GB RAM, sorting a massive 2,000-item watchlist can exhaust available process RAM.
