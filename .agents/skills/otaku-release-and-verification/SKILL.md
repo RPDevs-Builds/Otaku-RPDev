@@ -11,14 +11,27 @@ description: >-
 
 Run all commands from `/mnt/sharedroot/projects/RPDevs-Builds/Otaku-RPDev`.
 
+## 0. Fast Deterministic Release Dispatch (Default Path)
+When changes are tested and the user asks to release/push a new version, dispatch **one command** directly — do **not** run redundant full `verify_all.py` / `e2e_v630_suite.py` pre-checks beforehand or reinvent git tag commands:
+1. Check `git status --short`; commit any pending working-tree edits cleanly (`git commit --no-gpg-sign -m "..."`).
+2. Run `python3 scripts/test_kodi_installs.py --versions 21 22 --mode hermetic` **only if** add-on runtime code changed since the last clean headless Kodi 21/22 run.
+3. Dispatch immediately:
+   ```bash
+   python3 scripts/release_addon.py \
+     --bump patch \
+     --title "<Short Banner Title <=32 chars>" \
+     -m "- Bullet 1;- Bullet 2"
+   ```
+   Step 2 runs `verify_all.py --fail-below 65` (single-pass PEP 669 `unittest+cov` on Python 3.12+) and `e2e_v630_suite.py` **concurrently** (~72s local gate), auto-rolls back `addon.xml`/`news.txt`/`changelog.txt` if pre-flight fails, pushes `main` + `vX.Y.Z`, watches GitHub Actions (`release.yml` ~1.5–2m), and verifies GitHub Release + live CDN `https://kodi.repo.iamrp.dev/`.
+
 ## 1. Unified Pre-Flight Gates (CI / Release Parity)
-Both `.github/workflows/ci.yml` and `.github/workflows/release.yml` enforce:
+Both `.github/workflows/ci.yml` and `.github/workflows/release.yml` execute `verify_all.py` and `e2e_v630_suite.py` in parallel (`--fail-below 65 --verbose` on Python 3.12+, `--skip-coverage --verbose` on Python 3.11 to avoid slow `sys.settrace` duplication):
 ```bash
 python3 scripts/verify_all.py --fail-below 65 --verbose
 python3 scripts/e2e_v630_suite.py
 python3 scripts/test_kodi_installs.py --versions 21 22 --mode hermetic
 ```
-- Silos executed by `verify_all.py`: `ruff` (`E9,F63,F7,F82,F811,F405,F541`), `compileall`, `unittest discover -s tests` (strict `resources.*` warnings-as-errors), and `audit_function_coverage.py --fail-below 65` (100% module coverage across all 3 add-ons).
+- Silos executed by `verify_all.py`: `ruff` (`E9,F63,F7,F82,F811,F405,F541`), `compileall`, and combined single-pass `unittest+cov` on Python 3.12+ (enforcing strict `resources.*` warnings-as-errors, 100% module coverage, and `>= 65%` function coverage in ~70s instead of running all 1,076 tests twice).
 - Quick incremental check while editing: `python3 scripts/qa_fast.py`.
 
 ## 2. Tri-Addon Packaging & Dry-Run ZIP Audit

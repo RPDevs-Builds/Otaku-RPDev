@@ -27,10 +27,21 @@ jobs:
 
       - name: Install Test Dependencies & Lint Tools
         run: |
-          pip install --upgrade pip
-          pip install beautifulsoup4 pyqrcode ruff
+          pip install --disable-pip-version-check beautifulsoup4 pyqrcode ruff
 
-      - name: Run Unified Multi-Silo Verification Gate (ruff, compileall, unittest, coverage)
+      - name: Run Unified Multi-Silo Verification Gate & E2E Suite (parallel)
         run: |
-          python3 scripts/verify_all.py --fail-below 65 --verbose
-          python3 scripts/e2e_v630_suite.py
+          if [ "${{ matrix.python-version }}" = "3.11" ]; then
+            V_ARGS="--skip-coverage --verbose"
+          else
+            V_ARGS="--fail-below 65 --verbose"
+          fi
+          RC=0
+          python3 scripts/verify_all.py $V_ARGS &
+          PID_V=$!
+          sleep 0.5
+          python3 scripts/e2e_v630_suite.py &
+          PID_E=$!
+          wait $PID_V || RC=$?
+          wait $PID_E || RC=$?
+          exit $RC

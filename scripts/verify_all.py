@@ -133,55 +133,89 @@ def main():
     silos.append(entry)
     all_ok = all_ok and ok
 
-    # Silo 3: Offline test suite (lint + unit + integration, or targeted --fast/--tests subset)
+    # Silo 3 & 4: Offline test suite + Function & Module coverage audit
     warn_flags = ['-W', 'default']
     if not args.no_strict_warnings:
         warn_flags += [
             '-W', 'error::DeprecationWarning:resources',
             '-W', 'error::ResourceWarning:resources',
         ]
-    lint_targets = [
-        'tests/lint/test_ast_integrity.py',
-        'tests/lint/test_suite_quality.py',
-        'tests/lint/test_docs_and_customizations.py',
-    ]
-    if args.tests:
-        targets = [*lint_targets, *args.tests] if args.fast else list(args.tests)
-        # Preserve order while deduplicating
-        dedup_targets = list(dict.fromkeys(targets))
-        unittest_cmd = [sys.executable, *warn_flags, '-m', 'unittest', *dedup_targets]
-    elif args.fast:
-        unittest_cmd = [sys.executable, *warn_flags, '-m', 'unittest', 'discover', '-s', 'tests/lint']
-    else:
-        unittest_cmd = [sys.executable, *warn_flags, '-m', 'unittest', 'discover', '-s', 'tests']
-    if args.verbose:
-        unittest_cmd.append('-v')
-    ok, entry, ut_out = _run_silo(
-        'unittest',
-        unittest_cmd,
-        verbose=args.verbose,
-        remediation='Inspect failed_tests or project Deprecation/ResourceWarning and re-run targeted unittest.',
-    )
-    entry.update(_extract_unittest_metrics(ut_out))
-    if ok and entry.get('tests_run'):
-        scope_label = 'fast lint/targeted' if args.fast else 'targeted' if args.tests else 'lint + unit + integration'
-        print(f"    ↳ {entry['tests_run']} tests passed ({scope_label}, strict project warnings)")
-    silos.append(entry)
-    all_ok = all_ok and ok
 
-    # Silo 4: Function & 100% module coverage audit
-    if not args.skip_coverage and not args.fast:
+    single_pass_cov = (
+        sys.version_info >= (3, 12)
+        and not args.skip_coverage
+        and not args.fast
+        and not args.tests
+    )
+
+    if single_pass_cov:
+        cov_cmd = [
+            sys.executable,
+            *warn_flags,
+            'scripts/audit_function_coverage.py',
+            '--fail-below',
+            str(args.fail_below),
+        ]
+        if not args.no_strict_warnings:
+            cov_cmd.append('--strict-warnings')
         ok, entry, cov_out = _run_silo(
-            'coverage',
-            [sys.executable, 'scripts/audit_function_coverage.py', '--fail-below', str(args.fail_below)],
+            'unittest+cov',
+            cov_cmd,
             verbose=args.verbose,
-            remediation='Add behavioral unit/integration tests for uncovered public functions or fix unimported modules.',
+            remediation='Inspect failed_tests, Deprecation/ResourceWarning, or uncovered functions and re-run.',
         )
+        entry.update(_extract_unittest_metrics(cov_out))
         entry.update(_extract_coverage_metrics(cov_out))
-        if ok and 'function_coverage_pct' in entry:
-            print(f"    ↳ Function coverage: {entry['function_coverage_pct']}% (threshold >= {args.fail_below}%)")
+        if ok:
+            if entry.get('tests_run'):
+                print(f"    ↳ {entry['tests_run']} tests passed (single-pass PEP 669 coverage, strict project warnings)")
+            if 'function_coverage_pct' in entry:
+                print(f"    ↳ Function coverage: {entry['function_coverage_pct']}% (threshold >= {args.fail_below}%)")
         silos.append(entry)
         all_ok = all_ok and ok
+    else:
+        lint_targets = [
+            'tests/lint/test_ast_integrity.py',
+            'tests/lint/test_suite_quality.py',
+            'tests/lint/test_docs_and_customizations.py',
+        ]
+        if args.tests:
+            targets = [*lint_targets, *args.tests] if args.fast else list(args.tests)
+            # Preserve order while deduplicating
+            dedup_targets = list(dict.fromkeys(targets))
+            unittest_cmd = [sys.executable, *warn_flags, '-m', 'unittest', *dedup_targets]
+        elif args.fast:
+            unittest_cmd = [sys.executable, *warn_flags, '-m', 'unittest', 'discover', '-s', 'tests/lint']
+        else:
+            unittest_cmd = [sys.executable, *warn_flags, '-m', 'unittest', 'discover', '-s', 'tests']
+        if args.verbose:
+            unittest_cmd.append('-v')
+        ok, entry, ut_out = _run_silo(
+            'unittest',
+            unittest_cmd,
+            verbose=args.verbose,
+            remediation='Inspect failed_tests or project Deprecation/ResourceWarning and re-run targeted unittest.',
+        )
+        entry.update(_extract_unittest_metrics(ut_out))
+        if ok and entry.get('tests_run'):
+            scope_label = 'fast lint/targeted' if args.fast else 'targeted' if args.tests else 'lint + unit + integration'
+            print(f"    ↳ {entry['tests_run']} tests passed ({scope_label}, strict project warnings)")
+        silos.append(entry)
+        all_ok = all_ok and ok
+
+        # Silo 4: Function & 100% module coverage audit
+        if not args.skip_coverage and not args.fast:
+            ok, entry, cov_out = _run_silo(
+                'coverage',
+                [sys.executable, *warn_flags, 'scripts/audit_function_coverage.py', '--fail-below', str(args.fail_below)],
+                verbose=args.verbose,
+                remediation='Add behavioral unit/integration tests for uncovered public functions or fix unimported modules.',
+            )
+            entry.update(_extract_coverage_metrics(cov_out))
+            if ok and 'function_coverage_pct' in entry:
+                print(f"    ↳ Function coverage: {entry['function_coverage_pct']}% (threshold >= {args.fail_below}%)")
+            silos.append(entry)
+            all_ok = all_ok and ok
 
     # Silo 5 (Optional): Headless Flatpak Kodi 22 hermetic E2E
     if args.e2e:

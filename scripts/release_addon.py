@@ -240,15 +240,36 @@ def validate_release_metadata(addon_xml_path, news_path, changelog_path, target_
 
 
 def run_preflight_gate(repo_root, with_flatpak_e2e=False):
-    """Execute the unified multi-silo pre-flight verification gate via scripts/verify_all.py and scripts/e2e_v630_suite.py."""
-    print("\n🧪 Step 2: Running Unified Pre-Flight Verification Gate (scripts/verify_all.py + scripts/e2e_v630_suite.py)...")
-    cmd = [sys.executable, "scripts/verify_all.py", "--fail-below", "65"]
+    """Execute verify_all.py and e2e_v630_suite.py concurrently for fast local pre-flight."""
+    print("\n🧪 Step 2: Running Unified Pre-Flight Verification Gate (parallel: verify_all.py + e2e_v630_suite.py)...")
+    v_cmd = [sys.executable, "scripts/verify_all.py", "--fail-below", "65"]
     if with_flatpak_e2e:
-        cmd.append("--e2e")
-    run_cmd(cmd, cwd=repo_root, capture=False)
+        v_cmd.append("--e2e")
     e2e_script = os.path.join(repo_root, "scripts", "e2e_v630_suite.py")
-    if os.path.isfile(e2e_script):
-        run_cmd([sys.executable, "scripts/e2e_v630_suite.py"], cwd=repo_root, capture=False)
+    if not os.path.isfile(e2e_script):
+        run_cmd(v_cmd, cwd=repo_root, capture=False)
+        return
+
+    t0 = time.perf_counter()
+    print(f"  $ {' '.join(v_cmd)}  (concurrent with e2e_v630_suite.py)")
+    p_verify = subprocess.Popen(v_cmd, cwd=repo_root, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    # Give ruff (~0.1s) + compileall (~0.25s) a head start before E2E imports modules
+    time.sleep(0.5)
+    p_e2e = subprocess.Popen([sys.executable, "scripts/e2e_v630_suite.py"], cwd=repo_root, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+
+    v_out, _ = p_verify.communicate()
+    e_out, _ = p_e2e.communicate()
+    elapsed = time.perf_counter() - t0
+
+    print(v_out.rstrip())
+    print("\n--- [e2e_v630_suite.py] ---")
+    print(e_out.rstrip())
+    if p_verify.returncode != 0 or p_e2e.returncode != 0:
+        raise RuntimeError(
+            f"Pre-flight gate failed in {elapsed:.1f}s "
+            f"(verify_all={p_verify.returncode}, e2e_v630_suite={p_e2e.returncode})"
+        )
+    print(f"  ✓ Parallel pre-flight gate passed in {elapsed:.1f}s")
 
 
 def ensure_gh_default_repo(repo_root):
@@ -336,17 +357,32 @@ def verify_github_release_assets(repo_root, tag_name, version, context_version=N
 
 
 def fetch_url_text(url, timeout=10):
-    """Fetch text content from URL with cache-busting query string."""
+    """Fetch remote URL text with aggressive cache-bypass headers."""
     sep = "&" if "?" in url else "?"
     bust_url = f"{url}{sep}_t={int(time.time())}"
-    req = urllib.request.Request(bust_url, headers={"User-Agent": "RPDevs-Release-Verifier/1.0", "Cache-Control": "no-cache"})
+    req = urllib.request.Request(
+        bust_url,
+        headers={
+            "User-Agent": "RPDevs-Release-Verifier/1.0",
+            "Cache-Control": "no-cache, no-store, max-age=0",
+            "Pragma": "no-cache",
+        },
+    )
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         return resp.read().decode("utf-8", errors="replace"), resp.status
 
 
 def head_url_status(url, timeout=10):
     """Perform HTTP HEAD request and return (status_code, content_length)."""
-    req = urllib.request.Request(url, method="HEAD", headers={"User-Agent": "RPDevs-Release-Verifier/1.0", "Cache-Control": "no-cache"})
+    req = urllib.request.Request(
+        url,
+        method="HEAD",
+        headers={
+            "User-Agent": "RPDevs-Release-Verifier/1.0",
+            "Cache-Control": "no-cache, no-store, max-age=0",
+            "Pragma": "no-cache",
+        },
+    )
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         return resp.status, int(resp.headers.get("Content-Length", "0") or 0)
 
@@ -401,7 +437,7 @@ def verify_live_cdn(version, context_version=None, subtitle_version=None, timeou
                     return True
         except Exception:
             pass
-        time.sleep(5)
+        time.sleep(3)
 
     raise TimeoutError(
         f"Live CDN did not propagate v{version} (context {context_version}, subtitle {subtitle_version}) within {timeout_sec}s "
@@ -514,6 +550,7 @@ def main():
 
     # Step 1: Prepare or validate metadata
     print(f"\n📝 Step 1: Validating Release Metadata for {tag_name}...")
+    auto_bumped_metadata = False
     metadata_errors = validate_release_metadata(addon_xml_path, news_path, changelog_path, target_ver)
     if metadata_errors:
         if args.message:
@@ -527,6 +564,7 @@ def main():
                 update_addon_xml(addon_xml_path, target_ver, raw_bullets)
                 update_news_txt(news_path, target_ver, title, raw_bullets)
                 update_changelog_txt(changelog_path, target_ver, title, raw_bullets)
+                auto_bumped_metadata = True
                 metadata_errors = validate_release_metadata(addon_xml_path, news_path, changelog_path, target_ver)
                 if metadata_errors:
                     for err in metadata_errors:
@@ -549,7 +587,18 @@ def main():
 
     # Step 2: Pre-Flight Verification Gate
     if not args.skip_tests:
-        run_preflight_gate(repo_root, with_flatpak_e2e=args.with_flatpak_e2e)
+        try:
+            run_preflight_gate(repo_root, with_flatpak_e2e=args.with_flatpak_e2e)
+        except Exception as exc:
+            print(f"\n[ERROR] {exc}", file=sys.stderr)
+            if auto_bumped_metadata:
+                print("  ↺ Rolling back auto-bumped metadata files cleanly...", file=sys.stderr)
+                run_cmd(
+                    ["git", "checkout", "--", addon_xml_path, news_path, changelog_path],
+                    cwd=repo_root,
+                    check=False,
+                )
+            sys.exit(1)
     else:
         print("\n⚠️  Step 2: Skipping pre-flight test suite (--skip-tests)")
 

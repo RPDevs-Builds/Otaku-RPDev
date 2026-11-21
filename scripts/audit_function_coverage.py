@@ -23,6 +23,7 @@ import sys
 import threading
 import time
 import unittest
+import warnings
 from collections import defaultdict
 
 # ---------------------------------------------------------------------------
@@ -503,11 +504,16 @@ def generate_markdown_report(report):
 # ---------------------------------------------------------------------------
 # Runner Execution
 # ---------------------------------------------------------------------------
-def run_audit(tests_dir=TESTS_DIR, test_target=None, fail_below=None, output_json=None, output_md=None, verbose=False):
+def run_audit(tests_dir=TESTS_DIR, test_target=None, fail_below=None, output_json=None, output_md=None, verbose=False, strict_warnings=False):
     """
     Run test discovery under tracer, compute coverage metrics, and enforce invariants.
     Returns (success_boolean, report_dict).
     """
+    if strict_warnings:
+        warnings.simplefilter('default')
+        warnings.filterwarnings('error', category=DeprecationWarning, module=r'resources(\.|$)')
+        warnings.filterwarnings('error', category=ResourceWarning, module=r'resources(\.|$)')
+
     # 1. Parse AST of all 139 source files
     catalog = parse_source_tree(REPO_ROOT)
 
@@ -584,6 +590,7 @@ def main():
     parser.add_argument('--markdown', '--md', dest='output_md', default=None, help="Path to write Markdown coverage report.")
     parser.add_argument('--test-target', default=None, help="Specific test module or path to run instead of entire discover suite.")
     parser.add_argument('--tests-dir', default=TESTS_DIR, help="Tests directory to discover from.")
+    parser.add_argument('--strict-warnings', action='store_true', help="Treat DeprecationWarning/ResourceWarning from resources.* as errors.")
     parser.add_argument('-v', '--verbose', action='store_true', help="Verbose per-file breakdown.")
 
     args = parser.parse_args()
@@ -594,6 +601,7 @@ def main():
         output_json=args.output_json,
         output_md=args.output_md,
         verbose=args.verbose,
+        strict_warnings=args.strict_warnings,
     )
     sys.exit(0 if success else 1)
 
