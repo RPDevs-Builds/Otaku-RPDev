@@ -160,9 +160,11 @@ def PLAY(payload, params):
         import xbmcgui, xbmcplugin
         item = xbmcgui.ListItem(path=preresolved_url, offscreen=True)
 
-        # Always purge stale temporary subtitle files before preparing new playback
+        # Always purge stale temporary subtitle files and embed sub flags before preparing new playback
         from resources.lib.ui import embed_extractor, source_utils
         embed_extractor.del_subs()
+        control.clearGlobalProp('otaku.embed_sub_signs_only')
+        control.clearGlobalProp('otaku.embed_sub_has_full_dialog')
 
         if preresolved_data.get('sub'):
             from resources.lib.subtitles import languages

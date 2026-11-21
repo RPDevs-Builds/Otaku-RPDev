@@ -665,9 +665,24 @@ def get_sub(sub_url, sub_lang, headers=None, sub_index=0, display_name=None, sou
     fname = fname.encode(encoding='ascii', errors='ignore').decode(encoding='ascii')
     subtitle = xbmcvfs.translatePath('special://temp/')
     fpath = os.path.join(subtitle, fname)
+    vfs_path = 'special://temp/{0}'.format(fname)
     if control.atomic_write_text(fpath, normalized_content) is False:
         control.log(f"get_sub: failed to write subtitle file {fpath}", level='warning')
         return None
+
+    # Defensive Kodi VFS visibility sync: if Kodi's internal subtitle scanner
+    # previously cached special://temp/ in g_directoryCache and hides vfs_path,
+    # force CFile::OpenForWrite(vfs_path) so g_directoryCache.AddFile() runs for
+    # both special://temp/ and the translated OS path before VideoPlayer opens it.
+    try:
+        if hasattr(xbmcvfs, 'exists') and not xbmcvfs.exists(vfs_path):
+            vfs_file = xbmcvfs.File(vfs_path, 'w')
+            try:
+                vfs_file.write(normalized_content.encode('utf-8'))
+            finally:
+                vfs_file.close()
+    except Exception as vfs_err:
+        control.log(f"get_sub: VFS visibility sync warning for {vfs_path}: {vfs_err}", level='debug')
 
     cue_count = _count_subtitle_cues(normalized_content, ext)
     is_signs_only = bool(0 < cue_count < 45 and len(normalized_content) < 3500)
@@ -682,7 +697,7 @@ def get_sub(sub_url, sub_lang, headers=None, sub_index=0, display_name=None, sou
         control.setGlobalProp('otaku.embed_sub_signs_only', 'false')
 
     return {
-        'path': 'special://temp/{0}'.format(fname),
+        'path': vfs_path,
         'lang': lang,
         'name': str(label) if label else lang,
         'is_signs_only': is_signs_only,
@@ -703,6 +718,7 @@ def _clean_local_sub_dir(special_path, prefix_tuple=None):
         local_dir = xbmcvfs.translatePath(special_path)
         if not local_dir or not os.path.isdir(local_dir):
             return
+        norm_special = special_path if str(special_path).endswith('/') else f"{special_path}/"
         for fname in os.listdir(local_dir):
             if prefix_tuple and not fname.startswith(prefix_tuple):
                 continue
@@ -712,7 +728,12 @@ def _clean_local_sub_dir(special_path, prefix_tuple=None):
             try:
                 deleted = False
                 if hasattr(xbmcvfs, 'delete'):
-                    deleted = bool(xbmcvfs.delete(fpath))
+                    # Prefer special:// URI when provided so COverrideFile::Delete
+                    # clears both special:// and translated g_directoryCache entries.
+                    if str(special_path).startswith('special://'):
+                        deleted = bool(xbmcvfs.delete(f"{norm_special}{fname}"))
+                    if not deleted and os.path.exists(fpath):
+                        deleted = bool(xbmcvfs.delete(fpath))
                 if not deleted or os.path.exists(fpath):
                     os.remove(fpath)
             except OSError:
@@ -722,6 +743,14 @@ def _clean_local_sub_dir(special_path, prefix_tuple=None):
 
 
 def del_subs():
+    # Always reset per-episode embed sidecar classification flags so a prior
+    # episode's full-dialogue VTT (or failed playback attempt) never masks a
+    # new episode's Signs-only sidecar across Zero-Wait or resolver transitions.
+    try:
+        control.clearGlobalProp('otaku.embed_sub_signs_only')
+        control.clearGlobalProp('otaku.embed_sub_has_full_dialog')
+    except Exception:
+        pass
     _clean_local_sub_dir('special://temp/', prefix_tuple=('TemporarySubs', 'TempSubtitle'))
     _clean_local_sub_dir('special://profile/addon_data/service.subtitles.a4ksubtitles/temp/')
     _clean_local_sub_dir('special://profile/addon_data/plugin.video.otaku.rpdev/temp/subtitles/')

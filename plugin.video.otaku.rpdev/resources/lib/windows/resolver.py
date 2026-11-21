@@ -339,9 +339,11 @@ class Resolver(BaseWindow):
 
         item = xbmcgui.ListItem(path=linkInfo['url'], offscreen=True)
 
-        # Always purge stale temporary subtitle files before preparing new playback
+        # Always purge stale temporary subtitle files and embed sub flags before preparing new playback
         from resources.lib.ui import embed_extractor
         embed_extractor.del_subs()
+        control.clearGlobalProp('otaku.embed_sub_signs_only')
+        control.clearGlobalProp('otaku.embed_sub_has_full_dialog')
 
         # Handle subtitles
         if self.return_data.get('sub'):

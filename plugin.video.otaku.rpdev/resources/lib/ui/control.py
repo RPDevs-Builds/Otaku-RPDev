@@ -2173,12 +2173,13 @@ def atomic_write_json(file_path: str, data: any, indent: int = 2) -> bool:
         return False
 
 
-def atomic_write_text(file_path: str, content: str, encoding: str = 'utf-8') -> bool:
+def atomic_write_text(file_path: str, content: str, encoding: str = 'utf-8', vfs_path=None) -> bool:
     """Atomically write text content to file_path via temporary swap and Kodi VFS registration."""
     parent_dir = os.path.dirname(os.path.abspath(file_path))
     if not os.path.exists(parent_dir):
         os.makedirs(parent_dir, exist_ok=True)
-    tmp_path = f"{file_path}.{os.getpid()}.{threading.get_ident()}.tmp"
+    suffix = f".{os.getpid()}.{threading.get_ident()}.tmp"
+    tmp_path = f"{file_path}{suffix}"
     try:
         with open(tmp_path, 'w', encoding=encoding) as f:
             f.write(content)
@@ -2188,12 +2189,26 @@ def atomic_write_text(file_path: str, content: str, encoding: str = 'utf-8') -> 
         try:
             # Prefer xbmcvfs.rename() so Kodi C++ CFile::Rename() calls
             # g_directoryCache.ClearFile(tmp) + g_directoryCache.AddFile(dest).
-            # Pure os.replace() bypasses Kodi VFS and causes CFile::Open() /
-            # CGUIDialogSubtitles::OnDownloadComplete CFile::Copy() to fail on
-            # cached temp directories with stale g_directoryCache listings.
-            if hasattr(xbmcvfs, 'rename') and xbmcvfs.rename(tmp_path, file_path):
-                if os.path.exists(file_path) and not os.path.exists(tmp_path):
-                    renamed_via_vfs = True
+            # When targeting special://temp/ (explicitly or by translated path),
+            # rename via the special:// URI so COverrideFile::Rename() updates
+            # BOTH the special:// and translated OS g_directoryCache keys.
+            effective_vfs_path = vfs_path
+            if not effective_vfs_path and hasattr(xbmcvfs, 'translatePath'):
+                try:
+                    temp_root = xbmcvfs.translatePath('special://temp/')
+                    if temp_root and os.path.normpath(parent_dir) == os.path.normpath(temp_root):
+                        effective_vfs_path = f"special://temp/{os.path.basename(file_path)}"
+                except Exception:
+                    pass
+            if hasattr(xbmcvfs, 'rename'):
+                if effective_vfs_path:
+                    vfs_tmp = f"{effective_vfs_path}{suffix}"
+                    if xbmcvfs.rename(vfs_tmp, effective_vfs_path):
+                        if os.path.exists(file_path) and not os.path.exists(tmp_path):
+                            renamed_via_vfs = True
+                if not renamed_via_vfs and xbmcvfs.rename(tmp_path, file_path):
+                    if os.path.exists(file_path) and not os.path.exists(tmp_path):
+                        renamed_via_vfs = True
         except Exception:
             renamed_via_vfs = False
         if not renamed_via_vfs:

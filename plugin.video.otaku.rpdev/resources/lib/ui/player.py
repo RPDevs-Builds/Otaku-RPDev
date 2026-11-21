@@ -941,7 +941,12 @@ class WatchlistPlayer(player):
             is_language_match(s.get('language'), s.get('name'), preferred_lang)
             for s in subtitle_streams
         )
-        if has_matching_sub:
+        only_signs_embed = (
+            control.getGlobalProp('otaku.embed_sub_signs_only') == 'true'
+            and control.getGlobalProp('otaku.embed_sub_has_full_dialog') != 'true'
+            and not control.getBool('subtitles.prefer_forced')
+        )
+        if has_matching_sub and not only_signs_embed:
             return True
 
         # Determine if active audio is English (for dubsubtitles guard)
@@ -1050,7 +1055,11 @@ class WatchlistPlayer(player):
             is_signs_only_sub = bool(
                 selected_sub.get('isforced', False)
                 or any(kw in sub_name_l for kw in SIGNS_SUBTITLE_KEYWORDS)
-                or (len(subtitle_streams) == 1 and control.getGlobalProp('otaku.embed_sub_signs_only') == 'true')
+                or (
+                    control.getGlobalProp('otaku.embed_sub_signs_only') == 'true'
+                    and control.getGlobalProp('otaku.embed_sub_has_full_dialog') != 'true'
+                    and (len(subtitle_streams) == 1 or sub_name_l in ('', '(external)', 'english', 'eng'))
+                )
             )
             want_full_dialogue = (
                 target_mode == 'dialog'

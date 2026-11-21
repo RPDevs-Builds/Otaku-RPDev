@@ -609,6 +609,106 @@ class TestSubtitleServiceAndAutoDownload(unittest.TestCase):
             self.assertEqual(captured_dest_dirs, [os.path.join(tmp_profile, 'temp')])
             mock_add.assert_called_once()
 
+    def test_del_subs_resets_stale_full_dialog_flag_so_next_ep_signs_only_auto_upgrades(self):
+        """C-32: Stale otaku.embed_sub_has_full_dialog='true' from a prior episode must be cleared before get_sub()."""
+        from resources.lib.ui import embed_extractor
+
+        # Simulate prior episode (e.g. 58516 Ep 12) leaving embed_sub_has_full_dialog='true' in Window(10000)
+        control.setGlobalProp('otaku.embed_sub_has_full_dialog', 'true')
+        control.setGlobalProp('otaku.embed_sub_signs_only', 'false')
+
+        # Incoming episode calls del_subs() before fetching its own Signs-only sidecar
+        embed_extractor.del_subs()
+        self.assertEqual(control.getGlobalProp('otaku.embed_sub_has_full_dialog'), '')
+        self.assertEqual(control.getGlobalProp('otaku.embed_sub_signs_only'), '')
+
+        signs_vtt = "WEBVTT\n\n01:32.020 --> 01:37.990\n<b>EPISODE 8</b>\n\n23:34.930 --> 23:39.940\n<b>NEXT TIME</b>\n"
+
+        class _FakeResp:
+            status_code = 200
+            text = signs_vtt
+
+        with patch('resources.lib.ui.embed_extractor.client.get', return_value=_FakeResp()):
+            info = embed_extractor.get_sub('https://cdn.example/ep8.vtt', 'eng', sub_tag='59226_8_test')
+
+        self.assertIsNotNone(info)
+        self.assertTrue(info['is_signs_only'])
+        self.assertEqual(control.getGlobalProp('otaku.embed_sub_signs_only'), 'true')
+        self.assertEqual(control.getGlobalProp('otaku.embed_sub_has_full_dialog'), '')
+
+        # Also verify _ensure_subtitles_available() upgrades Signs-only sidecars when prefer_forced=False
+        control.setBool('subtitles.enabled', True)
+        control.setBool('subtitles.auto_search', True)
+        control.setBool('subtitles.prefer_forced', False)
+        control.setBool('general.dubsubtitles', True)
+        p = player_mod.WatchlistPlayer()
+        with patch.object(
+            control, 'jsonrpc',
+            return_value={
+                'result': {
+                    'audiostreams': [{'index': 0, 'language': 'und', 'name': ''}],
+                    'subtitles': [{'index': 0, 'language': 'eng', 'name': '(External)', 'isforced': False}],
+                }
+            },
+        ), patch.object(subtitles, 'auto_download_subtitles', return_value=True) as mock_auto:
+            self.assertTrue(p._ensure_subtitles_available())
+        mock_auto.assert_called_once()
+
+    def test_get_sub_registers_special_temp_uri_in_kodi_vfs_cache(self):
+        """C-33: get_sub() must pass special://temp/ vfs_path to atomic_write_text and sync xbmcvfs.File if hidden."""
+        import tempfile
+        from resources.lib.ui import embed_extractor
+
+        vtt_body = "WEBVTT\n\n01:32.020 --> 01:37.990\n<b>EPISODE 8</b>\n"
+
+        class _FakeResp:
+            status_code = 200
+            text = vtt_body
+
+        rename_pairs = []
+        vfs_writes = []
+
+        class _TrackVFS:
+            def __init__(self, path, mode='r'):
+                self.path = path
+                self.mode = mode
+            def write(self, data):
+                vfs_writes.append((self.path, self.mode, data))
+                return len(data)
+            def close(self):
+                pass
+
+        with tempfile.TemporaryDirectory() as tmp_temp:
+            def _translate(p):
+                if p == 'special://temp/':
+                    return tmp_temp
+                if p.startswith('special://temp/'):
+                    return os.path.join(tmp_temp, p[len('special://temp/'):])
+                return p
+
+            def _fake_rename(src, dst):
+                rename_pairs.append((src, dst))
+                os.replace(_translate(src), _translate(dst))
+                return True
+
+            with patch('resources.lib.ui.embed_extractor.client.get', return_value=_FakeResp()), \
+                 patch.object(embed_extractor.xbmcvfs, 'translatePath', side_effect=_translate), \
+                 patch.object(control.xbmcvfs, 'rename', side_effect=_fake_rename), \
+                 patch.object(embed_extractor.xbmcvfs, 'exists', return_value=False), \
+                 patch.object(embed_extractor.xbmcvfs, 'File', _TrackVFS):
+                info = embed_extractor.get_sub('https://cdn.example/ep8.vtt', 'eng', sub_tag='59226_8_vfs')
+
+            self.assertIsNotNone(info)
+            self.assertTrue(info['path'].startswith('special://temp/TemporarySubs.59226_8_vfs.'))
+            # First rename must target the special://temp/ URI so COverrideFile::Rename updates both cache keys
+            self.assertEqual(len(rename_pairs), 1)
+            self.assertTrue(rename_pairs[0][0].startswith('special://temp/'))
+            self.assertEqual(rename_pairs[0][1], info['path'])
+            # Visibility fallback also synced via special://temp/ URI when xbmcvfs.exists returned False
+            self.assertEqual(len(vfs_writes), 1)
+            self.assertEqual(vfs_writes[0][0], info['path'])
+            self.assertEqual(vfs_writes[0][1], 'w')
+
 
 if __name__ == '__main__':
     unittest.main()

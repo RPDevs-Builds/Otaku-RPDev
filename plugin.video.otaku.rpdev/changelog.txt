@@ -1,3 +1,9 @@
+Changelog v6.2.19 (2026-11-20):
+- Auto-Sub Signs Reset Fix:
+  - Fixed stale otaku.embed_sub_has_full_dialog property persisting across Zero-Wait and failed-start transitions and blocking Signs-only full-dialogue auto-download (C-32)
+  - Extended Signs-only full-dialogue auto-upgrade to WatchlistPlayer._ensure_subtitles_available for kodi_language and direct/embed paths
+  - Fixed Kodi 22 special://temp/ g_directoryCache misses on Zero-Wait TemporarySubs VTT sidecars via COverrideFile::Rename vfs_path registration (C-33)
+
 Changelog v6.2.18 (2026-11-20):
 - Subtitle VFS Cache Fix:
   - Fixed Kodi 22 OnDownloadComplete and OpenStream subtitle failures caused by stale C++ g_directoryCache listings (C-30)
