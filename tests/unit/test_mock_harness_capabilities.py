@@ -166,6 +166,22 @@ class TestMockHarnessCapabilities(unittest.TestCase):
         self.assertEqual(content, "Hello VFS!")
         vfile.close()
 
+    def test_translate_special_paths_isolated_and_rejects_magicmock(self):
+        from unittest.mock import MagicMock
+
+        translated_temp = xbmcvfs.translatePath("special://temp/")
+        self.assertEqual(os.path.normpath(translated_temp), conftest.TEST_TEMP_DIR)
+        self.assertFalse(translated_temp.startswith("special://"))
+
+        translated_userdata = xbmcvfs.translatePath("special://userdata/Database/")
+        self.assertEqual(
+            os.path.normpath(translated_userdata),
+            os.path.join(conftest.TEST_USERDATA_DIR, "Database"),
+        )
+
+        with self.assertRaises(TypeError):
+            xbmcvfs.translatePath(MagicMock())
+
 
 if __name__ == "__main__":
     unittest.main()

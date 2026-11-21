@@ -97,6 +97,8 @@ def main():
     parser = argparse.ArgumentParser(description='Unified Otaku-RPDev multi-silo verification runner')
     parser.add_argument('--fail-below', type=float, default=60.0, help='Minimum function coverage percentage (default: 60.0)')
     parser.add_argument('--skip-coverage', action='store_true', help='Skip function coverage audit silo')
+    parser.add_argument('--fast', action='store_true', help='Fast incremental QA mode (ruff, compileall, lint + targeted tests, skips coverage)')
+    parser.add_argument('--tests', nargs='*', default=None, help='Specific unittest target files/modules to execute')
     parser.add_argument('--e2e', action='store_true', help='Also run headless Flatpak Kodi 22 hermetic E2E suite')
     parser.add_argument('--no-strict-warnings', action='store_true', help='Use -W default instead of project warnings-as-errors')
     parser.add_argument('--json', dest='json_path', default=None, help='Write machine-readable JSON report to path')
@@ -131,14 +133,27 @@ def main():
     silos.append(entry)
     all_ok = all_ok and ok
 
-    # Silo 3: Full offline test suite (lint + unit + integration) with strict project warnings
+    # Silo 3: Offline test suite (lint + unit + integration, or targeted --fast/--tests subset)
     warn_flags = ['-W', 'default']
     if not args.no_strict_warnings:
         warn_flags += [
             '-W', 'error::DeprecationWarning:resources',
             '-W', 'error::ResourceWarning:resources',
         ]
-    unittest_cmd = [sys.executable, *warn_flags, '-m', 'unittest', 'discover', '-s', 'tests']
+    lint_targets = [
+        'tests/lint/test_ast_integrity.py',
+        'tests/lint/test_suite_quality.py',
+        'tests/lint/test_docs_and_customizations.py',
+    ]
+    if args.tests:
+        targets = [*lint_targets, *args.tests] if args.fast else list(args.tests)
+        # Preserve order while deduplicating
+        dedup_targets = list(dict.fromkeys(targets))
+        unittest_cmd = [sys.executable, *warn_flags, '-m', 'unittest', *dedup_targets]
+    elif args.fast:
+        unittest_cmd = [sys.executable, *warn_flags, '-m', 'unittest', 'discover', '-s', 'tests/lint']
+    else:
+        unittest_cmd = [sys.executable, *warn_flags, '-m', 'unittest', 'discover', '-s', 'tests']
     if args.verbose:
         unittest_cmd.append('-v')
     ok, entry, ut_out = _run_silo(
@@ -149,12 +164,13 @@ def main():
     )
     entry.update(_extract_unittest_metrics(ut_out))
     if ok and entry.get('tests_run'):
-        print(f"    ↳ {entry['tests_run']} tests passed (lint + unit + integration, strict project warnings)")
+        scope_label = 'fast lint/targeted' if args.fast else 'targeted' if args.tests else 'lint + unit + integration'
+        print(f"    ↳ {entry['tests_run']} tests passed ({scope_label}, strict project warnings)")
     silos.append(entry)
     all_ok = all_ok and ok
 
     # Silo 4: Function & 100% module coverage audit
-    if not args.skip_coverage:
+    if not args.skip_coverage and not args.fast:
         ok, entry, cov_out = _run_silo(
             'coverage',
             [sys.executable, 'scripts/audit_function_coverage.py', '--fail-below', str(args.fail_below)],

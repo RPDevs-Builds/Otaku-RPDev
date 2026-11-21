@@ -824,6 +824,11 @@ class WatchlistPlayer(player):
                                 control.playerWindow.setProperty('otaku.preResolved_episode', str(next_ep))
                                 control.playerWindow.setProperty('otaku.preResolved_data', json.dumps(res_data))
                                 control.log(f"Player: Zero-Wait direct stream pre-resolved for {self.mal_id} Ep {next_ep}", level='info')
+                            else:
+                                control.log(
+                                    f"Player: Zero-Wait pre-resolve did not verify a stream for {self.mal_id} Ep {next_ep} ({len(sources)} source(s) remaining in cache)",
+                                    level='debug',
+                                )
                 except Exception as e:
                     control.log(f"Player: Pre-scrape background task error: {e}", level='warning')
 

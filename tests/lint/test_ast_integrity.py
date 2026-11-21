@@ -159,6 +159,43 @@ def _find_bs4_css_selectors(tree, filename='<ast>'):
     return violations
 
 
+def _find_mutating_audit_calls(tree, filename='<ast>'):
+    """Detect subprocess/SSH/ADB or mutating HTTP operations forbidden in read-only ONN log auditing."""
+    forbidden_modules = {'subprocess', 'paramiko', 'shutil', 'ftplib', 'telnetlib', 'pty'}
+    mutating_http = {'POST', 'PUT', 'DELETE', 'PATCH'}
+    violations = []
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                root_mod = alias.name.split('.')[0]
+                if root_mod in forbidden_modules:
+                    violations.append((filename, node.lineno, f"forbidden import {alias.name}"))
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            root_mod = node.module.split('.')[0]
+            if root_mod in forbidden_modules:
+                violations.append((filename, node.lineno, f"forbidden import {node.module}"))
+        elif isinstance(node, ast.Call):
+            func = node.func
+            if isinstance(func, ast.Attribute):
+                attr = func.attr
+                if isinstance(func.value, ast.Name) and func.value.id == 'os':
+                    if attr in ('system', 'popen') or attr.startswith(('spawn', 'exec', 'fork')):
+                        violations.append((filename, node.lineno, f"os.{attr}"))
+                if attr.lower() in ('post', 'put', 'delete', 'patch') and isinstance(func.value, ast.Name) and func.value.id in ('requests', 'client'):
+                    violations.append((filename, node.lineno, f"mutating HTTP {func.value.id}.{attr}"))
+            for kw in node.keywords:
+                if kw.arg == 'method' and isinstance(kw.value, ast.Constant) and isinstance(kw.value.value, str):
+                    if kw.value.value.upper() in mutating_http:
+                        violations.append((filename, node.lineno, f"method={kw.value.value.upper()}"))
+            for arg in node.args:
+                if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
+                    val_low = arg.value.strip().lower()
+                    if val_low == 'adb' or val_low.startswith('adb '):
+                        violations.append((filename, node.lineno, "adb command literal"))
+    return violations
+
+
 class TestASTIntegrity(unittest.TestCase):
 
     @classmethod
@@ -374,6 +411,53 @@ class TestASTIntegrity(unittest.TestCase):
         self.assertEqual(len(_find_raw_print_calls(sample)), 1)
         self.assertEqual(len(_find_direct_json_loads(sample)), 2)
         self.assertEqual(len(_find_bs4_css_selectors(sample)), 2)
+
+        audit_sample = ast.parse(
+            "import os\n"
+            "import subprocess\n"
+            "import urllib.request\n"
+            "os.system('adb shell tail -n 10 kodi.log')\n"
+            "urllib.request.Request('http://10.13.0.16:8081/tail', method='POST')\n"
+            "urllib.request.Request('http://10.13.0.16:8081/tail', method='GET')\n"
+        )
+        audit_violations = _find_mutating_audit_calls(audit_sample)
+        self.assertEqual(len(audit_violations), 4)
+
+    def test_audit_onn_logs_strictly_read_only(self):
+        """scripts/audit_onn_logs.py must remain strictly read-only (HTTP GET + explicit timeout only)."""
+        audit_path = os.path.join(REPO_ROOT, 'scripts', 'audit_onn_logs.py')
+        self.assertTrue(os.path.isfile(audit_path), f"Missing {audit_path}")
+        with open(audit_path, 'r', encoding='utf-8') as f:
+            tree = ast.parse(f.read(), filename=audit_path)
+
+        violations = _find_mutating_audit_calls(tree, filename='scripts/audit_onn_logs.py')
+        self.assertEqual(violations, [], f"Mutating/subprocess calls forbidden in audit_onn_logs.py: {violations}")
+
+        untimed = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call):
+                func = node.func
+                is_urlopen = (
+                    (isinstance(func, ast.Attribute) and func.attr == 'urlopen')
+                    or (isinstance(func, ast.Name) and func.id == 'urlopen')
+                )
+                if is_urlopen:
+                    has_timeout = any(kw.arg == 'timeout' for kw in node.keywords) or len(node.args) >= 3
+                    if not has_timeout:
+                        untimed.append(node.lineno)
+        self.assertEqual(untimed, [], f"urlopen missing timeout in audit_onn_logs.py: {untimed}")
+
+    def test_zero_repo_root_test_leak_artifacts(self):
+        """Tests must never leak special:/ or MagicMock/ directories into repository root."""
+        for leak_name in ('special:', 'MagicMock'):
+            leak_path = os.path.join(REPO_ROOT, leak_name)
+            self.assertFalse(
+                os.path.exists(leak_path),
+                f"Test leak artifact directory exists at repo root: {leak_path}",
+            )
+        translated = conftest.mock_xbmcvfs.translatePath('special://temp/')
+        self.assertFalse(translated.startswith('special://'))
+        self.assertEqual(os.path.normpath(translated), conftest.TEST_TEMP_DIR)
 
     def test_all_skin_xmls_valid_etree(self):
         """Every XML template in resources/skins must parse cleanly with ElementTree."""

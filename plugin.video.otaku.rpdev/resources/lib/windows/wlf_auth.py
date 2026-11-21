@@ -1,14 +1,70 @@
 import os
+import threading
+import time
 
 from resources.lib.ui import control
 from resources.lib.windows.base_window import BaseWindow
 
 
 class WatchlistFlavorAuth(BaseWindow):
-    def __init__(self, xml_file, location, flavor=None):
+    DEFAULT_IDLE_TIMEOUT = 300
+
+    def __init__(self, xml_file, location, flavor=None, idle_timeout=None):
         super().__init__(xml_file, location)
         self.flavor = flavor
         self.authorized = False
+        if idle_timeout is None:
+            self.idle_timeout = float(self.DEFAULT_IDLE_TIMEOUT)
+        else:
+            self.idle_timeout = max(0.0, float(idle_timeout))
+        self._idle_stop_event = threading.Event()
+        self._idle_thread = None
+        self._last_activity = time.monotonic()
+
+    def _reset_idle_timer(self):
+        if hasattr(self, '_last_activity'):
+            self._last_activity = time.monotonic()
+
+    def _start_idle_timer(self):
+        if getattr(self, 'idle_timeout', 0) <= 0:
+            return
+        self._stop_idle_timer()
+        stop_event = getattr(self, '_idle_stop_event', None)
+        if stop_event is None:
+            return
+        stop_event.clear()
+        self._reset_idle_timer()
+        t = threading.Thread(target=self._idle_watchdog, name='Otaku-WlfAuthIdleGuard', daemon=True)
+        self._idle_thread = t
+        t.start()
+
+    def _stop_idle_timer(self):
+        stop_event = getattr(self, '_idle_stop_event', None)
+        if stop_event is not None:
+            stop_event.set()
+        thread = getattr(self, '_idle_thread', None)
+        if thread is not None and thread.is_alive() and thread is not threading.current_thread():
+            thread.join(timeout=1.0)
+        if hasattr(self, '_idle_thread'):
+            self._idle_thread = None
+
+    def _idle_watchdog(self):
+        stop_event = self._idle_stop_event
+        while not stop_event.is_set():
+            if control.monitor.abortRequested():
+                control.log("WatchlistFlavorAuth: Kodi abort requested, closing auth dialog", 'info')
+                self.close()
+                return
+            elapsed = time.monotonic() - self._last_activity
+            remaining = self.idle_timeout - elapsed
+            if remaining <= 0:
+                control.log(
+                    f"WatchlistFlavorAuth: Closing unattended '{self.flavor}' auth dialog after {int(self.idle_timeout)}s inactivity",
+                    'info',
+                )
+                self.close()
+                return
+            stop_event.wait(timeout=min(0.5, max(0.01, remaining)))
 
     def onInit(self):
         qr_path = os.path.join(control.dataPath, 'qr_code.png')
@@ -31,12 +87,22 @@ class WatchlistFlavorAuth(BaseWindow):
 
         control.closeBusyDialog()
         self.setFocusId(1000)
+        self._reset_idle_timer()
 
     def doModal(self):
-        super().doModal()
+        self._start_idle_timer()
+        try:
+            super().doModal()
+        finally:
+            self._stop_idle_timer()
         return self.authorized
 
+    def close(self):
+        self._stop_idle_timer()
+        super().close()
+
     def onClick(self, controlId):
+        self._reset_idle_timer()
         if controlId == 1000:
             self.handle_action(7)
         else:
@@ -44,6 +110,7 @@ class WatchlistFlavorAuth(BaseWindow):
 
     def onTouch(self, x, y):
         """Handle touchscreen events"""
+        self._reset_idle_timer()
         focusedControl = self.getFocusId()
         # Handle touch on button controls (1002 = Authorize, 1003 = Cancel)
         if focusedControl in [1002, 1003]:
@@ -62,6 +129,7 @@ class WatchlistFlavorAuth(BaseWindow):
             self.close()
 
     def onAction(self, action):
+        self._reset_idle_timer()
         actionID = action.getId()
 
         if actionID in [9, 10, 92, 216]:

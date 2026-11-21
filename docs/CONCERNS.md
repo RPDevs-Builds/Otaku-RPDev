@@ -10,9 +10,9 @@ Do **not** re-read the whole log. Start the next review at the saved offset and 
 | Field | Value |
 |---|---|
 | Log session started | 2026-11-20 17:13:25 (Kodi restart after C-27 freeze) |
-| Last line reviewed | 2026-11-20 21:01:29.993 |
-| **Next review offset** | **225187** (`/tail?offset=225187` / `adb shell tail -c +225188 kodi.log`) |
-| Add-on version at last review | v6.2.18 + `service.subtitles.otaku.rpdev v1.0.2` (live on device since 18:30:50; C-32 & C-33 fixes landing in v6.2.19) |
+| Last line reviewed | 2026-11-21 05:15:38.080 |
+| **Next review offset** | **433385** (`/tail?offset=433385` / `adb shell tail -c +433386 kodi.log`) |
+| Add-on version at last review | v6.2.19 + `service.subtitles.otaku.rpdev v1.0.2` + `context.otaku.rpdev v1.0.45` (live on device since 2026-11-20 22:11:38) |
 
 Notes:
 - If Kodi restarts, the log rotates and the offset resets to 0. A review that returns far fewer bytes than the saved offset means a new session, so start from 0 and update the "session started" row.
@@ -39,6 +39,7 @@ Notes:
 | 15 | 2026-11-20 17:18 | 17:13 to 17:18 (new Kodi session, kodi.log bytes 0 to 69665) | Confirmed clean update to **v6.2.16** + **`service.subtitles.otaku.rpdev v1.0.1`** (`17:14:38`, 0 freeze, clean `clean_settings`). Root-caused why subtitles didn't auto-apply on `58516 Ep 9` and why `DialogSubtitles.xml` failed: **C-28** (`control.py` bound `ADDON_ID` to `service.subtitles.otaku.rpdev` when imported from the companion subtitle addon, throwing 19× `Invalid setting type` in Kodi 22 and returning `subtitles.enabled=False` + empty credentials) and **C-29** (HiAnime/Anikoto English Dub shipped a 16-cue / 924-byte Signs-only `.vtt` sidecar with `isforced=False`, fooling `player.py` into thinking Full Dialogue was present). Fixed both in **v6.2.17**. |
 | 16 | 2026-11-20 18:03 | 17:18 to 17:47 (kodi.log bytes 69666 to 113721) | Confirmed clean update to **v6.2.17** (`17:35:31`, 0 `Invalid setting type` errors — **C-28** verified fixed; **C-29** verified working end-to-end on Ep 11 at `17:47:20` with `CDVDSubtitlesLibass: Creating new ASS track`). Root-caused **C-30** (`OnDownloadComplete - Saving of subtitle ... to special://temp/TempSubtitle.en.srt failed` 2× at `17:40:18`/`17:43:02` AND `OpenStream - Unable to create subtitle parser` on Ep 10 at `17:36:58.905`): `embed_extractor.del_subs()` called `xbmcvfs.listdir()` on `temp/subtitles/`, populating Kodi C++ `g_directoryCache` with an empty directory listing, while `control.atomic_write_text()` used raw Python `os.replace()` bypassing `CFile::Rename()`/`CFile::OpenForWrite()` (`g_directoryCache.AddFile()`), causing `CFile::Open()` / `CFile::Copy()` to return `false` immediately without touching the OS filesystem. Also improved **C-31** (SubSource season-pack metadata & anime `- 10` episode auto-identification). Fixed in **v6.2.18** + **`service.subtitles.otaku.rpdev v1.0.2`**. |
 | 17 | 2026-11-20 21:08 | 17:55 to 21:01 (kodi.log bytes 113722 to 225187) | Confirmed clean update to **v6.2.18** + **`service.subtitles.otaku.rpdev v1.0.2`** (`18:30:50`, **0** `OnDownloadComplete` errors — **C-30** verified fixed on manual OSD download at `18:36:04`!). Root-caused why full subtitles didn't auto-display across *Blue Exorcist: The Blue Night Saga* (`59226`) Ep 1–8: **C-32** (`otaku.embed_sub_has_full_dialog='true'` persisted in `Window(10000)` after `58516 Ep 12` failed startup at `18:31:05` and across Zero-Wait playlist transitions where `clear_active_playback_meta()` is skipped, blocking `get_sub()` from setting `otaku.embed_sub_signs_only='true'`) and **C-33** (`get_sub()` registered only the translated OS path via `xbmcvfs.rename()` while returning `'special://temp/TemporarySubs.*.vtt'`, so after Kodi's subtitle scanner cached `special://temp/` in `g_directoryCache` at `18:36:04`, every Zero-Wait Ep 2–8 `.vtt` hit `OpenStream - Unable to create subtitle parser`). Fixed both in **v6.2.19**. |
+| 18 | 2026-11-21 05:24 | 21:15 to 05:15 (kodi.log bytes 225188 to 433385; 1,692 lines / 8h overnight session) | Read-only pre-sprint v6.3.0 audit spanning live ONN hot-update to **v6.2.19** (`22:11:38.546`, 0 `clean_settings` orphan re-prunes, 0 `plugin.video.otaku.rpdev` directory errors). Verified **C-32 & C-33 100% resolved** on `59226 Ep 12` (`22:13:12`–`22:13:20`: detected 4-cue Signs-only `.vtt`, opened without `OpenStream` error, auto-downloaded full English `.srt`, and rendered via `CDVDSubtitlesLibass`), with **0 `OpenStream`** and **0 `OnDownloadComplete`** errors across the entire 7h post-`v6.2.19` session. Verified **8 consecutive Zero-Wait Pre-Resolved Stream Hits** on *Ushio & Tora (2015)* (`29854` Ep 3–10) with native Kodi 22 `Player.GetChapters` (7–9 chapters/ep) and AniSkip auto-skip. Cataloged two new minor items for v6.3.0: **C-34** (`resolve_silent` during Ep 2 pre-scrape at `01:30:39` did not fall through past a failing lead `gogo` embed candidate to `sources[1]`) and **C-35** (`WatchlistIntegration.get_auth_dialog` missing `try...finally: del dlg` and inactivity auto-close on `wlf_auth_mal.xml`, blocking Kodi screensaver `window 12600` 8× when left open `04:50`–`05:14`). |
 
 ---
 
@@ -46,16 +47,24 @@ Notes:
 
 | ID | Severity | Concern | Total | First seen | Last seen | Trend | Status |
 |---|---|---|---|---|---|---|---|
-| C-06 | Low | Directory-load failures: `GetDirectory - Error getting plugin://plugin.video.otaku.rpdev/` plus `plugin://` plus `/tools` | 4 events (0 in R11–13) | 11-15 16:49 | 11-19 21:16 | 0 across `v6.2.11` & `v6.2.12` updates | Hardened in v6.2.6 & v6.2.9; clean across last 2 hot-updates; ready to graduate next review |
-| C-14 | Low | CURL receive error 56: `CCurlFile::CReadState::FillBuffer Failed: Failure when receiving data from the peer(56)` during stream download | 19 (0 in R13) | 11-16 09:46 | 11-20 08:58 | Periodic Premiumize CDN TCP reset | External CDN/network transient; Kodi reconnects cleanly on retry 1 with 0 playback stalls |
+| C-06 | Low | Directory-load failures: `GetDirectory - Error getting plugin://` after non-directory `RunPlugin(change_log)` / settings exit | 5 events (1 bare `plugin://` in R18; 0 `plugin.video.otaku.rpdev` across `v6.2.11`–`v6.2.19`) | 11-15 16:49 | 11-21 04:49 | Stable (0 addon root failures across last 5 hot-updates) | Target in v6.3.0 (`CR-03`): verify `RunPlugin` non-directory action return semantics in `default.py` / `routes/tools.py` |
+| C-14 | Low | CURL receive error 56: `CCurlFile::CReadState::FillBuffer Failed: Failure when receiving data from the peer(56)` during stream download | 35 (16 in R18 across 3.5h BD 1080p marathon) | 11-16 09:46 | 11-21 04:47 | Periodic Premiumize CDN (`energycdn.com`) TCP reset | External CDN transient; Kodi reconnects cleanly on `(re)try 1` in 2.0s with 0 playback drops |
+| C-34 | Low | Zero-Wait background `resolve_silent()` stops or leaves failing lead embed candidate (`gogo`) at index 0 when `sources[0]` fails verification (`29854 Ep 2` at `01:30:39` -> `01:35:57`) | 1 | 11-21 01:35 | 11-21 01:35 | New in R18 | Target in v6.3.0 (`SP-02` / `NF-04`): advance `resolve_silent()` across healthy candidates and prune failed lead candidate from pre-scraped episode cache |
+| C-35 | Low | `WatchlistIntegration.get_auth_dialog()` lacks `try...finally: dlg.close(); del dlg` disposal and `wlf_auth_*.xml` lacks inactivity timeout (blocking Kodi screensaver `window 12600` when left open overnight) | 1 session (8 screensaver refusals) | 11-21 04:50 | 11-21 05:14 | New in R18 | Target in v6.3.0 (`CR-03` / `CR-05`): wrap `WatchlistFlavorAuth.doModal()` in `try...finally` and add configurable idle timeout so OLED screensavers are never blocked indefinitely |
 
 ### Details and watch notes
 
-**C-06 Directory-load failures (hot-update unpack window)**
-- Hardened in v6.2.6 (non-blocking async changelog dispatch) and v6.2.9 (`control.end_directory()` allows `handle >= 0`). Zero occurrences across both the `v6.2.11` and `v6.2.12` updates.
+**C-06 Directory-load failures (`GetDirectory - Error getting plugin://`)**
+- Root `plugin://plugin.video.otaku.rpdev/` hot-update unpack failures remain at **0** across `v6.2.11` through `v6.2.19`. A single bare `GetDirectory(plugin://)` occurred at `04:49:33.539` after `textviewer.xml` (`change_log`) closed. Map to `default.py` & `routes/tools.py:CHANGE_LOG` in v6.3.0 (`CR-03`).
 
 **C-14 CURL receive failure (error 56)**
-- Transient TCP/HTTP peer disconnect from Premiumize CDN (`energycdn.com`) during MKV streaming (9 events across 7 consecutive *Wistoria S2* episodes `06:54`–`08:58`, 0 in Review #13). Handled transparently by Kodi's reconnect loop (`Reconnect, (re)try 1`).
+- Transient TCP/HTTP peer reset from Premiumize CDN (`4-cdn2-ovh-bea.energycdn.com` .. `10-cdn2-ovh-bea.energycdn.com`) during multi-hour 10-bit BD 1080p HEVC MKV streaming (16 events across *Ushio & Tora* Ep 2–10 `01:42`–`04:47`). Kodi's `CFileCache` reconnected on `(re)try 1` within 2 seconds every time with zero playback interruption.
+
+**C-34 Zero-Wait `resolve_silent()` lead-candidate pruning (`windows/resolver.py` & `ui/player.py`)**
+- At `01:30:39`, background pre-scrape for `29854 Ep 2` cached 7 sources (`sources[0]` = `gogo`, `sources[1]` = cached Dual-Audio torrent `[Cleo]Ushio_to_Tora_-_02`). Because `gogo` failed silent verification and remained at `sources[0]`, Ep 2 transition at `01:35:56` fell back to modal `resolver.xml`, failed `gogo` a second time (`01:35:57.236`), and then resolved `sources[1]`. Pruning failed candidates during `resolve_silent()` and updating `database.set_episode_sources()` guarantees a 0ms Zero-Wait hit on `sources[1]`.
+
+**C-35 `WatchlistFlavorAuth` modal disposal & idle screensaver guard (`WatchlistIntegration.py` & `windows/wlf_auth.py`)**
+- `WatchlistIntegration.py:18` chains `.doModal()` directly on `WatchlistFlavorAuth(...)` without `try...finally: dlg.close(); del dlg`, and `wlf_auth.py` has no idle timeout if left unattended overnight (`04:50`–`05:14`, blocking Kodi screensaver `window 12600` every 3 minutes).
 
 ---
 

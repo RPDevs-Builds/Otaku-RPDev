@@ -1618,11 +1618,16 @@ def clear_season_pack(mal_id=None, season=None):
         cur.connection.commit()
 
 
+def _has_cache_id(value):
+    """Return True if a cache identifier (mal_id or episode) is non-empty, preserving integer 0."""
+    return value is not None and not isinstance(value, bool) and str(value).strip() != ''
+
+
 def set_episode_sources(mal_id, episode, sources):
     """Cache the scraped/sorted sources list for an episode (e.g. from background pre-scraping)."""
-    if not sources or not mal_id:
+    if not sources or not _has_cache_id(mal_id) or not _has_cache_id(episode):
         return
-    key = f"episode_sources_{mal_id}_{episode}"
+    key = f"episode_sources_{str(mal_id).strip()}_{str(episode).strip()}"
     sources_repr = repr(sources)
     duration = 4  # 4 hours cache for pre-scraped sources
     _cache_write(key, sources_repr)
@@ -1631,9 +1636,9 @@ def set_episode_sources(mal_id, episode, sources):
 
 def get_episode_sources(mal_id, episode):
     """Retrieve pre-scraped sources for an episode if valid."""
-    if not mal_id:
+    if not _has_cache_id(mal_id) or not _has_cache_id(episode):
         return None
-    key = f"episode_sources_{mal_id}_{episode}"
+    key = f"episode_sources_{str(mal_id).strip()}_{str(episode).strip()}"
     mem = _mem_get(key)
     if mem is not None:
         return mem
@@ -1655,14 +1660,23 @@ def get_episode_sources(mal_id, episode):
 
 def clear_episode_sources(mal_id=None, episode=None):
     """Purge cached episode sources from SQLite and memory cache."""
+    has_mal = _has_cache_id(mal_id)
+    has_ep = _has_cache_id(episode)
+    if not (
+        (has_mal and has_ep)
+        or (has_mal and episode is None)
+        or (mal_id is None and episode is None)
+    ):
+        return
     _init_cache_table()
     with SQL(control.cacheFile) as cur:
-        if mal_id and episode:
-            key = f"episode_sources_{mal_id}_{episode}"
+        if has_mal and has_ep:
+            key = f"episode_sources_{str(mal_id).strip()}_{str(episode).strip()}"
             cur.execute('DELETE FROM cache WHERE key=?', (key,))
             _mem_del(key)
-        elif mal_id:
-            cur.execute("DELETE FROM cache WHERE key LIKE ?", (f"episode_sources_{mal_id}_%",))
+        elif has_mal:
+            clean_mal = str(mal_id).strip()
+            cur.execute("DELETE FROM cache WHERE key LIKE ?", (f"episode_sources_{clean_mal}_%",))
             _bump_mem_generation()
         else:
             cur.execute("DELETE FROM cache WHERE key LIKE 'episode_sources_%'")

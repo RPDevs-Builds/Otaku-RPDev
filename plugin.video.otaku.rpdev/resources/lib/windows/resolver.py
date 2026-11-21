@@ -55,6 +55,22 @@ def _deprioritize_unhealthy_hosts(sources):
     return healthy + unhealthy
 
 
+def _mark_candidate_mirror_failure(candidate, resolved_link=None, cooldown=300):
+    """Record mirror cooldown for failed embed/direct candidates and their resolved stream host."""
+    if not isinstance(candidate, dict) or candidate.get('type') not in ('embed', 'direct'):
+        return
+    origin = _extract_source_origin(candidate)
+    if origin:
+        domains.mark_mirror_failure(origin, cooldown=cooldown)
+    if isinstance(resolved_link, str) and resolved_link:
+        url_part = resolved_link.split('|', 1)[0]
+        parsed = urllib.parse.urlparse(url_part)
+        if parsed.scheme in ('http', 'https') and parsed.netloc:
+            stream_origin = f"{parsed.scheme.lower()}://{parsed.netloc.lower()}/"
+            if stream_origin != origin:
+                domains.mark_mirror_failure(stream_origin, cooldown=cooldown)
+
+
 class hook_mimetype:
     __MIME_HOOKS = {}
 
@@ -899,6 +915,9 @@ def resolve_silent(sources, episode, mal_id=None):
     """
     if not sources:
         return None
+    source_list = list(sources)
+    if not source_list:
+        return None
 
     from resources.lib.debrid import all_debrid, debrid_link, easynews, premiumize, real_debrid, torbox, easydebrid
     resolvers = {
@@ -913,7 +932,10 @@ def resolve_silent(sources, episode, mal_id=None):
 
     class _HeadlessResolver:
         def __init__(self, ep, mid):
-            self.episode = int(ep)
+            try:
+                self.episode = int(ep) if ep is not None and str(ep).strip() != '' else 1
+            except (TypeError, ValueError):
+                self.episode = 1
             self.mal_id = mid
             self.pack_select = False
 
@@ -943,21 +965,44 @@ def resolve_silent(sources, episode, mal_id=None):
                     if source.get('debrid_provider') == 'Easynews':
                         stream_link = api.unrestrict_link(source['hash'])
                     else:
-                        stream_link = api.resolve_hoster(magnet, source['episode_re'], self.pack_select)
+                        ep_re = source.get('episode_re') or str(self.episode)
+                        stream_link = api.resolve_hoster(magnet, ep_re, self.pack_select)
                 return stream_link
             except Exception as e:
                 control.log(f"resolve_silent helper error: {e}", 'debug')
                 return None
 
     helper = _HeadlessResolver(episode, mal_id)
-    ordered_sources = _deprioritize_unhealthy_hosts(sources)
+    ordered_sources = _deprioritize_unhealthy_hosts(source_list)
+    has_cache_key = (
+        mal_id is not None
+        and not isinstance(mal_id, bool)
+        and str(mal_id).strip() != ''
+        and episode is not None
+        and not isinstance(episode, bool)
+        and str(episode).strip() != ''
+    )
+    failed_indices = set()
+
+    def _persist_pruned_sources():
+        if not failed_indices and ordered_sources == source_list:
+            return
+        remaining = [src for idx, src in enumerate(ordered_sources) if idx not in failed_indices]
+        if isinstance(sources, list):
+            sources[:] = remaining
+        if has_cache_key:
+            if remaining:
+                database.set_episode_sources(mal_id, episode, remaining)
+            else:
+                database.clear_episode_sources(mal_id, episode)
 
     # Evaluate top candidates (try up to 3)
-    for s in ordered_sources[:3]:
+    for idx, s in enumerate(ordered_sources[:3]):
         if not s or not isinstance(s, dict):
+            failed_indices.add(idx)
             continue
+        stream_link = None
         try:
-            stream_link = None
             stype = s.get('type')
             if stype in ['torrent', 'cloud', 'hoster']:
                 dprov = s.get('debrid_provider')
@@ -974,6 +1019,7 @@ def resolve_silent(sources, episode, mal_id=None):
             if stream_link:
                 linkinfo = Resolver.prefetch_play_link(stream_link)
                 if linkinfo:
+                    _persist_pruned_sources()
                     return {
                         'url': linkinfo.get('url'),
                         'headers': linkinfo.get('headers', {}),
@@ -983,5 +1029,13 @@ def resolve_silent(sources, episode, mal_id=None):
         except Exception as e:
             control.log(f"resolve_silent error for candidate: {e}", 'debug')
 
+        failed_indices.add(idx)
+        _mark_candidate_mirror_failure(s, stream_link, cooldown=300)
+        control.log(
+            f"resolve_silent: pruned failing candidate provider={s.get('provider')} type={s.get('type')}",
+            level='warning',
+        )
+
+    _persist_pruned_sources()
     return None
 

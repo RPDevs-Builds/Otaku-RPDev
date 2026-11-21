@@ -18,3 +18,8 @@ dist/
 *test_config*.json
 .staging/
 
+# Prevent accidental Kodi VFS / mock path leaks in repo root
+special:/
+special:
+MagicMock/
+

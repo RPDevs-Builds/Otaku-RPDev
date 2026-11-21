@@ -15,7 +15,18 @@ def _watchlist_paging_per_page():
 
 def get_auth_dialog(flavor):
     from resources.lib.windows import wlf_auth
-    auth = wlf_auth.WatchlistFlavorAuth('wlf_auth_%s.xml' % flavor, control.ADDON_PATH, flavor=flavor).doModal()
+    dlg = None
+    auth = False
+    try:
+        dlg = wlf_auth.WatchlistFlavorAuth('wlf_auth_%s.xml' % flavor, control.ADDON_PATH, flavor=flavor)
+        auth = dlg.doModal()
+    finally:
+        if dlg is not None:
+            try:
+                dlg.close()
+            except Exception:
+                pass
+            del dlg
     return WatchlistFlavor.login_request(flavor) if auth else None
 
 

@@ -10,6 +10,8 @@ Central index of user guides, engineering references, testing standards, automat
 | [AUTOMATION.md](AUTOMATION.md) | DevOps & LLMs | Unified `scripts/verify_all.py --json` gate, CI/Release parity, AST/quality/doc drift linters, and LLM agent workflow integration. |
 | [CONFIGURATION_GUIDE.md](CONFIGURATION_GUIDE.md) | End Users | Hardware presets, all 12 settings categories, tuning danger zones, and troubleshooting. |
 | [CONCERNS.md](CONCERNS.md) | Maintainers & LLMs | Incremental live ONN 4K Pro (`10.13.0.16`, Kodi 22) device log review cursor, open concerns, and historical resolutions. |
+| [PLANS.md](PLANS.md) | Maintainers & LLMs | Phased `v6.3.0` architecture roadmap, environment safety boundaries, dependency graph, risk register, and Definition of Done. |
+| [teamwork/README.md](teamwork/README.md) | Multi-Agent `/teamwork` | Swarm operating manual, role charters, [SPRINT_BOARD.md](teamwork/SPRINT_BOARD.md), [REVIEW_PROCESS.md](teamwork/REVIEW_PROCESS.md), [TESTING_PROCESS.md](teamwork/TESTING_PROCESS.md), and [v6.3.0 Sprint Charter](teamwork/sprints/v6.3.0/SPRINT_CHARTER.md). |
 | [AGENTS.md](../AGENTS.md) | LLM Agents & Devs | Authoritative engineering invariants (mechanically kept `< 22 KB` for untruncated loading). |
 
 ## Project-Local Agent Skills (`.agents/skills/`)

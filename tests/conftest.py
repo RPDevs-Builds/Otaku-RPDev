@@ -11,6 +11,8 @@ import os
 import sys
 import io
 import time
+import atexit
+import shutil
 import tempfile
 import sqlite3
 import random
@@ -20,6 +22,7 @@ from unittest.mock import MagicMock
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ADDON_ROOT = os.path.join(REPO_ROOT, 'plugin.video.otaku.rpdev')
 CONTEXT_ROOT = os.path.join(REPO_ROOT, 'context.otaku.rpdev')
+SUBTITLE_ROOT = os.path.join(REPO_ROOT, 'service.subtitles.otaku.rpdev')
 TESTS_ROOT = os.path.join(REPO_ROOT, 'tests')
 
 for p in (REPO_ROOT, ADDON_ROOT, CONTEXT_ROOT, TESTS_ROOT):
@@ -60,8 +63,26 @@ def _hermetic_socket_connect_ex(self, address):
 socket.socket.connect = _hermetic_socket_connect
 socket.socket.connect_ex = _hermetic_socket_connect_ex
 
-# 2. Setup temporary profile directory with test info.db
-TEST_PROFILE_DIR = tempfile.mkdtemp(prefix='otaku_test_')
+# 2. Setup temporary sandbox directories with test info.db
+TEST_SANDBOX_ROOT = tempfile.mkdtemp(prefix='otaku_test_')
+atexit.register(shutil.rmtree, TEST_SANDBOX_ROOT, ignore_errors=True)
+TEST_PROFILE_DIR = os.path.join(TEST_SANDBOX_ROOT, 'profile_otaku')
+TEST_TEMP_DIR = os.path.join(TEST_SANDBOX_ROOT, 'temp')
+TEST_USERDATA_DIR = os.path.join(TEST_SANDBOX_ROOT, 'userdata')
+TEST_ADDON_DATA_DIR = os.path.join(TEST_SANDBOX_ROOT, 'addon_data')
+TEST_PROFILE_ROOT = os.path.join(TEST_SANDBOX_ROOT, 'profile')
+TEST_HOME_DIR = os.path.join(TEST_SANDBOX_ROOT, 'home')
+TEST_XBMC_DIR = os.path.join(TEST_SANDBOX_ROOT, 'xbmc')
+for _sandbox_dir in (
+    TEST_PROFILE_DIR,
+    TEST_TEMP_DIR,
+    TEST_USERDATA_DIR,
+    TEST_ADDON_DATA_DIR,
+    TEST_PROFILE_ROOT,
+    TEST_HOME_DIR,
+    TEST_XBMC_DIR,
+):
+    os.makedirs(_sandbox_dir, exist_ok=True)
 info_db_path = os.path.join(TEST_PROFILE_DIR, 'info.db')
 with sqlite3.connect(info_db_path) as conn:
     conn.execute('CREATE TABLE IF NOT EXISTS info (api_name TEXT PRIMARY KEY, client_id TEXT, client_secret TEXT, redirect_uri TEXT)')
@@ -965,19 +986,58 @@ class MockVFSFile:
         pass
 
 
+def _translate_special_path(path):
+    """Translate Kodi special:// URIs into isolated TEST_SANDBOX_ROOT directories."""
+    if not isinstance(path, str):
+        raise TypeError(f"xbmcvfs.translatePath expected str, got {type(path).__name__}")
+    if not path.startswith('special://'):
+        return path
+    prefix_map = (
+        ('special://profile/addon_data/plugin.video.otaku.rpdev', TEST_PROFILE_DIR),
+        ('special://profile/addon_data', TEST_ADDON_DATA_DIR),
+        ('special://profile', TEST_PROFILE_ROOT),
+        ('special://userdata/addon_data/plugin.video.otaku.rpdev', TEST_PROFILE_DIR),
+        ('special://userdata/addon_data', TEST_ADDON_DATA_DIR),
+        ('special://userdata', TEST_USERDATA_DIR),
+        ('special://temp', TEST_TEMP_DIR),
+        ('special://home/addons/plugin.video.otaku.rpdev', ADDON_ROOT),
+        ('special://home/addons/context.otaku.rpdev', CONTEXT_ROOT),
+        ('special://home/addons/service.subtitles.otaku.rpdev', SUBTITLE_ROOT),
+        ('special://home/addons', os.path.join(TEST_HOME_DIR, 'addons')),
+        ('special://home', TEST_HOME_DIR),
+        ('special://xbmc', TEST_XBMC_DIR),
+    )
+    for prefix, target in prefix_map:
+        if path == prefix or path == prefix + '/':
+            return target + (os.sep if path.endswith('/') else '')
+        if path.startswith(prefix + '/'):
+            rel = path[len(prefix) + 1:].lstrip('/')
+            joined = os.path.join(target, rel)
+            if path.endswith('/') and not joined.endswith(os.sep):
+                joined += os.sep
+            return joined
+    rel = path[len('special://'):].lstrip('/')
+    return os.path.join(TEST_SANDBOX_ROOT, 'special', rel)
+
+
+def _vfs_delete(path):
+    translated = _translate_special_path(path)
+    if os.path.exists(translated):
+        os.remove(translated)
+        return True
+    return False
+
+
 mock_xbmcvfs = MagicMock()
 mock_xbmcvfs.File = MockVFSFile
-mock_xbmcvfs.translatePath.side_effect = lambda p: p.replace(
-    'special://profile/addon_data/plugin.video.otaku.rpdev', TEST_PROFILE_DIR
-).replace(
-    'special://home/addons/plugin.video.otaku.rpdev', ADDON_ROOT
-)
-mock_xbmcvfs.exists.side_effect = os.path.exists
-mock_xbmcvfs.mkdirs.side_effect = lambda p: os.makedirs(p, exist_ok=True)
+mock_xbmcvfs.translatePath.side_effect = _translate_special_path
+mock_xbmcvfs.exists.side_effect = lambda p: os.path.exists(_translate_special_path(p))
+mock_xbmcvfs.mkdirs.side_effect = lambda p: os.makedirs(_translate_special_path(p), exist_ok=True) or True
+mock_xbmcvfs.delete.side_effect = _vfs_delete
 mock_xbmcvfs.listdir.side_effect = lambda p: (
-    [d for d in os.listdir(mock_xbmcvfs.translatePath(p)) if os.path.isdir(os.path.join(mock_xbmcvfs.translatePath(p), d))],
-    [f for f in os.listdir(mock_xbmcvfs.translatePath(p)) if os.path.isfile(os.path.join(mock_xbmcvfs.translatePath(p), f))]
-) if os.path.exists(mock_xbmcvfs.translatePath(p)) else ([], [])
+    [d for d in os.listdir(_translate_special_path(p)) if os.path.isdir(os.path.join(_translate_special_path(p), d))],
+    [f for f in os.listdir(_translate_special_path(p)) if os.path.isfile(os.path.join(_translate_special_path(p), f))]
+) if os.path.exists(_translate_special_path(p)) else ([], [])
 
 
 # ── xbmcaddon Models & Settings ───────────────────────────────────────────
@@ -1015,14 +1075,22 @@ def addon_side_effect(addon_id=None):
         ver = '22.0.0' if (active_profile and active_profile.version == '22') else '21.3.0' if (active_profile and active_profile.version == '21') else '21.0.0'
         addon_mock.getAddonInfo.side_effect = lambda k: ver if k == 'version' else ''
     else:
+        addon_paths = {
+            'context.otaku.rpdev': CONTEXT_ROOT,
+            'service.subtitles.otaku.rpdev': SUBTITLE_ROOT,
+        }
+        addon_profiles = {
+            'context.otaku.rpdev': os.path.join(TEST_ADDON_DATA_DIR, 'context.otaku.rpdev'),
+            'service.subtitles.otaku.rpdev': os.path.join(TEST_ADDON_DATA_DIR, 'service.subtitles.otaku.rpdev'),
+        }
         addon_mock.getAddonInfo.side_effect = lambda k: {
             'id': addon_id or 'plugin.video.otaku.rpdev',
             'name': 'Otaku RPDev',
             'version': '5.7.0',
             'icon': '',
             'fanart': '',
-            'path': os.path.join(REPO_ROOT, 'context.otaku.rpdev') if addon_id == 'context.otaku.rpdev' else ADDON_ROOT,
-            'profile': TEST_PROFILE_DIR
+            'path': addon_paths.get(addon_id, ADDON_ROOT),
+            'profile': addon_profiles.get(addon_id, TEST_PROFILE_DIR),
         }.get(k, '')
 
         def _validate_schema(k, expected_types, method_name):
