@@ -641,6 +641,59 @@ class TestWave3FeaturesNF01ToNF08(unittest.TestCase):
                 mock_upd.assert_not_called()
             self.assertTrue(any('Dry-Run Planned Mutations: 1' in t['text'] for t in res['textviewer_contents']))
 
+    def test_nf06_column_level_migration_idempotency_under_same_schema_version(self):
+        with E2EHermeticEnv('22'):
+            from resources.lib.ui import control, database
+            from resources.lib.ui.database_sync import SyncDatabase
+
+            # Simulate a mid-sprint developer DB already at SCHEMA_VERSION='1.0.14' but missing episode_offset
+            with database.SQL(control.malSyncDB) as cur:
+                cur.execute('DROP TABLE IF EXISTS series_overrides')
+                cur.execute(
+                    'CREATE TABLE series_overrides ('
+                    'mal_id INTEGER PRIMARY KEY, '
+                    'audio_lang TEXT, '
+                    'sub_lang TEXT, '
+                    'sub_mode TEXT, '
+                    'preferred_provider TEXT, '
+                    'intro_offset_s INTEGER DEFAULT 0, '
+                    'outro_offset_s INTEGER DEFAULT 0, '
+                    'skip_filler_mode TEXT DEFAULT "default", '
+                    'updated_at INTEGER NOT NULL)'
+                )
+                cur.execute(
+                    'CREATE TABLE IF NOT EXISTS activities (sync_id INTEGER PRIMARY KEY, otaku_version TEXT NOT NULL)'
+                )
+                cur.execute('INSERT OR REPLACE INTO activities(sync_id, otaku_version) VALUES(1, ?)', (SyncDatabase.SCHEMA_VERSION,))
+                cur.connection.commit()
+
+            # SyncDatabase() runs _create_all_tables() -> _ensure_column_migrations() unconditionally
+            SyncDatabase()
+            with database.SQL(control.malSyncDB) as cur:
+                cur.execute('PRAGMA table_info(series_overrides)')
+                cols = {row['name'] for row in cur.fetchall()}
+            self.assertIn('episode_offset', cols)
+
+    def test_c36_and_c37_diagnostics_easynews_key_and_low_mem_mmap_zero(self):
+        with E2EHermeticEnv('22'):
+            from resources.lib.routes import tools
+            from resources.lib.ui import control, database
+
+            # C-36: generate_diagnostics_report reads easynews.user (not undeclared easynews.username)
+            control.setSetting('easynews.user', 'test_en_user')
+            report = tools.generate_diagnostics_report()
+            self.assertIn('Easynews', report)
+            self.assertRegex(report, r'Easynews\s*:\s*AUTHENTICATED')
+
+            # C-37: is_low_memory() (32-bit Android ARM) disables SQLite mmap (mmap_size = 0)
+            database.close_all_connections()
+            with patch.object(control, 'is_low_memory', return_value=True):
+                with database.SQL(control.cacheFile) as cur:
+                    cur.execute('PRAGMA mmap_size')
+                    mmap_val = list(cur.fetchone().values())[0]
+            self.assertEqual(mmap_val, 0)
+            database.close_all_connections()
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -17,7 +17,7 @@ Silos executed (in order):
 Usage:
   python3 scripts/verify_all.py
   python3 scripts/verify_all.py --json /tmp/verify_report.json
-  python3 scripts/verify_all.py --fail-below 60 --verbose
+  python3 scripts/verify_all.py --fail-below 65 --verbose
 """
 
 import argparse
@@ -95,7 +95,7 @@ def _extract_coverage_metrics(output):
 
 def main():
     parser = argparse.ArgumentParser(description='Unified Otaku-RPDev multi-silo verification runner')
-    parser.add_argument('--fail-below', type=float, default=60.0, help='Minimum function coverage percentage (default: 60.0)')
+    parser.add_argument('--fail-below', type=float, default=65.0, help='Minimum function coverage percentage (default: 65.0)')
     parser.add_argument('--skip-coverage', action='store_true', help='Skip function coverage audit silo')
     parser.add_argument('--fast', action='store_true', help='Fast incremental QA mode (ruff, compileall, lint + targeted tests, skips coverage)')
     parser.add_argument('--tests', nargs='*', default=None, help='Specific unittest target files/modules to execute')

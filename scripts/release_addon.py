@@ -13,7 +13,7 @@ Strictly adheres to the Tag-Based GitHub Actions Release Pipeline:
        - Ruff linter (ruff check)
        - Python bytecode compilation (python3 -m compileall -q)
        - Full unit/integration/lint test suite with warnings enabled (-W default)
-       - Function-level coverage gate (audit_function_coverage.py --fail-below 60)
+       - Function-level coverage gate (audit_function_coverage.py --fail-below 65)
   3. Commits (--no-gpg-sign), tags (git tag -a vX.Y.Z --no-sign), and pushes
      both main and vX.Y.Z to origin (RPDevs-Builds/Otaku-RPDev).
   4. Monitors the GitHub Actions Release workflow (.github/workflows/release.yml)
@@ -242,7 +242,7 @@ def validate_release_metadata(addon_xml_path, news_path, changelog_path, target_
 def run_preflight_gate(repo_root, with_flatpak_e2e=False):
     """Execute the unified multi-silo pre-flight verification gate via scripts/verify_all.py."""
     print("\n🧪 Step 2: Running Unified Pre-Flight Verification Gate (scripts/verify_all.py)...")
-    cmd = [sys.executable, "scripts/verify_all.py", "--fail-below", "60"]
+    cmd = [sys.executable, "scripts/verify_all.py", "--fail-below", "65"]
     if with_flatpak_e2e:
         cmd.append("--e2e")
     run_cmd(cmd, cwd=repo_root, capture=False)

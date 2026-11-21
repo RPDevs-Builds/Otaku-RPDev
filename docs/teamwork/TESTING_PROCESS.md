@@ -6,19 +6,25 @@ Defines the mandatory 4-tier verification pipeline for **Otaku-RPDev v6.3.0**, e
 
 ## Tier 1: Real-Time Local Developer & Worker QA (During Authoring)
 Executed continuously by each worker before marking any task complete:
-1. **Targeted Unit & Consumer Tests (with strict project warnings-as-errors):**
+1. **Fast Incremental QA Runner & Pre-Commit Hook:**
+   ```bash
+   python3 scripts/qa_fast.py
+   ```
+   (Runs `ruff`, `compileall`, AST/quality/doc linters, and targeted unit tests via `.pre-commit-config.yaml` semantics.)
+2. **Minimum 2:1 Negative/Edge-to-Happy Test Quota (Mandatory for `NF-*`):**
+   - Every new feature work package must include at least two negative/edge tests per happy-path test (e.g., `.bak` corruption rollback, HTTP 429 `Retry-After` max-attempt pruning, dialog cancellation safety, `episode_offset` scrobble isolation, ASS `{...}` SDH preservation) verified under strict project warnings:
    ```bash
    python3 -W default -W error::DeprecationWarning:resources -W error::ResourceWarning:resources \
      -m unittest tests/unit/<target_test_file>.py -v
    ```
-2. **Mechanical Lint & Drift Guardrails:**
+3. **Mechanical Lint & Drift Guardrails:**
    ```bash
    python3 -m unittest \
      tests/lint/test_ast_integrity.py \
      tests/lint/test_suite_quality.py \
      tests/lint/test_docs_and_customizations.py -v
    ```
-3. **Settings Schema & Orphan Pruner Verification (whenever touching `settings.xml` or `strings.po`):**
+4. **Settings Schema & Orphan Pruner Verification (whenever touching `settings.xml` or `strings.po`):**
    ```bash
    python3 -m unittest \
      tests/unit/test_settings_schema_and_code_references.py \
@@ -64,11 +70,13 @@ Verifies all 15 runtime E2E gates inside real isolated Kodi 21 and Kodi 22 Flatp
 
 ---
 
-## Tier 4: Post-Release Passive Read-Only ONN `10.13.0.16` Telemetry Review
-Executed **after** `scripts/release_addon.py` publishes `v6.3.0` to GitHub Releases and `https://kodi.repo.iamrp.dev/`, and after the user updates their ONN device via Kodi's standard repository update mechanism:
+## Tier 4: Post-Release Passive Read-Only ONN `10.13.0.16` Telemetry Review (`Two-Stage Graduation`)
+Code fixes graduate through **two distinct verification stages**:
+1. **`FIXED_VERIFIED_LOCAL_E2E`**: Passed all Tier 1–3 gates including `scripts/e2e_v630_suite.py` and `scripts/test_kodi_installs.py --versions 21 22 --mode hermetic`.
+2. **`PRODUCTION_CONFIRMED`**: Executed **after** GitHub Actions publishes to `https://kodi.repo.iamrp.dev/` and the user updates `10.13.0.16` via Kodi's standard repository update cycle:
 ```bash
 python3 scripts/audit_onn_logs.py --concerns docs/CONCERNS.md
 ```
 - Reads `http://10.13.0.16:8081/tail?offset=<Next review offset>` strictly read-only.
-- Audits real-world playback, Zero-Wait transitions, subtitle auto-downloads, and watchlist syncs.
-- Updates `docs/CONCERNS.md` review cursor and graduates verified concerns to Resolved.
+- Audits real-world playback, Zero-Wait transitions, subtitle auto-downloads (`C-11`), CDN resets (`C-14`), and watchlist syncs.
+- Updates `docs/CONCERNS.md` review cursor and graduates `FIXED_VERIFIED_LOCAL_E2E` concerns to `PRODUCTION_CONFIRMED` / Resolved.

@@ -43,7 +43,7 @@ class SyncDatabase:
     # ─── Table Creation ──────────────────────────────────────────────
 
     def _create_all_tables(self):
-        """Ensure every required table exists in malSyncDB."""
+        """Ensure every required table and incremental column exists in malSyncDB."""
         self._build_activities()
         self._build_shows()
         self._build_shows_meta()
@@ -55,6 +55,7 @@ class SyncDatabase:
         self._build_anilist_enrichment()
         self._build_series_overrides()
         self._build_scrobble_retry_queue()
+        self._ensure_column_migrations()
 
     # --- individual table builders (static, idempotent) ---------------
 
@@ -326,13 +327,9 @@ class SyncDatabase:
                 (self.last_meta_update,))
             cur.connection.commit()
 
-    def _migrate_database(self):
-        """Perform non-destructive schema evolution without wiping user metadata."""
-        control.log(f"Database: Running non-destructive schema migration to {self.last_meta_update}")
-        # 1. Ensure all standard tables & indexes exist
-        self._create_all_tables()
-
-        # 2. Check for missing columns in existing tables and ALTER TABLE if needed
+    @staticmethod
+    def _ensure_column_migrations():
+        """Unconditionally inspect PRAGMA table_info and apply missing columns idempotently."""
         with SQL(control.malSyncDB) as cur:
             # Check watchlist_cache table
             cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='watchlist_cache'")
@@ -372,7 +369,26 @@ class SyncDatabase:
                     except Exception:
                         pass
 
-            # Update otaku_version in activities
+            # Check scrobble_retry_queue table for last_error
+            cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='scrobble_retry_queue'")
+            if cur.fetchone():
+                cur.execute("PRAGMA table_info(scrobble_retry_queue)")
+                cols = {col['name'] for col in cur.fetchall()}
+                if 'last_error' not in cols:
+                    try:
+                        cur.execute('ALTER TABLE scrobble_retry_queue ADD COLUMN last_error TEXT DEFAULT ""')
+                    except Exception:
+                        pass
+            cur.connection.commit()
+
+    def _migrate_database(self):
+        """Perform non-destructive schema evolution without wiping user metadata."""
+        control.log(f"Database: Running non-destructive schema migration to {self.last_meta_update}")
+        # 1. Ensure all standard tables, indexes & column migrations exist
+        self._create_all_tables()
+
+        # 2. Update otaku_version in activities
+        with SQL(control.malSyncDB) as cur:
             cur.execute(
                 'INSERT OR REPLACE INTO activities(sync_id, otaku_version) VALUES(1, ?)',
                 (self.last_meta_update,))

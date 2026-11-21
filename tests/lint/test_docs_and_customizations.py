@@ -89,8 +89,11 @@ class TestDocsAndCustomizations(unittest.TestCase):
         md_files = [
             os.path.join(_REPO_ROOT, 'README.md'),
             os.path.join(_REPO_ROOT, 'AGENTS.md'),
+            os.path.join(_REPO_ROOT, 'CHANGEREPORT.md'),
+            os.path.join(_REPO_ROOT, 'PROJECT_REVIEW_REPORT.md'),
         ]
         md_files += sorted(glob.glob(os.path.join(_REPO_ROOT, 'docs', '*.md')))
+        md_files += sorted(glob.glob(os.path.join(_REPO_ROOT, 'docs', 'teamwork', '**', '*.md'), recursive=True))
         md_files += sorted(glob.glob(os.path.join(_REPO_ROOT, '.agents', 'skills', '*', 'SKILL.md')))
 
         broken = []
@@ -115,7 +118,7 @@ class TestDocsAndCustomizations(unittest.TestCase):
                 if not os.path.exists(resolved):
                     broken.append(f"{os.path.relpath(mf, _REPO_ROOT)} -> {target}")
 
-        self.assertGreaterEqual(scanned, 8, f"Expected >= 8 markdown/skill docs scanned, got {scanned}")
+        self.assertGreaterEqual(scanned, 15, f"Expected >= 15 markdown/skill docs scanned, got {scanned}")
         self.assertEqual(broken, [], "Broken relative Markdown links:\n  " + "\n  ".join(broken))
 
     def test_news_txt_dividers_fit_textviewer_width(self):
@@ -137,6 +140,75 @@ class TestDocsAndCustomizations(unittest.TestCase):
         m = re.search(r'\*\*Next review offset\*\*\s*\|\s*\*\*(\d+)\*\*', text)
         self.assertIsNotNone(m, "docs/CONCERNS.md missing valid **Next review offset** integer cursor")
         self.assertGreaterEqual(int(m.group(1)), 0)
+
+    def test_coverage_fail_below_threshold_parity_across_ci_scripts_and_docs(self):
+        """Enforce identical --fail-below 65 threshold across CI, scripts, rules, and docs."""
+        targets = [
+            '.github/workflows/ci.yml',
+            '.github/workflows/release.yml',
+            'scripts/release_addon.py',
+            'scripts/verify_all.py',
+            'AGENTS.md',
+            'docs/ARCHITECTURE.md',
+            'docs/TESTING.md',
+            'docs/AUTOMATION.md',
+        ]
+        mismatches = []
+        for rel in targets:
+            path = os.path.join(_REPO_ROOT, rel)
+            self.assertTrue(os.path.isfile(path), f"Missing target file: {rel}")
+            with open(path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            found = re.findall(r'--fail-below["\',=\s]+(\d+(?:\.\d+)?)', content)
+            self.assertTrue(found, f"{rel} has no --fail-below threshold reference")
+            for val in found:
+                if float(val) != 65.0:
+                    mismatches.append(f"{rel}: found --fail-below {val} (expected 65)")
+        self.assertEqual(mismatches, [], "Coverage --fail-below threshold drift detected:\n  " + "\n  ".join(mismatches))
+
+    def test_concern_patterns_in_audit_onn_logs_align_with_concerns_md(self):
+        """Verify CONCERN_PATTERNS in scripts/audit_onn_logs.py align with docs/CONCERNS.md definitions."""
+        from scripts import audit_onn_logs
+        concerns_path = os.path.join(_REPO_ROOT, 'docs', 'CONCERNS.md')
+        with open(concerns_path, 'r', encoding='utf-8') as f:
+            table_rows = [ln for ln in f.readlines() if ln.lstrip().startswith('|')]
+
+        expected_keywords = {
+            'C-06': 'CHANGE_LOG',
+            'C-11': 'subtitle parser',
+            'C-14': 'peer(56)',
+            'C-34': 'resolve_silent',
+            'C-35': 'wlf_auth',
+        }
+        for cid, pattern in audit_onn_logs.CONCERN_PATTERNS.items():
+            cid_re = re.compile(rf'(?:^\|\s*{re.escape(cid)}\s*\||^\|\s*R-\d+\s*\|\s*[^|]*\b{re.escape(cid)}\b)')
+            matching_rows = [r for r in table_rows if cid_re.search(r)]
+            self.assertTrue(matching_rows, f"{cid} in CONCERN_PATTERNS missing from docs/CONCERNS.md Open/Resolved tables")
+            if cid in expected_keywords:
+                kw = expected_keywords[cid]
+                self.assertIn(
+                    kw.lower(),
+                    pattern.pattern.lower().replace('\\(', '(').replace('\\)', ')'),
+                    f"CONCERN_PATTERNS[{cid!r}] regex {pattern.pattern!r} does not match canonical domain keyword {kw!r}",
+                )
+                self.assertTrue(
+                    any(kw.lower() in row.lower() for row in matching_rows),
+                    f"docs/CONCERNS.md table row for {cid} missing expected domain keyword {kw!r}",
+                )
+
+    def test_plans_md_numbered_sections_are_sequential(self):
+        """Ensure top-level numbered sections (## 1. .. ## N.) in docs/PLANS.md have no skipped numbers."""
+        plans_path = os.path.join(_REPO_ROOT, 'docs', 'PLANS.md')
+        self.assertTrue(os.path.isfile(plans_path))
+        with open(plans_path, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+        nums = []
+        for line in lines:
+            m = re.match(r'^##\s+(\d+)\.\s+', line)
+            if m:
+                nums.append(int(m.group(1)))
+        self.assertGreaterEqual(len(nums), 7, f"Expected >= 7 numbered sections in docs/PLANS.md, found {nums}")
+        self.assertEqual(nums, list(range(1, len(nums) + 1)), f"Non-sequential section numbering in docs/PLANS.md: {nums}")
 
 
 if __name__ == '__main__':

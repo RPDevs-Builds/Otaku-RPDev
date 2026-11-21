@@ -246,6 +246,53 @@ class TestSettingsSchemaAndCodeReferences(unittest.TestCase):
         )
         self.assertGreater(len(static_keys), 200, "Sanity check: expected at least 200 static settings scanned")
 
+    def test_all_dotted_otaku_setting_literals_map_to_settings_xml(self):
+        """Scan Python string literals for dotted Otaku setting prefixes (including tuples/lists like tools.py)."""
+        prefixes = {
+            'realdebrid', 'premiumize', 'alldebrid', 'debridlink', 'torbox', 'easydebrid', 'easynews',
+            'anilist', 'mal', 'kitsu', 'simkl', 'trakt', 'subtitles', 'smartplay', 'interface',
+            'general', 'provider', 'skipintro', 'skipoutro', 'animeskip', 'watchlist', 'db',
+            'reuselanguageinvoker',
+        }
+        non_setting_allowlist = {
+            'skipintro.start', 'skipintro.end', 'skipoutro.start', 'skipoutro.end',
+            'subtitles.1', 'subtitles.2', 'subtitles.languages', 'subtitles.movie', 'subtitles.tv',
+        }
+        dotted_re = re.compile(r'^[a-z]+(?:\.[a-z0-9_]+)+$')
+        bad = {}
+        scanned_literals = 0
+
+        for root_dir, _, files in os.walk(self.addon_dir):
+            for filename in files:
+                if not filename.endswith('.py'):
+                    continue
+                filepath = os.path.join(root_dir, filename)
+                relpath = os.path.relpath(filepath, self.addon_dir)
+                with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+                    parsed_ast = ast.parse(f.read(), filename=filepath)
+                for node in ast.walk(parsed_ast):
+                    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+                        val = node.value
+                        if '.' not in val or not dotted_re.match(val):
+                            continue
+                        pref = val.split('.', 1)[0]
+                        if pref not in prefixes:
+                            continue
+                        if val.endswith(('.com', '.net', '.org', '.io', '.tv', '.pw', '.py', '.xml', '.json', '.db', '.png', '.ass', '.srt', '.vtt', '.xz', '.gz')):
+                            continue
+                        if val in non_setting_allowlist:
+                            continue
+                        scanned_literals += 1
+                        if val not in self.declared_settings:
+                            bad.setdefault(val, []).append((relpath, getattr(node, 'lineno', 0)))
+
+        self.assertGreater(scanned_literals, 300)
+        self.assertEqual(
+            bad,
+            {},
+            f"Undeclared dotted setting literals found (C-36 regression):\n{bad}",
+        )
+
     def test_dynamic_code_settings_map_to_registered_providers(self):
         """Verify dynamic setting patterns (e.g. provider.{name}) match known provider registries."""
         from resources.lib.pages import _TORRENT_MODULES, _EMBED_MODULES, _HOSTER_MODULES

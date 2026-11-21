@@ -116,15 +116,16 @@ Configure your scrape sources:
 - **Selective Cache Purging**: Selectively purge scrapers, debrid hashes, or metadata without wiping watch history or credentials.
 
 ### Category 5: Playback & SmartPlay
-- **SmartPlay**: Automatically plays the next episode upon completion, matches stream quality across episodes, and prefers matching embed servers for continuity.
-- **Audio Stream Selection**: Specify whether your primary audio preference is Japanese, English Dub, or your system Kodi default language.
-- **Auto-Skip (AniSkip)**: Seamlessly skips openings (OP) and endings (ED) using community timestamps from AniSkip. You can set intro/outro offsets (e.g., 2-second buffer) and toggle auto-skip vs. confirmation notification.
-- **Chapter Markers**: Supports `ffprobe` chapter detection for local files and direct streams.
+- **SmartPlay**: Automatically plays the next episode upon completion (`Zero-Wait` pre-scrapes & pre-resolves the next episode and prunes dead lead candidates automatically), matches stream quality across episodes, and prefers matching embed servers for continuity.
+- **Audio Stream Selection**: Specify whether your primary audio preference is Japanese, English Dub, or your system Kodi default language (overridable per show via Series Playback Profiles).
+- **3-Way Auto-Skip (AniSkip -> Anime-Skip -> IntroDB) & OP/ED Offset Calibration**: Seamlessly skips openings (OP) and endings (ED) using community timestamps from AniSkip, Anime-Skip, and IntroDB in fallback priority, with global and per-series OP/ED second-offset tuning.
+- **Chapter Markers**: Queries native Kodi 22 `Player.GetChapters` demuxer chapters first (decoupled from `ffprobe`), falling back to pre-probed pure-Python MKV/MP4 container chapters and community timestamps.
+- **Filler & Recap Badges + Binge Auto-Skip Filler (`v6.3.0+`)**: Enable **Display Filler & Recap Episode Badges** (`interface.filler.badges`) to tag episodes with `[FILLER]` / `[RECAP]` badges in listings, and **Auto-Skip Filler Episodes During Binge Playback** (`smartplay.skip_filler`) to exclude filler episodes automatically from binge playlists (safe-preserved if all remaining episodes are filler).
 
 ### Category 6: Subtitles (Embedded & External)
-- **Subtitle Engine**: Automatically detects character encoding (`use_chardet`) to eliminate garbled text on international tracks. Set auto-download triggers, request timeouts (default: 8s), and preference for SDH (Deaf/Hard-of-Hearing) or Forced tracks.
-- **Embedded Track Auto-Selection**: Automatically activates internal subtitle tracks matching your language. Configure keyword patterns (e.g., `dialogue`, `signs`, `full`) to prioritize specific release group styles. Enable *Dub Audio Subtitles* if you want subtitles active while watching English dubs.
-- **External Subtitle Providers & Kodi 22 WebVTT Validation**: Built-in, direct integration with OpenSubtitles, SubDL, SubSource, Podnadpisi, BSPlayer, and Addic7ed without requiring secondary external addons. Embed `.vtt`/`.srt`/`.ass` sidecars are automatically validated against Kodi 22's subtitle parser contract (stripping BOM/leading whitespace, rejecting HTML/JSON proxy error pages with automatic origin fallback, and isolating per-play temp filenames to prevent Kodi VFS cache collisions).
+- **Subtitle Engine & Companion OSD Add-on (`service.subtitles.otaku.rpdev`)**: Automatically detects character encoding (`use_chardet`) to convert international tracks to UTF-8, supports Kodi's VideoOSD Download Subtitles dialog via `service.subtitles.otaku.rpdev v1.0.3`, and offers SDH hearing-impaired bracket/speaker tag stripping (`subtitles.strip_sdh_tags`) while preserving ASS override tags (`{\\an8}`).
+- **Embedded Track Auto-Selection & Signs-Only Auto-Upgrade**: Automatically activates internal subtitle tracks matching your language and keyword patterns (`dialogue`, `signs`, `full`). When an embed provider supplies only a sparse `<45`-cue Signs-only `.vtt` sidecar during English Dub playback, Otaku automatically upgrades by downloading a Full Dialogue subtitle track.
+- **Subtitle Intelligence v2 (6 Providers + Multi-Candidate Fallback + Kodi 22 VFS)**: Direct integration with **OpenSubtitles, SubDL, SubSource, Podnadpisi (Podnapisi.NET), BSPlayer, and Addic7ed** backed by `AdaptiveCircuitBreaker` health tracking and automatic multi-candidate fallback if the top candidate fails download or cue validation. Sidecars are validated for Kodi 22's `CDVDFactorySubtitle::CreateParser()` contract (stripping BOM/whitespace, origin fallback on error bodies, and per-play `vfs_path` registration in `g_directoryCache`).
 
 ### Category 7: Sort and Filter
 - **Content Catalog Filters**: Filter browse and search directories by release year, broadcast season (Winter, Spring, Summer, Fall), media format (TV, Movie, OVA, ONA, Special), airing status, age rating (PG-13, R-17+), and country of origin.
@@ -141,20 +142,21 @@ Connect and manage third-party service credentials:
 
 ### Category 9: Watchlist
 Connect personal anime tracking accounts:
-- Supports **AniList**, **Kitsu**, **MyAnimeList (MAL)**, **Simkl**, and **Trakt**.
-- **Startup Sync**: Automatically synchronize watched status and progress on Kodi launch.
-- **Pagination & Performance**: For accounts with 500+ anime titles, enable *Watchlist Paging* and set *Per Page* (20–40) to prevent slow directory loads.
-- **Episode Update Check**: Configures how often Otaku contacts trackers for new episode releases.
+- **Native Bidirectional Sync (4 Watchlist Flavors)**: Supports **AniList**, **Kitsu**, **MyAnimeList (MAL)**, and **Simkl** with startup sync, paginated caching (`Per Page` 20–40 for 500+ libraries), and proactive 15-minute OAuth token refresh.
+- **External Trakt Bridge**: Optional scrobbling integration (`trakt.enabled`, `trakt.settings`, `trakt.script`) requires the official `script.trakt` add-on (`script.trakt.ids` window property + MDBList ratings), separate from the 4 native `WatchlistFlavor` trackers.
+- **Multi-Tracker Conflict Engine & Persistent 429 Retry Queue (`v6.3.0+`)**: Configure **Multi-Tracker Watchlist Conflict Policy** (`watchlist.sync.conflict_policy`: `Highest Progress Wins`, `Primary Tracker Wins`, or `Latest Updated Timestamp Wins`). Rate-limited (HTTP 429 `Retry-After`) or failed scrobbles persist into `scrobble_retry_queue` and replay automatically in the background service loop.
+- **Watchlist Telemetry Inspector & Cross-Watchlist Drift Auditor**: Open *Watchlist Telemetry* or *Cross-Watchlist Drift Auditor* under Tools to inspect pending retries, preview a **Dry-Run Planned Mutations** diff across enabled trackers, and confirm 1-click bulk reconciliation.
 
-### Category 10 & 11: Menu & Context Customization
-Toggle top-level menu categories (Movies, TV Shows, OVAs, ONAs, Airing Calendars) and tailor context menu options (Find Recommendations, Rescrape, Source Select, Mark as Watched, Clear Cache) to streamline navigation.
+### Category 10 & 11: Menu, Context Menu & Per-Series Overrides
+- **Menu Customization**: Toggle, reorder, and reset all 24 Main, Sub, and Genre menus via the interactive `menu_order.xml` manager.
+- **Widget-Aware `context.otaku.rpdev` (`v1.0.46`) Quick Actions**: Right-click items both inside Otaku directories and third-party skin widgets (resolving `mal_id` from `InfoTagVideo.getUniqueIDs()`, `ListItem` properties, or URLs) for *Find Recommendations*, *Find Relations*, *Watch Order*, *Rescrape*, *Source Select*, *Series Playback Profile* (`seriesprofile`), and *Manual Subtitle Search* (`manualsubtitles`).
+- **Per-Series Playback & Scraper Override Profiles (`NF-06`)**: Customize audio preference, subtitle language/mode, preferred provider, filler auto-skip mode, OP/ED skip offsets, and scraper-only `episode_offset` per `mal_id` (canonical episode numbers sent to watchlist trackers are never altered by `episode_offset`). Profiles are stored in `series_overrides` and automatically exported/restored by **Backup & Restore**.
 
 ### Category 12: Maintenance, Diagnostics & Storage
-- **Database Diagnostics**: Run SQLite PRAGMA `integrity_check`, inspect table size metrics, view scraper hit rates, and run SQLite `VACUUM` to compact storage and recover deleted record space.
-- **Data Recovery**: View changelog, clear search history, rebuild database schema, and perform a factory reset.
-- **Downloads & Local Storage**: Configure the local download folder path and launch the built-in background Download Manager.
-- **Solvers**: Configure Flaresolverr or Megacloud solver URLs to bypass Cloudflare turnstile protection on web scrapers.
-- **Backup & Restore**: Export your entire Otaku configuration (accounts, preferences, custom filters) to a `.json` backup file or restore it onto another device.
+- **Database & Circuit Breaker Diagnostics**: Run SQLite PRAGMA `integrity_check`, view `AdaptiveCircuitBreaker` provider cooldown states (and reset tripped providers with 1 click), inspect scraper hit rates, and run `VACUUM` + WAL checkpoints.
+- **Resilient `mappings.db` Sync**: Supports compressed `.xz`/`.gz` downloads validated by SHA-256 and `PRAGMA quick_check(1)` before swap, automatically preserving and rolling back to `mappings.db.bak` if verification fails.
+- **Data Recovery & Backup**: View changelog, clear search history, rebuild schema non-destructively, or export/import settings, logins, and `series_overrides` profiles via `.json` backups.
+- **Downloads & Solvers**: Configure the local download folder, launch the Download Manager, and configure FlareSolverr / Megacloud solver URLs.
 
 ---
 

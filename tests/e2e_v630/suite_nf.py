@@ -108,6 +108,12 @@ class TestSuiteNFWave3Features(TestWave3FeaturesNF01ToNF08):
         super().test_nf07_and_nf08_sdh_ass_preserve_tags_and_drift_reconciler_dry_run_and_cancel()
         self.assertTrue(callable(self.test_nf07_and_nf08_sdh_ass_preserve_tags_and_drift_reconciler_dry_run_and_cancel))
 
+    @tier(2)
+    @feature('NF-06')
+    def test_nf06_column_level_migration_idempotency_under_same_schema_version(self):
+        super().test_nf06_column_level_migration_idempotency_under_same_schema_version()
+        self.assertTrue(callable(self.test_nf06_column_level_migration_idempotency_under_same_schema_version))
+
 
 if __name__ == '__main__':
     unittest.main()

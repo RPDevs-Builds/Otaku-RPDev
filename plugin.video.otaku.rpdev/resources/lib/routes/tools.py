@@ -341,7 +341,7 @@ def generate_diagnostics_report():
         ('AllDebrid', 'alldebrid.token'),
         ('Debrid-Link', 'debridlink.token'),
         ('EasyDebrid', 'easydebrid.token'),
-        ('Easynews', 'easynews.username'),
+        ('Easynews', 'easynews.user'),
     ]
     for d_name, s_key in debrid_keys:
         token_val = control.getSetting(s_key)

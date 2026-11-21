@@ -198,7 +198,7 @@
 
 - **Upstream Pattern:** Context menu scripts were bundled directly inside the main video add-on, complicating dependency trees and causing skin widget `IndexError` crashes when paths had atypical formatting.
 - **RPDev Implementation:**
-  - Split context menus into a dedicated Kodi context extension add-on: `context.otaku.rpdev` (currently v1.0.44).
+  - Split context menus into a dedicated Kodi context extension add-on: `context.otaku.rpdev` (`v1.0.44` at `v6.0.0`, upgraded to **`v1.0.46`** at `v6.3.0` with widget `mal_id` resolution and `seriesprofile` / `manualsubtitles` quick actions).
   - Implemented `_extract_subpath` helper with defensive regex URL parsing, eliminating `IndexError` exceptions from third-party skin widgets (Aura, Arctic Horizon, Cosmic).
   - Converted `info.db` in context addon to SQLite `DELETE` mode and read-only URI connection mode to prevent database locking between the video add-on and context menus.
 - **Justification & Impact:** Zero context menu crashes and robust widget compatibility across all Kodi skin engines.
@@ -259,4 +259,16 @@ Every enhancement detailed in this report has undergone rigorous validation:
 
 ---
 
-*Report compiled and validated by Antigravity — November 2, 2026.*
+## 5. `v6.0.0 -> v6.3.0` Architectural Evolution Addendum
+
+Since `v6.0.0`, the codebase expanded across three major hardening and capability waves (`v6.2.x` Kodi 22 stabilization + **`v6.3.0` Tri-Addon Feature Release**):
+
+| Subsystem | `v6.0.0` Baseline | `v6.3.0` Verified State | Key Commits / Tickets |
+| :--- | :--- | :--- | :--- |
+| **Tri-Addon Lockstep Architecture** | 2 add-ons (`plugin.video` + `context`) | **3 acyclic add-ons**: `plugin.video.otaku.rpdev v6.3.0`, `context.otaku.rpdev v1.0.46`, `service.subtitles.otaku.rpdev v1.0.3` (`C-27`/`C-28` fixed; AST cycle detector) | `SP-01`..`CR-04`, `NF-02`, `NF-07` |
+| **Subtitle Intelligence v2 & Kodi 22 VFS** | Basic `embed_extractor.get_sub()` | `g_directoryCache`-safe `control.atomic_write_text(..., vfs_path=...)`, `os.listdir()` in `del_subs()`, `<45`-cue Signs-only auto-upgrade, 6 native providers, multi-candidate fallback, ASS `{...}`-preserving SDH tag stripper | `C-11`, `C-29`..`C-33`, `NF-07` |
+| **Playback, Zero-Wait & Series Profiles** | Global-only settings; manual episode offsets impossible | Zero-Wait `resolve_silent()` lead-candidate pruning (`C-34`), `WindowXML` `try...finally` disposal + idle watchdog (`C-35`/`C-06`), `series_overrides` (`SCHEMA_VERSION='1.0.14'`), scraper-only `episode_offset`, Filler/Recap badges & binge skip | `SP-02`, `NF-03`, `NF-06` |
+| **Watchlists, Circuit Breaker & `mappings.db`** | Independent tracker updates; raw `.db` download; scraper-only breaker | `AdaptiveCircuitBreaker` across all 5 provider classes (`domains.py`), `scrobble_retry_queue` (`Retry-After` backoff drained in `service.py`), 3 conflict policies, `watchlist_drift_auditor` with dry-run confirmation, `.xz`/`.gz` + SHA-256 + `PRAGMA quick_check` + `.bak` rollback for `mappings.db` | `NF-01`, `NF-04`, `NF-05`, `NF-08` |
+| **Asset Hygiene & Verification Gate** | 512 tests; ~60% coverage; duplicate studio PNGs | **1,070 `unittest` + 126 `e2e_v630_suite.py` tests** (`66.01%` fn coverage, `--fail-below 65` gate), **530** canonical studio PNGs/style (`0` case collisions), optimized root assets (`112.8 KB`/`31.9 KB`), headless Kodi 21/22 E2E | `CR-01`..`CR-05`, `SP-03`, `QA-01` |
+
+*Report compiled and validated by Antigravity — updated for `v6.3.0` on November 21, 2026.*

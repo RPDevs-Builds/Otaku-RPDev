@@ -15,6 +15,7 @@ Central index of user guides, engineering references, testing standards, automat
 | [AGENTS.md](../AGENTS.md) | LLM Agents & Devs | Authoritative engineering invariants (mechanically kept `< 22 KB` for untruncated loading). |
 
 ## Project-Local Agent Skills (`.agents/skills/`)
-- [otaku-testing-and-qa](../.agents/skills/otaku-testing-and-qa/SKILL.md): Authoring, refactoring, and triaging high-signal offline tests across all 6 silos, anti-placeholder guardrails, strict Kodi 22 UI/settings verification, and `scripts/verify_all.py --json` LLM triage.
-- [otaku-onn-log-review](../.agents/skills/otaku-onn-log-review/SKILL.md): Incremental read-only ONN log reviews, log-rotation handling, noise triage, `docs/CONCERNS.md` updates, and local headless Kodi 22 verification via `kodi-env`.
-- [otaku-release-and-verification](../.agents/skills/otaku-release-and-verification/SKILL.md): Unified pre-flight verification (`scripts/verify_all.py`) and automated tag-to-CDN publishing via `scripts/release_addon.py`.
+- [otaku-testing-and-qa](../.agents/skills/otaku-testing-and-qa/SKILL.md): Authoring, refactoring, and triaging high-signal offline tests across all 6 silos, anti-placeholder guardrails, strict Kodi 22 UI/settings verification, negative-path quotas, and `scripts/verify_all.py --json` LLM triage.
+- [otaku-onn-log-review](../.agents/skills/otaku-onn-log-review/SKILL.md): Strictly read-only ONN log auditing (`scripts/audit_onn_logs.py --concerns docs/CONCERNS.md`), `C-11` vs `C-14` vs `CR-01` taxonomy, two-stage graduation (`FIXED_VERIFIED_LOCAL_E2E` -> `PRODUCTION_CONFIRMED`), and local headless Kodi 21/22 verification.
+- [otaku-release-and-verification](../.agents/skills/otaku-release-and-verification/SKILL.md): Tri-addon lockstep pre-flight verification (`--fail-below 65`, `e2e_v630_suite.py`), dry-run ZIP audit, and automated tag-to-CDN publishing via `scripts/release_addon.py`.
+- [otaku-teamwork-and-audit](../.agents/skills/otaku-teamwork-and-audit/SKILL.md): End-to-end `/plan` -> `/teamwork` (with in-session quota fallback) -> Adversarial Claim-to-Code Closure -> `/learn` self-improvement cycle.

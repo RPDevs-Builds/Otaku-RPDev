@@ -135,7 +135,9 @@ def write_addon_settings(profile_dir, overrides):
         elem.attrib.pop("default", None)
         elem.text = str(v)
 
-    tree.write(s_path, encoding="utf-8", xml_declaration=True)
+    tmp_path = s_path + ".tmp"
+    tree.write(tmp_path, encoding="utf-8", xml_declaration=True)
+    os.replace(tmp_path, s_path)
 
 
 def set_runtime_setting(profile_dir, overrides):
@@ -260,6 +262,7 @@ def test_windowxml_dialog(route_param, expected_dialog_name):
             gw = jsonrpc("GUI.GetProperties", {"properties": ["currentwindow"]}, timeout=3.0).get("result", {}).get("currentwindow", {})
             if (gw.get("id") or 0) < 10000:
                 break
+        time.sleep(0.25)
 
     return {
         "opened": opened,
@@ -274,7 +277,8 @@ def test_clean_settings_orphan_pruning(profile_dir):
     if not os.path.exists(s_path):
         return {"ok": False, "error": "settings.xml not found"}
 
-    # 1. Inject an obsolete setting
+    # 1. Inject an obsolete setting after letting prior CSettings flush settle
+    time.sleep(0.35)
     tree = ET.parse(s_path)
     root = tree.getroot()
     test_key = "obsolete.orphan.e2e.test"
@@ -282,7 +286,9 @@ def test_clean_settings_orphan_pruning(profile_dir):
     if elem is None:
         elem = ET.SubElement(root, "setting", id=test_key)
     elem.text = "test_obsolete_value"
-    tree.write(s_path, encoding="utf-8", xml_declaration=True)
+    tmp_path = s_path + ".tmp"
+    tree.write(tmp_path, encoding="utf-8", xml_declaration=True)
+    os.replace(tmp_path, s_path)
 
     # 2. Invoke /clean_settings route via Files.GetDirectory
     r_exec = get_dir("plugin://plugin.video.otaku.rpdev/clean_settings", timeout=20.0)
@@ -521,6 +527,37 @@ def seed_test_databases(profile_dir):
         conn.close()
     except Exception as e:
         print(f"  Warning: Could not seed search.db: {e}")
+
+    # 3. cache.db (hermetic anime_statistics/52991 fixture for StatsWindow modal)
+    cache_db_path = os.path.join(addon_data_dir, "cache.db")
+    try:
+        import hashlib
+        stats_url = "https://api.tenrai.org/v1/anime/52991/statistics"
+        stats_key = "MalBrowser.get_base_res" + hashlib.md5(str(((stats_url,), {})).encode()).hexdigest()
+        stats_payload = {
+            "data": {
+                "total": 1000,
+                "watching": 400,
+                "completed": 500,
+                "on_hold": 20,
+                "dropped": 10,
+                "plan_to_watch": 70,
+                "scores": [{"score": i, "percentage": 10, "votes": 100} for i in range(1, 11)],
+            }
+        }
+        conn = sqlite3.connect(cache_db_path, timeout=30.0)
+        cur = conn.cursor()
+        cur.execute("CREATE TABLE IF NOT EXISTS cache (key TEXT UNIQUE, value TEXT, date INTEGER)")
+        cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS ix_cache ON cache (key)")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_cache_date ON cache (date)")
+        cur.execute(
+            "REPLACE INTO cache (key, value, date) VALUES (?, ?, ?)",
+            (stats_key, repr(stats_payload), int(time.time())),
+        )
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"  Warning: Could not seed cache.db: {e}")
 
 
 def test_mock_server_playback(profile_dir, mock_server_url):

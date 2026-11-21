@@ -44,5 +44,5 @@ Deliver **Otaku-RPDev v6.3.0**, unifying all `v6.2.x` field lessons (`C-01`–`C
 ## 4. Wave Schedule & Gate Alignment
 - **Wave 1 (`M1`, Gate 1 `--fail-below 60`)**: `SP-01`..`SP-03` (`C-34`, `C-35`, `audit_onn_logs.py`, fast QA, Wave-1 AST guardrails, repo hygiene).
 - **Wave 2 (`M2`, Gate 2 `--fail-below 60` + dry-run tri-addon ZIP)**: `CR-01`..`CR-05`.
-- **Wave 3a (`M3a`) -> Wave 3b (`M3b`, Gate 3 `--fail-below 65`)**: `NF-04` + `NF-06` -> parallel `NF-01`, `NF-02`, `NF-03`, `NF-05`, `NF-07`, `NF-08` (all new `strings.po` IDs **`#30999+`**).
+- **Wave 3a (`M3a`) -> Wave 3b (`M3b`, Gate 3 `--fail-below 65`)**: `NF-04` + `NF-06` -> parallel `NF-01`, `NF-02`, `NF-03`, `NF-05`, `NF-07`, `NF-08` (all new `strings.po` IDs allocated inside unused slots of **`#30000`–`#30999`**).
 - **Parallel `E2E-Track` & Wave 4 (`M4`, `QA-01`)**: Local headless Kodi 21/22 E2E, docs sync, local `--no-gpg-sign` staging (**no push/publish until final user approval**).

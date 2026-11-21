@@ -1,50 +1,46 @@
 ---
 name: otaku-onn-log-review
 description: >-
-  Incremental read-only log review workflow for the ONN 4K Pro Kodi 22 device
-  (10.13.0.16), docs/CONCERNS.md cursor updates, and live local Flatpak Kodi 22
-  verification via kodi-env. Use when the user asks to review ONN logs, check
-  device errors/warnings, or verify Otaku-RPDev fixes against real Kodi 22.
+  Strictly read-only telemetry audit workflow for ONN 4K Pro (10.13.0.16) via
+  scripts/audit_onn_logs.py, canonical concern taxonomy (C-11 vs C-14 vs CR-01),
+  two-stage concern graduation (FIXED_VERIFIED_LOCAL_E2E -> PRODUCTION_CONFIRMED),
+  and local headless Kodi 21/22 verification.
 ---
 
-# Otaku-RPDev ONN Log Review & Local Kodi 22 Verification
+# Otaku-RPDev Read-Only ONN Log Review & Local Kodi 21/22 Verification
 
-## 1. Incremental Read-Only Log Fetch
-1. Read `Next review offset` from `/mnt/sharedroot/projects/RPDevs-Builds/Otaku-RPDev/docs/CONCERNS.md`.
-2. Fetch **only** new bytes via the read-only web log viewer (never push code, update add-ons, or send remote commands to `10.13.0.16`):
-   ```bash
-   curl -sS -D /tmp/onn_headers.txt --max-time 15 \
-     "http://10.13.0.16:8081/tail?offset=<SAVED_OFFSET>" -o "<SCRATCH_FILE>"
-   ```
-3. Inspect `X-Seek-Offset` and the first 5 lines:
-   - If the output begins with `Starting Kodi (` or `X-Seek-Offset < <SAVED_OFFSET>`, Kodi restarted and rotated `kodi.log`; record the new session start timestamp and set `Next review offset` to `X-Seek-Offset`.
-   - Otherwise, set `Next review offset` to `<SAVED_OFFSET> + fetched_bytes` (matching `X-Seek-Offset`).
+> [!CAUTION]
+> **ONN `10.13.0.16` IS STRICTLY READ-ONLY PRODUCTION TELEMETRY.**
+> **NEVER** push files via ADB, sideload builds, edit configs/databases in place, trigger `UpdateAddonRepos`, or restart `10.13.0.16`. It receives updates exclusively through the standard Kodi CDN repository (`https://kodi.repo.iamrp.dev/`). Execute all runtime/install tests in the local headless Flatpak Kodi 21/22 harness.
 
-## 2. Structured Log Triage
-- **Otaku activity**:
+## 1. Primary Read-Only Log Audit (`scripts/audit_onn_logs.py`)
+Run from `/mnt/sharedroot/projects/RPDevs-Builds/Otaku-RPDev`:
+```bash
+python3 scripts/audit_onn_logs.py --concerns docs/CONCERNS.md --json <scratch>/onn_audit.json
+```
+- Reads `Next review offset` from `docs/CONCERNS.md` and issues **only** an HTTP `GET http://10.13.0.16:8081/tail?offset=<N>` (timeout 10s; zero SSH/ADB subprocesses).
+- For offline testing against captured fixtures:
   ```bash
-  grep -iE "otaku\.rpdev|OTAKU RPDEV" "<SCRATCH_FILE>"
+  python3 scripts/audit_onn_logs.py --input tests/fixtures/onn_kodi_log_sample.txt --offset 0 --json -
   ```
-  Verify:
-  - Add-on version updates (`Found addon: 'plugin.video.otaku.rpdev v...'`) and `clean_settings` status (0 orphaned settings).
-  - Per-provider scrape yields and wall-clock timings (`animetosho`, `nyaa`, `torrentio`, `nekobt`, `piratebay`, `hianime`, `anikoto`, `animepahe`) vs `sortSources` cutoff (`general.timeout`).
-  - Playback health: chapter extraction, audio/subtitle track selection, Zero-Wait hits, season-pack reuse, and `OpenStream - Unable to create subtitle parser`.
-- **Errors & warnings (filtering known non-Otaku noise)**:
-  ```bash
-  grep -iE "error <general>|warning <general>|Traceback|PythonToCpp|EXCEPTION" "<SCRATCH_FILE>" \
-    | grep -vE "plugin\.video\.umbrella|service\.upnext|/fake/|Control [0-9]+ in window 10025|ParseChildManifest|JSONRPC: Empty batch|OutputPicture - timeout|ActiveAE"
-  ```
+- Inspect `rotated` and `next_offset`: if `Starting Kodi (` appears or `X-Seek-Offset < requested_offset`, update `Log session started` and reset `Next review offset` to `next_offset`.
 
-## 3. Live Local Kodi 22 Verification (`kodi-env`)
-Before releasing fixes via `scripts/release_addon.py`:
-1. If overriding provider toggles for reproduction, back up `/mnt/sharedroot/projects/kodi-test-env/profiles/kodi22/userdata/addon_data/plugin.video.otaku.rpdev/settings.xml` to `settings.xml.bak`.
-2. Launch `kodi-env headless 22` as a background daemon and wait for `JSONRPC.Ping == "pong"` on `http://127.0.0.1:8080/jsonrpc` (Basic auth `kodi:`).
-3. Trigger `Player.Open` on the exact target route (e.g. `plugin://plugin.video.otaku.rpdev/play/<mal_id>/<ep>?rescrape=true`) and monitor `/mnt/sharedroot/projects/kodi-test-env/profiles/kodi22/temp/kodi.log`.
-4. Audit `kodi.log` for provider timings, `sortSources` funnel counts, external subtitle attachment, and **0** `PythonToCpp` / `Traceback` / `OTAKU RPDEV` errors or warnings.
-5. Always stop playback (`Input.Back`, `Player.Stop`), send `Application.Quit`, restore `settings.xml.bak` → `settings.xml`, and verify 0 background tasks remain running.
+## 2. Canonical Concern Taxonomy (`C-11` vs `C-14` vs `CR-01`)
+Keep concern IDs strictly separated (enforced by `tests/lint/test_docs_and_customizations.py`):
+- **`C-06`**: `CHANGE_LOG` / `SOLVER_INST` missing `exit_code()` / `GetDirectory - Error getting plugin://`.
+- **`C-11`**: `OpenStream - Unable to create subtitle parser` (Kodi 22 WebVTT/ASS VFS / cue failures).
+- **`C-14`**: External Premiumize CDN (`energycdn.com`) transient CURL-56 resets (`CCurlFile::CReadState::FillBuffer Failed: Failure when receiving data from the peer(56)`). **Never** conflate `C-14` with subtitle parser (`C-11`) or studio logo collisions (`CR-01`).
+- **`C-34`**: Zero-Wait background `resolve_silent()` failing to prune dead lead candidates.
+- **`C-35`**: `WatchlistFlavorAuth` modal missing `try...finally` disposal or screensaver idle timeout.
 
-## 4. Regression Testing, `docs/CONCERNS.md` & Release
-- Write concrete behavioral regression tests for every fixed defect following the `otaku-testing-and-qa` skill (no placeholder assertions or `except Exception: pass`).
-- Run `python3 scripts/verify_all.py --fail-below 60 --json /tmp/verify_report.json` to confirm 0 failures and 0 project warnings before releasing.
-- Update `Next review offset`, `Last line reviewed`, `Review history`, and `Open` / `Resolved` tables in `docs/CONCERNS.md`.
-- Publish fixes strictly via `scripts/release_addon.py` (see the `otaku-release-and-verification` skill).
+## 3. Local Headless Kodi 21 & 22 E2E Verification (`scripts/test_kodi_installs.py`)
+Verify all fixes strictly in local Flatpak Kodi 21 (`21.3-Omega`) & Kodi 22 (`22.0-RC2`):
+```bash
+python3 scripts/test_kodi_installs.py --versions 21 22 --mode hermetic
+```
+Audit the local E2E output for `10/10` menus, `8/8` modals, `494/494` runtime settings, `Mock/Chapters` playback, clean shutdown `< 20s`, and `clean_audit=True` (`0` tracebacks / `Invalid setting type` / SWIG leaks).
+
+## 4. Two-Stage Concern Graduation & Release
+1. **`FIXED_VERIFIED_LOCAL_E2E`**: Earned after regression tests + `python3 scripts/verify_all.py --fail-below 65` + `scripts/e2e_v630_suite.py` + `scripts/test_kodi_installs.py --versions 21 22 --mode hermetic` pass locally.
+2. **`PRODUCTION_CONFIRMED`**: Earned **only** after release via `scripts/release_addon.py` and passive read-only `scripts/audit_onn_logs.py` observation once `10.13.0.16` updates through Kodi's standard repository cycle.
+3. Reference: [docs/CONCERNS.md](../../../docs/CONCERNS.md) and [docs/teamwork/TESTING_PROCESS.md](../../../docs/teamwork/TESTING_PROCESS.md).

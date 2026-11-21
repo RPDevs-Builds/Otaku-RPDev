@@ -378,10 +378,10 @@ class SQL:
                         cache_mb = control.getInt('db.sqlite.cache_size_mb') or (16 if control.is_low_memory() else 32)
                         if cache_mb > 0:
                             conn.execute(f"PRAGMA cache_size = -{cache_mb * 1024}")
-                        # Memory map size setting
+                        # Memory map size setting (disable mmap on 32-bit / low-RAM to avoid std::bad_alloc fragmentation)
                         mmap_setting_mb = control.getInt('db.sqlite.mmap_size_mb') or 32
                         if control.is_low_memory():
-                            mmap_size = min(4194304, mmap_setting_mb * 1048576)
+                            mmap_size = 0
                         else:
                             mmap_size = mmap_setting_mb * 1048576
                         conn.execute(f"PRAGMA mmap_size = {mmap_size}")

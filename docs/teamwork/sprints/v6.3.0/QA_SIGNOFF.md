@@ -24,7 +24,7 @@
 ## 2. Work Package Verification Checklist
 
 - [x] **Wave 1 (`SP-01`..`SP-03` — Gate 1)**:
-  - [x] `SP-01` Governance board & sprint docs synced (`#30999+` `strings.po` floor, `unittest` runner, `16,743` byte `AGENTS.md`, `--fail-below 65` Gate 3 target).
+  - [x] `SP-01` Governance board & sprint docs synced (`#30000`–`#30999` `strings.po` boundary, `unittest` runner, `--fail-below 65` Gate 3 target).
   - [x] `SP-02` `C-34` Zero-Wait `resolve_silent()` lead-candidate pruning and `C-35` `wlf_auth` modal disposal + 300s idle timeout verified under `KodiProfile('22', strict_skin_controls=True)`.
   - [x] `SP-03` Strictly read-only `scripts/audit_onn_logs.py` tested offline against fixture logs and read-only cursor; `--fast` / `qa_fast.py` / `.pre-commit-config.yaml` / Wave-1 AST guardrails / `special:` & `MagicMock` repo hygiene verified.
   - [x] **Gate 1:** `python3 scripts/verify_all.py` (`--fail-below 60`, 0 failures, 0 project warnings) — Committed in `94852b4`.

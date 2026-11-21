@@ -1,8 +1,8 @@
 # Otaku-RPDev v6.3.0 Architecture & Phased Sprint Roadmap (`docs/PLANS.md`)
 
 **Baseline Version:** `plugin.video.otaku.rpdev v6.2.19` | `context.otaku.rpdev v1.0.45` | `service.subtitles.otaku.rpdev v1.0.2`  
-**Target Milestone:** **Otaku-RPDev v6.3.0 Major Release** (with `context.otaku.rpdev v1.0.46` & `service.subtitles.otaku.rpdev v1.0.3`)  
-**Verification Gate:** `python3 scripts/verify_all.py --fail-below 60` + Local Headless Flatpak Kodi 21.3 (Omega) & Kodi 22.0-RC2 (Piers) E2E (`scripts/test_kodi_installs.py`)
+**Completed Milestone:** **Otaku-RPDev v6.3.0 Major Release** (`plugin.video.otaku.rpdev v6.3.0`, `context.otaku.rpdev v1.0.46`, `service.subtitles.otaku.rpdev v1.0.3` — [QA_SIGNOFF.md](teamwork/sprints/v6.3.0/QA_SIGNOFF.md))  
+**Verification Gate:** `python3 scripts/verify_all.py --fail-below 65` + `python3 scripts/e2e_v630_suite.py` + Local Headless Flatpak Kodi 21.3 (Omega) & Kodi 22.0-RC2 (Piers) E2E (`scripts/test_kodi_installs.py`)
 
 ---
 
@@ -30,12 +30,11 @@
   - **C-34**: Background `resolve_silent()` on `29854 Ep 2` (`01:30:39`) did not prune failing lead `gogo` embed candidate from pre-scraped cache, causing Ep 2 transition (`01:35:57`) to open `resolver.xml` and fail `gogo` again before playing `sources[1]`.
   - **C-35**: `WatchlistIntegration.get_auth_dialog()` lacks `try...finally: dlg.close(); del dlg` disposal and `wlf_auth_*.xml` lacks an idle auto-close timer (blocked Kodi screensaver `window 12600` 8× when left open `04:50`–`05:14`).
 
-### 2.2 Baseline Codebase Metrics (`v6.2.19`)
-- **Unified Pre-Flight Gate (`scripts/verify_all.py --fail-below 60`)**: **PASS**
-  - `ruff` (`E9,F63,F7,F82,F811,F405,F541`): **0 violations**
-  - `compileall`: **0 syntax errors** across all 3 add-ons, `tests/`, and `scripts/`
-  - `unittest`: **1,035 tests passing**, **0 project `DeprecationWarning` / `ResourceWarning`**
-  - `coverage`: **100% module coverage**, **64.85% function coverage** (`>= 60.0%` floor)
+### 2.2 Baseline vs. Completed Codebase Metrics (`v6.2.19` -> `v6.3.0`)
+- **Baseline Gate (`v6.2.19` under `--fail-below 60`)**: **PASS**
+  - `ruff` (`E9,F63,F7,F82,F811,F405,F541`): **0 violations** | `compileall`: **0 errors**
+  - `unittest`: **1,035 tests passing**, **0 project warnings**, **100% module / `64.85%` function coverage**
+- **Completed `v6.3.0` Gate (`--fail-below 65`)**: **PASS** (**1,070 `unittest` discover + 126 `e2e_v630_suite.py` tests**, **100% module / `66.01%` function coverage**, headless Kodi 21.3 & Kodi 22.0-RC2 **PASS** — see [QA_SIGNOFF.md](teamwork/sprints/v6.3.0/QA_SIGNOFF.md)).
 - **Identified `v6.3.0` Codebase Gaps:**
   - **CR-01**: **41 case-insensitive studio logo collision groups** across `context.otaku.rpdev/resources/images/studios/{coloured,white}/` (580 PNGs each, including `8-bit.png`/`8-Bit.png`/`8bit.png`/`Eight Bit.png`/`Eight bit.png`, `bones.png`/`Bones.png`/`BONES.png`, `LIDEN FILMS.png`/`Liden Films.png`, etc.), plus oversized `poster.png` (`1,676,482` bytes × 3 add-ons = `5.03 MB`) and `icon.png` (`437,862` bytes × 3 add-ons = `1.31 MB`).
   - **CR-02**: `scripts/test_kodi_installs.py` opens `cache.db` / `search.db` via raw `sqlite3.connect` without `timeout=30.0`, and `context.otaku.rpdev/info.db` (12 KB static dictionary) should be audited alongside `database.py` WAL/URI read-only invariants.
@@ -138,17 +137,17 @@ flowchart TD
 
 ---
 
-## 6. Quantitative Definition of Done (`v6.3.0`)
+## 6. Quantitative Definition of Done (`v6.3.0` — Verified Complete)
 
-1. **Zero Runtime Regressions:** `python3 scripts/verify_all.py --fail-below 65` passes all 4 offline silos (`ruff`, `compileall`, `unittest` with `-W error::DeprecationWarning:resources -W error::ResourceWarning:resources`, and `audit_function_coverage.py` at **100% module coverage** and **`>= 65.0%` function coverage**, up from `64.85%`).
-2. **Test Suite Expansion:** `>= 1,080` actionable offline tests (up from `1,035`) with zero placeholder tests (`test_suite_quality.py`).
-3. **Asset & Lint Cleanliness:** Zero case-insensitive studio logo filename collisions across `context.otaku.rpdev`, all root `poster.png`/`icon.png` assets optimized `< 600 KB`, and `AGENTS.md < 22,000` bytes.
-4. **Dual Headless Kodi 21 & 22 E2E Verification:** `python3 scripts/test_kodi_installs.py --versions 21 22 --mode hermetic` passes 15/15 gates across all 3 add-ons (`plugin.video.otaku.rpdev v6.3.0`, `context.otaku.rpdev v1.0.46`, `service.subtitles.otaku.rpdev v1.0.3`) with 0 C++ setting deserialization errors, 0 SWIG leaks, and 0 Python tracebacks.
-5. **Release & CDN Verification:** Published via `scripts/release_addon.py` to GitHub Releases and verified HTTP 200 live on `https://kodi.repo.iamrp.dev/` with zero direct modifications to `10.13.0.16`.
+1. **Zero Runtime Regressions:** `python3 scripts/verify_all.py --fail-below 65` passes all 4 offline silos (`ruff`, `compileall`, `unittest` with `-W error::DeprecationWarning:resources -W error::ResourceWarning:resources`, and `audit_function_coverage.py` at **100% module coverage** and **`66.01%` function coverage**, up from `64.85%`).
+2. **Test Suite Expansion:** **1,070 `unittest` discover + 126 `e2e_v630_suite.py` tests** with zero placeholder tests (`test_suite_quality.py`).
+3. **Asset & Lint Cleanliness:** Zero case-insensitive studio logo filename collisions across `context.otaku.rpdev` (`530` canonical PNGs per style), all root `poster.png`/`icon.png` assets optimized (`112.8 KB` / `31.9 KB`), and `AGENTS.md < 22,000` bytes.
+4. **Dual Headless Kodi 21 & 22 E2E Verification:** `python3 scripts/test_kodi_installs.py --versions 21 22 --mode hermetic` passes 15/15 gates across all 3 add-ons (`plugin.video.otaku.rpdev v6.3.0`, `context.otaku.rpdev v1.0.46`, `service.subtitles.otaku.rpdev v1.0.3`) with 0 C++ setting deserialization errors, 0 SWIG leaks, and 0 Python tracebacks ([QA_SIGNOFF.md](teamwork/sprints/v6.3.0/QA_SIGNOFF.md)).
+5. **Release & CDN Verification:** Published via GitHub Actions tag `v6.3.0` (Run `#44914758602`) to GitHub Releases and verified HTTP 200 live on `https://kodi.repo.iamrp.dev/` with zero direct modifications to `10.13.0.16`.
 
 ---
 
-## 8. Post-`v6.3.0` Forward Roadmap (`v6.4.0` Backlog: `NF-10`–`NF-13` & Deferred Sub-Features)
+## 7. Post-`v6.3.0` Forward Roadmap (`v6.4.0` Backlog: `NF-10`–`NF-17` & Deferred Sub-Features)
 
 Items intentionally scoped beyond `v6.3.0` and scheduled for **`v6.4.0`**:
 
@@ -156,6 +155,10 @@ Items intentionally scoped beyond `v6.3.0` and scheduled for **`v6.4.0`**:
 - **`NF-11` — Adaptive Debrid Multi-Host Failover & Stream Health Telemetry**: Mid-playback CDN stall detector (`CURL-56` frequency monitor) that automatically re-resolves an alternate debrid CDN mirror or secondary cached torrent hash at the current playback timestamp.
 - **`NF-12` — Custom WindowXML Series Profile Editor & Per-Season Rule Matrix**: Dedicated skin-themed `series_profile.xml` WindowXMLDialog with per-cour/per-season `episode_offset`, custom regex release group pinning, and visual OP/ED timestamp preview.
 - **`NF-13` — Local LAN Peer Cache Discovery (mDNS / ZeroConf)**: Optional opt-in read-only SQLite metadata & `mappings.db` LAN peer sync so secondary Kodi boxes on the same home subnet reuse pre-fetched metadata without redundant upstream API calls.
+- **`NF-14` — Kodi 22 Native Scene-Marker Stepping**: Leverage Kodi 22 `Chapters` / EDL scene-marker APIs for instant OSD skip-to-chapter navigation alongside AniSkip/IntroDB bounds.
+- **`NF-15` — Embedded `ControlVideoWindow` Trailer Preview**: Render inline muted trailer previews inside `anichart.xml` / info dialogs via Kodi 22 video control windows without leaving menu context.
+- **`NF-16` — `getDevicePowerStatus()` Background Throttling**: Read Kodi 22/Android power-state hints in `service.py` to pause background precaching/WAL checkpoints during battery or standby states.
+- **`NF-17` — Debrid Cloud Quota & Active-Transfer Guard**: Pre-check Debrid storage quota and active slot saturation before pinning season packs (`realdebrid`, `premiumize`, `torbox`, `alldebrid`), auto-pruning oldest expired transfers when full.
 - **Deferred `NF-02` Sub-Features (`context.otaku.rpdev v1.1.0`)**:
   - Direct context-menu *"Copy Diagnostics Summary"* and *"Pin Release Group for Series"* quick actions on episode rows.
 - **Deferred `NF-07` Sub-Features (`service.subtitles.otaku.rpdev v1.1.0`)**:

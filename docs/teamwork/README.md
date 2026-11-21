@@ -32,7 +32,9 @@ Authoritative coordination protocol, role charters, workspace isolation rules, a
 
 To prevent merge conflicts across concurrent workers:
 1. **`resources/settings.xml` & `resources/language/resource.language.en_gb/strings.po`**:
-   - Workers propose new setting IDs and string IDs (**`#30999+`**; `#30000`–`#30998` are already allocated) in their wave completion report or apply them in a single coordinated wave handoff validated immediately with `python3 -m unittest tests/unit/test_settings_schema_and_code_references.py tests/unit/test_clean_settings.py tests/unit/test_all_settings_outcomes.py -v`.
+   - Workers propose new setting IDs and unused string IDs strictly within Kodi's **`#30000`–`#30999`** add-on range (`#31000+` is reserved for skins and rejected by `test_settings_schema_and_code_references.py`), validating immediately with `python3 -m unittest tests/unit/test_settings_schema_and_code_references.py tests/unit/test_clean_settings.py tests/unit/test_all_settings_outcomes.py -v`.
+2. **Quota & In-Session Fallback**:
+   - If spawning `/teamwork` sub-sessions hits `429 RESOURCE_EXHAUSTED` or the user asks for in-session execution, execute all remaining synthesis, Stage 3 adversarial checks, and verification gates directly in the main session without sub-sessions.
 2. **`resources/lib/ui/database.py` & `resources/lib/ui/database_sync.py`**:
    - Wave 3a (`M3a`) lands schema additions (`series_overrides`, `SCHEMA_VERSION = '1.0.14'`) first; Wave 3b (`M3b`) adds `scrobble_retry_queue` on top of the updated schema.
 3. **`AGENTS.md` Context Budget (`< 22,000` bytes)**:

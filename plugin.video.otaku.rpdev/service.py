@@ -902,7 +902,11 @@ if __name__ == "__main__":
         except Exception as e:
             control.log(f"Periodic WAL checkpoint notice: {e}", 'debug')
     multipage_worker.stop()
-    # Final settings prune after Kodi stops writing settings, then checkpoint WAL databases
+    try:
+        multipage_worker.join(timeout=1.0)
+    except Exception:
+        pass
+    # Final settings prune after Kodi stops writing settings, then passive non-blocking WAL checkpoint (<5s CPythonInvoker limit)
     try:
         from resources.lib.ui import clean_settings
         clean_settings.clean_settings(silent=True)
@@ -910,7 +914,7 @@ if __name__ == "__main__":
         control.log(f"Shutdown clean_settings notice: {e}", 'debug')
     try:
         from resources.lib.ui import database
-        database.checkpoint_databases(truncate=True)
+        database.checkpoint_databases(truncate=False)
         database.close_all_connections()
     except Exception:
         pass

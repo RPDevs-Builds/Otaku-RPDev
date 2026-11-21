@@ -1,5 +1,9 @@
 # Comprehensive Project Review and Improvement Report: Otaku-RPDev
 
+> [!NOTE]
+> **HISTORICAL ARCHIVE (2026-11-07) — REMEDIATED IN `v6.0.5`–`v6.3.0`**  
+> All architectural findings cataloged in this November 7, 2026 baseline review (double Action ID 7 dispatch, 64 KB Window property ceiling, scraper domain hardcoding, chapter fallback order, SQLite read-only URI split, SWIG non-null coercion, abort-responsive loops, and HTTP/OAuth hardening) have been **fully implemented and verified** across `v6.0.5`–`v6.3.0`. See [AGENTS.md](../AGENTS.md), [ARCHITECTURE.md](ARCHITECTURE.md), and [CONCERNS.md](CONCERNS.md) for current active invariants and telemetry.
+
 **Target Project:** `/mnt/sharedroot/projects/RPDevs-Builds/Otaku-RPDev`  
 **Date:** 2026-11-07  
 **Author:** Project Orchestrator (incorporating Explorer Survey Teams 1, 2, and 3)  

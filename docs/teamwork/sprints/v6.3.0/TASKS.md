@@ -8,7 +8,7 @@ Exhaustive file-level implementation and test verification checklist for `/teamw
 
 - [x] **SP-01: Read-Only ONN `10.13.0.16` Log Review #18 (`offset=225187` $\rightarrow$ `433385`) & Governance Sync**
   - Cataloged 8-hour overnight session (`1,692` lines) in [CONCERNS.md](../../../CONCERNS.md), verified `C-30`, `C-32`, `C-33` resolved in production, and logged `C-34` & `C-35`.
-  - Synchronized `docs/teamwork/SPRINT_BOARD.md`, `TASKS.md`, `QA_SIGNOFF.md`, `README.md`, and `TESTING_PROCESS.md` (`#30999+` `strings.po` floor, `unittest` runner, `--fail-below 65` Gate 3 target, `16,462` byte `AGENTS.md` baseline).
+  - Synchronized `docs/teamwork/SPRINT_BOARD.md`, `TASKS.md`, `QA_SIGNOFF.md`, `README.md`, and `TESTING_PROCESS.md` (`#30000`–`#30999` `strings.po` boundary, `unittest` runner, `--fail-below 65` Gate 3 target, `16,462` byte `AGENTS.md` baseline).
 - [x] **SP-02 (`DONE`): Remediate `C-34` (Zero-Wait `resolve_silent` pruning) & `C-35` (`wlf_auth` disposal + idle timeout)**
   - `plugin.video.otaku.rpdev/resources/lib/windows/resolver.py` & `ui/player.py`: In `resolve_silent()`, mark failed `embed`/`direct` mirror cooldowns, prune failed lead candidates from the cached episode sources list, and persist the pruned list via `database.set_episode_sources()` (or `clear_episode_sources()` when empty) so subsequent playback doesn't re-try dead lead candidates.
   - `plugin.video.otaku.rpdev/resources/lib/WatchlistIntegration.py` & `windows/wlf_auth.py`: Wrap `WatchlistFlavorAuth.doModal()` in `try...finally: dlg.close(); del dlg` and add an abort-responsive idle auto-close timer (default 300s without key/mouse action) so unattended auth dialogs never block Kodi's screensaver (`window 12600`).
@@ -61,7 +61,7 @@ Exhaustive file-level implementation and test verification checklist for `/teamw
 
 ## Wave 3b: Parallel `v6.3.0` Feature Expansion (`M3b_wave3_parallel_features`)
 
-All new `settings.xml` / `strings.po` IDs start at **`#30999+`** and are synced with `Settings Backup & Restore` and `test_settings_schema_and_code_references.py`.
+All new `settings.xml` / `strings.po` IDs stay strictly within `#30000`–`#30999` (`#30582`–`#30589`) and are synced with `Settings Backup & Restore` and `test_settings_schema_and_code_references.py`.
 
 - [x] **NF-05: Compressed `.xz`/`.gz` + SHA-256 + `PRAGMA quick_check` + `.bak` Rollback for `mappings.db`**
   - Enhance `service.py:update_mappings_db()` and `database.py:verify_sqlite_integrity(db_path)` to support `.xz`/`.gz` decompression, optional SHA-256 verification, `PRAGMA quick_check` on the downloaded staging file before replacing `mappings.db`, automatic backup to `mappings.db.bak`, and rollback from `mappings.db.bak` on corruption.
