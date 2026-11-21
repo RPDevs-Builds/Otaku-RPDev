@@ -52,18 +52,30 @@ def part_info(mal_id):
     try:
         from resources.lib.ui import database
         with database.SQL(control.mappingDB, is_readonly=True) as cur:
-            cur.execute('SELECT mal_title FROM anime WHERE mal_id=?', (mal_id,))
+            cur.execute('SELECT mal_title, thetvdb_id FROM anime WHERE mal_id=?', (mal_id,))
             row = cur.fetchone()
             title = (row or {}).get('mal_title') or ''
+            tvdb_id = (row or {}).get('thetvdb_id')
+            by_id = {}
+            if tvdb_id:
+                cur.execute(
+                    "SELECT mal_id, mal_title, thetvdb_season, anime_media_type FROM anime WHERE thetvdb_id=?",
+                    (tvdb_id,)
+                )
+                for sr in cur.fetchall() or []:
+                    if _is_part(sr) and sr.get('mal_id'):
+                        by_id[sr['mal_id']] = sr
             base = title.split(' - ')[0]
-            if not base:
-                return None, '', []
-            cur.execute(
-                "SELECT mal_id, mal_title, thetvdb_season, anime_media_type FROM anime "
-                "WHERE mal_title=? OR mal_title LIKE ?",
-                (base, base + ' - %')
-            )
-            siblings = [r for r in (cur.fetchall() or []) if _is_part(r)]
+            if base:
+                cur.execute(
+                    "SELECT mal_id, mal_title, thetvdb_season, anime_media_type FROM anime "
+                    "WHERE mal_title=? OR mal_title LIKE ?",
+                    (base, base + ' - %')
+                )
+                for sr in cur.fetchall() or []:
+                    if _is_part(sr) and sr.get('mal_id'):
+                        by_id[sr['mal_id']] = sr
+            siblings = list(by_id.values())
     except Exception as e:
         control.log(f'part_filter: mappings part_info failed: {e}', 'debug')
         return None, '', []

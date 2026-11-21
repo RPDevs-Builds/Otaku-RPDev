@@ -66,12 +66,32 @@ def _decompress_mappings_payload(raw_bytes, url=''):
     return raw_bytes
 
 
+MAPPINGS_XZ_URL = 'https://github.com/RPDevs-Builds/Otaku-Mapping-DB/releases/download/latest/anime_mappings.db.xz'
+MAPPINGS_MANIFEST_URL = 'https://github.com/RPDevs-Builds/Otaku-Mapping-DB/releases/download/latest/manifest.json'
+MAPPINGS_FALLBACK_URL = 'https://github.com/Goldenfreddy0703/Otaku-Mappings/raw/refs/heads/main/anime_mappings.db'
+
+
+def _fetch_mappings_manifest_sha256():
+    """Fetch expected raw SHA-256 checksum from Otaku-Mapping-DB manifest.json if reachable."""
+    try:
+        resp = client.get(MAPPINGS_MANIFEST_URL, timeout=6)
+        if resp and resp.status_code == 200:
+            data = control.safe_json(resp, default={})
+            raw_sha = ((data.get('files') or {}).get('raw') or {}).get('sha256')
+            if raw_sha and len(str(raw_sha).strip()) == 64:
+                return str(raw_sha).strip().lower()
+    except Exception:
+        pass
+    return None
+
+
 def update_mappings_db(url=None, expected_sha256=None):
     control.log("### Updating Mappings")
     from resources.lib.ui import database
     import hashlib
     import shutil
-    target_url = url or 'https://github.com/Goldenfreddy0703/Otaku-Mappings/raw/refs/heads/main/anime_mappings.db'
+    using_default = (url is None)
+    target_url = url or MAPPINGS_XZ_URL
     dest_path = os.path.join(control.dataPath, 'mappings.db')
     bak_path = f"{dest_path}.bak"
     tmp_path = f"{dest_path}.candidate.tmp"
@@ -84,77 +104,86 @@ def update_mappings_db(url=None, expected_sha256=None):
         if saved_mtime:
             headers['If-Modified-Since'] = saved_mtime
 
-    try:
-        response = client.get(target_url, headers=headers, timeout=20)
-        if response and response.status_code == 304:
-            control.log("### Mappings unchanged (304 Not Modified)")
-            return True
-        if response and response.status_code == 200 and response.content:
-            raw_payload = _decompress_mappings_payload(response.content, target_url)
-            sha_header = (
-                expected_sha256
-                or (response.headers.get('X-Checksum-Sha256') if hasattr(response, 'headers') and response.headers else None)
-            )
-            if sha_header:
-                actual_sha = hashlib.sha256(raw_payload).hexdigest().lower()
-                if actual_sha != str(sha_header).strip().lower():
-                    control.log(f"### Mappings SHA-256 mismatch: expected {sha_header}, got {actual_sha}", 'error')
-                    return False
+    manifest_sha = expected_sha256
+    if using_default and manifest_sha is None:
+        manifest_sha = _fetch_mappings_manifest_sha256()
 
-            os.makedirs(os.path.dirname(dest_path), exist_ok=True)
-            with open(tmp_path, 'wb') as tf:
-                tf.write(raw_payload)
+    candidate_urls = [target_url]
+    if using_default and MAPPINGS_FALLBACK_URL not in candidate_urls:
+        candidate_urls.append(MAPPINGS_FALLBACK_URL)
 
-            # If existing mappings.db exists, verify candidate passes PRAGMA quick_check
-            # (or if raw_payload starts with SQLite format 3 header, verify integrity before swapping)
-            if raw_payload.startswith(b'SQLite format 3\x00') or os.path.exists(dest_path):
-                ok_check, reason = database.verify_sqlite_integrity(tmp_path, required_tables=())
-                if not ok_check:
-                    control.log(f"### Candidate mappings.db failed quick_check ({reason}); keeping existing DB", 'warning')
+    for idx, fetch_url in enumerate(candidate_urls):
+        try:
+            response = client.get(fetch_url, headers=headers, timeout=20)
+            if response and response.status_code == 304:
+                control.log("### Mappings unchanged (304 Not Modified)")
+                return True
+            if response and response.status_code == 200 and response.content:
+                raw_payload = _decompress_mappings_payload(response.content, fetch_url)
+                sha_header = (
+                    (manifest_sha if fetch_url == MAPPINGS_XZ_URL else expected_sha256)
+                    or (response.headers.get('X-Checksum-Sha256') if hasattr(response, 'headers') and response.headers else None)
+                )
+                if sha_header:
+                    actual_sha = hashlib.sha256(raw_payload).hexdigest().lower()
+                    if actual_sha != str(sha_header).strip().lower():
+                        control.log(f"### Mappings SHA-256 mismatch: expected {sha_header}, got {actual_sha}", 'error')
+                        return False
+
+                os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+                with open(tmp_path, 'wb') as tf:
+                    tf.write(raw_payload)
+
+                # Verify candidate passes PRAGMA quick_check before replacing live DB
+                if raw_payload.startswith(b'SQLite format 3\x00') or os.path.exists(dest_path):
+                    ok_check, reason = database.verify_sqlite_integrity(tmp_path, required_tables=())
+                    if not ok_check:
+                        control.log(f"### Candidate mappings.db failed quick_check ({reason}); keeping existing DB", 'warning')
+                        try:
+                            os.remove(tmp_path)
+                        except OSError:
+                            pass
+                        if (not os.path.exists(dest_path) or not database.verify_sqlite_integrity(dest_path, required_tables=())[0]) and os.path.exists(bak_path):
+                            shutil.copy2(bak_path, dest_path)
+                        return False
+
+                if os.path.exists(dest_path) and database.verify_sqlite_integrity(dest_path, required_tables=())[0]:
                     try:
-                        os.remove(tmp_path)
+                        shutil.copy2(dest_path, bak_path)
                     except OSError:
                         pass
-                    if (not os.path.exists(dest_path) or not database.verify_sqlite_integrity(dest_path, required_tables=())[0]) and os.path.exists(bak_path):
-                        shutil.copy2(bak_path, dest_path)
-                    return False
-
-            if os.path.exists(dest_path) and database.verify_sqlite_integrity(dest_path, required_tables=())[0]:
                 try:
-                    shutil.copy2(dest_path, bak_path)
+                    os.remove(tmp_path)
                 except OSError:
                     pass
-            try:
-                os.remove(tmp_path)
-            except OSError:
-                pass
 
-            if control.atomic_write_bytes(dest_path, raw_payload):
-                database.close_all_connections(dest_path)
-                new_etag = response.headers.get('Etag') or response.headers.get('ETag', '')
-                new_mtime = response.headers.get('Last-Modified', '')
-                if new_etag:
-                    control.setSetting('mappings.etag', new_etag)
-                if new_mtime:
-                    control.setSetting('mappings.last_modified', new_mtime)
-                control.log("### Mappings updated successfully")
-                return True
-            else:
+                if control.atomic_write_bytes(dest_path, raw_payload):
+                    database.close_all_connections(dest_path)
+                    new_etag = response.headers.get('Etag') or response.headers.get('ETag', '')
+                    new_mtime = response.headers.get('Last-Modified', '')
+                    if new_etag:
+                        control.setSetting('mappings.etag', new_etag)
+                    if new_mtime:
+                        control.setSetting('mappings.last_modified', new_mtime)
+                    control.log("### Mappings updated successfully")
+                    return True
                 control.log("### Failed to save mappings atomically")
                 if os.path.exists(bak_path) and not os.path.exists(dest_path):
                     shutil.copy2(bak_path, dest_path)
                 return False
-        else:
-            control.log(f"### Failed to update mappings: HTTP {getattr(response, 'status_code', 'unknown')}")
-            return False
-    except Exception as e:
-        control.log(f"### Failed to update mappings: {e}")
-        try:
-            if os.path.exists(tmp_path):
-                os.remove(tmp_path)
-        except OSError:
-            pass
-        return False
+            control.log(f"### Failed to update mappings from {fetch_url}: HTTP {getattr(response, 'status_code', 'unknown')}")
+        except Exception as e:
+            control.log(f"### Failed to update mappings from {fetch_url}: {e}")
+            try:
+                if os.path.exists(tmp_path):
+                    os.remove(tmp_path)
+            except OSError:
+                pass
+        if idx + 1 < len(candidate_urls):
+            # Clear primary ETag before fallback host retry so fallback never compares stale ETag
+            headers.pop('If-None-Match', None)
+            headers.pop('If-Modified-Since', None)
+    return False
 
 
 def cleanup_cache_databases():
@@ -874,7 +903,7 @@ if __name__ == "__main__":
         control.setInt('update.time.7', int(time.time()))
         control.setInt('update.time.1', int(time.time()))
     else:
-        if time.time() > control.getInt('update.time.30') + 2_592_000:   # 30 days
+        if time.time() > control.getInt('update.time.30') + 86_400:   # daily ETag-checked mappings sync
             update_mappings_db()
             control.setInt('update.time.30', int(time.time()))
         if time.time() > control.getInt('update.time.7') + 604_800:   # 7 days

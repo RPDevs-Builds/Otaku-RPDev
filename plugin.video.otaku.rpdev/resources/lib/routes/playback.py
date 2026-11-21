@@ -549,6 +549,21 @@ def _tmdb_mapping_match(tmdb_id, id_sources, season_number, episode_number):
             if match:
                 return match
 
+    # Consult tvdb_rules table (from Otaku-Mapping-DB v2.0+) for multi-cour / split offsets
+    for r in rows:
+        for rule in (database.get_tvdb_rules(r.get('mal_id')) or []):
+            if str(rule.get('season')) != str(season_number):
+                continue
+            r_start = rule.get('range_start')
+            r_end = rule.get('range_end')
+            ep_start = rule.get('ep_start') or 1
+            if r_start is None:
+                continue
+            if episode_number >= int(r_start) and (r_end is None or episode_number <= int(r_end)):
+                mapped_ep = int(ep_start) + episode_number - int(r_start)
+                control.log(f"TMDB rule match: S{season_number}E{episode_number} -> MAL {r['mal_id']} ep {mapped_ep}")
+                return {'mal_id': r['mal_id'], 'episode_number': mapped_ep, 'matched_title': 'mappings.db'}
+
     # Absolute numbered shows like Naruto and One Piece
     abs_rows = [r for r in rows if str(r.get('thetvdb_season')) == 'a']
     if abs_rows and tmdb_before is not None:

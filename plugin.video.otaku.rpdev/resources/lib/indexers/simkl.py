@@ -181,7 +181,10 @@ class SIMKLAPI:
         if meta_ids:
             return meta_ids  # Return the full mapping dictionary
         # Fallback to SIMKL API if not found
-        simkl_id = self.get_id(send_id, anime_id)
+        simkl_query_key = 'mal' if send_id == 'mal_id' else send_id
+        simkl_id = self.get_id(simkl_query_key, anime_id)
+        if not simkl_id:
+            return {}
         params = {
             'extended': 'full',
             'client_id': self.ClientID

@@ -387,7 +387,17 @@ def generate_diagnostics_report():
                 cur.execute("PRAGMA integrity_check(1)")
                 res = cur.fetchone()
                 status = "OK" if res and list(res.values())[0] == 'ok' else "INTEGRITY ERROR"
-            lines.append(f"  • {db_label:<16}: {status} | Size: {size_mb:.2f} MB (WAL: {wal_mb:.2f} MB)")
+            extra_info = ""
+            if db_label == 'ID Mappings':
+                mmeta = database.get_mappings_metadata()
+                if mmeta.get('row_count'):
+                    age_tag = ""
+                    if mmeta.get('last_updated'):
+                        age_days = max(0, int((time.time() - mmeta['last_updated']) / 86400))
+                        stale = " [STALE >14d]" if age_days > 14 else ""
+                        age_tag = f", Age: {age_days}d{stale}"
+                    extra_info = f" | Rows: {mmeta['row_count']:,}, Rules: {mmeta.get('rule_count', 0):,}{age_tag}"
+            lines.append(f"  • {db_label:<16}: {status} | Size: {size_mb:.2f} MB (WAL: {wal_mb:.2f} MB){extra_info}")
         except Exception as e:
             lines.append(f"  • {db_label:<16}: ERROR ({e})")
     lines.append("")
@@ -1459,8 +1469,9 @@ def INSPECT_MAPPINGS(payload, params):
         control.notify(control.ADDON_NAME, "No anime MAL ID found for item.")
         return control.exit_code()
 
-    mapping_row = database.get_mappings(mal_id, 'mal_id') or {}
+    mapping_row = database.resolve_mappings_with_fallback(mal_id) or {}
     unique_ids = database.get_unique_ids(mal_id, 'mal_id') or {}
+    src_label = mapping_row.get('_mapping_source') or 'mappings.db'
     show_row = database.get_show(mal_id) or {}
     show_meta = database.loads(show_row.get('kodi_meta')) if show_row.get('kodi_meta') else {}
     title = (
@@ -1477,7 +1488,7 @@ def INSPECT_MAPPINGS(payload, params):
     lines = [
         f"[B]Title:[/B] {title}",
         "",
-        "[B]Resolved Cross-Tracker IDs (mappings.db read-only URI):[/B]",
+        f"[B]Resolved Cross-Tracker IDs ({src_label} read-only URI):[/B]",
         f"  • MyAnimeList (MAL): {_fmt(unique_ids.get('mal_id') or mapping_row.get('mal_id') or mal_id)}",
         f"  • MAL Dub ID:        {_fmt(unique_ids.get('mal_dub_id') or mapping_row.get('mal_dub_id'))}",
         f"  • AniList ID:        {_fmt(unique_ids.get('anilist_id') or mapping_row.get('anilist_id'))}",

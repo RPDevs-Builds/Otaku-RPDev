@@ -1202,6 +1202,183 @@ def get_mal_ids(anime_id, send_id):
     return []
 
 
+def get_tvdb_rules(mal_id):
+    """Fetch optional split-cour / absolute episode rules from mappings.db tvdb_rules table."""
+    if not mal_id:
+        return []
+    if not getattr(control, 'mappingDB', None) or not os.path.exists(control.mappingDB):
+        return []
+    rows = []
+    try:
+        with SQL(control.mappingDB, is_readonly=True) as cur:
+            has_tbl = cur.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='tvdb_rules'"
+            ).fetchone()
+            if not has_tbl:
+                return []
+            cur.execute(
+                'SELECT * FROM tvdb_rules WHERE mal_id=? ORDER BY season, range_start',
+                (int(mal_id),),
+            )
+            rows = cur.fetchall() or []
+    except Exception:
+        return []
+    return rows
+
+
+def get_mappings_metadata():
+    """Return row count, tvdb_rules count, last_updated epoch, and build_meta for diagnostics."""
+    info = {'row_count': 0, 'rule_count': 0, 'last_updated': 0, 'schema_version': '', 'built_at_utc': ''}
+    if not getattr(control, 'mappingDB', None) or not os.path.exists(control.mappingDB):
+        return info
+    try:
+        with SQL(control.mappingDB, is_readonly=True) as cur:
+            tables = {
+                r.get('name')
+                for r in (cur.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall() or [])
+                if r.get('name')
+            }
+            if 'anime' in tables:
+                row = cur.execute('SELECT COUNT(*) AS cnt FROM anime').fetchone()
+                if row:
+                    info['row_count'] = int(row.get('cnt') or 0)
+            if 'activities' in tables:
+                act = cur.execute('SELECT last_updated FROM activities WHERE sync_id=1').fetchone()
+                if act and str(act.get('last_updated') or '').isdigit():
+                    info['last_updated'] = int(act['last_updated'])
+            if 'tvdb_rules' in tables:
+                rrow = cur.execute('SELECT COUNT(*) AS cnt FROM tvdb_rules').fetchone()
+                if rrow:
+                    info['rule_count'] = int(rrow.get('cnt') or 0)
+            if 'build_meta' in tables:
+                for mrow in cur.execute('SELECT key, value FROM build_meta').fetchall() or []:
+                    k = mrow.get('key')
+                    if k in ('schema_version', 'built_at_utc'):
+                        info[k] = str(mrow.get('value') or '')
+    except Exception:
+        pass
+    return info
+
+
+def _coerce_pos_int(val):
+    if val is None or isinstance(val, bool):
+        return None
+    if isinstance(val, int):
+        return val if val > 0 else None
+    s = str(val).strip()
+    return int(s) if s.isdigit() and int(s) > 0 else None
+
+
+def resolve_mappings_with_fallback(
+    mal_id,
+    required_keys=('anidb_id', 'thetvdb_id', 'themoviedb_id'),
+    require_all=True,
+    fetch_remote=True,
+):
+    """Return mappings row for *mal_id*, healing missing IDs via cache.db -> AniZip -> Simkl."""
+    mid = _coerce_pos_int(mal_id)
+    if not mid:
+        return {}
+    base = dict(get_mappings(mid, 'mal_id') or {})
+    if required_keys:
+        satisfied = (
+            all(base.get(k) not in (None, '', 0) for k in required_keys)
+            if require_all
+            else any(base.get(k) not in (None, '', 0) for k in required_keys)
+        )
+        if satisfied:
+            base.setdefault('_mapping_source', 'mappings.db')
+            return base
+
+    cache_key = f"runtime_map:{mid}"
+    cached_row = None
+    try:
+        cached_row = cache_get(cache_key)
+    except Exception:
+        cached_row = None
+
+    overlay = None
+    if cached_row:
+        try:
+            payload = control.loads_json(cached_row['value'], None)
+            if isinstance(payload, dict) and 'data' in payload:
+                ttl_hours = 168 if payload.get('hit') else 6
+                if is_cache_valid(cached_row['date'], ttl_hours):
+                    overlay = payload.get('data') or {}
+        except Exception:
+            overlay = None
+
+    if overlay is None and fetch_remote:
+        overlay = {}
+        try:
+            from resources.lib.ui import client
+            resp = client.get('https://api.ani.zip/mappings', params={'mal_id': mid}, timeout=5)
+            if resp and resp.status_code == 200:
+                az = control.safe_json(resp, default={})
+                m = az.get('mappings') or {}
+                for src_k, dest_k in (
+                    ('anilist_id', 'anilist_id'),
+                    ('kitsu_id', 'kitsu_id'),
+                    ('anidb_id', 'anidb_id'),
+                    ('thetvdb_id', 'thetvdb_id'),
+                    ('themoviedb_id', 'themoviedb_id'),
+                ):
+                    v = _coerce_pos_int(m.get(src_k))
+                    if v:
+                        overlay[dest_k] = v
+                if m.get('imdb_id'):
+                    overlay['imdb_id'] = str(m['imdb_id']).strip()
+                ep1 = (az.get('episodes') or {}).get('1')
+                if isinstance(ep1, dict) and ep1.get('seasonNumber') is not None:
+                    s_val = _coerce_pos_int(ep1.get('seasonNumber'))
+                    if s_val is not None:
+                        overlay['thetvdb_season'] = s_val
+        except Exception:
+            pass
+
+        if not overlay.get('anidb_id') or not overlay.get('thetvdb_id'):
+            try:
+                from resources.lib.indexers.simkl import SIMKLAPI
+                sids = SIMKLAPI().get_mapping_ids_from_simkl(mid, 'mal') or {}
+                for src_k, dest_k in (
+                    ('simkl', 'simkl_id'),
+                    ('simkl_id', 'simkl_id'),
+                    ('anidb', 'anidb_id'),
+                    ('anidb_id', 'anidb_id'),
+                    ('tvdb', 'thetvdb_id'),
+                    ('thetvdb_id', 'thetvdb_id'),
+                    ('tmdb', 'themoviedb_id'),
+                    ('themoviedb_id', 'themoviedb_id'),
+                    ('imdb', 'imdb_id'),
+                    ('imdb_id', 'imdb_id'),
+                ):
+                    if sids.get(src_k) and not overlay.get(dest_k):
+                        overlay[dest_k] = _coerce_pos_int(sids[src_k]) if dest_k != 'imdb_id' else sids[src_k]
+            except Exception:
+                pass
+
+        try:
+            _cache_write(cache_key, json.dumps({'hit': bool(overlay), 'data': overlay}))
+        except Exception:
+            pass
+
+    if overlay:
+        merged = dict(base)
+        merged['mal_id'] = mid
+        added_any = False
+        for k, v in overlay.items():
+            if v not in (None, '', 0) and merged.get(k) in (None, '', 0):
+                merged[k] = v
+                added_any = True
+        if added_any:
+            merged['_mapping_source'] = 'mappings.db + live overlay' if base else 'live overlay (AniZip/Simkl)'
+            return merged
+
+    if base:
+        base.setdefault('_mapping_source', 'mappings.db')
+    return base
+
+
 _BUILTIN_API_INFO = {
     'Simkl': {'api_name': 'Simkl', 'api_key': '', 'client_id': '59dfdc579d244e1edf6f89874d521d37a69a95a1abd349910cb056a1872ba2c8', 'client_secret': '', 'description': 'Simkl API'},
     'MyAnimeList': {'api_name': 'MyAnimeList', 'api_key': '', 'client_id': 'a8d85a4106b259b8c9470011ce2f76bc', 'client_secret': '', 'description': 'MyAnimeList API'},

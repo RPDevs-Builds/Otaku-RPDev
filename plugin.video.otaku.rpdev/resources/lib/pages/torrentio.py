@@ -29,7 +29,12 @@ class Sources(BrowserBase):
         self.media_type = media_type
         self.rescrape = rescrape
 
-        show_ids = database.get_mappings(mal_id, 'mal_id')
+        show_ids = database.resolve_mappings_with_fallback(
+            mal_id,
+            required_keys=('kitsu_id', 'imdb_id'),
+            require_all=False,
+            fetch_remote=False,
+        )
         if show_ids:
             self.kitsu_id = show_ids.get('kitsu_id')
             self.imdb_id = show_ids.get('imdb_id')

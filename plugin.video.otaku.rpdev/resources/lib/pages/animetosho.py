@@ -7,7 +7,6 @@ from bs4 import BeautifulSoup
 from resources.lib.ui.BrowserBase import BrowserBase
 from resources.lib.ui import database, source_utils, client, control, utils, domains
 from resources.lib.debrid import Debrid
-from resources.lib.indexers.simkl import SIMKLAPI
 from resources.lib.endpoints import anidb
 
 
@@ -103,25 +102,23 @@ class Sources(BrowserBase):
         control.log(f"Animetosho: Returning {len(self.cached)} cached + {len(self.uncached)} uncached = {len(self.cached) + len(self.uncached)} total sources")
         return {'cached': self.cached, 'uncached': self.uncached}
 
-    def get_episode_sources(self, show, mal_id, episode, season, part, status, include_show_pack=False):
-        # Retrieve anidb info for the show and episode
+    def _resolve_anidb_id(self, mal_id):
+        """Resolve AniDB ID from show_meta, mappings.db, or live AniZip/Simkl overlay."""
         show_meta = database.get_show_meta(mal_id)
+        meta_ids = None
         if show_meta:
             meta_ids = database.loads(show_meta['meta_ids'])
             self.anidb_id = meta_ids.get('anidb_id')
-            if not self.anidb_id:
-                mp = database.get_mappings(mal_id, 'mal_id')
-                if mp and mp.get('anidb_id'):
-                    self.anidb_id = meta_ids['anidb_id'] = mp['anidb_id']
-                else:
-                    ids = SIMKLAPI().get_mapping_ids_from_simkl(mal_id, 'mal_id')
-                    if ids and ids.get('anidb'):
-                        self.anidb_id = meta_ids['anidb_id'] = ids['anidb']
-                        database.update_show_meta(mal_id, meta_ids, database.loads(show_meta['art']))
         if not self.anidb_id:
-            mp = database.get_mappings(mal_id, 'mal_id')
+            mp = database.resolve_mappings_with_fallback(mal_id, required_keys=('anidb_id',))
             if mp and mp.get('anidb_id'):
                 self.anidb_id = mp['anidb_id']
+                if show_meta and isinstance(meta_ids, dict):
+                    meta_ids['anidb_id'] = self.anidb_id
+                    database.update_show_meta(mal_id, meta_ids, database.loads(show_meta['art']))
+
+    def get_episode_sources(self, show, mal_id, episode, season, part, status, include_show_pack=False):
+        self._resolve_anidb_id(mal_id)
 
         season_zfill = str(season).zfill(2) if season else '01'
         episode_zfill = str(episode).zfill(2) if episode is not None else '01'
@@ -278,16 +275,7 @@ class Sources(BrowserBase):
         return animetosho_sources
 
     def get_movie_sources(self, show, mal_id):
-        # For movies we now use process_animetosho_movie
-        show_meta = database.get_show_meta(mal_id)
-        if show_meta:
-            meta_ids = database.loads(show_meta['meta_ids'])
-            self.anidb_id = meta_ids.get('anidb_id')
-            if not self.anidb_id:
-                ids = SIMKLAPI().get_mapping_ids_from_simkl(mal_id, 'mal_id')
-                if ids and ids.get('anidb'):
-                    self.anidb_id = meta_ids['anidb_id'] = ids['anidb']
-                    database.update_show_meta(mal_id, meta_ids, database.loads(show_meta['art']))
+        self._resolve_anidb_id(mal_id)
 
         query = self._clean_title(show)
         params = {

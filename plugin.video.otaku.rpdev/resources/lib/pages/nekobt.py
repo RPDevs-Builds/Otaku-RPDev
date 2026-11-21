@@ -23,12 +23,14 @@ class Sources(BrowserBase):
         return source_utils.parse_query_titles(query)
 
     def _get_tvdb_id(self, mal_id):
-        """Look up the TVDB ID from the mapping database."""
-        mapping = database.get_mappings(mal_id, 'mal_id')
+        """Look up the TVDB ID from mappings.db with live AniZip/Simkl overlay fallback."""
+        mapping = database.resolve_mappings_with_fallback(mal_id, required_keys=('thetvdb_id',), fetch_remote=False)
         if mapping:
             tvdb_id = mapping.get('thetvdb_id')
-            if tvdb_id:
-                return int(tvdb_id)
+            try:
+                return int(tvdb_id) if tvdb_id else None
+            except (TypeError, ValueError):
+                return None
         return None
 
     def _resolve_media_id(self, titles, mal_id):
