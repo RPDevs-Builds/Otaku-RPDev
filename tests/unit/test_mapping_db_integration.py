@@ -788,7 +788,13 @@ class TestMappingDbIntegration(unittest.TestCase):
 
             sc = database.get_mapping_season_counts(2024)
             self.assertEqual(sc['total'], 46)
+            self.assertEqual(sc['all_total'], 46)
             self.assertEqual(dict(sc['seasons']), {'WINTER': 1, 'FALL': 45})
+            self.assertEqual({k: c for k, _lbl, c in sc['formats']}, {'tv': 45, 'movie': 1})
+
+            sc_mv = database.get_mapping_season_counts(2024, media_format='movie')
+            self.assertEqual(sc_mv['total'], 1)
+            self.assertEqual(dict(sc_mv['seasons']), {'WINTER': 1})
 
             p1, has_next1 = database.browse_mappings_by_year_season(2024, 'FALL', page=1, per_page=40)
             p2, has_next2 = database.browse_mappings_by_year_season(2024, 'FALL', page=2, per_page=40)
@@ -797,7 +803,7 @@ class TestMappingDbIntegration(unittest.TestCase):
             self.assertEqual(len(p2), 5)
             self.assertFalse(has_next2)
 
-            # 3. Routes browse_year_season & browse_year/* render directory items + pagination cleanly
+            # 3. Routes browse_year_season & browse_year/* render format filters, directory items & pagination
             y_res = invoke_plugin_route('browse_year_season')
             self.assertTrue(any('browse_year/2024' in it[1] for it in y_res['directory_items']))
 
@@ -805,10 +811,25 @@ class TestMappingDbIntegration(unittest.TestCase):
             urls = [it[1] for it in c_res['directory_items']]
             self.assertTrue(any('browse_year/2024/ALL' in u for u in urls))
             self.assertTrue(any('browse_year/2024/FALL' in u for u in urls))
+            self.assertTrue(any('browse_year/2024?format=tv' in u for u in urls))
+            self.assertTrue(any('browse_year/2024?format=movie' in u for u in urls))
 
             f_res = invoke_plugin_route('browse_year/2024/FALL')
-            self.assertEqual(len(f_res['directory_items']), 41)  # 40 shows + Next Page (2)
+            self.assertEqual(len(f_res['directory_items']), 42)  # [Filter Format] + 40 shows + Next Page (2)
+            self.assertIn('browse_year_filter/2024/FALL', f_res['directory_items'][0][1])
+            self.assertEqual(f_res['directory_items'][0][2].getProperty('SpecialSort'), 'top')
             self.assertTrue(any('Next Page (2)' in it[2].getLabel() for it in f_res['directory_items']))
+
+            mv_res = invoke_plugin_route('browse_year/2024/ALL', params={'format': 'movie'})
+            mv_urls = [it[1] for it in mv_res['directory_items']]
+            self.assertTrue(any('play_movie/4200' in u for u in mv_urls))
+            self.assertFalse(any('4100' in u for u in mv_urls))
+
+            exec_calls = []
+            with patch('resources.lib.ui.control.select_dialog', return_value=2), \
+                 patch('resources.lib.ui.control.execute', side_effect=lambda cmd: exec_calls.append(cmd)):
+                invoke_plugin_route('browse_year_filter/2024/ALL')
+            self.assertTrue(any('browse_year/2024/ALL?format=movie' in c for c in exec_calls))
 
             # 4. SEARCH() merges offline alias matches on page 1 BEFORE trailing Next Page without duplicating live mal_ids
             live_dupe = utils.allocate_item('Duplicate Show', 'animes/4100/', True, False, [], '', {'UniqueIDs': {'mal_id': '4100'}})
@@ -818,6 +839,31 @@ class TestMappingDbIntegration(unittest.TestCase):
             self.assertEqual(merged_mids.count('4100'), 1)
             self.assertIn('4201', merged_mids)
             self.assertTrue(multipage.is_next_page_item(merged[-1]))
+
+    def test_idle_loop_daily_mappings_sync_guards(self):
+        with E2EHermeticEnv('22'):
+            import service
+            from resources.lib.ui import control
+
+            # 1. Skips cleanly when playing video or inside 24h interval
+            control.setInt('update.time.30', int(time.time()))
+            with patch.object(service, 'update_mappings_db', return_value=True) as mock_upd:
+                self.assertFalse(service._maybe_sync_daily_mappings())
+                mock_upd.assert_not_called()
+
+            control.setInt('update.time.30', 100)
+            with patch.object(service.xbmc.Player, 'isPlayingVideo', return_value=True), \
+                 patch.object(service, 'update_mappings_db', return_value=True) as mock_upd:
+                self.assertFalse(service._maybe_sync_daily_mappings())
+                mock_upd.assert_not_called()
+
+            # 2. Triggers update_mappings_db() and refreshes update.time.30 when idle & overdue
+            with patch.object(service.xbmc.Player, 'isPlayingVideo', return_value=False), \
+                 patch('resources.lib.ui.control.is_device_in_standby', return_value=False), \
+                 patch.object(service, 'update_mappings_db', return_value=True) as mock_upd:
+                self.assertTrue(service._maybe_sync_daily_mappings())
+                mock_upd.assert_called_once()
+                self.assertGreater(control.getInt('update.time.30'), 100)
 
 
 if __name__ == '__main__':

@@ -186,6 +186,32 @@ def update_mappings_db(url=None, expected_sha256=None):
     return False
 
 
+_MAPPINGS_SYNC_LOCK = threading.Lock()
+
+
+def _maybe_sync_daily_mappings(interval_s=86_400):
+    """Run daily ETag-checked mappings.db sync while idle (non-playing, non-standby)."""
+    if control.abort_requested() or control.is_device_in_standby():
+        return False
+    try:
+        if xbmc.Player().isPlayingVideo():
+            return False
+    except Exception:
+        pass
+    last_sync = control.getInt('update.time.30')
+    if last_sync and time.time() <= last_sync + interval_s:
+        return False
+    if not _MAPPINGS_SYNC_LOCK.acquire(blocking=False):
+        return False
+    try:
+        if update_mappings_db():
+            control.setInt('update.time.30', int(time.time()))
+            return True
+        return False
+    finally:
+        _MAPPINGS_SYNC_LOCK.release()
+
+
 def cleanup_cache_databases():
     control.log("### Pruning Expired Cache & Debrid Hashes")
     try:
@@ -934,6 +960,10 @@ if __name__ == "__main__":
             refresh_apis()
         except Exception as e:
             control.log(f"Periodic API token refresh notice: {e}", 'debug')
+        try:
+            threading.Thread(target=_maybe_sync_daily_mappings, daemon=True).start()
+        except Exception as e:
+            control.log(f"Periodic mappings sync notice: {e}", 'debug')
         try:
             from resources.lib.WatchlistFlavor import WatchlistFlavor
             replayed = WatchlistFlavor.process_scrobble_retry_queue()

@@ -1,7 +1,20 @@
 ========================
+[B]OTAKU RPDEV v6.3.9[/B]
+Year/Season Filters & Idle Sync
+========================
+
+v6.3.9 Highlights:
+  * Add interactive All/TV/Movie/OVA/ONA format filter rows and counts in
+    browse_year_season and browse_year_filter/*
+  * Move daily ETag-checked update_mappings_db() sync into service.py
+    15-minute idle maintenance loop
+  * Expand scripts/test_kodi_installs.py with seeded mappings.db parity
+    checks for v6.3.1-v6.3.9 in Flatpak Kodi 21 and 22
+
+--------------------------------
 [B]OTAKU RPDEV v6.3.8[/B]
 Offline Year/Season Browsing
-========================
+--------------------------------
 
 v6.3.8 Highlights:
   * Add Browse by Year & Season (Offline) submenu in Search powered by local

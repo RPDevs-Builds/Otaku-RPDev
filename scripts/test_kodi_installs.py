@@ -559,6 +559,87 @@ def seed_test_databases(profile_dir):
     except Exception as e:
         print(f"  Warning: Could not seed cache.db: {e}")
 
+    # 4. mappings.db (v2.5 fixture covering Year/Season, aliases, franchise links, filler_ranges, mal_dub_id)
+    mappings_db_path = os.path.join(addon_data_dir, "mappings.db")
+    try:
+        conn = sqlite3.connect(mappings_db_path, timeout=30.0)
+        cur = conn.cursor()
+        cur.executescript(
+            """
+            DROP TABLE IF EXISTS anime;
+            DROP TABLE IF EXISTS tvdb_rules;
+            DROP TABLE IF EXISTS anime_aliases;
+            DROP TABLE IF EXISTS franchise_links;
+            DROP TABLE IF EXISTS schedule_ids;
+            DROP TABLE IF EXISTS filler_ranges;
+            DROP TABLE IF EXISTS build_meta;
+            CREATE TABLE anime (
+                mal_id INTEGER PRIMARY KEY, mal_dub_id INTEGER, anilist_id INTEGER, kitsu_id INTEGER,
+                anidb_id INTEGER, simkl_id INTEGER, thetvdb_id INTEGER, themoviedb_id INTEGER,
+                imdb_id TEXT, trakt_id INTEGER, mal_title TEXT COLLATE NOCASE, mal_picture TEXT,
+                thetvdb_season INTEGER, thetvdb_part INTEGER, duration INTEGER, score REAL,
+                status TEXT, anime_media_type TEXT, global_media_type TEXT,
+                anime_media_episodes TEXT, global_media_episodes TEXT,
+                year INTEGER, anime_season TEXT
+            );
+            CREATE TABLE tvdb_rules (
+                mal_id INTEGER NOT NULL, tvdb_id INTEGER, season INTEGER NOT NULL,
+                rule_type TEXT, range_start INTEGER, range_end INTEGER,
+                ep_start INTEGER, absolute_start INTEGER, source TEXT
+            );
+            CREATE TABLE anime_aliases (
+                mal_id INTEGER NOT NULL, title TEXT NOT NULL COLLATE NOCASE,
+                PRIMARY KEY (mal_id, title)
+            ) WITHOUT ROWID;
+            CREATE TABLE franchise_links (
+                mal_id INTEGER NOT NULL, related_mal_id INTEGER NOT NULL,
+                relation_type TEXT NOT NULL, source TEXT NOT NULL,
+                PRIMARY KEY (mal_id, related_mal_id, relation_type)
+            ) WITHOUT ROWID;
+            CREATE TABLE schedule_ids (
+                mal_id INTEGER PRIMARY KEY, syobocal_tid INTEGER, annict_id INTEGER
+            );
+            CREATE TABLE filler_ranges (
+                mal_id INTEGER NOT NULL, ep_start INTEGER NOT NULL, ep_end INTEGER NOT NULL,
+                filler_type TEXT NOT NULL,
+                PRIMARY KEY (mal_id, ep_start, ep_end, filler_type)
+            ) WITHOUT ROWID;
+            CREATE TABLE build_meta (key TEXT PRIMARY KEY, value TEXT);
+            CREATE INDEX ix_mal_title ON anime (mal_title) WHERE mal_title IS NOT NULL;
+            CREATE INDEX ix_year ON anime (year) WHERE year IS NOT NULL;
+            CREATE INDEX ix_aliases_title ON anime_aliases (title);
+            """
+        )
+        cur.executemany(
+            "INSERT INTO anime VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            [
+                (
+                    52991, 1, 154587, 46789, 17617, 2043866, 424536, 209867,
+                    "tt22248376", 195722, "Sousou no Frieren", None, 1, 1, 1440, 9.3,
+                    "FINISHED", "TV", "show", "1-28", "1-28", 2023, "FALL",
+                ),
+                (
+                    52992, None, 182255, None, None, None, 424536, 209867,
+                    "tt22248376", 195722, "Sousou no Frieren 2nd Season", None, 2, 1, 1440, 9.1,
+                    "UPCOMING", "TV", "show", "1-12", "1-12", 2026, "WINTER",
+                ),
+                (
+                    52993, None, None, None, None, None, None, None,
+                    None, None, "Frieren Recap Special", None, None, None, 3600, 8.1,
+                    "FINISHED", "MOVIE", "movie", "1", "1", 2023, "FALL",
+                ),
+            ],
+        )
+        cur.execute("INSERT INTO anime_aliases VALUES (?, ?)", (52991, "Beyond Journey Offline Alias"))
+        cur.execute("INSERT INTO franchise_links VALUES (52991, 52992, 'SEQUEL', 'anilist')")
+        cur.execute("INSERT INTO schedule_ids VALUES (52991, 6814, 5201)")
+        cur.execute("INSERT INTO filler_ranges VALUES (52991, 2, 2, 'Filler')")
+        cur.execute("INSERT INTO build_meta VALUES ('schema_version', '2.5')")
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"  Warning: Could not seed mappings.db: {e}")
+
 
 def test_mock_server_playback(profile_dir, mock_server_url):
     """Play sample_chapters.mkv directly in Kodi VideoPlayer and verify properties + chapters."""
@@ -788,6 +869,7 @@ def run_kodi_version_suite(ver, mode, fs_url, mock_server_url=None, skip_playbac
         "override.meta.api": "true",
         "meta.api": "otaku",
         "menu.mainmenu.config": DEFAULT_MAIN_MENU_ITEMS,
+        "update.time.30": str(int(time.time())),
     }
     if mode in ("hermetic", "all") and mock_server_url:
         initial_settings.update({
@@ -969,6 +1051,56 @@ def run_kodi_version_suite(ver, mode, fs_url, mock_server_url=None, skip_playbac
             "on_count": r_hist_on.get("count"),
         }
         print(f"  [SettingEffect:searchhistory] on={r_hist_on.get('count')}")
+
+        # 5e. v6.3.1-v6.3.9 Mappings DB & Offline Features E2E Parity
+        r_years = get_dir("plugin://plugin.video.otaku.rpdev/browse_year_season", timeout=20.0)
+        r_yr23 = get_dir("plugin://plugin.video.otaku.rpdev/browse_year/2023", timeout=20.0)
+        r_tv23 = get_dir("plugin://plugin.video.otaku.rpdev/browse_year/2023/FALL?format=tv", timeout=20.0)
+        r_alias_search = get_dir("plugin://plugin.video.otaku.rpdev/search_anime/Beyond%20Journey", timeout=20.0)
+
+        tv23_files = [f.get("file", "") for f in (r_tv23.get("files") or [])]
+        yr23_files = [f.get("file", "") for f in (r_yr23.get("files") or [])]
+        alias_files = [f.get("file", "") for f in (r_alias_search.get("files") or [])]
+
+        set_runtime_setting(profile_dir, {"interface.filler.badges": "true", "jz.filler": "false"})
+        ep_filler = get_dir("plugin://plugin.video.otaku.rpdev/animes/52991/", props=["title"], timeout=20.0)
+        set_runtime_setting(profile_dir, {"interface.filler.badges": "false"})
+        filler_labels = [str(f.get("label") or "") for f in (ep_filler.get("files") or [])]
+        has_filler_badge = any("[FILLER]" in lbl.upper() for lbl in filler_labels)
+
+        r_sp_set = jsonrpc(
+            "Addons.ExecuteAddon",
+            {"addonid": "plugin.video.otaku.rpdev", "params": ["/series_profile/52991?audio_lang=eng&intro_offset_s=3&episode_offset=1"], "wait": True},
+            timeout=20.0,
+        )
+        r_sp_reset = jsonrpc(
+            "Addons.ExecuteAddon",
+            {"addonid": "plugin.video.otaku.rpdev", "params": ["/series_profile/52991?reset=true"], "wait": True},
+            timeout=20.0,
+        )
+
+        v63x_ok = bool(
+            r_years.get("ok") and r_years.get("count", 0) >= 2
+            and r_yr23.get("ok") and any("format=tv" in u for u in yr23_files)
+            and r_tv23.get("ok") and any("52991" in u for u in tv23_files) and not any("52993" in u for u in tv23_files)
+            and r_alias_search.get("ok") and any("52991" in u for u in alias_files)
+            and ep_filler.get("ok") and has_filler_badge
+            and "error" not in r_sp_set and "error" not in r_sp_reset
+        )
+        tests["v63x_mappings_parity"] = {
+            "ok": v63x_ok,
+            "years_count": r_years.get("count"),
+            "yr23_count": r_yr23.get("count"),
+            "tv23_count": r_tv23.get("count"),
+            "alias_search_count": r_alias_search.get("count"),
+            "has_filler_badge": has_filler_badge,
+            "series_profile_ok": ("error" not in r_sp_set) and ("error" not in r_sp_reset),
+        }
+        print(
+            f"  [v6.3.x Parity] years={r_years.get('count')} yr23={r_yr23.get('count')} "
+            f"tv23={r_tv23.get('count')} alias_hit={any('52991' in u for u in alias_files)} "
+            f"filler_badge={has_filler_badge} -> ok={v63x_ok}"
+        )
 
         # 6. Live Network Integration Tests (only in live or all modes)
         if mode in ("live", "all"):

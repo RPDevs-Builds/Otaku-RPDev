@@ -1889,7 +1889,7 @@ def xbmc_add_dir(name, url, art, info, draw_cm, bulk_add, isfolder, isplayable, 
     # Pin pagination and filter control rows so Kodi sorting never scatters them into content
     if item_looks_like_next_page_row({'image': art}) or str(name or '').startswith('Next Page ('):
         liz.setProperty('SpecialSort', 'bottom')
-    elif str(url or '').startswith(('multipage_filter', 'multipage_clear_filter')):
+    elif str(url or '').startswith(('multipage_filter', 'multipage_clear_filter', 'browse_year_filter')):
         liz.setProperty('SpecialSort', 'top')
     return (u, liz, isfolder) if bulk_add else xbmcplugin.addDirectoryItem(HANDLE, u, liz, isfolder)
 

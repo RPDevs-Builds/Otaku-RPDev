@@ -213,41 +213,83 @@ def BROWSE_YEAR_MENU(payload, params):
     control.draw_items(items, view_type)
 
 
+_BROWSE_YEAR_FMT_OPTIONS = (
+    ('tv', 'TV Shows'),
+    ('movie', 'Movies'),
+    ('ova', 'OVAs'),
+    ('ona', 'ONAs'),
+    ('special', 'Specials'),
+)
+_BROWSE_YEAR_FMT_LABELS = dict(_BROWSE_YEAR_FMT_OPTIONS)
+
+
 @Route('browse_year/*')
 def BROWSE_YEAR_SEASON(payload, params):
-    """Browse offline mappings.db catalog by release year and seasonal cour (Winter/Spring/Summer/Fall)."""
+    """Browse offline mappings.db catalog by release year, seasonal cour, and optional media format."""
     parts = [p for p in str(payload or '').strip('/').split('/') if p]
     if not parts or not parts[0].isdigit():
         control.draw_items([], 'tvshows')
         return
     year_int = int(parts[0])
     season_tok = parts[1].strip().upper() if len(parts) > 1 else ''
+    media_fmt = str((params or {}).get('format', '') or '').strip().lower()
+    if media_fmt not in _BROWSE_YEAR_FMT_LABELS:
+        media_fmt = ''
+    fmt_qs = f"?format={media_fmt}" if media_fmt else ""
 
     if not season_tok:
-        summary = database.get_mapping_season_counts(year_int)
+        summary = database.get_mapping_season_counts(year_int, media_format=media_fmt)
         total = summary.get('total', 0)
+        all_total = summary.get('all_total', total)
+        fmt_tag = f" {_BROWSE_YEAR_FMT_LABELS[media_fmt]}" if media_fmt else ""
         view_type = 'addons' if control.getBool('interface.content_type') else ''
         menu_items = [
             utils.allocate_item(
-                f"All {year_int} Releases ({total})",
-                f"browse_year/{year_int}/ALL",
+                f"All {year_int}{fmt_tag} Releases ({total})",
+                f"browse_year/{year_int}/ALL{fmt_qs}",
                 True,
                 False,
                 [],
                 'trending.png',
-                {'plot': f"All {total} catalog releases from {year_int} ordered by score"},
+                {'plot': f"All {total}{fmt_tag} catalog releases from {year_int} ordered by score"},
             )
         ]
         for seas_u, cnt in summary.get('seasons', []):
             menu_items.append(
                 utils.allocate_item(
-                    f"{seas_u.title()} {year_int} ({cnt})",
-                    f"browse_year/{year_int}/{seas_u}",
+                    f"{seas_u.title()} {year_int}{fmt_tag} ({cnt})",
+                    f"browse_year/{year_int}/{seas_u}{fmt_qs}",
                     True,
                     False,
                     [],
                     'airing_anime.png',
-                    {'plot': f"{cnt} {seas_u.title()} {year_int} releases ordered by score"},
+                    {'plot': f"{cnt}{fmt_tag} {seas_u.title()} {year_int} releases ordered by score"},
+                )
+            )
+        if media_fmt:
+            menu_items.append(
+                utils.allocate_item(
+                    f"[Show All Formats ({all_total})]",
+                    f"browse_year/{year_int}",
+                    True,
+                    False,
+                    [],
+                    'genres_&_tags.png',
+                    {'plot': f"Clear {_BROWSE_YEAR_FMT_LABELS[media_fmt]} filter for {year_int}"},
+                )
+            )
+        for fk, flabel, fcnt in summary.get('formats', []):
+            if fk == media_fmt:
+                continue
+            menu_items.append(
+                utils.allocate_item(
+                    f"[Format: {flabel} ({fcnt})]",
+                    f"browse_year/{year_int}?format={fk}",
+                    True,
+                    False,
+                    [],
+                    'genres_&_tags.png',
+                    {'plot': f"Filter {year_int} catalog to {flabel} only ({fcnt} entries)"},
                 )
             )
         control.draw_items(menu_items, view_type)
@@ -257,7 +299,6 @@ def BROWSE_YEAR_SEASON(payload, params):
         page = max(1, int((params or {}).get('page', 1) or 1))
     except (ValueError, TypeError):
         page = 1
-    media_fmt = str((params or {}).get('format', '') or '')
     rows, has_next = database.browse_mappings_by_year_season(
         year_int,
         anime_season='' if season_tok == 'ALL' else season_tok,
@@ -265,10 +306,55 @@ def BROWSE_YEAR_SEASON(payload, params):
         page=page,
         per_page=40,
     )
-    items = utils.allocate_offline_mapping_items(rows)
-    base_url = f"browse_year/{year_int}/{season_tok}" + (f"?format={media_fmt}" if media_fmt else "")
+    items = []
+    if page == 1:
+        if media_fmt:
+            items.append(
+                utils.allocate_item(
+                    f"[COLOR skyblue][Clear Format: {_BROWSE_YEAR_FMT_LABELS[media_fmt]}][/COLOR]",
+                    f"browse_year/{year_int}/{season_tok}",
+                    True,
+                    False,
+                    [],
+                    'genres_&_tags.png',
+                    {'plot': f"Show all formats for {season_tok.title()} {year_int}"},
+                )
+            )
+        elif rows:
+            items.append(
+                utils.allocate_item(
+                    "[COLOR skyblue][Filter Format: All / TV / Movie / OVA / ONA...][/COLOR]",
+                    f"browse_year_filter/{year_int}/{season_tok}",
+                    True,
+                    False,
+                    [],
+                    'genres_&_tags.png',
+                    {'plot': f"Filter {season_tok.title()} {year_int} releases by format"},
+                )
+            )
+    items.extend(utils.allocate_offline_mapping_items(rows))
+    base_url = f"browse_year/{year_int}/{season_tok}" + fmt_qs
     items.extend(BrowserBase.handle_paging(has_next, base_url, page))
     control.draw_items(items, 'tvshows')
+
+
+@Route('browse_year_filter/*')
+def BROWSE_YEAR_FILTER(payload, params):
+    """Open format picker for offline Year/Season browsing and update container."""
+    parts = [p for p in str(payload or '').strip('/').split('/') if p]
+    if not parts or not parts[0].isdigit():
+        return
+    year_int = int(parts[0])
+    season_tok = parts[1].strip().upper() if len(parts) > 1 else 'ALL'
+    options = ['All Formats'] + [label for _k, label in _BROWSE_YEAR_FMT_OPTIONS]
+    choice = control.select_dialog(f"{control.ADDON_NAME}: Filter {season_tok.title()} {year_int}", options)
+    if choice < 0:
+        return
+    target = f"browse_year/{year_int}/{season_tok}"
+    if choice > 0:
+        fmt_key = _BROWSE_YEAR_FMT_OPTIONS[choice - 1][0]
+        target = f"{target}?format={fmt_key}"
+    control.execute(f"Container.Update({control.addon_url(target)})")
 
 
 @Route('search')

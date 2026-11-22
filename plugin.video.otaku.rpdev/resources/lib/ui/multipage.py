@@ -35,7 +35,7 @@ def is_action_item(item):
     url = str(item.get('url') or '')
     if name.startswith('[Filter') or name.startswith('[Clear') or raw_name.startswith('[Filter') or raw_name.startswith('[Clear'):
         return True
-    if 'multipage_filter' in url or 'multipage_clear_filter' in url:
+    if 'multipage_filter' in url or 'multipage_clear_filter' in url or 'browse_year_filter' in url:
         return True
     if '30712' in name or '30713' in name:
         return True

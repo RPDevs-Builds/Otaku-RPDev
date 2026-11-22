@@ -1,3 +1,9 @@
+Changelog v6.3.9 (2026-11-22):
+- Year/Season Filters & Idle Sync:
+  - Add interactive All/TV/Movie/OVA/ONA format filter rows and counts in browse_year_season and browse_year_filter/*
+  - Move daily ETag-checked update_mappings_db() sync into service.py 15-minute idle maintenance loop
+  - Expand scripts/test_kodi_installs.py with seeded mappings.db parity checks for v6.3.1-v6.3.9 in Flatpak Kodi 21 and 22
+
 Changelog v6.3.8 (2026-11-21):
 - Offline Year/Season Browsing:
   - Add Browse by Year & Season (Offline) submenu in Search powered by local mappings.db

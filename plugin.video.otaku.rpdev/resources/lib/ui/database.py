@@ -1373,32 +1373,72 @@ def get_mapping_years(limit=75):
         return []
 
 
-def get_mapping_season_counts(year):
-    """Return {'total': int, 'seasons': [(season_upper, count), ...]} for *year* from mappings.db."""
+_MAPPING_FMT_LABELS = (
+    ('tv', 'TV Shows', ('TV', 'TV_SHORT')),
+    ('movie', 'Movies', ('MOVIE',)),
+    ('ova', 'OVAs', ('OVA',)),
+    ('ona', 'ONAs', ('ONA',)),
+    ('special', 'Specials', ('SPECIAL',)),
+)
+
+
+def get_mapping_season_counts(year, media_format=''):
+    """Return {'total': int, 'all_total': int, 'seasons': [...], 'formats': [...]} for *year*."""
     yr = _coerce_pos_int(year)
+    empty = {'total': 0, 'all_total': 0, 'seasons': [], 'formats': []}
     if not yr or not getattr(control, 'mappingDB', None) or not os.path.exists(control.mappingDB):
-        return {'total': 0, 'seasons': []}
+        return empty
+    target_fmt = _normalize_mapping_format(media_format)
     try:
         with SQL(control.mappingDB, is_readonly=True) as cur:
             if 'anime' not in _mapping_tables(cur):
-                return {'total': 0, 'seasons': []}
+                return empty
             acols = _mapping_anime_columns(cur)
             if 'year' not in acols:
-                return {'total': 0, 'seasons': []}
-            tot_row = cur.execute('SELECT COUNT(*) AS cnt FROM anime WHERE year=?', (yr,)).fetchone()
-            total = int((tot_row or {}).get('cnt') or 0)
+                return empty
+            all_row = cur.execute('SELECT COUNT(*) AS cnt FROM anime WHERE year=?', (yr,)).fetchone()
+            all_total = int((all_row or {}).get('cnt') or 0)
+            frows = cur.execute(
+                'SELECT UPPER(COALESCE(anime_media_type, "")) AS fmt, COUNT(*) AS cnt '
+                'FROM anime WHERE year=? GROUP BY UPPER(COALESCE(anime_media_type, ""))',
+                (yr,),
+            ).fetchall() or []
+            fmt_counts = {str(r.get('fmt') or ''): int(r.get('cnt') or 0) for r in frows}
+            formats = []
+            for fkey, flabel, db_types in _MAPPING_FMT_LABELS:
+                fcnt = sum(fmt_counts.get(dt, 0) for dt in db_types)
+                if fcnt > 0:
+                    formats.append((fkey, flabel, fcnt))
+
+            if target_fmt:
+                tot_row = cur.execute(
+                    'SELECT COUNT(*) AS cnt FROM anime WHERE year=? AND anime_media_type=?',
+                    (yr, target_fmt),
+                ).fetchone()
+                total = int((tot_row or {}).get('cnt') or 0)
+            else:
+                total = all_total
+
             seasons = []
             if 'anime_season' in acols:
-                srows = cur.execute(
-                    'SELECT UPPER(anime_season) AS s, COUNT(*) AS cnt FROM anime '
-                    'WHERE year=? AND anime_season IS NOT NULL GROUP BY UPPER(anime_season)',
-                    (yr,),
-                ).fetchall() or []
+                if target_fmt:
+                    srows = cur.execute(
+                        'SELECT UPPER(anime_season) AS s, COUNT(*) AS cnt FROM anime '
+                        'WHERE year=? AND anime_media_type=? AND anime_season IS NOT NULL '
+                        'GROUP BY UPPER(anime_season)',
+                        (yr, target_fmt),
+                    ).fetchall() or []
+                else:
+                    srows = cur.execute(
+                        'SELECT UPPER(anime_season) AS s, COUNT(*) AS cnt FROM anime '
+                        'WHERE year=? AND anime_season IS NOT NULL GROUP BY UPPER(anime_season)',
+                        (yr,),
+                    ).fetchall() or []
                 by_s = {str(r.get('s') or ''): int(r.get('cnt') or 0) for r in srows}
                 seasons = [(s, by_s[s]) for s in _MAPPING_SEASON_ORDER if by_s.get(s, 0) > 0]
-            return {'total': total, 'seasons': seasons}
+            return {'total': total, 'all_total': all_total, 'seasons': seasons, 'formats': formats}
     except Exception:
-        return {'total': 0, 'seasons': []}
+        return empty
 
 
 def browse_mappings_by_year_season(year, anime_season='', media_format='', page=1, per_page=40):
