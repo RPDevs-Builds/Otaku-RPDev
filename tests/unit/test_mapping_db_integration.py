@@ -731,6 +731,23 @@ class TestMappingDbIntegration(unittest.TestCase):
                 ak.get_sources(1001, 1)
             self.assertIn('Test Saga - Cour One', ak_built_titles)
 
+            # 7. playback.TMDB_HELPER year remake disambiguation via mappings.db year
+            from resources.lib.routes import playback
+            conn2 = sqlite3.connect(db_path)
+            conn2.executemany(
+                "INSERT INTO anime (mal_id, mal_title, status, anime_media_type, year) VALUES (?, ?, 'FINISHED', 'MOVIE', ?)",
+                [(3001, 'Classic Film Remake', 1998), (3002, 'Classic Film Remake', 2024)],
+            )
+            conn2.commit()
+            conn2.close()
+            database.close_all_connections(db_path)
+            picked = []
+            with patch('resources.lib.OtakuBrowser.OtakuBrowser.get_anime_data'), \
+                 patch.object(playback, 'PLAY_MOVIE', side_effect=lambda u, p: picked.append(u)), \
+                 patch('resources.lib.ui.control.monitor.waitForAbort', return_value=False):
+                playback.TMDB_HELPER('movie', {'actionArgs': json.dumps({'item_type': 'movie', 'title': 'Classic Film Remake', 'year': 2024})})
+            self.assertEqual(picked, ['3002/'])
+
 
 if __name__ == '__main__':
     unittest.main()

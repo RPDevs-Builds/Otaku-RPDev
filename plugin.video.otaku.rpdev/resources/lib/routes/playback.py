@@ -343,6 +343,23 @@ def PLAY_MOVIE(payload, params):
     control.exit_code()
 
 
+def _extract_action_year(action_args):
+    """Extract 4-digit release year from TMDb Helper actionArgs when provided."""
+    for key in ('year', 'premiered', 'first_air_date', 'release_date'):
+        val = str(action_args.get(key) or '').strip()
+        if len(val) >= 4 and val[:4].isdigit():
+            return val[:4]
+    return ''
+
+
+def _prefer_rows_by_year(rows, target_year):
+    """Narrow candidate mapping rows to matching release year when multiple entries exist."""
+    if not rows or not target_year:
+        return rows
+    matched = [r for r in rows if isinstance(r, dict) and str(r.get('year') or '') == str(target_year)]
+    return matched or rows
+
+
 @Route('tmdb_helper')
 def TMDB_HELPER(payload, params):
     # --- Extract all relevant parameters from params and actionArgs ---
@@ -363,6 +380,7 @@ def TMDB_HELPER(payload, params):
     trakt_id = action_args.get('trakt_id')
     season = action_args.get('season')
     episode = action_args.get('episode')
+    target_year = _extract_action_year(action_args)
 
     # Extract source_select from params (default to False)
     source_select = params.pop('source_select', 'false') == 'true'
@@ -421,13 +439,19 @@ def TMDB_HELPER(payload, params):
                             or str(r.get('anime_media_type') or '').upper() == 'MOVIE'
                         )
                     ]
+                    movie_rows = _prefer_rows_by_year(movie_rows, target_year)
+                    rows = _prefer_rows_by_year(rows, target_year)
                     pick = movie_rows[0] if movie_rows else (rows[0] if rows else None)
                     if pick and pick.get('mal_id'):
                         mal_id = pick['mal_id']
                         break
 
             if not mal_id and show_title:
-                for row in (database.search_mappings_by_title(show_title, limit=5, media_format='movie') or []):
+                search_rows = _prefer_rows_by_year(
+                    database.search_mappings_by_title(show_title, limit=5, media_format='movie') or [],
+                    target_year,
+                )
+                for row in search_rows:
                     if row and row.get('mal_id'):
                         mal_id = row['mal_id']
                         break
@@ -467,7 +491,7 @@ def TMDB_HELPER(payload, params):
                         and str(r.get('anime_media_type') or '').upper() != 'MOVIE'
                         and r.get('global_media_type') != 'movie'
                     ]
-                    for anime_ids in (non_movies or mappings):
+                    for anime_ids in _prefer_rows_by_year(non_movies or mappings, target_year):
                         if anime_ids and 'mal_id' in anime_ids and anime_ids['mal_id']:
                             if isinstance(anime_ids['mal_id'], list):
                                 mal_ids.update(anime_ids['mal_id'])
@@ -475,7 +499,11 @@ def TMDB_HELPER(payload, params):
                                 mal_ids.add(anime_ids['mal_id'])
 
             if not mal_ids and show_title:
-                for row in (database.search_mappings_by_title(show_title, limit=10, media_format=item_type or '') or []):
+                search_rows = _prefer_rows_by_year(
+                    database.search_mappings_by_title(show_title, limit=10, media_format=item_type or '') or [],
+                    target_year,
+                )
+                for row in search_rows:
                     if row and row.get('mal_id'):
                         mal_ids.add(row['mal_id'])
 

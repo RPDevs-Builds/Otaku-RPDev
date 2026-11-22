@@ -1,7 +1,26 @@
 ========================
+[B]OTAKU RPDEV v6.3.7[/B]
+Mapping Consumers & Audit Fixes
+========================
+
+v6.3.7 Highlights:
+  * Resolve OtakuAPI.get_simkl_id() from offline mappings.db before live
+    Simkl API
+  * Add IMDb external-ID lookup fallback in tmdb.getArt() when TMDb/TVDB IDs
+    are missing
+  * Enrich subtitle VideoMeta with mappings.db imdb_id, year,
+    original_title, and thetvdb_season plus SubDL TV IMDb and SubSource
+    empty-200 fallbacks
+  * Feed mappings.db aliases pre-Debrid in source_utils.filter_sources(),
+    fallback AnimePahe/Anikoto titles, and disambiguate TMDB_HELPER remakes
+    by year
+  * Fix scripts/audit_onn_logs.py rotated EOF X-Seek-Offset tracking &
+    stack-frame third-party traceback attribution and record ONN Review #22
+
+--------------------------------
 [B]OTAKU RPDEV v6.3.6[/B]
 v2.4 Year/Season & Trakt Fixes
-========================
+--------------------------------
 
 v6.3.6 Highlights:
   * Consume Otaku-Mapping-DB v2.4 year and anime_season columns across
