@@ -1,7 +1,23 @@
 ========================
+[B]OTAKU RPDEV v6.3.6[/B]
+v2.4 Year/Season & Trakt Fixes
+========================
+
+v6.3.6 Highlights:
+  * Consume Otaku-Mapping-DB v2.4 year and anime_season columns across
+    offline search, franchise browsers, and Kodi metadata items (v2.3 schema
+    compatible)
+  * Add BrowserBase._resolve_target_year() mappings.db year fallback across
+    sortSources, HiAnime, Gogoanime, and Easynews when local metadata lacks
+    year
+  * Disambiguate shared Trakt show vs movie numeric IDs by media type in
+    playback.TMDB_HELPER()
+  * Surface Release Year and Cour inside Inspect ID Mappings diagnostics
+
+--------------------------------
 [B]OTAKU RPDEV v6.3.5[/B]
 v2.3 Bindings, Filler & Fixes
-========================
+--------------------------------
 
 v6.3.5 Highlights:
   * Remove slow clean_settings() XML pass from service.py shutdown teardown
