@@ -1,7 +1,22 @@
 ========================
+[B]OTAKU RPDEV v6.3.5[/B]
+v2.3 Bindings, Filler & Fixes
+========================
+
+v6.3.5 Highlights:
+  * Remove slow clean_settings() XML pass from service.py shutdown teardown
+  * Consume Otaku-Mapping-DB v2.3 filler_ranges across all 6 indexers,
+    player binge skip, and inspect_mappings
+  * Add dedicated Playback > Filler Episodes sub-settings area (pure
+    Filler/Recap vs Mixed Canon/Filler toggles + [MIXED] badge)
+  * Wire offline anime_aliases into HiAnime, AnimeKAI, WatchNixtoons2,
+    Gogoanime, and playback episode matching
+  * Record ONN Review #21 baseline (offset 309579, v6.3.3 + context v1.0.47)
+
+--------------------------------
 [B]OTAKU RPDEV v6.3.4[/B]
 Otaku-Mapping-DB v2.2 & Sequels
-========================
+--------------------------------
 
 v6.3.4 Highlights:
   * Consume Otaku-Mapping-DB v2.2 anime_aliases (63k+ offline alternate
