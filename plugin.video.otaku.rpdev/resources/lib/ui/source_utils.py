@@ -1174,7 +1174,22 @@ def filter_sources(provider, torrent_list, mal_id, season=None, episode=None, pa
             if thetvdb_season == 'a' or thetvdb_season == 0:
                 season = None
 
-    effective_aliases = expand_sequel_season_aliases(show_title, aliases, season) if (show_title or aliases) else aliases
+    merged_aliases = list(aliases) if aliases else []
+    if mal_id and (show_title or merged_aliases):
+        seen_a = {str(a).strip().lower() for a in merged_aliases if a}
+        try:
+            for db_alias in (database.get_mapping_aliases(mal_id, limit=8) or []):
+                s_alias = str(db_alias or '').strip()
+                if s_alias and s_alias.lower() not in seen_a:
+                    seen_a.add(s_alias.lower())
+                    merged_aliases.append(s_alias)
+        except Exception:
+            pass
+    effective_aliases = (
+        expand_sequel_season_aliases(show_title, merged_aliases, season)
+        if (show_title or merged_aliases)
+        else merged_aliases
+    )
     check_season = (provider not in _ID_BASED_PROVIDERS) and (season_source != 'default')
 
     def _run_pass(enforce_season):

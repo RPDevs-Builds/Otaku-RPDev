@@ -596,6 +596,141 @@ class TestMappingDbIntegration(unittest.TestCase):
                 playback.TMDB_HELPER('movie', {'actionArgs': json.dumps({'item_type': 'movie', 'trakt_id': 8630})})
             self.assertEqual(played_movies, ['2264/'])
 
+    def test_mapping_db_runtime_consumers_simkl_subtitles_tmdb_and_scrapers(self):
+        with E2EHermeticEnv('22'):
+            from resources.lib.ui import control, database, source_utils
+            from resources.lib.indexers.otaku import OtakuAPI
+            from resources.lib.endpoints import tmdb
+            from resources.lib.subtitles import meta as sub_meta
+            from resources.lib.subtitles.models import VideoMeta
+            from resources.lib.subtitles.services.subdl import SubDLService
+            from resources.lib.subtitles.services.subsource import SubSourceService
+            from resources.lib.pages import animepahe, anikoto
+
+            db_path = control.mappingDB
+            database.close_all_connections(db_path)
+            _create_v2_mappings_db(db_path, include_rules=False, include_v22=True)
+            conn = sqlite3.connect(db_path)
+            conn.execute('ALTER TABLE anime ADD COLUMN year INTEGER')
+            conn.execute('ALTER TABLE anime ADD COLUMN anime_season TEXT')
+            conn.execute(
+                'UPDATE anime SET simkl_id=77001, year=2024, anime_season="FALL", thetvdb_season=2 '
+                'WHERE mal_id=1001'
+            )
+            conn.execute(
+                "INSERT INTO anime (mal_id, imdb_id, mal_title, status, anime_media_type, year, anime_season, thetvdb_season) "
+                "VALUES (1009, 'tt9991112', 'IMDb Only Art Show', 'FINISHED', 'TV', 2023, 'SPRING', 1)"
+            )
+            conn.commit()
+            conn.close()
+            database.close_all_connections(db_path)
+
+            # 1. OtakuAPI.get_simkl_id hits offline mappings.db with 0 HTTP requests
+            api = OtakuAPI()
+            with patch('resources.lib.indexers.otaku.client.get', side_effect=AssertionError('unexpected HTTP call')):
+                self.assertEqual(api.get_simkl_id(1001), 77001)
+
+            # 2. endpoints.tmdb.getArt falls back to /find/{imdb_id}?external_source=imdb_id
+            tmdb_calls = []
+
+            class _Resp:
+                def __init__(self, payload, status_code=200):
+                    self._payload = payload
+                    self.status_code = status_code
+
+                def json(self, default=None):
+                    return self._payload
+
+            def _fake_tmdb_get(url, params=None):
+                tmdb_calls.append((url, dict(params or {})))
+                if 'find/tt9991112' in url:
+                    return _Resp({'tv_results': [{'id': 91234}]})
+                if 'tv/91234/images' in url:
+                    return _Resp({'posters': [{'file_path': '/poster.jpg'}]})
+                return _Resp({})
+
+            with patch('resources.lib.endpoints.tmdb.client.get', side_effect=_fake_tmdb_get):
+                art = tmdb.getArt({'imdb_id': 'tt9991112'}, 'tv')
+            self.assertEqual(art.get('poster'), ['https://image.tmdb.org/t/p/w500/poster.jpg'])
+            self.assertTrue(any('find/tt9991112' in u and p.get('external_source') == 'imdb_id' for u, p in tmdb_calls))
+
+            # 3. subtitles.meta enriches imdb_id, year, original_title, and thetvdb_season from mappings.db
+            sub_meta.publish_active_playback_meta({'tvshowtitle': 'Test Saga', 'episode': 4}, mal_id='1001')
+            active = sub_meta.get_active_playback_meta()
+            self.assertEqual(active['imdb_id'], 'tt1111111')
+            self.assertEqual(active['year'], '2024')
+            self.assertEqual(active['original_title'], 'Test Saga - Cour One')
+            self.assertEqual(active['season'], '2')
+
+            dict_meta = sub_meta.get_meta_from_dict({'title': 'Ep 4', 'tvshowtitle': 'Test Saga', 'episode': 4}, mal_id='1001')
+            self.assertEqual(dict_meta.imdb_id, 'tt1111111')
+            self.assertEqual(dict_meta.year, '2024')
+            self.assertEqual(dict_meta.season, '2')
+
+            # 4. SubDL TV search passes imdb_id, and SubSource falls back to searchType=imdb on HTTP 200 empty data
+            subdl_params = {}
+
+            def _fake_subdl_get(url, params=None, headers=None, timeout=15):
+                subdl_params.update(params or {})
+                return _Resp({'subtitles': []})
+
+            vmeta = VideoMeta(
+                title='Ep 4', tvshow='Test Saga', season='2', episode='4', year='2024', imdb_id='tt1111111'
+            )
+            with patch('resources.lib.subtitles.services.subdl.client.get', side_effect=_fake_subdl_get):
+                SubDLService.search(vmeta, {'subtitles.subdl.apikey': 'k1', 'subtitles.timeout': 5})
+            self.assertEqual(subdl_params.get('imdb_id'), 'tt1111111')
+            self.assertEqual(subdl_params.get('type'), 'tv')
+
+            subsrc_calls = []
+
+            def _fake_subsource_get(url, params=None, headers=None, timeout=15):
+                subsrc_calls.append((url, dict(params or {})))
+                if url.endswith('/movies/search') and (params or {}).get('searchType') == 'text':
+                    return _Resp({'data': []})
+                if url.endswith('/movies/search') and (params or {}).get('searchType') == 'imdb':
+                    return _Resp({'data': [{'movieId': 555, 'season': 2}]})
+                if url.endswith('/subtitles'):
+                    return _Resp({
+                        'success': True,
+                        'data': [{'subtitleId': 888, 'releaseInfo': ['Test.Saga.S02E04.srt'], 'language': 'english'}],
+                    })
+                return _Resp({})
+
+            with patch('resources.lib.subtitles.services.subsource.client.get', side_effect=_fake_subsource_get):
+                ss_res = SubSourceService.search(vmeta, {'subtitles.subsource.apikey': 'k2', 'subtitles.timeout': 5})
+            self.assertEqual(len(ss_res), 1)
+            self.assertTrue(any(p.get('searchType') == 'imdb' and p.get('imdb') == 'tt1111111' for _, p in subsrc_calls))
+
+            # 5. source_utils.filter_sources merges mappings.db aliases before Debrid checks
+            torrents = [
+                {'name': '[Group] Test Saga Alternate Alias - 02 [1080p].mkv', 'hash': 'h_alias'},
+                {'name': '[Group] Re:Test Saga - 02 [1080p].mkv', 'hash': 'h_deriv'},
+            ]
+            kept = source_utils.filter_sources('nyaa', torrents, 1001, season=1, episode=2, show_title='Test Saga')
+            self.assertEqual([t['hash'] for t in kept], ['h_alias'])
+
+            # 6. animepahe falls back from missing malsync title to mappings.db aliases, anikoto uses mal_title
+            ap = animepahe.Sources()
+            ap_json = json.dumps({'data': [{'title': 'Test Saga Alternate Alias', 'session': 'sess_1001', 'year': 2024}]})
+            with patch('resources.lib.endpoints.malsync.get_title', return_value=None), \
+                 patch.object(ap, '_resolve_session_from_malsync', return_value=None), \
+                 patch('resources.lib.ui.database.get', return_value=ap_json), \
+                 patch.object(ap, '_process_ap', return_value=[{'release_title': 'ap_ok'}]) as mock_ap:
+                ap_sources = ap.get_sources(1001, 2)
+            self.assertEqual(len(ap_sources), 1)
+            mock_ap.assert_called_once()
+
+            ak = anikoto.Sources()
+            self.assertGreaterEqual(ak._score_candidate('Test Saga Alternate Alias', 'Test Saga', mal_id=1001), 140)
+            ak_built_titles = []
+            with patch('resources.lib.ui.database.get_show', return_value=None), \
+                 patch('resources.lib.ui.database.get_show_meta', return_value=None), \
+                 patch('resources.lib.ui.database.get_episode', return_value=None), \
+                 patch.object(ak, '_build_source', side_effect=lambda u, t, ep, lang: ak_built_titles.append(t) or None):
+                ak.get_sources(1001, 1)
+            self.assertIn('Test Saga - Cour One', ak_built_titles)
+
 
 if __name__ == '__main__':
     unittest.main()

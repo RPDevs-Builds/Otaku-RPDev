@@ -48,6 +48,8 @@ class SubDLService:
             params['type'] = 'tv'
             params['film_name'] = meta.tvshow or meta.title
             params['file_name'] = meta.filename_without_ext
+            if meta.imdb_id:
+                params['imdb_id'] = meta.imdb_id
             if meta.season:
                 params['season'] = str(meta.season)
             if meta.episode:

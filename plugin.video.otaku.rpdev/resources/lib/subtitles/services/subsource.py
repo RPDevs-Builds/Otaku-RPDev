@@ -46,17 +46,14 @@ class SubSourceService:
         try:
             search_url = f"{API_BASE}/movies/search"
             res = client.get(search_url, params=search_params, headers=headers, timeout=timeout)
-            if not res or res.status_code != 200:
-                # Try IMDb search fallback
-                if meta.imdb_id:
-                    imdb_params = {'searchType': 'imdb', 'imdb': meta.imdb_id}
-                    res = client.get(search_url, params=imdb_params, headers=headers, timeout=timeout)
-
-            if not res or res.status_code != 200:
-                return []
-
-            search_data = res.json(default={})
+            search_data = res.json(default={}) if (res and res.status_code == 200) else {}
             found = search_data.get('data', []) if isinstance(search_data, dict) else []
+            if not found and meta.imdb_id:
+                imdb_params = {'searchType': 'imdb', 'imdb': meta.imdb_id}
+                res = client.get(search_url, params=imdb_params, headers=headers, timeout=timeout)
+                search_data = res.json(default={}) if (res and res.status_code == 200) else {}
+                found = search_data.get('data', []) if isinstance(search_data, dict) else []
+
             if not found:
                 return []
 

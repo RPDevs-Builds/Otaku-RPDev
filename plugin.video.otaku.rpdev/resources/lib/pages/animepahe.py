@@ -143,6 +143,43 @@ class Sources(BrowserBase):
                 return slug
         return None
 
+    def _collect_search_titles(self, mal_id):
+        """Return deduplicated AnimePahe search queries from MALSync, local show meta, and mappings.db."""
+        titles = []
+        seen = set()
+
+        def _add(val):
+            s = str(val or '').strip()
+            if s and s.lower() not in seen:
+                seen.add(s.lower())
+                titles.append(s)
+
+        _add(malsync.get_title(mal_id, site='animepahe'))
+        show = database.get_show(mal_id)
+        kodi_meta = database.loads(show.get('kodi_meta')) if isinstance(show, dict) and show.get('kodi_meta') else None
+        if isinstance(kodi_meta, dict):
+            for key in ('name', 'ename', 'title_english', 'title_romaji'):
+                _add(kodi_meta.get(key))
+        for alias in self._collect_title_aliases(mal_id=mal_id, kodi_meta=kodi_meta, limit=6):
+            _add(alias)
+        return titles, kodi_meta
+
+    def _query_search_api(self, api_url, headers, query_title):
+        """Query AnimePahe search API and return (sitems, had_valid_json)."""
+        r = database.get(
+            self._get_request,
+            8,
+            api_url,
+            data={'m': 'search', 'q': query_title},
+            headers=headers,
+        )
+        if not r:
+            return None, False
+        parsed_r = control.loads_json(r, None)
+        if not isinstance(parsed_r, dict):
+            return None, False
+        return parsed_r.get('data') or [], True
+
     def get_sources(self, mal_id, episode):
         base_url = self._get_base_url()
         headers = self._get_headers(base_url)
@@ -151,11 +188,12 @@ class Sources(BrowserBase):
             control.log('AnimePahe: cooling down after recent failure; skipping scrape', level='info')
             return []
 
-        title = malsync.get_title(mal_id, site='animepahe')
-        if not title:
-            control.log('AnimePahe: no mapped title for mal_id={0}'.format(mal_id), level='info')
+        search_titles, kodi_meta = self._collect_search_titles(mal_id)
+        if not search_titles:
+            control.log('AnimePahe: no mapped title or alias for mal_id={0}'.format(mal_id), level='info')
             return []
 
+        title = search_titles[0]
         control.log('AnimePahe: scraping mal_id={0} ep={1} title="{2}"'.format(mal_id, episode, title), level='info')
         slug = self._resolve_session_from_malsync(mal_id)
         if slug:
@@ -166,51 +204,45 @@ class Sources(BrowserBase):
                 return direct
 
         api_url = domains.join_url(base_url, 'api')
-        params = {'m': 'search', 'q': title}
-        r = database.get(
-            self._get_request,
-            8,
-            api_url,
-            data=params,
-            headers=headers
-        )
-        if not r:
+        sitems, valid_json = self._query_search_api(api_url, headers, title)
+        if not valid_json:
             domains.mark_mirror_failure(base_url, cooldown=3600)
-            control.log('AnimePahe: search API returned no data', level='info')
+            control.log('AnimePahe: search API returned no or invalid JSON data', level='info')
             return []
-        parsed_r = control.loads_json(r, {})
-        if not isinstance(parsed_r, dict):
-            domains.mark_mirror_failure(base_url, cooldown=3600)
-            control.log('AnimePahe: search API returned invalid JSON', level='info')
-            return []
-        sitems = parsed_r.get('data')
 
+        query_queue = []
         if not sitems and ':' in title:
-            title = title.split(':')[0]
-            params.update({'q': title})
-            r = database.get(
-                self._get_request,
-                8,
-                api_url,
-                data=params,
-                headers=headers
-            )
-            parsed_r = control.loads_json(r, {})
-            sitems = parsed_r.get('data') if isinstance(parsed_r, dict) else []
+            query_queue.append(title.split(':')[0].strip())
+        for alt in search_titles[1:]:
+            if alt not in query_queue:
+                query_queue.append(alt)
 
+        for alt_query in query_queue[:3]:
+            if sitems:
+                break
+            alt_items, alt_ok = self._query_search_api(api_url, headers, alt_query)
+            if alt_ok and alt_items:
+                sitems = alt_items
+                title = alt_query
+                break
+
+        target_year = self._resolve_target_year(mal_id=mal_id, kodi_meta=kodi_meta)
         all_results = []
         if sitems:
             scored_candidates = []
             for item in sitems:
                 cand_title = item.get('title')
                 cand_year = item.get('year')
-                cand_score = source_utils.score_title_candidate(title, cand_title, year=cand_year)
-                scored_candidates.append((item, cand_score))
+                cand_score = source_utils.score_title_candidate(
+                    title, cand_title, aliases=search_titles
+                )
+                year_bonus = 1 if (target_year and cand_year and str(cand_year) == str(target_year)) else 0
+                scored_candidates.append((item, cand_score, year_bonus))
 
-            scored_candidates.sort(key=lambda x: x[1], reverse=True)
+            scored_candidates.sort(key=lambda x: (x[1], x[2]), reverse=True)
 
             if scored_candidates and scored_candidates[0][1] >= 50:
-                best_item, best_score = scored_candidates[0]
+                best_item, best_score, _ = scored_candidates[0]
                 slug = best_item.get('session')
                 control.log(f"AnimePahe: Selected '{best_item.get('title')}' (Score: {best_score})", level='info')
                 all_results = self._process_ap(slug, title=title, episode=episode)

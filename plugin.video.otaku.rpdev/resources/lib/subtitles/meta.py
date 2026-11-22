@@ -15,29 +15,58 @@ from resources.lib.subtitles import languages
 ACTIVE_SUB_META_PROP = 'otaku.active_sub_meta'
 
 
+def _enrich_sub_fields_from_mappings(mal_id, imdb_id='', year='', tvshow='', original_title='', season=''):
+    """Backfill blank subtitle lookup fields from offline mappings.db for accurate provider queries."""
+    if not mal_id:
+        return imdb_id, year, tvshow, original_title, season
+    needs_season = (not season or str(season).strip() in ('', '0'))
+    if imdb_id and year and (tvshow or original_title) and not needs_season:
+        return imdb_id, year, tvshow, original_title, season
+    try:
+        mp = database.get_mappings(mal_id, 'mal_id')
+    except Exception:
+        mp = None
+    if not isinstance(mp, dict) or not mp:
+        return imdb_id, year, tvshow, original_title, season
+
+    if not imdb_id and mp.get('imdb_id'):
+        imdb_id = str(mp['imdb_id']).strip()
+    if not year and mp.get('year'):
+        year = str(mp['year']).strip()
+    if not original_title and mp.get('mal_title'):
+        original_title = str(mp['mal_title']).strip()
+    if needs_season and mp.get('thetvdb_season') is not None:
+        tvs = str(mp['thetvdb_season']).strip()
+        if tvs.isdigit() and int(tvs) > 0:
+            season = tvs
+    return imdb_id, year, tvshow, original_title, season
+
+
 def publish_active_playback_meta(video_info: Optional[Dict[str, Any]], mal_id: str = '', filename: str = '') -> None:
     """Publish compact active-playback metadata to Window(10000) for auto-download and Kodi subtitle service."""
     try:
         info = dict(video_info or {})
         unique_ids = info.get('UniqueIDs', {}) if isinstance(info.get('UniqueIDs'), dict) else {}
         imdb_id = str(unique_ids.get('imdb') or unique_ids.get('imdb_id') or '')
-        if not imdb_id and mal_id:
-            try:
-                ids = database.get_unique_ids(str(mal_id), 'mal_id')
-                if ids and ids.get('imdb'):
-                    imdb_id = str(ids['imdb'])
-            except Exception:
-                pass
+        title = str(info.get('title') or info.get('name') or '')
+        tvshow = str(info.get('tvshowtitle') or info.get('showtitle') or '')
+        original_title = str(info.get('originaltitle') or info.get('OriginalTitle') or '')
+        season = str(info.get('season') or '')
+        episode = str(info.get('episode') or '')
+        year = str(info.get('year') or '')
+        imdb_id, year, tvshow, original_title, season = _enrich_sub_fields_from_mappings(
+            mal_id, imdb_id=imdb_id, year=year, tvshow=tvshow, original_title=original_title, season=season
+        )
 
         payload = {
             'mal_id': str(mal_id or ''),
             'imdb_id': imdb_id,
-            'title': str(info.get('title') or info.get('name') or ''),
-            'tvshow': str(info.get('tvshowtitle') or info.get('showtitle') or ''),
-            'original_title': str(info.get('originaltitle') or info.get('OriginalTitle') or ''),
-            'season': str(info.get('season') or ''),
-            'episode': str(info.get('episode') or ''),
-            'year': str(info.get('year') or ''),
+            'title': title,
+            'tvshow': tvshow,
+            'original_title': original_title,
+            'season': season,
+            'episode': episode,
+            'year': year,
             'filename': str(filename or source_utils.format_video_filename(info) or ''),
         }
         control.setGlobalProp(ACTIVE_SUB_META_PROP, json.dumps(payload))
@@ -182,6 +211,11 @@ def get_meta_from_player(
     if not imdb_id:
         imdb_id = xbmc.getInfoLabel('VideoPlayer.IMDBNumber') or ''
 
+    # 2b. Fill remaining gaps from offline mappings.db when mal_id is known
+    imdb_id, year, tvshow, original_title, season = _enrich_sub_fields_from_mappings(
+        mal_id, imdb_id=imdb_id, year=year, tvshow=tvshow, original_title=original_title, season=season
+    )
+
     # 3. Clean Filename
     if not filename:
         filename = (
@@ -293,13 +327,9 @@ def get_meta_from_dict(video_info: Dict[str, Any], mal_id: Optional[str] = None)
     if isinstance(unique_ids, dict):
         imdb_id = str(unique_ids.get('imdb') or unique_ids.get('imdb_id') or '')
 
-    if not imdb_id and mal_id:
-        try:
-            ids = database.get_unique_ids(mal_id, 'mal_id')
-            if ids and ids.get('imdb'):
-                imdb_id = str(ids['imdb'])
-        except Exception:
-            pass
+    imdb_id, year, tvshow, original_title, season = _enrich_sub_fields_from_mappings(
+        mal_id, imdb_id=imdb_id, year=year, tvshow=tvshow, original_title=original_title, season=season
+    )
 
     clean_filename = source_utils.format_video_filename(video_info)
 

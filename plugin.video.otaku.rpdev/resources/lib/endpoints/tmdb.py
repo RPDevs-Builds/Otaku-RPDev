@@ -7,21 +7,31 @@ thumbPath = "https://image.tmdb.org/t/p/w500"
 backgroundPath = "https://image.tmdb.org/t/p/original"
 
 
+def _find_tmdb_id(external_id, external_source, prefer_movie=False):
+    """Resolve a TMDb ID via /find/{external_id} using tvdb_id or imdb_id."""
+    if not external_id:
+        return None
+    params = {'external_source': external_source, 'api_key': apiKey}
+    response = client.get(f'{baseUrl}find/{external_id}', params=params)
+    res = control.safe_json(response, default={}) if response else {}
+    if not isinstance(res, dict):
+        return None
+    buckets = ('movie_results', 'tv_results') if prefer_movie else ('tv_results', 'movie_results')
+    for key in buckets:
+        items = res.get(key)
+        if items and isinstance(items, list) and isinstance(items[0], dict) and items[0].get('id'):
+            return items[0]['id']
+    return None
+
+
 def getArt(meta_ids, mtype, limit=None):
     art = {}
     mid = meta_ids.get('themoviedb_id')
+    prefer_movie = str(mtype or '').lower().startswith('movie')
+    if mid is None and not prefer_movie:
+        mid = _find_tmdb_id(meta_ids.get('thetvdb_id'), 'tvdb_id', prefer_movie=False)
     if mid is None:
-        tvdb = meta_ids.get('thetvdb_id')
-        if tvdb:
-            params = {
-                'external_source': 'tvdb_id',
-                "api_key": apiKey
-            }
-            response = client.get(f'{baseUrl}find/{tvdb}', params=params)
-            res = control.safe_json(response, default={})
-            res = res.get('tv_results')
-            if res:
-                mid = res[0].get('id')
+        mid = _find_tmdb_id(meta_ids.get('imdb_id'), 'imdb_id', prefer_movie=prefer_movie)
 
     if mid:
         params = {

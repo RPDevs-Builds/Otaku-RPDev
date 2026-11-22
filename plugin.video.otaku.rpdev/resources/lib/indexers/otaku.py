@@ -171,31 +171,29 @@ class OtakuAPI:
         return episodes
 
     def get_simkl_id(self, mal_id):
+        """Resolve Simkl ID from offline mappings.db / runtime overlay before live Simkl API lookup."""
+        meta_ids = database.resolve_mappings_with_fallback(
+            mal_id, required_keys=('simkl_id',), require_all=False
+        )
+        if meta_ids and meta_ids.get('simkl_id'):
+            return meta_ids['simkl_id']
+
         show_ids = database.get_show(mal_id)
-        if not show_ids:
-            # Show not in local DB yet — look up Simkl ID directly via API
-            params = {
-                'mal': mal_id,
-                'client_id': self.simklClientID
-            }
-            response = client.get(f'{self.simklBaseUrl}/search/id', params=params)
-            if response:
-                r = response.json()
-                if r:
-                    return r[0]['ids']['simkl']
-            return None
-        if not (simkl_id := show_ids.get('simkl_id')):
-            params = {
-                'mal': mal_id,
-                'client_id': self.simklClientID
-            }
-            response = client.get(f'{self.simklBaseUrl}/search/id', params=params)
-            if response:
-                r = response.json()
-                if r:
-                    simkl_id = r[0]['ids']['simkl']
-                    database.add_mapping_id(mal_id, 'simkl_id', simkl_id)
-        return simkl_id
+        if isinstance(show_ids, dict) and show_ids.get('simkl_id'):
+            return show_ids['simkl_id']
+
+        params = {
+            'mal': mal_id,
+            'client_id': self.simklClientID
+        }
+        response = client.get(f'{self.simklBaseUrl}/search/id', params=params)
+        r = control.safe_json(response, default=[]) if response else []
+        if isinstance(r, list) and r:
+            simkl_id = ((r[0] or {}).get('ids') or {}).get('simkl')
+            if simkl_id and show_ids:
+                database.add_mapping_id(mal_id, 'simkl_id', simkl_id)
+            return simkl_id
+        return None
 
     def get_simkl_episode_meta(self, mal_id):
         simkl_id = self.get_simkl_id(mal_id)

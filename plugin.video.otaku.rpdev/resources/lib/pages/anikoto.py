@@ -28,6 +28,10 @@ class Sources(BrowserBase):
                     kodi_meta = database.loads(ep_data.get('kodi_meta'))
                     title = self._clean_title(kodi_meta.get('name') or '')
         if not title:
+            mp = database.get_mappings(mal_id, 'mal_id')
+            if isinstance(mp, dict) and mp.get('mal_title'):
+                title = self._clean_title(mp.get('mal_title'))
+        if not title:
             title = f"MAL-{mal_id}"
 
         try:
@@ -52,8 +56,10 @@ class Sources(BrowserBase):
         control.log(f"Anikoto: Returning {len(all_results)} source(s)", level='info')
         return all_results
 
-    def _score_candidate(self, candidate_name, title, current_year=None):
-        return source_utils.score_title_candidate(title, candidate_name, year=current_year)
+    def _score_candidate(self, candidate_name, title, current_year=None, aliases=None, mal_id=None):
+        aliases = aliases if aliases is not None else (self._collect_title_aliases(mal_id=mal_id, limit=6) if mal_id else None)
+        current_year = current_year or (self._resolve_target_year(mal_id=mal_id) if mal_id else None)
+        return source_utils.score_title_candidate(title, candidate_name, aliases=aliases, year=current_year)
 
     def _build_source(self, embed_url, title, episode, lang):
         try:
