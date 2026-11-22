@@ -300,13 +300,23 @@ def allocate_offline_mapping_items(rows, show_relation=False):
         url = f"animes/{mid}/" if mtype_raw != 'MOVIE' else f"play_movie/{mid}/"
         isfolder = (mtype_raw != 'MOVIE')
         isplayable = (mtype_raw == 'MOVIE')
+        year_val = row.get('year')
+        seas_val = str(row.get('anime_season') or '').strip()
+        year_part = f" • {seas_val.title()} {year_val}" if (year_val and seas_val) else (f" • {year_val}" if year_val else "")
         info = {
             'UniqueIDs': {'mal_id': str(mid), 'mal': str(mid)},
             'title': display_name,
             'mediatype': kodi_mtype,
             'status': row.get('status') or '',
-            'plot': f"{mtype_raw} • Episodes: {row.get('anime_media_episodes') or '?'} • Status: {row.get('status') or 'Unknown'}",
+            'plot': f"{mtype_raw}{year_part} • Episodes: {row.get('anime_media_episodes') or '?'} • Status: {row.get('status') or 'Unknown'}",
         }
+        if year_val:
+            try:
+                yr_int = int(year_val)
+                info['year'] = yr_int
+                info['premiered'] = f"{yr_int:04d}-01-01"
+            except (TypeError, ValueError):
+                pass
         if row.get('score'):
             info['rating'] = {'score': float(row['score'])}
         if row.get('duration'):

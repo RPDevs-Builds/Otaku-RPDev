@@ -136,6 +136,28 @@ class BrowserBase(object):
                 pass
         return aliases
 
+    @staticmethod
+    def _resolve_target_year(mal_id=None, kodi_meta=None, current_year=None):
+        """Resolve integer/string release year from caller arg, kodi_meta, or mappings.db fallback."""
+        if current_year:
+            return current_year
+        if isinstance(kodi_meta, dict):
+            yr = kodi_meta.get('year') or kodi_meta.get('aired_year')
+            if yr:
+                return yr
+            sdate = str(kodi_meta.get('start_date') or '')
+            if len(sdate) >= 4 and sdate[:4].isdigit():
+                return sdate[:4]
+        if mal_id:
+            try:
+                from resources.lib.ui import database
+                mp = database.get_mappings(mal_id, 'mal_id')
+                if isinstance(mp, dict) and mp.get('year'):
+                    return str(mp['year'])
+            except Exception:
+                pass
+        return None
+
     def _to_url(self, url=''):
         assert self._BASE_URL is not None, "Must be set on inherentance"
 

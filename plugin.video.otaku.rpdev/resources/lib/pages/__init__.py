@@ -696,6 +696,7 @@ class Sources(GetSources):
         # C-20: For sequel seasons (season >= 2) with arc subtitles (e.g. "Blue Exorcist: Shimane Illuminati Saga"),
         # register "<Franchise Base> Season N" aliases so season-numbered releases ("Blue Exorcist S03") pass the gate.
         resolved_season_int = None
+        mp = None
         try:
             if season is not None and str(season).isdigit():
                 resolved_season_int = int(season)
@@ -706,6 +707,15 @@ class Sources(GetSources):
                     resolved_season_int = int(tvdb_s)
         except Exception:
             resolved_season_int = None
+
+        if not target_year and mal_id:
+            try:
+                if mp is None:
+                    mp = database.get_mappings(mal_id, 'mal_id')
+                if isinstance(mp, dict) and mp.get('year'):
+                    target_year = str(mp['year'])
+            except Exception:
+                pass
 
         if resolved_season_int and resolved_season_int >= 2:
             target_aliases = source_utils.expand_sequel_season_aliases(target_title, target_aliases, resolved_season_int)

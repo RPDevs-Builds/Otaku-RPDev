@@ -504,6 +504,98 @@ class TestMappingDbIntegration(unittest.TestCase):
                 invoke_plugin_route('inspect_mappings/1001')
             self.assertIn('Offline Filler Tags:  4 episode(s)', tv_cap[0])
 
+    def test_mapping_db_v24_year_season_and_trakt_namespace_filtering(self):
+        with E2EHermeticEnv('22'):
+            from resources.lib.ui import control, database, utils, BrowserBase
+            from resources.lib.ui.database_sync import SyncDatabase
+            from resources.lib import pages
+            from resources.lib.routes import playback
+            import resources.lib.windows.textviewer as tv_mod
+
+            db_path = control.mappingDB
+            database.close_all_connections(db_path)
+            if os.path.exists(db_path):
+                os.remove(db_path)
+            conn = sqlite3.connect(db_path)
+            conn.execute(
+                'CREATE TABLE anime ('
+                'mal_id INTEGER PRIMARY KEY, mal_dub_id INTEGER, anilist_id INTEGER, '
+                'kitsu_id INTEGER, anidb_id INTEGER, simkl_id INTEGER, thetvdb_id INTEGER, '
+                'themoviedb_id INTEGER, imdb_id INTEGER, trakt_id INTEGER, mal_title TEXT, '
+                'mal_picture TEXT, thetvdb_season INTEGER, thetvdb_part INTEGER, '
+                'duration INTEGER, score REAL, status TEXT, anime_media_type TEXT, '
+                'global_media_type TEXT, anime_media_episodes TEXT, global_media_episodes TEXT, '
+                'year INTEGER, anime_season TEXT)'
+            )
+            conn.execute('CREATE TABLE activities (sync_id INTEGER PRIMARY KEY, last_updated TEXT)')
+            conn.execute(
+                'CREATE TABLE franchise_links ('
+                'mal_id INTEGER NOT NULL, related_mal_id INTEGER NOT NULL, '
+                'relation_type TEXT NOT NULL, source TEXT NOT NULL, '
+                'PRIMARY KEY (mal_id, related_mal_id, relation_type)) WITHOUT ROWID'
+            )
+            conn.execute("INSERT INTO activities VALUES (1, '1795300000')")
+            conn.executemany(
+                "INSERT INTO anime (mal_id, trakt_id, mal_title, status, anime_media_type, global_media_type, anime_media_episodes, year, anime_season) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                [
+                    (2814, 8630, 'Remake Chrono Saga', 'FINISHED', 'TV', 'show', '1 - 12', 2024, 'FALL'),
+                    (2264, 8630, 'Remake Chrono Saga Movie', 'FINISHED', 'MOVIE', 'movie', '1 - 1', 1997, 'SUMMER'),
+                ],
+            )
+            conn.execute("INSERT INTO franchise_links VALUES (2814, 2264, 'ALTERNATIVE', 'anilist')")
+            conn.commit()
+            conn.close()
+            database.close_all_connections(db_path)
+
+            # 1. Offline search & franchise expose year + anime_season and populate Kodi item info
+            hits = database.search_mappings_by_title('Remake Chrono Saga', limit=5)
+            self.assertEqual(hits[0]['mal_id'], 2814)
+            self.assertEqual(hits[0]['year'], 2024)
+            self.assertEqual(hits[0]['anime_season'], 'FALL')
+
+            kodi_items = utils.allocate_offline_mapping_items(database.get_franchise_entries(2814), show_relation=True)
+            self.assertEqual(len(kodi_items), 1)
+            self.assertEqual(kodi_items[0]['info']['year'], 1997)
+            self.assertEqual(kodi_items[0]['info']['premiered'], '1997-01-01')
+
+            # 2. BrowserBase._resolve_target_year & pages.sortSources recover year from mappings.db when shows cache has none
+            SyncDatabase._build_shows()
+            database.update_show(2814, database.dumps({'name': 'Remake Chrono Saga'}))
+            self.assertEqual(BrowserBase.BrowserBase._resolve_target_year(mal_id=2814, kodi_meta={}), '2024')
+
+            sources = [
+                {'release_title': 'Remake Chrono Saga (2001) 1080p', 'type': 'torrent', 'seeders': 50, 'size': '2.0 GB', 'quality': 2},
+                {'release_title': 'Remake Chrono Saga (2024) 1080p', 'type': 'torrent', 'seeders': 10, 'size': '1.5 GB', 'quality': 2},
+            ]
+            ranked = pages.Sources.sortSources(sources, [], [], [], [], 'tv', 24, mal_id=2814, show_title='Remake Chrono Saga', season=1)
+            self.assertEqual(ranked[0]['release_title'], 'Remake Chrono Saga (2024) 1080p')
+
+            # 3. tools inspect_mappings surfaces Release Year / Cour
+            cap = []
+
+            class _SpyTV4:
+                def __init__(self, xml_file, addon_path, **kwargs):
+                    cap.append(kwargs.get('instructions_text', ''))
+
+                def run(self):
+                    pass
+
+                def close(self):
+                    pass
+
+            with patch.object(tv_mod, 'TextViewerXML', _SpyTV4):
+                invoke_plugin_route('inspect_mappings/2814')
+            self.assertIn('Release Year / Cour:  2024 / FALL', cap[0])
+
+            # 4. Playback Trakt namespace disambiguation: trakt_id=8630 resolves MOVIE 2264 for movie item_type
+            played_movies = []
+            with patch('resources.lib.OtakuBrowser.OtakuBrowser.get_anime_data'), \
+                 patch.object(playback, 'PLAY_MOVIE', side_effect=lambda u, p: played_movies.append(u)), \
+                 patch('resources.lib.ui.control.monitor.waitForAbort', return_value=False):
+                playback.TMDB_HELPER('movie', {'actionArgs': json.dumps({'item_type': 'movie', 'trakt_id': 8630})})
+            self.assertEqual(played_movies, ['2264/'])
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -276,11 +276,10 @@ class Sources(BrowserBase):
 
         if isinstance(current_year, dict):
             kodi_meta = current_year
-            current_year = kodi_meta.get('year') or kodi_meta.get('aired_year')
+            current_year = None
 
         aliases = self._collect_title_aliases(mal_id=mal_id, kodi_meta=kodi_meta, limit=6)
-        if kodi_meta and isinstance(kodi_meta, dict) and not current_year:
-            current_year = kodi_meta.get('year') or kodi_meta.get('aired_year')
+        current_year = self._resolve_target_year(mal_id=mal_id, kodi_meta=kodi_meta, current_year=current_year)
 
         score = source_utils.score_title_candidate(title, candidate_name, aliases=aliases or None, year=current_year)
         if score <= 40:

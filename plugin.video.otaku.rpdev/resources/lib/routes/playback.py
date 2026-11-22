@@ -413,9 +413,17 @@ def TMDB_HELPER(payload, params):
 
             for key, value in id_sources:
                 if value:
-                    anime_ids = database.get_mappings(value, key)
-                    if anime_ids and anime_ids.get('mal_id'):
-                        mal_id = anime_ids['mal_id']
+                    rows = database.get_mal_ids(value, key) or []
+                    movie_rows = [
+                        r for r in rows
+                        if isinstance(r, dict) and (
+                            r.get('global_media_type') == 'movie'
+                            or str(r.get('anime_media_type') or '').upper() == 'MOVIE'
+                        )
+                    ]
+                    pick = movie_rows[0] if movie_rows else (rows[0] if rows else None)
+                    if pick and pick.get('mal_id'):
+                        mal_id = pick['mal_id']
                         break
 
             if not mal_id and show_title:
@@ -452,8 +460,14 @@ def TMDB_HELPER(payload, params):
 
             for key, value in id_sources:
                 if value:
-                    mappings = database.get_mal_ids(value, key)  # Now returns a list
-                    for anime_ids in mappings:
+                    mappings = database.get_mal_ids(value, key) or []  # Now returns a list
+                    non_movies = [
+                        r for r in mappings
+                        if isinstance(r, dict)
+                        and str(r.get('anime_media_type') or '').upper() != 'MOVIE'
+                        and r.get('global_media_type') != 'movie'
+                    ]
+                    for anime_ids in (non_movies or mappings):
                         if anime_ids and 'mal_id' in anime_ids and anime_ids['mal_id']:
                             if isinstance(anime_ids['mal_id'], list):
                                 mal_ids.update(anime_ids['mal_id'])

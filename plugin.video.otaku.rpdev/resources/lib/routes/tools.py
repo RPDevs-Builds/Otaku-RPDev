@@ -1520,6 +1520,7 @@ def INSPECT_MAPPINGS(payload, params):
         f"  • Syobocal / Annict: {_fmt(sched_ids.get('syobocal_tid'))} / {_fmt(sched_ids.get('annict_id'))}",
         "",
         f"  • Type / Season / Part: {_fmt(mapping_row.get('anime_media_type'))} / S{_fmt(mapping_row.get('thetvdb_season'))} / P{_fmt(mapping_row.get('thetvdb_part'))}",
+        f"  • Release Year / Cour:  {_fmt(mapping_row.get('year'))} / {_fmt(mapping_row.get('anime_season'))}",
         f"  • Offline Filler Tags:  {len(filler_map)} episode(s)" if filler_map else "  • Offline Filler Tags:  —",
     ]
     if aliases:

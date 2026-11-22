@@ -92,9 +92,7 @@ class Sources(BrowserBase):
         try:
             row = database.get_show(mal_id)
             meta = database.loads(row['kodi_meta']) if row and row.get('kodi_meta') else {}
-            year = (meta.get('year') or '') or ''
-            if not year and meta.get('start_date'):
-                year = str(meta['start_date']).split('-')[0]
+            year = self._resolve_target_year(mal_id=mal_id, kodi_meta=meta) or ''
         except Exception:
             year = ''
         if year:

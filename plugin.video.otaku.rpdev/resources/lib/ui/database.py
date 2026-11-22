@@ -1282,6 +1282,14 @@ def _mapping_tables(cur):
     }
 
 
+def _mapping_anime_columns(cur):
+    return {
+        r.get('name')
+        for r in (cur.execute("PRAGMA table_info(anime)").fetchall() or [])
+        if r.get('name')
+    }
+
+
 def get_mapping_aliases(mal_id, limit=12):
     """Return deduplicated alternate titles for *mal_id* from mappings.db (mal_title + anime_aliases)."""
     mid = _coerce_pos_int(mal_id)
@@ -1341,10 +1349,17 @@ def search_mappings_by_title(query, limit=25, media_format=''):
             tables = _mapping_tables(cur)
             if 'anime' not in tables:
                 return []
+            acols = _mapping_anime_columns(cur)
+            extra_cols = []
+            if 'year' in acols:
+                extra_cols.append('a.year')
+            if 'anime_season' in acols:
+                extra_cols.append('a.anime_season')
             cols = (
                 'a.mal_id, a.mal_dub_id, a.anilist_id, a.mal_title, a.mal_picture, '
                 'a.score, a.status, a.anime_media_type, a.anime_media_episodes, '
                 'a.duration, a.thetvdb_id, a.themoviedb_id'
+                + (', ' + ', '.join(extra_cols) if extra_cols else '')
             )
             fmt_sql = " AND a.anime_media_type = ?" if target_fmt else ""
 
@@ -1417,11 +1432,15 @@ def get_franchise_entries(mal_id):
             tables = _mapping_tables(cur)
             if 'anime' not in tables:
                 return []
+            acols = _mapping_anime_columns(cur)
+            extra_a = ''.join(f', a.{c}' for c in ('year', 'anime_season') if c in acols)
+            extra_bare = ''.join(f', {c}' for c in ('year', 'anime_season') if c in acols)
             if 'franchise_links' in tables:
                 rows = cur.execute(
                     'SELECT fl.related_mal_id AS mal_id, fl.relation_type, fl.source, '
                     'a.mal_title, a.mal_picture, a.score, a.status, a.anime_media_type, '
-                    'a.anime_media_episodes, a.duration, a.thetvdb_id, a.thetvdb_season, a.thetvdb_part '
+                    'a.anime_media_episodes, a.duration, a.thetvdb_id, a.thetvdb_season, a.thetvdb_part'
+                    f'{extra_a} '
                     'FROM franchise_links fl JOIN anime a ON a.mal_id = fl.related_mal_id '
                     'WHERE fl.mal_id=?',
                     (mid,),
@@ -1435,7 +1454,8 @@ def get_franchise_entries(mal_id):
                     sibs = cur.execute(
                         'SELECT mal_id, "RELATED" AS relation_type, "tvdb_sibling" AS source, '
                         'mal_title, mal_picture, score, status, anime_media_type, '
-                        'anime_media_episodes, duration, thetvdb_id, thetvdb_season, thetvdb_part '
+                        'anime_media_episodes, duration, thetvdb_id, thetvdb_season, thetvdb_part'
+                        f'{extra_bare} '
                         'FROM anime WHERE thetvdb_id=? AND mal_id != ? '
                         'ORDER BY CASE WHEN typeof(thetvdb_season)="integer" THEN thetvdb_season ELSE 999 END, '
                         'COALESCE(thetvdb_part, 1), mal_id',
