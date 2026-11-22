@@ -39,7 +39,7 @@ class Sources(BrowserBase):
         all_results = []
 
         # Step 1: Search for the anime
-        slug = self._search_anime(title, kodi_meta)
+        slug = self._search_anime(title, kodi_meta, mal_id=mal_id)
         if not slug:
             control.log(f"AnimeKAI: No slug found for '{title}'")
             return all_results
@@ -84,51 +84,66 @@ class Sources(BrowserBase):
 
         return all_results
 
-    def _search_anime(self, title, kodi_meta):
+    def _search_anime(self, title, kodi_meta, mal_id=None):
         """Search AnimeKAI and return the best matching slug."""
-        params = {'keyword': title}
-        r = database.get(
-            self._get_request,
-            8,
-            self._BASE_URL + 'ajax/anime/search',
-            data=params,
-            headers=self._AJAX_HEADERS
-        )
-        if not r:
-            return None
+        terms = []
+        seen_terms = set()
+        for cand in [title, *self._collect_title_aliases(mal_id=mal_id, kodi_meta=kodi_meta, limit=6)]:
+            c_str = str(cand or '').strip()
+            if c_str and c_str.lower() not in seen_terms:
+                seen_terms.add(c_str.lower())
+                terms.append(c_str)
 
-        parsed = control.loads_json(r, default={})
-        res_obj = parsed.get('result') if isinstance(parsed, dict) else None
-        html = res_obj.get('html', '') if isinstance(res_obj, dict) else ''
-
-        if not html:
-            return None
-
-        soup = BeautifulSoup(html, "html.parser")
         sitems = []
-        for item in soup.find_all('a', class_='aitem'):
-            title_tag = item.find('h6', class_='title')
-            if title_tag:
-                item_title = title_tag.get_text(strip=True)
-                jp_title = title_tag.get('data-jp', '')
-                href = item.get('href', '')
-                slug = href.replace('/watch/', '') if href.startswith('/watch/') else href
-                sitems.append({'title': item_title, 'jp_title': jp_title, 'slug': slug})
+        for keyword in terms[:5]:
+            r = database.get(
+                self._get_request,
+                8,
+                self._BASE_URL + 'ajax/anime/search',
+                data={'keyword': keyword},
+                headers=self._AJAX_HEADERS
+            )
+            if not r:
+                continue
+            parsed = control.loads_json(r, default={})
+            res_obj = parsed.get('result') if isinstance(parsed, dict) else None
+            html = res_obj.get('html', '') if isinstance(res_obj, dict) else ''
+            if not html:
+                continue
+
+            soup = BeautifulSoup(html, "html.parser")
+            for item in soup.find_all('a', class_='aitem'):
+                title_tag = item.find('h6', class_='title')
+                if title_tag:
+                    item_title = title_tag.get_text(strip=True)
+                    jp_title = title_tag.get('data-jp', '')
+                    href = item.get('href', '')
+                    slug = href.replace('/watch/', '') if href.startswith('/watch/') else href
+                    sitems.append({'title': item_title, 'jp_title': jp_title, 'slug': slug})
+            if sitems:
+                break
 
         if not sitems:
             return None
 
-        # Try exact match first
-        clean_title = self.clean_embed_title(title)
+        # Exact normalized match against primary title & offline/metadata aliases first
+        target_clean = {self.clean_embed_title(t) for t in terms if self.clean_embed_title(t)}
         for item in sitems:
-            if clean_title == self.clean_embed_title(item['title']) or clean_title == self.clean_embed_title(item['jp_title']):
+            if (
+                self.clean_embed_title(item['title']) in target_clean
+                or self.clean_embed_title(item['jp_title']) in target_clean
+            ):
                 return item['slug']
 
-        # Try partial match
-        if title[-1].isdigit():
-            matches = [x['slug'] for x in sitems if title.lower() in x['title'].lower() or title.lower() in x['jp_title'].lower()]
-        else:
-            matches = [x['slug'] for x in sitems if (title.lower() + '  ') in (x['title'].lower() + '  ') or (title.lower() + '  ') in (x['jp_title'].lower() + '  ')]
+        # Partial match across primary title + known aliases
+        for term in terms:
+            t_low = term.lower()
+            if term[-1].isdigit():
+                matches = [x['slug'] for x in sitems if t_low in x['title'].lower() or t_low in x['jp_title'].lower()]
+            else:
+                matches = [x['slug'] for x in sitems if (t_low + '  ') in (x['title'].lower() + '  ') or (t_low + '  ') in (x['jp_title'].lower() + '  ')]
+            if matches:
+                return matches[0]
 
         if not matches and ':' in title:
             short_title = title.split(':')[0]

@@ -865,19 +865,14 @@ class MultipageWorker(threading.Thread):
 
 
 def _shutdown_cleanup(multipage_worker=None):
-    """Enforce deterministic shutdown sequence: abort/stop -> 1s worker join -> clean_settings -> passive WAL checkpoint -> close pools."""
+    """Enforce deterministic shutdown sequence: abort/stop -> 1s worker join -> passive WAL checkpoint -> close pools."""
     if multipage_worker is not None:
         try:
             multipage_worker.stop()
             multipage_worker.join(timeout=1.0)
         except Exception:
             pass
-    # Final settings prune after Kodi stops writing settings, then passive non-blocking WAL checkpoint (<5s CPythonInvoker limit)
-    try:
-        from resources.lib.ui import clean_settings
-        clean_settings.clean_settings(silent=True)
-    except Exception as e:
-        control.log(f"Shutdown clean_settings notice: {e}", 'debug')
+    # Passive non-blocking WAL checkpoint + pool close (<5s CPythonInvoker limit; avoid slow XML parsing on flash)
     try:
         from resources.lib.ui import database
         database.checkpoint_databases(truncate=False)

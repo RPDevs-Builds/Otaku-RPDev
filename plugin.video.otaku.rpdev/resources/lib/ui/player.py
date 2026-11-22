@@ -495,19 +495,40 @@ class WatchlistPlayer(player):
 
         upcoming_episodes = [ep for ep in sorted_episodes if _ep_num(ep) > current_ep]
 
-        # NF-03: Binge Auto-Skip Filler Episodes (per-series override or global smartplay.skip_filler)
+        # NF-03: Binge Auto-Skip Filler Episodes (per-series override or global Filler sub-settings)
         ov_skip_filler = ''
         if isinstance(getattr(self, 'series_override', None), dict):
             ov_skip_filler = (self.series_override.get('skip_filler_mode') or '').lower()
-        should_skip_filler = (
-            True if ov_skip_filler in ('skip', 'true', 'on', 'enabled')
-            else (False if ov_skip_filler in ('off', 'false', 'disabled', 'keep') else control.getBool('smartplay.skip_filler', default=False))
-        )
+        if ov_skip_filler in ('skip_mixed', 'mixed', 'all'):
+            should_skip_filler = True
+            should_skip_mixed = True
+        elif ov_skip_filler in ('skip', 'skip_strict', 'true', 'on', 'enabled'):
+            should_skip_filler = True
+            should_skip_mixed = False
+        elif ov_skip_filler in ('off', 'false', 'disabled', 'keep'):
+            should_skip_filler = False
+            should_skip_mixed = False
+        else:
+            should_skip_filler = control.getBool('smartplay.skip_filler', default=False)
+            should_skip_mixed = control.getBool('smartplay.skip_mixed_filler', default=False)
+
         if should_skip_filler and upcoming_episodes:
-            non_filler = [
-                ep for ep in upcoming_episodes
-                if 'filler' not in str(ep.get('filler') or '').lower()
-            ]
+            offline_filler = None
+            if any(not ep.get('filler') for ep in upcoming_episodes):
+                offline_filler = database.get_mapping_filler_map(self.mal_id) or {}
+
+            def _is_skipped_filler(ep_row):
+                tag = str(ep_row.get('filler') or '').strip()
+                if not tag and offline_filler:
+                    tag = str(offline_filler.get(_ep_num(ep_row)) or '').strip()
+                low = tag.lower()
+                if not low:
+                    return False
+                if 'mixed' in low or 'canon/filler' in low:
+                    return should_skip_mixed
+                return ('filler' in low) or ('recap' in low)
+
+            non_filler = [ep for ep in upcoming_episodes if not _is_skipped_filler(ep)]
             if non_filler:
                 skipped_cnt = len(upcoming_episodes) - len(non_filler)
                 if skipped_cnt > 0:

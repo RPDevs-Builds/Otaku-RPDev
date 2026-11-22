@@ -48,3 +48,28 @@ def get_data(anime_eng_title):
         return []
     # Cache filler list in SQLite / RAM for 7 days (168 hours)
     return database.get(_fetch_filler_data, 168, anime_eng_title)
+
+
+def get_filler_map(mal_id=None, anime_eng_title='', total_episodes=None, status=None):
+    """Return {ep_num: filler_tag} using offline mappings.db filler_ranges first, then AnimeFillerList HTTP fallback."""
+    if mal_id:
+        offline = database.get_mapping_filler_map(mal_id)
+        if offline:
+            return offline
+
+    if not anime_eng_title:
+        return {}
+    try:
+        ep_total = int(total_episodes) if total_episodes not in (None, '', 0, '0') else None
+    except (TypeError, ValueError):
+        ep_total = None
+    is_finished = str(status or '') in ('FINISHED', 'Finished Airing')
+    if ep_total is not None and ep_total <= 99 and is_finished:
+        return {}
+
+    rows = get_data(anime_eng_title) or []
+    return {
+        idx + 1: tag
+        for idx, tag in enumerate(rows)
+        if tag
+    }

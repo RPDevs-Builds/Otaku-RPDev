@@ -87,7 +87,7 @@ class KitsuAPI:
 
         info['aired'] = control.safe_call(lambda: res['attributes']['airdate'])
 
-        filler = control.safe_call(lambda: filler_data[episode - 1], default='')
+        filler = indexers.lookup_filler_tag(filler_data, episode)
 
         parsed = indexers.update_database(mal_id, update_time, res, url, image, info, season, episode, episodes, title, fanart, poster, clearart, clearlogo, dub_data, filler)
         return parsed
@@ -138,9 +138,7 @@ class KitsuAPI:
             if control.getBool('override.meta.api') and control.getBool('override.meta.notify'):
                 control.notify("Kitsu", f'{tvshowtitle} Appended to Database', icon=poster)
         else:
-            mapfunc1 = partial(indexers.parse_episodes, eps_watched=eps_watched, dub_data=dub_data)
-            # Parallelize episode parsing
-            all_results = utils.parallel_process(episodes, mapfunc1)
+            all_results = indexers.process_episodes(episodes, eps_watched, dub_data, mal_id=mal_id)
         return all_results
 
     def get_episodes(self, mal_id, show_meta):
@@ -169,18 +167,12 @@ class KitsuAPI:
                 database.update_kodi_meta(mal_id, kodi_meta)
         episodes = database.get_episode_list(mal_id)
         dub_data = indexers.process_dub(mal_id, kodi_meta['ename']) if control.getBool('jz.dub') else None
+        filler_data = indexers.get_show_filler_data(mal_id, kodi_meta)
         if episodes:
             if kodi_meta['status'] not in ["FINISHED", "Finished Airing"]:
-                from resources.lib.endpoints import anime_filler
-                filler_data = anime_filler.get_data(kodi_meta['ename'])
                 return self.append_episodes(mal_id, episodes, eps_watched, poster, fanart, clearart, clearlogo, tvshowtitle, filler_data, dub_data)
-            return indexers.process_episodes(episodes, eps_watched, dub_data)
+            return indexers.process_episodes(episodes, eps_watched, dub_data, mal_id=mal_id)
 
-        if kodi_meta['episodes'] is None or kodi_meta['episodes'] > 99:
-            from resources.lib.endpoints import anime_filler
-            filler_data = anime_filler.get_data(kodi_meta['ename'])
-        else:
-            filler_data = None
         return self.process_episode_view(mal_id, poster, fanart, clearart, clearlogo, eps_watched, tvshowtitle, dub_data, filler_data)
 
     def get_anime(self, filter_type, page):

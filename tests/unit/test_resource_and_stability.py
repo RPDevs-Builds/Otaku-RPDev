@@ -213,7 +213,7 @@ class TestResourceAndStability(unittest.TestCase):
             self.assertTrue(any('mmap_size = 0' in sql for sql in ro_mmap))
 
     def test_service_shutdown_cleanup_order_and_sub_2s_worker_teardown(self):
-        """P32-01 (C-37): service._shutdown_cleanup executes stop -> 1s join -> clean_settings -> passive WAL checkpoint -> close_all in <2s."""
+        """P32-01 (C-37): service._shutdown_cleanup executes stop -> 1s join -> passive WAL checkpoint -> close_all without slow XML clean_settings in <2s."""
         import threading
         import time
         import service
@@ -240,14 +240,15 @@ class TestResourceAndStability(unittest.TestCase):
 
         worker = _FakeWorker()
         t0 = time.perf_counter()
-        with patch.object(clean_settings, 'clean_settings', side_effect=lambda **kw: events.append('clean_settings') or (0, [])), \
+        with patch.object(clean_settings, 'clean_settings', side_effect=lambda **kw: events.append('clean_settings') or (0, [])) as mock_clean, \
              patch.object(database, 'checkpoint_databases', side_effect=lambda **kw: events.append(('checkpoint', kw.get('truncate')))), \
              patch.object(database, 'close_all_connections', side_effect=lambda: events.append('close_all')):
             service._shutdown_cleanup(worker)
         elapsed = time.perf_counter() - t0
 
         self.assertLess(elapsed, 2.0, f"Shutdown teardown exceeded 2.0s budget: {elapsed:.2f}s")
-        self.assertEqual(events, ['stop', ('join', 1.0), 'clean_settings', ('checkpoint', False), 'close_all'])
+        mock_clean.assert_not_called()
+        self.assertEqual(events, ['stop', ('join', 1.0), ('checkpoint', False), 'close_all'])
 
 
 if __name__ == '__main__':

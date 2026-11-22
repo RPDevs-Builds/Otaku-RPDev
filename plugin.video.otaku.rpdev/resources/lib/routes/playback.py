@@ -367,6 +367,13 @@ def TMDB_HELPER(payload, params):
     # Extract source_select from params (default to False)
     source_select = params.pop('source_select', 'false') == 'true'
     params.update({'source_select': source_select})
+    show_title = str(
+        action_args.get('showtitle')
+        or action_args.get('tvshowtitle')
+        or action_args.get('title')
+        or action_args.get('originaltitle')
+        or ''
+    ).strip()
 
     # Convert season and episode to int if present
     season_number = int(season) if season is not None else None
@@ -411,6 +418,12 @@ def TMDB_HELPER(payload, params):
                         mal_id = anime_ids['mal_id']
                         break
 
+            if not mal_id and show_title:
+                for row in (database.search_mappings_by_title(show_title, limit=5, media_format='movie') or []):
+                    if row and row.get('mal_id'):
+                        mal_id = row['mal_id']
+                        break
+
             if mal_id:
                 OtakuBrowser().get_anime_data(mal_id)
 
@@ -447,9 +460,17 @@ def TMDB_HELPER(payload, params):
                             else:
                                 mal_ids.add(anime_ids['mal_id'])
 
+            if not mal_ids and show_title:
+                for row in (database.search_mappings_by_title(show_title, limit=10, media_format=item_type or '') or []):
+                    if row and row.get('mal_id'):
+                        mal_ids.add(row['mal_id'])
+
             if mal_ids:
                 episode_titles = tmdb.get_episode_titles(tmdb_id, season_number, episode_number)
-                match = tmdb_mapping_match(tmdb_id, id_sources, season_number, episode_number) or find_episode_by_title(mal_ids, episode_titles)
+                match = (
+                    tmdb_mapping_match(tmdb_id, id_sources, season_number, episode_number)
+                    or find_episode_by_title(mal_ids, episode_titles, show_title=show_title)
+                )
                 if match:
                     mal_id = match['mal_id']
                     episode_num = match['episode_number']
@@ -579,21 +600,75 @@ def remove_punctuation(s):
     return re.sub(r'[^\w\s]', '', s)
 
 
-def find_episode_by_title(mal_ids, episode_titles):
+def _match_episode_title_candidates(cleaned_titles, candidate_pairs, get_fuzzy_match, clean_text):
+    """Run fuzzy then direct normalized title match against [(candidate_title, ep_num, display_title)]."""
+    if not cleaned_titles or not candidate_pairs:
+        return None
+    cleaned_candidates = [clean_text(c[0]) for c in candidate_pairs]
+    best_idx = None
+    for cleaned_query in cleaned_titles:
+        match_indices = get_fuzzy_match(cleaned_query, cleaned_candidates)
+        if match_indices:
+            idx = match_indices[0]
+            if best_idx is None or idx < best_idx:
+                best_idx = idx
+    if best_idx is not None:
+        _, ep_num, disp = candidate_pairs[best_idx]
+        return {'episode_number': ep_num, 'matched_title': disp}
+    for idx, candidate in enumerate(cleaned_candidates):
+        if candidate and candidate in cleaned_titles:
+            _, ep_num, disp = candidate_pairs[idx]
+            return {'episode_number': ep_num, 'matched_title': disp}
+    return None
+
+
+def find_episode_by_title(mal_ids, episode_titles, show_title=''):
     from resources.lib.indexers.jikanmoe import JikanAPI
     from resources.lib.ui.source_utils import get_fuzzy_match, clean_text
     # Split titles on '|' and clean each part
     split_titles = []
-    for t in episode_titles:
+    for t in (episode_titles or []):
         if t:
-            split_titles.extend([x.strip() for x in t.split('|') if x.strip()])
-    # Use shared clean_text for normalization (removes punctuation, preserves spaces)
-    cleaned_titles = [clean_text(t) for t in split_titles]
+            split_titles.extend([x.strip() for x in str(t).split('|') if x.strip()])
+    cleaned_titles = [clean_text(t) for t in split_titles if clean_text(t)]
+    if not cleaned_titles:
+        return None
+
+    ordered_mids = list(dict.fromkeys(mal_ids or []))
+    if show_title and len(ordered_mids) > 1:
+        q_clean = clean_text(show_title)
+
+        def _mid_rank(mid):
+            aliases = [clean_text(a) for a in (database.get_mapping_aliases(mid, limit=8) or []) if a]
+            if q_clean and q_clean in aliases:
+                return (0, str(mid))
+            if q_clean and any(q_clean in a or a in q_clean for a in aliases if a):
+                return (1, str(mid))
+            return (2, str(mid))
+
+        ordered_mids.sort(key=_mid_rank)
+
     jikan_api = JikanAPI()
     requests_made = 0
     last_request_time = time.time()
-    for mal_id in mal_ids:
-        # Rate limit: max 3 requests every 4 seconds, space each request by at least 1.33 seconds
+    for mal_id in ordered_mids:
+        # 1. Offline cached episodes table (0 network requests)
+        local_pairs = []
+        try:
+            for ep_row in (database.get_episode_list(mal_id) or []):
+                ep_num = ep_row.get('number')
+                ep_meta = database.loads(ep_row.get('kodi_meta') or '{}')
+                ep_title = ((ep_meta.get('info') or {}).get('title') or '').strip() if isinstance(ep_meta, dict) else ''
+                if ep_num and ep_title and not ep_title.lower().startswith('episode '):
+                    local_pairs.append((ep_title, ep_num, ep_title))
+        except Exception:
+            local_pairs = []
+        local_hit = _match_episode_title_candidates(cleaned_titles, local_pairs, get_fuzzy_match, clean_text)
+        if local_hit:
+            control.log(f"LOCAL EPISODE MATCH FOUND: '{local_hit['matched_title']}' -> MAL {mal_id} ep {local_hit['episode_number']}")
+            return {'mal_id': mal_id, **local_hit}
+
+        # 2. Rate-limited Jikan lookup (title, title_romanji, title_japanese)
         if requests_made == 3:
             elapsed = time.time() - last_request_time
             if elapsed < 4.0:
@@ -601,11 +676,9 @@ def find_episode_by_title(mal_ids, episode_titles):
                     break
             requests_made = 0
             last_request_time = time.time()
-        # Space each request by at least 1.33 seconds
         if requests_made > 0:
             if control.monitor.waitForAbort(1.33):
                 break
-        # Retry logic for HTTP 429
         retries = 0
         max_retries = 3
         backoff = 2
@@ -628,51 +701,40 @@ def find_episode_by_title(mal_ids, episode_titles):
         else:
             control.log(f"Jikan API failed for mal_id {mal_id} after {max_retries} retries.")
             episodes = []
-        # Prepare candidate episode titles from Jikan
-        episode_candidates = []
-        episode_meta_map = []
-        for ep in episodes:
-            candidates = [
-                ep.get('title', ''),
-                ep.get('title_romanji', '')
-            ]
-            for candidate in candidates:
+
+        jikan_pairs = []
+        for ep in (episodes or []):
+            for key in ('title', 'title_romanji', 'title_japanese'):
+                candidate = str(ep.get(key) or '').strip()
                 if candidate:
-                    episode_candidates.append(candidate)
-                    episode_meta_map.append((candidate, ep))
-        # Use shared clean_text for normalization
-        cleaned_candidates = [clean_text(c) for c in episode_candidates]
-        # Run fuzzy matching for each cleaned title variant individually
-        best_idx = None
-        for cleaned_query in cleaned_titles:
-            match_indices = get_fuzzy_match(cleaned_query, cleaned_candidates)
-            if match_indices:
-                # get_fuzzy_match returns sorted indices by best match first
-                idx = match_indices[0]
-                if best_idx is None or idx < best_idx:
-                    best_idx = idx
-        if best_idx is not None:
-            best_candidate, best_ep = episode_meta_map[best_idx]
-            control.log(f"FUZZY MATCH FOUND: Jikan '{best_candidate}' matched TMDB title (fuzzy).")
-            info = {
-                'mal_id': mal_id,
-                'episode_number': best_ep.get('mal_id'),
-                'matched_title': best_candidate,
-            }
-            return info
-        else:
-            # Fallback to direct match if fuzzy fails
-            for idx, candidate in enumerate(cleaned_candidates):
-                if candidate in cleaned_titles:
-                    orig_candidate, ep = episode_meta_map[idx]
-                    control.log(f"DIRECT MATCH FOUND: Jikan '{orig_candidate}' matched TMDB title.")
-                    info = {
-                        'mal_id': mal_id,
-                        'episode_number': ep.get('mal_id'),
-                        'matched_title': orig_candidate,
-                    }
-                    return info
-            control.log("No fuzzy or direct match for Jikan episode titles against TMDB titles.")
+                    jikan_pairs.append((candidate, ep.get('mal_id'), candidate))
+        jikan_hit = _match_episode_title_candidates(cleaned_titles, jikan_pairs, get_fuzzy_match, clean_text)
+        if jikan_hit:
+            control.log(f"JIKAN EPISODE MATCH FOUND: '{jikan_hit['matched_title']}' -> MAL {mal_id} ep {jikan_hit['episode_number']}")
+            return {'mal_id': mal_id, **jikan_hit}
+
+        # 3. AniZip fallback (en / x-jat / ja) when Jikan metadata is sparse or rate-limited
+        anizip_pairs = []
+        try:
+            from resources.lib.indexers import anizip as anizip_idx
+            az_info = database.get(anizip_idx.ANIZIPAPI().get_anime_info, 24, mal_id)
+            if isinstance(az_info, dict) and isinstance(az_info.get('episodes'), dict):
+                for ep_key, ep_obj in az_info['episodes'].items():
+                    if not str(ep_key).isdigit() or not isinstance(ep_obj, dict):
+                        continue
+                    ep_num = int(ep_obj.get('episode') or ep_key)
+                    tmap = ep_obj.get('title') if isinstance(ep_obj.get('title'), dict) else {}
+                    for tlang in ('en', 'x-jat', 'ja'):
+                        cand = str(tmap.get(tlang) or '').strip()
+                        if cand:
+                            anizip_pairs.append((cand, ep_num, cand))
+        except Exception:
+            anizip_pairs = []
+        anizip_hit = _match_episode_title_candidates(cleaned_titles, anizip_pairs, get_fuzzy_match, clean_text)
+        if anizip_hit:
+            control.log(f"ANIZIP EPISODE MATCH FOUND: '{anizip_hit['matched_title']}' -> MAL {mal_id} ep {anizip_hit['episode_number']}")
+            return {'mal_id': mal_id, **anizip_hit}
+        control.log("No fuzzy or direct match for episode titles against TMDB titles.")
     return None  # No match found
 
 

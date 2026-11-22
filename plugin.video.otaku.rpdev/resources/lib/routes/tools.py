@@ -1153,9 +1153,17 @@ def SERIES_PROFILE(payload, params):
             val = None if p_idx == 0 else providers[p_idx]
             database.set_series_override(mal_id, audio_lang=existing.get('audio_lang'), sub_lang=existing.get('sub_lang'), sub_mode=existing.get('sub_mode'), preferred_provider=val, intro_offset_s=existing.get('intro_offset_s', 0), outro_offset_s=existing.get('outro_offset_s', 0), skip_filler_mode=existing.get('skip_filler_mode', 'default'))
     elif choice == 4:
-        f_idx = control.select_dialog("Select Filler Episode Handling", ["Use Global Setting", "Auto-Skip Filler Episodes", "Keep Filler Episodes"])
+        f_idx = control.select_dialog(
+            "Select Filler Episode Handling",
+            [
+                "Use Global Setting",
+                "Skip Filler & Recap Only (Keep Mixed)",
+                "Skip Filler, Recap & Mixed Canon/Filler",
+                "Keep All Episodes",
+            ],
+        )
         if f_idx >= 0:
-            val = ['default', 'skip', 'keep'][f_idx]
+            val = ['default', 'skip', 'skip_mixed', 'keep'][f_idx]
             database.set_series_override(mal_id, audio_lang=existing.get('audio_lang'), sub_lang=existing.get('sub_lang'), sub_mode=existing.get('sub_mode'), preferred_provider=existing.get('preferred_provider'), intro_offset_s=existing.get('intro_offset_s', 0), outro_offset_s=existing.get('outro_offset_s', 0), skip_filler_mode=val)
     elif choice == 5:
         database.delete_series_override(mal_id)
@@ -1493,6 +1501,7 @@ def INSPECT_MAPPINGS(payload, params):
     aliases = database.get_mapping_aliases(mal_id, limit=6)
     franchise = database.get_franchise_entries(mal_id)[:6]
     sched_ids = database.get_schedule_ids(mal_id)
+    filler_map = database.get_mapping_filler_map(mal_id)
 
     lines = [
         f"[B]Title:[/B] {title}",
@@ -1511,6 +1520,7 @@ def INSPECT_MAPPINGS(payload, params):
         f"  • Syobocal / Annict: {_fmt(sched_ids.get('syobocal_tid'))} / {_fmt(sched_ids.get('annict_id'))}",
         "",
         f"  • Type / Season / Part: {_fmt(mapping_row.get('anime_media_type'))} / S{_fmt(mapping_row.get('thetvdb_season'))} / P{_fmt(mapping_row.get('thetvdb_part'))}",
+        f"  • Offline Filler Tags:  {len(filler_map)} episode(s)" if filler_map else "  • Offline Filler Tags:  —",
     ]
     if aliases:
         lines.extend(["", f"[B]Known Aliases ({len(aliases)}):[/B] " + " | ".join(aliases)])

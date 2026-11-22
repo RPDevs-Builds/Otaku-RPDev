@@ -33,13 +33,15 @@ def _apply_spoiler_shield(parsed):
 
 
 def _apply_filler_badge(parsed, filler_val):
-    """Append colored [FILLER] or [RECAP] badge to episode title when interface.filler.badges is enabled."""
+    """Append colored [FILLER], [RECAP], or [MIXED] badge to episode title when interface.filler.badges is enabled."""
     if not filler_val or not control.getBool('interface.filler.badges', default=False):
         return
     clean_f = re.sub(r'\[/?COLOR[^\]]*\]|\[/?B\]', '', str(filler_val)).strip().lower()
     badge = ''
     if 'recap' in clean_f:
         badge = '[COLOR orange][RECAP][/COLOR]'
+    elif 'mixed' in clean_f or 'canon/filler' in clean_f:
+        badge = '[COLOR yellow][MIXED][/COLOR]'
     elif 'filler' in clean_f:
         badge = '[COLOR red][FILLER][/COLOR]'
     if badge and badge not in str(parsed.get('name', '')):
@@ -48,7 +50,36 @@ def _apply_filler_badge(parsed, filler_val):
             parsed['info']['title'] = parsed['name']
 
 
-def parse_episodes(res, eps_watched, dub_data=None):
+def get_show_filler_data(mal_id, kodi_meta=None):
+    """Fetch filler map {ep_num: tag} from offline filler_ranges with legacy AnimeFillerList fallback."""
+    from resources.lib.endpoints import anime_filler
+    meta = kodi_meta if isinstance(kodi_meta, dict) else {}
+    return anime_filler.get_filler_map(
+        mal_id=mal_id,
+        anime_eng_title=meta.get('ename') or meta.get('title_english') or '',
+        total_episodes=meta.get('episodes'),
+        status=meta.get('status'),
+    )
+
+
+def lookup_filler_tag(filler_data, episode):
+    """Safely look up filler tag from dict {ep_num: tag} or legacy 0-indexed list."""
+    if not filler_data:
+        return ''
+    try:
+        ep_num = int(episode)
+    except (TypeError, ValueError):
+        return ''
+    if ep_num <= 0:
+        return ''
+    if isinstance(filler_data, dict):
+        return str(filler_data.get(ep_num) or filler_data.get(str(ep_num)) or '')
+    if isinstance(filler_data, (list, tuple)) and ep_num <= len(filler_data):
+        return str(filler_data[ep_num - 1] or '')
+    return ''
+
+
+def parse_episodes(res, eps_watched, dub_data=None, offline_filler=None):
     parsed = database.loads(res['kodi_meta'])
     if eps_watched and int(eps_watched) >= res['number']:
         parsed['info']['playcount'] = 1
@@ -58,9 +89,12 @@ def parse_episodes(res, eps_watched, dub_data=None):
         parsed['info']['plot'] = None
     if control.getBool('interface.spoilers.hide_thumbs') and parsed['info'].get('playcount') != 1:
         _apply_spoiler_shield(parsed)
-    code = endpoints.get_second_label(parsed['info'], dub_data, res['filler'])
+    filler_val = res.get('filler') or ''
+    if not filler_val and offline_filler:
+        filler_val = lookup_filler_tag(offline_filler, res.get('number'))
+    code = endpoints.get_second_label(parsed['info'], dub_data, filler_val)
     parsed['info']['code'] = code
-    _apply_filler_badge(parsed, res.get('filler'))
+    _apply_filler_badge(parsed, filler_val)
     if control.getBool('interface.aired.show_countdown', default=True):
         aired_str = parsed['info'].get('aired')
         if aired_str:
@@ -83,8 +117,13 @@ def parse_episodes(res, eps_watched, dub_data=None):
     return parsed
 
 
-def process_episodes(episodes, eps_watched, dub_data=None):
-    mapfunc = partial(parse_episodes, eps_watched=eps_watched, dub_data=dub_data)
+def process_episodes(episodes, eps_watched, dub_data=None, mal_id=None):
+    offline_filler = None
+    if episodes:
+        mid = mal_id or episodes[0].get('mal_id')
+        if mid and any(not ep.get('filler') for ep in episodes):
+            offline_filler = database.get_mapping_filler_map(mid) or None
+    mapfunc = partial(parse_episodes, eps_watched=eps_watched, dub_data=dub_data, offline_filler=offline_filler)
     # Parallelize episode parsing for faster processing
     all_results = utils.parallel_process(episodes, mapfunc)
     return all_results

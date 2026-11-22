@@ -1234,6 +1234,7 @@ def get_mappings_metadata():
         'alias_count': 0,
         'franchise_link_count': 0,
         'schedule_id_count': 0,
+        'filler_range_count': 0,
         'last_updated': 0,
         'schema_version': '',
         'built_at_utc': '',
@@ -1253,6 +1254,7 @@ def get_mappings_metadata():
                 ('anime_aliases', 'alias_count'),
                 ('franchise_links', 'franchise_link_count'),
                 ('schedule_ids', 'schedule_id_count'),
+                ('filler_ranges', 'filler_range_count'),
             ):
                 if tbl in tables:
                     row = cur.execute(f'SELECT COUNT(*) AS cnt FROM {tbl}').fetchone()
@@ -1514,6 +1516,35 @@ def get_schedule_ids(mal_id):
                 'SELECT syobocal_tid, annict_id FROM schedule_ids WHERE mal_id=?', (mid,)
             ).fetchone()
             return dict(row) if row else {}
+    except Exception:
+        return {}
+
+
+def get_mapping_filler_map(mal_id):
+    """Return {ep_num: filler_type} for *mal_id* from mappings.db filler_ranges table, else {}."""
+    mid = _coerce_pos_int(mal_id)
+    if not mid or not getattr(control, 'mappingDB', None) or not os.path.exists(control.mappingDB):
+        return {}
+    try:
+        with SQL(control.mappingDB, is_readonly=True) as cur:
+            if 'filler_ranges' not in _mapping_tables(cur):
+                return {}
+            rows = cur.execute(
+                'SELECT ep_start, ep_end, filler_type FROM filler_ranges WHERE mal_id=?',
+                (mid,),
+            ).fetchall() or []
+        out = {}
+        for row in rows:
+            try:
+                ep_s = int(row.get('ep_start') or 0)
+                ep_e = int(row.get('ep_end') or 0)
+            except (TypeError, ValueError):
+                continue
+            ftype = str(row.get('filler_type') or '').strip()
+            if ep_s >= 1 and ep_e >= ep_s and ftype and (ep_e - ep_s) <= 5000:
+                for ep in range(ep_s, ep_e + 1):
+                    out[ep] = ftype
+        return out
     except Exception:
         return {}
 

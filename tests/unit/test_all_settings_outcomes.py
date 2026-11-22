@@ -80,8 +80,6 @@ GENERAL_SETTING_IDS = {
     "interface.perpage.general.mal",
     "jz.dub",
     "jz.dub.api",
-    "jz.filler",
-    "interface.filler.badges",
     "interface.icons",
     "artwork.studios",
     "general.dialog",
@@ -178,7 +176,10 @@ PLAYBACK_SETTING_IDS = {
     "general.kodi_language",
     "general.audio",
     "playlist.unaired",
+    "interface.filler.badges",
+    "jz.filler",
     "smartplay.skip_filler",
+    "smartplay.skip_mixed_filler",
     "smartplay.continue_sequel",
     "chapters.python.enable",
     "ffprobe.chapters.enable",
@@ -751,19 +752,19 @@ class TestAllSettingsOutcomes(unittest.TestCase):
         Assert that TESTED_SETTING_IDS contains exactly all 471 declared settings
         from resources/settings.xml, ensuring 0 omitted settings across all categories.
         """
-        self.assertEqual(len(self.declared_settings), 496, f"Expected 496 declared settings, got {len(self.declared_settings)}")
-        self.assertEqual(len(TESTED_SETTING_IDS), 496, f"Expected 496 tested settings in registry, got {len(TESTED_SETTING_IDS)}")
+        self.assertEqual(len(self.declared_settings), 497, f"Expected 497 declared settings, got {len(self.declared_settings)}")
+        self.assertEqual(len(TESTED_SETTING_IDS), 497, f"Expected 497 tested settings in registry, got {len(TESTED_SETTING_IDS)}")
         self.assertEqual(
             set(self.declared_settings.keys()), TESTED_SETTING_IDS,
             "TESTED_SETTING_IDS does not match declared_settings in resources/settings.xml"
         )
 
         # Assert individual category counts match expectations
-        self.assertEqual(len(GENERAL_SETTING_IDS), 47)
+        self.assertEqual(len(GENERAL_SETTING_IDS), 45)
         self.assertEqual(len(PROVIDERS_SETTING_IDS), 20)
         self.assertEqual(len(SCRAPING_SETTING_IDS), 15)
         self.assertEqual(len(CACHE_SETTING_IDS), 16)
-        self.assertEqual(len(PLAYBACK_SETTING_IDS), 41)
+        self.assertEqual(len(PLAYBACK_SETTING_IDS), 44)
         self.assertEqual(len(SUBTITLES_SETTING_IDS), 29)
         self.assertEqual(len(SORT_AND_FILTER_SETTING_IDS), 43)
         self.assertEqual(len(ACCOUNTS_SETTING_IDS), 40)
@@ -997,6 +998,38 @@ class TestAllSettingsOutcomes(unittest.TestCase):
             self.assertEqual(len(queued), expected_count)
             if enabled:
                 self.assertEqual(queued[0], 'plugin://plugin.video.otaku.rpdev/play/1002/1')
+
+        # Behavioral outcome: Filler sub-settings (smartplay.skip_filler + smartplay.skip_mixed_filler)
+        for skip_mixed, expected_eps in ((False, [2, 4, 6]), (True, [2, 6])):
+            wp_fil = WatchlistPlayer.__new__(WatchlistPlayer)
+            wp_fil.mal_id = '1001'
+            wp_fil.episode = 1
+            wp_fil.series_override = {}
+            wp_fil.episodes = [
+                {'number': 1, 'filler': ''},
+                {'number': 2, 'filler': ''},
+                {'number': 3, 'filler': 'Filler'},
+                {'number': 4, 'filler': 'Mixed Canon/Filler'},
+                {'number': 5, 'filler': 'Recap'},
+                {'number': 6, 'filler': ''},
+            ]
+            queued_fil = []
+
+            def _get_b(k, default=False, _sm=skip_mixed):
+                if k == 'smartplay.skip_filler':
+                    return True
+                if k == 'smartplay.skip_mixed_filler':
+                    return _sm
+                if k == 'general.smartplay':
+                    return True
+                return default
+
+            with patch('resources.lib.ui.control.getBool', side_effect=_get_b), \
+                 patch('resources.lib.indexers.process_episodes', side_effect=lambda eps, _: [{'url': f"play/1001/{e['number']}"} for e in eps]), \
+                 patch('resources.lib.ui.control.bulk_dir_list', side_effect=lambda items, _: [(f"plugin://plugin.video.otaku.rpdev/{it['url']}", MagicMock()) for it in items]), \
+                 patch('resources.lib.ui.player.playList.add', side_effect=lambda url, listitem: queued_fil.append(int(url.rsplit('/', 1)[-1]))):
+                wp_fil.build_playlist()
+            self.assertEqual(queued_fil, expected_eps)
 
     # ── Category 6: Subtitles (25 settings) ────────────────────────────────────
 
@@ -1280,7 +1313,7 @@ class TestAllSettingsOutcomes(unittest.TestCase):
 
         # Verify clean_settings.get_active_setting_ids() keeps all declared settings (including legacy keys)
         active_ids = clean_settings.get_active_setting_ids(self.settings_xml_path)
-        self.assertEqual(len(active_ids), 496)
+        self.assertEqual(len(active_ids), 497)
         for legacy_key in LEGACY_LEVEL_4_KEYS:
             self.assertIn(legacy_key, active_ids)
 

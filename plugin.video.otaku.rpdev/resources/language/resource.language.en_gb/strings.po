@@ -3950,11 +3950,11 @@ msgid "Configure Kodi's OSD Subtitle Settings > Download Subtitle service for TV
 msgstr ""
 
 msgctxt "#30582"
-msgid "Display Filler & Recap Episode Badges"
+msgid "Display Filler, Recap & Mixed Episode Badges"
 msgstr ""
 
 msgctxt "#30583"
-msgid "Append [FILLER] and [RECAP] indicator badges to episode titles in episode listings (Default: Disabled)."
+msgid "Append [FILLER], [RECAP], and [MIXED] indicator badges to episode titles using offline mappings and AnimeFillerList data (Default: Disabled)."
 msgstr ""
 
 msgctxt "#30584"
@@ -3962,7 +3962,7 @@ msgid "Auto-Skip Filler Episodes During Binge Playback"
 msgstr ""
 
 msgctxt "#30585"
-msgid "Automatically exclude episodes tagged as Filler when building the upcoming binge playlist (Default: Disabled)."
+msgid "Automatically exclude episodes tagged as Filler or Recap when building the upcoming binge playlist (Default: Disabled)."
 msgstr ""
 
 msgctxt "#30586"
@@ -3995,6 +3995,18 @@ msgstr ""
 
 msgctxt "#30593"
 msgid "Automatically queue Episode 1 of the direct Sequel (via mappings.db franchise links) when playing the final episode of a finished season (Default: Enabled)."
+msgstr ""
+
+msgctxt "#30594"
+msgid "Filler Episodes"
+msgstr ""
+
+msgctxt "#30595"
+msgid "Also Skip Mixed Canon/Filler Episodes"
+msgstr ""
+
+msgctxt "#30596"
+msgid "When Filler Auto-Skip is active, exclude episodes marked 'Mixed Canon/Filler' in addition to pure 'Filler' and 'Recap' episodes (Default: Disabled)."
 msgstr ""
 
 

@@ -111,6 +111,31 @@ class BrowserBase(object):
     def clean_embed_title(text):
         return re.sub(r'\W', '', text).lower()
 
+    @staticmethod
+    def _collect_title_aliases(mal_id=None, kodi_meta=None, limit=6):
+        """Return deduplicated metadata & mappings.db anime_aliases for scraper search and scoring."""
+        aliases = []
+        seen = set()
+
+        def _add(val):
+            s = str(val or '').strip()
+            if s and s.lower() not in seen:
+                seen.add(s.lower())
+                aliases.append(s)
+
+        if isinstance(kodi_meta, dict):
+            for key in ('ename', 'title_english', 'title_romaji'):
+                _add(kodi_meta.get(key))
+
+        if mal_id:
+            try:
+                from resources.lib.ui import database
+                for alias in (database.get_mapping_aliases(mal_id, limit=limit) or []):
+                    _add(alias)
+            except Exception:
+                pass
+        return aliases
+
     def _to_url(self, url=''):
         assert self._BASE_URL is not None, "Must be set on inherentance"
 

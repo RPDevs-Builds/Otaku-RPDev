@@ -129,7 +129,7 @@ class ANIDBAPI:
         if res.get('airdate'):
             info['aired'] = control.safe_call(lambda: res.get('airdate')[:10])
 
-        filler = control.safe_call(lambda: filler_data[episode - 1], default='')
+        filler = indexers.lookup_filler_tag(filler_data, episode)
 
         anidb_ep_id = res.get('anidb_id')
 
@@ -180,9 +180,7 @@ class ANIDBAPI:
             if control.getBool('override.meta.api') and control.getBool('override.meta.notify'):
                 control.notify("AniDB", f'{tvshowtitle} Appended to Database', icon=poster)
         else:
-            mapfunc1 = partial(indexers.parse_episodes, eps_watched=eps_watched, dub_data=dub_data)
-            # Parallelize episode parsing
-            all_results = utils.parallel_process(episodes, mapfunc1)
+            all_results = indexers.process_episodes(episodes, eps_watched, dub_data, mal_id=mal_id)
         return all_results
 
     def get_episodes(self, mal_id, show_meta):
@@ -211,14 +209,10 @@ class ANIDBAPI:
                 database.update_kodi_meta(mal_id, kodi_meta)
         episodes = database.get_episode_list(mal_id)
         dub_data = indexers.process_dub(mal_id, kodi_meta['ename']) if control.getBool('jz.dub') else None
+        filler_data = indexers.get_show_filler_data(mal_id, kodi_meta)
 
         if episodes:
             if kodi_meta['status'] not in ["FINISHED", "Finished Airing"]:
-                return self.append_episodes(mal_id, episodes, eps_watched, poster, fanart, clearart, clearlogo, tvshowtitle, dub_data)
-            return indexers.process_episodes(episodes, eps_watched, dub_data)
-        if kodi_meta['episodes'] is None or kodi_meta['episodes'] > 99:
-            from resources.lib.endpoints import anime_filler
-            filler_data = anime_filler.get_data(kodi_meta['ename'])
-        else:
-            filler_data = None
+                return self.append_episodes(mal_id, episodes, eps_watched, poster, fanart, clearart, clearlogo, tvshowtitle, dub_data, filler_data=filler_data)
+            return indexers.process_episodes(episodes, eps_watched, dub_data, mal_id=mal_id)
         return self.process_episode_view(mal_id, poster, fanart, clearart, clearlogo, eps_watched, tvshowtitle, dub_data, filler_data)

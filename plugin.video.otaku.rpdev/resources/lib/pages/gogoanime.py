@@ -44,7 +44,7 @@ class Sources(BrowserBase):
             .strip()
         )
 
-    def _search_keywords(self, title, kodi_meta=None):
+    def _search_keywords(self, title, kodi_meta=None, mal_id=None):
         keywords = []
         seen = set()
 
@@ -63,10 +63,8 @@ class Sources(BrowserBase):
                 keywords.append(norm_val)
 
         add(title)
-        if kodi_meta and isinstance(kodi_meta, dict):
-            add(kodi_meta.get('ename'))
-            add(kodi_meta.get('title_english'))
-            add(kodi_meta.get('title_romaji'))
+        for alias in self._collect_title_aliases(mal_id=mal_id, kodi_meta=kodi_meta, limit=6):
+            add(alias)
 
         if ':' in title:
             add(title.split(':', 1)[0].strip())
@@ -74,7 +72,7 @@ class Sources(BrowserBase):
 
         return keywords
 
-    def _score_candidate(self, candidate_name=None, title='', current_year=None, kodi_meta=None, name=None):
+    def _score_candidate(self, candidate_name=None, title='', current_year=None, kodi_meta=None, name=None, mal_id=None):
         if candidate_name is None and name is not None:
             candidate_name = name
         if not candidate_name or not title:
@@ -84,14 +82,9 @@ class Sources(BrowserBase):
             kodi_meta = current_year
             current_year = kodi_meta.get('year') or kodi_meta.get('aired_year')
 
-        aliases = []
-        if kodi_meta and isinstance(kodi_meta, dict):
-            for key in ('ename', 'title_english', 'title_romaji'):
-                val_raw = kodi_meta.get(key)
-                if val_raw and val_raw not in aliases:
-                    aliases.append(val_raw)
-            if not current_year:
-                current_year = kodi_meta.get('year') or kodi_meta.get('aired_year')
+        aliases = self._collect_title_aliases(mal_id=mal_id, kodi_meta=kodi_meta, limit=6)
+        if kodi_meta and isinstance(kodi_meta, dict) and not current_year:
+            current_year = kodi_meta.get('year') or kodi_meta.get('aired_year')
 
         return source_utils.score_title_candidate(title, candidate_name, aliases=aliases or None, year=current_year)
 
@@ -111,7 +104,7 @@ class Sources(BrowserBase):
             base_url += '/'
         self._BASE_URL = base_url
 
-        keywords = self._search_keywords(title, kodi_meta)
+        keywords = self._search_keywords(title, kodi_meta, mal_id=mal_id)
         candidates = {}
         headers = {'Referer': self._BASE_URL, 'User-Agent': client.randomagent()}
 
@@ -172,7 +165,7 @@ class Sources(BrowserBase):
             if source_pref == 2 and not is_dub:
                 continue
 
-            score = self._score_candidate(cand_name, title, kodi_meta=kodi_meta)
+            score = self._score_candidate(cand_name, title, kodi_meta=kodi_meta, mal_id=mal_id)
             if score >= 50:
                 scored_slugs.append((slug, score))
 

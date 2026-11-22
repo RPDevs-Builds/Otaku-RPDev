@@ -5,7 +5,7 @@ Authoritative engineering invariants and operational mandates for `Otaku-RPDev` 
 ---
 
 ## 1. Repository Architecture & Module Boundaries
-- **`plugin.video.otaku.rpdev/`**: Primary add-on for Kodi 20 (Nexus), 21 (Omega), and 22 (Piers); `default.py` (async changelog via `RunPlugin`), `service.py` (`clean_settings`, 15m OAuth/retry drain, `.xz`/`.gz` `mappings.db` sync + `.bak` rollback, passive WAL checkpoint + `1s` worker join). Modules under `resources/lib/` (`ui/`, `Main.py`, `routes/`, `pages/`, `debrid/`, `endpoints/`, `WatchlistFlavor/`, `subtitles/`, `windows/`) + 41 1080i skin XMLs.
+- **`plugin.video.otaku.rpdev/`**: Primary add-on for Kodi 20 (Nexus), 21 (Omega), and 22 (Piers); `default.py` (async changelog via `RunPlugin`), `service.py` (startup `clean_settings`, 15m OAuth/retry drain, `.xz`/`.gz` `mappings.db` sync + `.bak` rollback, `<2s` passive WAL checkpoint + `1s` worker join without shutdown XML clean). Modules under `resources/lib/` (`ui/`, `Main.py`, `routes/`, `pages/`, `debrid/`, `endpoints/`, `WatchlistFlavor/`, `subtitles/`, `windows/`) + 41 1080i skin XMLs.
 - **`context.otaku.rpdev/`**: Standalone widget-aware context add-on (`_resolve_widget_mal_id()`, `seriesprofile`, `manualsubtitles`, `inspectmappings`, read-only `info.db`, 494 deduplicated studio PNGs/style, 0 collisions).
 - **`service.subtitles.otaku.rpdev/`**: Native `xbmc.subtitle.module` service bridging VideoOSD to the 6-provider engine (`OpenSubtitles`, `SubDL`, `SubSource`, `Podnadpisi`, `BSPlayer`, `Addic7ed`).
 - **Acyclic Tri-Addon DAG (`C-27`) & Cross-Addon Pinning (`C-28`)**: Companion add-ons must ONLY `<import addon="xbmc.python"/>`. Keep `control.ADDON_ID = 'plugin.video.otaku.rpdev'` statically pinned.
@@ -101,7 +101,7 @@ Authoritative engineering invariants and operational mandates for `Otaku-RPDev` 
 ---
 
 ## 12. Hermetic Testing, CI & Unified Verification Gate
-- Tests must import `tests/conftest.py`, stay offline, validate Kodi 21/22 (`tests/kodi_profile.py`), assert consumer outcomes across all 495 settings (`test_all_settings_outcomes.py`), verify UI/routes (`KodiProfile('22', strict_skin_controls=True)`), and enforce a **2:1 negative/edge-to-happy ratio** on new `NF-*` code.
+- Tests must import `tests/conftest.py`, stay offline, validate Kodi 21/22 (`tests/kodi_profile.py`), assert consumer outcomes across all 497 settings (`test_all_settings_outcomes.py`), verify UI/routes (`KodiProfile('22', strict_skin_controls=True)`), and enforce a **2:1 negative/edge-to-happy ratio** on new `NF-*` code.
 - **Linters (`tests/lint/`)**: `test_suite_quality.py` (no zero-assertion/tautology/`except: pass`/unexecuted-spec placeholders), `test_ast_integrity.py` (AST safety, `C-36` setting templates, studio slug/SHA duplicates, asset bounds), and `test_docs_and_customizations.py` (`AGENTS.md` `< 19,500` soft / `< 22,000` hard cap, `--fail-below 65` parity, `CONCERN_PATTERNS`, `PLANS.md`, skill frontmatter, companion changelogs, `news.txt` `<= 32` chars).
 - **Pre-Push Gates (`qa_fast.py`, `verify_all.py`, `e2e_v630_suite.py`)**: Fast: `python3 scripts/qa_fast.py`. Full: `python3 scripts/verify_all.py --fail-below 65` (single-pass PEP 669 `unittest+cov` on Python 3.12+ with strict `resources.*` warnings-as-errors and 100% module coverage; CI passes `--skip-coverage` on Python 3.11) + `python3 scripts/e2e_v630_suite.py`. Require Stage 3 Adversarial Audit (`REVIEW_PROCESS.md`) before sprint sign-off. See [docs/TESTING.md](docs/TESTING.md) and [docs/AUTOMATION.md](docs/AUTOMATION.md).
 

@@ -33,22 +33,36 @@ class Sources(BrowserBase):
             self._thread_local.wco_session = session
         return session
 
-    def _build_search_titles(self, romaji_title, english_title, clean_title):
-        """English first; only add fallbacks when titles differ."""
+    def _build_search_titles(self, romaji_title, english_title, clean_title, mapping_aliases=None):
+        """English first; only add deduplicated fallbacks & bounded offline aliases when needed."""
         ordered = []
         seen = set()
+
+        def _append_title(search_type, title):
+            if not title:
+                return
+            t_str = str(title).strip()
+            key = t_str.lower()
+            if not t_str or key in seen:
+                return
+            seen.add(key)
+            ordered.append((search_type, t_str))
+
         for search_type, title in (
             ('english', english_title),
             ('romaji', romaji_title),
             ('clean', clean_title),
         ):
-            if not title:
-                continue
-            key = title.strip().lower()
-            if key in seen:
-                continue
-            seen.add(key)
-            ordered.append((search_type, title))
+            _append_title(search_type, title)
+
+        added_aliases = 0
+        for alias in (mapping_aliases or []):
+            if added_aliases >= 3:
+                break
+            pre_len = len(ordered)
+            _append_title('alias', alias)
+            if len(ordered) > pre_len:
+                added_aliases += 1
         return ordered
 
     def _episode_langs_complete(self, found_episodes):
@@ -195,7 +209,12 @@ class Sources(BrowserBase):
                     mapped_episode = global_start + offset
                     control.log(f"Mapped episode {episode} to {mapped_episode}")
 
-        search_titles = self._build_search_titles(romaji_title, english_title, clean_title)
+        search_titles = self._build_search_titles(
+            romaji_title,
+            english_title,
+            clean_title,
+            mapping_aliases=database.get_mapping_aliases(mal_id, limit=6),
+        )
         found_episodes = {}  # keyed by lang (2=SUB, 3=DUB)
 
         for search_type, search_title in search_titles:

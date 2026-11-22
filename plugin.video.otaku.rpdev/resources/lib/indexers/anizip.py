@@ -56,7 +56,7 @@ class ANIZIPAPI:
 
         info['aired'] = control.safe_call(lambda: res['airDate'][:10])
 
-        filler = control.safe_call(lambda: filler_data[episode - 1], default='')
+        filler = indexers.lookup_filler_tag(filler_data, episode)
 
         anidb_ep_id = res.get('anidbEid')
 
@@ -90,7 +90,7 @@ class ANIZIPAPI:
             control.notify("Anizip", f'{tvshowtitle} Added to Database', icon=poster)
         return all_results
 
-    def append_episodes(self, mal_id, episodes, eps_watched, poster, fanart, clearart, clearlogo, tvshowtitle, dub_data=None):
+    def append_episodes(self, mal_id, episodes, eps_watched, poster, fanart, clearart, clearlogo, tvshowtitle, dub_data=None, filler_data=None):
         update_time, diff = indexers.get_diff(episodes[-1])
         if diff > control.getInt('interface.check.updates'):
             result = self.get_anime_info(mal_id)
@@ -98,16 +98,14 @@ class ANIZIPAPI:
                 return []
             result_ep = [result['episodes'][res] for res in result['episodes'] if res.isdigit()]
             season = episodes[0]['season']
-            mapfunc2 = partial(self.parse_episode_view, mal_id=mal_id, season=season, poster=poster, fanart=fanart, clearart=clearart, clearlogo=clearlogo, eps_watched=eps_watched, update_time=update_time, tvshowtitle=tvshowtitle, dub_data=dub_data, filler_data=None, episodes=episodes)
+            mapfunc2 = partial(self.parse_episode_view, mal_id=mal_id, season=season, poster=poster, fanart=fanart, clearart=clearart, clearlogo=clearlogo, eps_watched=eps_watched, update_time=update_time, tvshowtitle=tvshowtitle, dub_data=dub_data, filler_data=filler_data, episodes=episodes)
             # Parallelize episode parsing
             all_results = utils.parallel_process(result_ep, mapfunc2)
             all_results = [r for r in all_results if r is not None]
             if control.getBool('override.meta.api') and control.getBool('override.meta.notify'):
                 control.notify("ANIZIP Appended", f'{tvshowtitle} Appended to Database', icon=poster)
         else:
-            mapfunc1 = partial(indexers.parse_episodes, eps_watched=eps_watched, dub_data=dub_data)
-            # Parallelize episode parsing
-            all_results = utils.parallel_process(episodes, mapfunc1)
+            all_results = indexers.process_episodes(episodes, eps_watched, dub_data, mal_id=mal_id)
         return all_results
 
     def get_episodes(self, mal_id, show_meta):
@@ -132,14 +130,10 @@ class ANIZIPAPI:
                 database.update_kodi_meta(mal_id, kodi_meta)
         episodes = database.get_episode_list(mal_id)
         dub_data = indexers.process_dub(mal_id, kodi_meta['ename']) if control.getBool('jz.dub') else None
+        filler_data = indexers.get_show_filler_data(mal_id, kodi_meta)
 
         if episodes:
             if kodi_meta['status'] not in ["FINISHED", "Finished Airing"]:
-                return self.append_episodes(mal_id, episodes, eps_watched, poster, fanart, clearart, clearlogo, tvshowtitle, dub_data)
-            return indexers.process_episodes(episodes, eps_watched, dub_data)
-        if kodi_meta['episodes'] is None or kodi_meta['episodes'] > 99:
-            from resources.lib.endpoints import anime_filler
-            filler_data = anime_filler.get_data(kodi_meta['ename'])
-        else:
-            filler_data = None
+                return self.append_episodes(mal_id, episodes, eps_watched, poster, fanart, clearart, clearlogo, tvshowtitle, dub_data, filler_data=filler_data)
+            return indexers.process_episodes(episodes, eps_watched, dub_data, mal_id=mal_id)
         return self.process_episode_view(mal_id, poster, fanart, clearart, clearlogo, eps_watched, tvshowtitle, dub_data, filler_data)

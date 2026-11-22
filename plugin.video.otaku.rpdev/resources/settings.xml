@@ -326,16 +326,6 @@
 						<dependency type="visible" setting="jz.dub">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="jz.filler" type="boolean" label="30120" help="30738">
-					<level>3</level>
-					<default>false</default>
-					<control type="toggle" />
-				</setting>
-				<setting id="interface.filler.badges" type="boolean" label="30582" help="30583">
-					<level>2</level>
-					<default>false</default>
-					<control type="toggle" />
-				</setting>
 			</group>
 			<group id="5" label="30104">
 				<setting id="interface.icons" type="string" label="30117" help="30739">
@@ -1138,11 +1128,6 @@
 					<default>false</default>
 					<control type="toggle" />
 				</setting>
-				<setting id="smartplay.skip_filler" type="boolean" label="30584" help="30585">
-					<level>2</level>
-					<default>false</default>
-					<control type="toggle" />
-				</setting>
 				<setting id="smartplay.continue_sequel" type="boolean" label="30592" help="30593">
 					<level>2</level>
 					<default>true</default>
@@ -1423,6 +1408,31 @@
 						</options>
 					</constraints>
 					<control type="spinner" format="string" />
+				</setting>
+			</group>
+			<group id="6" label="30594">
+				<setting id="interface.filler.badges" type="boolean" label="30582" help="30583">
+					<level>2</level>
+					<default>false</default>
+					<control type="toggle" />
+				</setting>
+				<setting id="jz.filler" type="boolean" label="30120" help="30738">
+					<level>3</level>
+					<default>false</default>
+					<control type="toggle" />
+				</setting>
+				<setting id="smartplay.skip_filler" type="boolean" label="30584" help="30585">
+					<level>2</level>
+					<default>false</default>
+					<control type="toggle" />
+				</setting>
+				<setting id="smartplay.skip_mixed_filler" type="boolean" label="30595" help="30596" parent="smartplay.skip_filler">
+					<level>2</level>
+					<default>false</default>
+					<control type="toggle" />
+					<dependencies>
+						<dependency type="visible" setting="smartplay.skip_filler">true</dependency>
+					</dependencies>
 				</setting>
 				<setting id="playback.reset_category" type="action" label="30985" help="30986">
 					<level>1</level>

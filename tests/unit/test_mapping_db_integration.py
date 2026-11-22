@@ -29,7 +29,7 @@ import conftest  # noqa: F401
 from tests.e2e_v630.e2e_helpers import E2EHermeticEnv, E2EMockServer, invoke_plugin_route, send_http_response
 
 
-def _create_v2_mappings_db(path, last_updated=None, include_rules=True, include_v22=False):
+def _create_v2_mappings_db(path, last_updated=None, include_rules=True, include_v22=False, include_v23=False):
     if os.path.exists(path):
         os.remove(path)
     conn = sqlite3.connect(path)
@@ -61,8 +61,9 @@ def _create_v2_mappings_db(path, last_updated=None, include_rules=True, include_
             "INSERT INTO tvdb_rules VALUES (1002, 55501, 1, 'cour', 13, 25, 1, 13, 'malsync_rules')"
         )
         conn.execute("CREATE TABLE build_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
-        conn.execute("INSERT INTO build_meta VALUES ('schema_version', ?)", ('2.2' if include_v22 else '2.0',))
-    if include_v22:
+        ver = '2.3' if include_v23 else ('2.2' if include_v22 else '2.0')
+        conn.execute("INSERT INTO build_meta VALUES ('schema_version', ?)", (ver,))
+    if include_v22 or include_v23:
         conn.execute(
             "CREATE TABLE anime_aliases ("
             "mal_id INTEGER NOT NULL, title TEXT NOT NULL COLLATE NOCASE, "
@@ -82,6 +83,16 @@ def _create_v2_mappings_db(path, last_updated=None, include_rules=True, include_
         conn.execute("INSERT INTO franchise_links VALUES (1002, 1001, 'PREQUEL', 'anilist_inv')")
         conn.execute("CREATE TABLE schedule_ids (mal_id INTEGER PRIMARY KEY, syobocal_tid INTEGER, annict_id INTEGER)")
         conn.execute("INSERT INTO schedule_ids VALUES (1001, 7001, 8001)")
+    if include_v23:
+        conn.execute(
+            "CREATE TABLE filler_ranges ("
+            "mal_id INTEGER NOT NULL, ep_start INTEGER NOT NULL, "
+            "ep_end INTEGER NOT NULL, filler_type TEXT NOT NULL, "
+            "PRIMARY KEY (mal_id, ep_start, ep_end)) WITHOUT ROWID"
+        )
+        conn.execute("INSERT INTO filler_ranges VALUES (1001, 2, 3, 'Filler')")
+        conn.execute("INSERT INTO filler_ranges VALUES (1001, 4, 4, 'Mixed Canon/Filler')")
+        conn.execute("INSERT INTO filler_ranges VALUES (1001, 5, 5, 'Recap')")
     conn.commit()
     conn.close()
 
@@ -369,6 +380,129 @@ class TestMappingDbIntegration(unittest.TestCase):
             report = tools.generate_diagnostics_report()
             self.assertIn('Aliases: 2', report)
             self.assertIn('Franchise: 2', report)
+
+    def test_v23_filler_ranges_scraper_aliases_and_playback_title_matching(self):
+        with E2EHermeticEnv('22'):
+            from resources.lib import indexers
+            from resources.lib.endpoints import anime_filler
+            from resources.lib.pages import animekai, gogoanime, hianime, watchnixtoons2
+            from resources.lib.routes import playback, tools
+            from resources.lib.ui import control, database
+            from resources.lib.ui.player import WatchlistPlayer
+            from unittest.mock import MagicMock
+
+            # 0. Graceful {} fallback on v2.2 DB lacking filler_ranges table
+            _create_v2_mappings_db(control.mappingDB, include_rules=True, include_v22=True, include_v23=False)
+            database.close_all_connections(control.mappingDB)
+            self.assertEqual(database.get_mapping_filler_map(1001), {})
+
+            # 1. Full v2.3 DB with filler_ranges + anime_aliases
+            _create_v2_mappings_db(control.mappingDB, include_rules=True, include_v22=True, include_v23=True)
+            database.close_all_connections(control.mappingDB)
+
+            meta = database.get_mappings_metadata()
+            self.assertEqual(meta['schema_version'], '2.3')
+            self.assertEqual(meta['filler_range_count'], 3)
+            self.assertEqual(
+                database.get_mapping_filler_map(1001),
+                {2: 'Filler', 3: 'Filler', 4: 'Mixed Canon/Filler', 5: 'Recap'},
+            )
+
+            # 2. Offline filler works for <=99 ep finished shows with ZERO HTTP requests + badge hydration
+            control.setBool('interface.filler.badges', True)
+            with patch('resources.lib.endpoints.anime_filler.get_data', side_effect=AssertionError("Must not call remote AFL")):
+                fmap = anime_filler.get_filler_map(mal_id=1001, anime_eng_title='Test Saga', total_episodes=12, status='FINISHED')
+            self.assertEqual(fmap.get(2), 'Filler')
+            self.assertEqual(indexers.lookup_filler_tag(fmap, 4), 'Mixed Canon/Filler')
+            cached_eps = [
+                {'mal_id': 1001, 'number': n, 'filler': '', 'kodi_meta': database.dumps({'name': f'Ep {n}', 'info': {'title': f'Ep {n}', 'episode': n}, 'image': {}, 'art': {}})}
+                for n in range(1, 7)
+            ]
+            processed = indexers.process_episodes(cached_eps, '', mal_id=1001)
+            self.assertEqual(processed[1]['name'], 'Ep 2 [COLOR red][FILLER][/COLOR]')
+            self.assertEqual(processed[3]['name'], 'Ep 4 [COLOR yellow][MIXED][/COLOR]')
+            self.assertEqual(processed[4]['name'], 'Ep 5 [COLOR orange][RECAP][/COLOR]')
+            self.assertEqual(processed[5]['name'], 'Ep 6')
+
+            # 3. Player binge auto-skip separates Filler/Recap vs Mixed Canon/Filler + per-series overrides
+            for skip_mixed, ov_mode, expected in (
+                (False, 'default', [4, 6]),
+                (True, 'default', [6]),
+                (True, 'keep', [2, 3, 4, 5, 6]),
+                (False, 'skip_mixed', [6]),
+                (True, 'skip', [4, 6]),
+            ):
+                wp = WatchlistPlayer.__new__(WatchlistPlayer)
+                wp.mal_id = 1001
+                wp.episode = 1
+                wp.series_override = {'skip_filler_mode': ov_mode}
+                wp.episodes = [{'number': n, 'filler': ''} for n in range(1, 7)]
+                queued = []
+                control.setBool('smartplay.skip_filler', True)
+                control.setBool('smartplay.skip_mixed_filler', skip_mixed)
+                with patch('resources.lib.ui.control.getBool', side_effect=lambda k, default=False, _sm=skip_mixed: _sm if k == 'smartplay.skip_mixed_filler' else (True if k in ('smartplay.skip_filler', 'general.smartplay') else default)), \
+                     patch('resources.lib.indexers.process_episodes', side_effect=lambda eps, _: [{'url': f"play/1001/{e['number']}"} for e in eps]), \
+                     patch('resources.lib.ui.control.bulk_dir_list', side_effect=lambda items, _: [(f"plugin://plugin.video.otaku.rpdev/{it['url']}", MagicMock()) for it in items]), \
+                     patch('resources.lib.ui.player.playList.add', side_effect=lambda url, listitem: queued.append(int(url.rsplit('/', 1)[-1]))):
+                    wp.build_playlist()
+                self.assertEqual(queued, expected, f"Failed for skip_mixed={skip_mixed}, ov_mode={ov_mode}")
+
+            # 4. Feed anime_aliases into hianime, animekai, watchnixtoons2, gogoanime
+            hi = hianime.Sources()
+            with patch('resources.lib.endpoints.malsync.get_title', return_value=None):
+                kws = hi._search_keywords('Test Saga', 1001, {})
+            self.assertIn('Test Saga Alternate Alias', kws)
+            self.assertGreater(hi._score_candidate('Test Saga Alternate Alias', 'Test Saga', mal_id=1001), 140)
+
+            ak = animekai.Sources()
+            ak_html = json.dumps({'result': {'html': '<a class="aitem" href="/watch/test-saga-alias"><h6 class="title" data-jp="">Test Saga Alternate Alias</h6></a>'}})
+            with patch.object(ak, '_get_request', return_value=ak_html):
+                self.assertEqual(ak._search_anime('Test Saga', {}, mal_id=1001), 'test-saga-alias')
+
+            wnt = watchnixtoons2.Sources()
+            wnt_titles = wnt._build_search_titles('Test Saga', 'Test Saga EN', 'Test Saga', mapping_aliases=database.get_mapping_aliases(1001))
+            self.assertIn(('alias', 'Test Saga Alternate Alias'), wnt_titles)
+
+            gg = gogoanime.Sources()
+            self.assertIn('Test Saga Alternate Alias', gg._search_keywords('Test Saga', {}, mal_id=1001))
+            self.assertGreaterEqual(gg._score_candidate('Test Saga Alternate Alias', 'Test Saga', mal_id=1001), 140)
+
+            # 5. playback.find_episode_by_title: offline DB match + AniZip en/x-jat fallback + inspect_mappings filler summary
+            from resources.lib.ui.database_sync import SyncDatabase
+            SyncDatabase._build_shows()
+            SyncDatabase._build_episodes()
+            database.update_show(1001, database.dumps({'name': 'Test Saga'}))
+            ep_meta = database.dumps({'name': 'Secret Turnabout', 'info': {'title': 'Secret Turnabout', 'episode': 3}})
+            database.update_episode(1001, 1, 3, '2026-11-21', ep_meta, '')
+            hit_local = playback.find_episode_by_title([1001], ['Secret Turnabout'])
+            self.assertIsNotNone(hit_local)
+            self.assertEqual(hit_local['mal_id'], 1001)
+            self.assertEqual(hit_local['episode_number'], 3)
+
+            with patch('resources.lib.indexers.jikanmoe.JikanAPI.get_episode_meta', return_value=[]), \
+                 patch('resources.lib.indexers.anizip.ANIZIPAPI.get_anime_info', return_value={
+                     'episodes': {'4': {'episode': 4, 'title': {'en': 'Midnight Trial', 'x-jat': 'Mayonaka no Saiban'}}}
+                 }):
+                hit_az = playback.find_episode_by_title([1002], ['Mayonaka no Saiban'])
+            self.assertEqual(hit_az['mal_id'], 1002)
+            self.assertEqual(hit_az['episode_number'], 4)
+
+            import resources.lib.windows.textviewer as tv_mod
+            tv_cap = []
+
+            class _SpyTV3:
+                def __init__(self, xml_file, addon_path, **kwargs):
+                    tv_cap.append(kwargs.get('instructions_text', ''))
+
+                def run(self):
+                    pass
+
+                def close(self):
+                    pass
+
+            with patch.object(tv_mod, 'TextViewerXML', _SpyTV3):
+                invoke_plugin_route('inspect_mappings/1001')
+            self.assertIn('Offline Filler Tags:  4 episode(s)', tv_cap[0])
 
 
 if __name__ == '__main__':

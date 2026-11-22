@@ -220,10 +220,8 @@ class Sources(BrowserBase):
                 keywords.append(norm_val)
 
         add(title)
-        if kodi_meta and isinstance(kodi_meta, dict):
-            add(kodi_meta.get('ename'))
-            add(kodi_meta.get('title_english'))
-            add(kodi_meta.get('title_romaji'))
+        for alias in self._collect_title_aliases(mal_id=mal_id, kodi_meta=kodi_meta, limit=6):
+            add(alias)
 
         if ':' in title:
             add(title.split(':', 1)[1].strip())
@@ -270,7 +268,7 @@ class Sources(BrowserBase):
             return int(match.group(1))
         return None
 
-    def _score_candidate(self, candidate_name=None, title='', current_year=None, kodi_meta=None, name=None):
+    def _score_candidate(self, candidate_name=None, title='', current_year=None, kodi_meta=None, name=None, mal_id=None):
         if candidate_name is None and name is not None:
             candidate_name = name
         if not candidate_name or not title:
@@ -280,14 +278,9 @@ class Sources(BrowserBase):
             kodi_meta = current_year
             current_year = kodi_meta.get('year') or kodi_meta.get('aired_year')
 
-        aliases = []
-        if kodi_meta and isinstance(kodi_meta, dict):
-            for key in ('ename', 'title_english', 'title_romaji'):
-                val_raw = kodi_meta.get(key)
-                if val_raw and val_raw not in aliases:
-                    aliases.append(val_raw)
-            if not current_year:
-                current_year = kodi_meta.get('year') or kodi_meta.get('aired_year')
+        aliases = self._collect_title_aliases(mal_id=mal_id, kodi_meta=kodi_meta, limit=6)
+        if kodi_meta and isinstance(kodi_meta, dict) and not current_year:
+            current_year = kodi_meta.get('year') or kodi_meta.get('aired_year')
 
         score = source_utils.score_title_candidate(title, candidate_name, aliases=aliases or None, year=current_year)
         if score <= 40:
@@ -298,14 +291,11 @@ class Sources(BrowserBase):
         name_lower = name_clean.lower()
         title_lower = title_clean.lower()
 
-        if kodi_meta and isinstance(kodi_meta, dict):
-            for key in ('ename', 'title_english', 'title_romaji'):
-                val_raw = kodi_meta.get(key)
-                if val_raw:
-                    val = self._normalize_title_text(val_raw).lower()
-                    if val and val == name_lower:
-                        score += 140
-                        break
+        for val_raw in aliases:
+            val = self._normalize_title_text(val_raw).lower()
+            if val and val == name_lower:
+                score += 140
+                break
 
         title_tokens = [w for w in re.split(r'[^a-z0-9]+', title_lower) if len(w) > 2]
         name_tokens = set(re.split(r'[^a-z0-9]+', name_lower))
@@ -347,7 +337,7 @@ class Sources(BrowserBase):
             return None
 
         scored_candidates = [
-            (c_id, c_name, self._score_candidate(c_name, title, kodi_meta=kodi_meta))
+            (c_id, c_name, self._score_candidate(c_name, title, kodi_meta=kodi_meta, mal_id=mal_id))
             for c_id, c_name in candidates.items()
         ]
         if not scored_candidates:
