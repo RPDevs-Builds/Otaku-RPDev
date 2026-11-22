@@ -213,6 +213,60 @@ class TestAuditOnnLogs(unittest.TestCase):
             self.assertEqual(rec['counts']['zero_wait'], 3)
             self.assertEqual(rec['counts']['concerns']['C-14'], 1)
 
+    def test_rotation_eof_x_seek_offset_and_bom_banner_not_double_counted(self):
+        rotated_bom_log = (
+            "\ufeff2026-11-21 20:25:51.609 T:8128 info <general>: "
+            "-----------------------------------------------------------------------\n"
+            "2026-11-21 20:25:51.609 T:8128 info <general>: Starting Kodi (22.0-RC2)\n"
+            "2026-11-21 20:26:07.357 T:8155 info <general>: OTAKU RPDEV (0): clean_settings ok\n"
+        )
+        raw_bytes = rotated_bom_log.encode('utf-8')
+        # ONN /tail server sets X-Seek-Offset to EOF length (== len(raw_bytes)) when rotated
+        report = audit_onn_logs.analyze_log_text(
+            rotated_bom_log,
+            requested_offset=309579,
+            x_seek_offset=len(raw_bytes),
+            raw_bytes_len=len(raw_bytes),
+        )
+        self.assertTrue(report['rotated'])
+        self.assertEqual(report['next_offset'], len(raw_bytes))
+
+        # Even if rotated file already grew larger than the prior cursor, line-2 banner still flags rotation
+        report_grown = audit_onn_logs.analyze_log_text(
+            rotated_bom_log,
+            requested_offset=50,
+            x_seek_offset=len(raw_bytes),
+            raw_bytes_len=len(raw_bytes),
+        )
+        self.assertTrue(report_grown['rotated'])
+        self.assertEqual(report_grown['next_offset'], len(raw_bytes))
+
+    def test_multiline_python_traceback_attributed_by_addon_path(self):
+        log_text = (
+            "2026-11-21 21:40:00.163 T:8163 error <general>: EXCEPTION Thrown (PythonToCppException) : "
+            "-->Python callback/script returned the following error<--\n"
+            "                                            Traceback (most recent call last):\n"
+            "                                              File \"/storage/addons/service.upnext/resources/lib/player.py\", line 82\n"
+            "                                            AttributeError: read-only UpNextPlayer.stop_count\n"
+            "                                            -->End of Python script error report<--\n"
+            "2026-11-21 21:40:01.000 T:8164 error <general>: EXCEPTION Thrown (PythonToCppException) : "
+            "-->Python callback/script returned the following error<--\n"
+            "                                            Traceback (most recent call last):\n"
+            "                                              File \"/storage/addons/script.random.thirdparty/default.py\", line 12\n"
+            "                                            RuntimeError: boom\n"
+            "                                            -->End of Python script error report<--\n"
+            "2026-11-21 21:41:00.000 T:9000 error <general>: EXCEPTION Thrown (PythonToCppException) : "
+            "-->Python callback/script returned the following error<--\n"
+            "                                            Traceback (most recent call last):\n"
+            "                                              File \"/storage/addons/plugin.video.otaku.rpdev/resources/lib/Main.py\", line 99\n"
+            "                                            ValueError: otaku bug\n"
+            "                                            -->End of Python script error report<--\n"
+        )
+        report = audit_onn_logs.analyze_log_text(log_text, requested_offset=0)
+        self.assertEqual(report['counts']['otaku_errors'], 2)
+        self.assertEqual(report['counts']['non_otaku_noise_filtered'], 4)
+        self.assertEqual(len(report['samples']['otaku_errors']), 2)
+
 
 if __name__ == '__main__':
     unittest.main()

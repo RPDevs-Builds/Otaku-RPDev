@@ -588,6 +588,49 @@ class TestSP03AuditOnnLogsAndHygiene(unittest.TestCase):
 
     @tier(2)
     @feature('SP-03')
+    def test_sp03_t2_audit_onn_logs_eof_seek_header_rotation_and_foreign_traceback(self):
+        with tempfile.TemporaryDirectory(prefix='otaku_sp03_eofrot_') as td:
+            concerns_path = os.path.join(td, 'CONCERNS.md')
+            with open(concerns_path, 'w', encoding='utf-8') as f:
+                f.write("| **Next review offset** | **309579** |\n")
+
+            payload = (
+                "\ufeff2026-11-21 20:25:51.609 T:8128 info <general>: -----\n"
+                "2026-11-21 20:25:51.609 T:8128 info <general>: Starting Kodi (22.0-RC2)\n"
+                "2026-11-21 21:40:00.163 T:8163 error <general>: EXCEPTION Thrown (PythonToCppException) : report\n"
+                "                                            Traceback (most recent call last):\n"
+                "                                              File \"/addons/service.upnext/resources/lib/player.py\", line 82\n"
+                "                                            AttributeError: read-only\n"
+                "                                            -->End of Python script error report<--\n"
+            )
+            payload_len = len(payload.encode('utf-8'))
+
+            with E2EMockServer() as srv:
+                def _onn_tail_eof(req_handler, method, path, parsed, headers, body):
+                    send_http_response(
+                        req_handler,
+                        status=200,
+                        body=payload,
+                        extra_headers={'X-Seek-Offset': str(payload_len)},
+                    )
+                    return True
+
+                srv.add_route('/tail', _onn_tail_eof)
+                proc = run_cli_script(
+                    'scripts/audit_onn_logs.py',
+                    ['--concerns', concerns_path, '--url', f"{srv.get_base_url()}/tail", '--json', '-'],
+                )
+
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            report = json.loads(proc.stdout)
+            self.assertTrue(report['rotated'])
+            self.assertEqual(report['bytes_read'], payload_len)
+            self.assertEqual(report['next_offset'], payload_len)
+            self.assertEqual(report['counts']['otaku_errors'], 0)
+            self.assertEqual(report['counts']['non_otaku_noise_filtered'], 2)
+
+    @tier(2)
+    @feature('SP-03')
     def test_sp03_t2_audit_onn_logs_unreachable_loopback_exits_cleanly(self):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.bind(('127.0.0.1', 0))

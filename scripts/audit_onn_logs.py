@@ -35,6 +35,14 @@ NOISE_RE = re.compile(
 ERROR_RE = re.compile(r'error <general>|Traceback|PythonToCpp|EXCEPTION|\bERROR\b', re.IGNORECASE)
 WARNING_RE = re.compile(r'warning <general>|\bWARNING\b', re.IGNORECASE)
 OTAKU_RE = re.compile(r'otaku\.rpdev|OTAKU RPDEV', re.IGNORECASE)
+LOG_LINE_START_RE = re.compile(r'^\ufeff?\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}')
+ADDON_PATH_RE = re.compile(r'(?:[/\\]addons[/\\]|CAddon\[)([a-z0-9_.-]+)', re.IGNORECASE)
+_OTAKU_ADDON_IDS = frozenset({
+    'plugin.video.otaku.rpdev',
+    'context.otaku.rpdev',
+    'service.subtitles.otaku.rpdev',
+    'repository.otaku.testing',
+})
 
 ZERO_WAIT_RE = re.compile(
     r'Zero-Wait Pre-Resolved Stream Hit|Zero-Wait direct stream pre-resolved|resolve_silent',
@@ -98,6 +106,64 @@ def fetch_log_from_file(input_path, offset=0):
     return data, None
 
 
+def _compute_rotation_and_next_offset(text, requested_offset, raw_bytes_len, x_seek_offset=None):
+    """Detect Kodi log rotation and compute the next byte cursor without double-counting EOF headers.
+
+    ONN's HTTP `/tail` server sets `X-Seek-Offset` to the post-read EOF byte offset (which equals
+    `raw_bytes_len` when a rotated log is streamed from byte 0), whereas test mocks return seek
+    start `0`. Handle both conventions consistently.
+    """
+    head_window = text[:2048].lstrip('\ufeff \t\r\n')
+    rotated = (
+        head_window.startswith('Starting Kodi (')
+        or 'Starting Kodi (' in head_window
+        or (x_seek_offset is not None and x_seek_offset < requested_offset)
+    )
+    if rotated and x_seek_offset is not None:
+        if x_seek_offset == 0:
+            next_offset = raw_bytes_len
+        elif x_seek_offset >= raw_bytes_len:
+            next_offset = x_seek_offset
+        else:
+            next_offset = x_seek_offset + raw_bytes_len
+    elif rotated:
+        next_offset = raw_bytes_len
+    else:
+        next_offset = requested_offset + raw_bytes_len
+    return rotated, next_offset
+
+
+def _find_foreign_traceback_indices(lines):
+    """Return 0-based line indices belonging to non-Otaku multi-line PythonToCppException reports."""
+    foreign_indices = set()
+    n = len(lines)
+    i = 0
+    while i < n:
+        if 'PythonToCppException' not in lines[i]:
+            i += 1
+            continue
+        end = i + 1
+        while end < n:
+            ln = lines[end]
+            if '-->End of Python script error report<--' in ln:
+                end += 1
+                break
+            if LOG_LINE_START_RE.match(ln):
+                break
+            end += 1
+
+        block_text = '\n'.join(lines[i:end])
+        has_otaku = bool(OTAKU_RE.search(block_text))
+        addon_ids = {m.group(1).lower() for m in ADDON_PATH_RE.finditer(block_text)}
+        has_foreign = bool(addon_ids - _OTAKU_ADDON_IDS) or bool(NOISE_RE.search(block_text))
+        if not has_otaku and has_foreign:
+            for k in range(i, end):
+                if 'PythonToCpp' in lines[k] or 'Traceback' in lines[k]:
+                    foreign_indices.add(k)
+        i = end
+    return foreign_indices
+
+
 def analyze_log_text(text, requested_offset=0, x_seek_offset=None, raw_bytes_len=None):
     """Classify Otaku-RPDev log signals, non-Otaku noise, rotations, and open concerns."""
     requested_offset = int(requested_offset)
@@ -106,16 +172,9 @@ def analyze_log_text(text, requested_offset=0, x_seek_offset=None, raw_bytes_len
     if raw_bytes_len is None:
         raw_bytes_len = len(text.encode('utf-8', errors='replace'))
 
-    stripped_head = text.lstrip()
-    rotated = stripped_head.startswith('Starting Kodi (') or (
-        x_seek_offset is not None and x_seek_offset < requested_offset
+    rotated, next_offset = _compute_rotation_and_next_offset(
+        text, requested_offset, raw_bytes_len, x_seek_offset=x_seek_offset
     )
-    if rotated and x_seek_offset is not None:
-        next_offset = x_seek_offset + raw_bytes_len
-    elif rotated:
-        next_offset = raw_bytes_len
-    else:
-        next_offset = requested_offset + raw_bytes_len
 
     otaku_errors = []
     otaku_warnings = []
@@ -127,7 +186,8 @@ def analyze_log_text(text, requested_offset=0, x_seek_offset=None, raw_bytes_len
     concerns_hits = {cid: [] for cid in CONCERN_PATTERNS}
 
     lines = text.splitlines()
-    for line in lines:
+    foreign_tb_indices = _find_foreign_traceback_indices(lines)
+    for idx, line in enumerate(lines):
         ver_match = ADDON_VERSION_RE.search(line)
         if ver_match:
             addon_versions[ver_match.group(1)] = ver_match.group(2)
@@ -135,8 +195,8 @@ def analyze_log_text(text, requested_offset=0, x_seek_offset=None, raw_bytes_len
         if 'clean_settings' in line and OTAKU_RE.search(line):
             clean_settings_lines.append(line.strip())
 
-        is_noise = bool(NOISE_RE.search(line))
-        is_otaku = bool(OTAKU_RE.search(line))
+        is_noise = bool(NOISE_RE.search(line)) or (idx in foreign_tb_indices)
+        is_otaku = bool(OTAKU_RE.search(line)) and (idx not in foreign_tb_indices)
 
         if is_noise and (ERROR_RE.search(line) or WARNING_RE.search(line)):
             noise_filtered.append(line.strip())
