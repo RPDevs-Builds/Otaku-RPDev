@@ -96,6 +96,38 @@ class hook_mimetype:
         return func
 
 
+def _build_resolvers_map():
+    return {
+        'Alldebrid': all_debrid.AllDebrid,
+        'Debrid-Link': debrid_link.DebridLink,
+        'Premiumize': premiumize.Premiumize,
+        'Real-Debrid': real_debrid.RealDebrid,
+        'TorBox': torbox.TorBox,
+        'EasyDebrid': easydebrid.EasyDebrid,
+        'Easynews': easynews.Easynews,
+    }
+
+
+_DEBRID_SETTING_TO_NAME = {
+    'realdebrid': 'Real-Debrid',
+    'alldebrid': 'Alldebrid',
+    'debridlink': 'Debrid-Link',
+    'premiumize': 'Premiumize',
+    'torbox': 'TorBox',
+    'easydebrid': 'EasyDebrid',
+}
+
+
+def get_enabled_debrid_names(resolvers_map=None):
+    """Return ordered list of enabled Debrid provider display keys present in *resolvers_map*."""
+    rmap = resolvers_map if resolvers_map is not None else _build_resolvers_map()
+    enabled_map = control.enabled_debrid()
+    return [
+        label for key, label in _DEBRID_SETTING_TO_NAME.items()
+        if enabled_map.get(key) and label in rmap
+    ]
+
+
 class Resolver(BaseWindow):
     def __init__(self, xml_file, location, actionArgs=None, source_select=False):
         if actionArgs is None:
@@ -110,15 +142,7 @@ class Resolver(BaseWindow):
         self.sources = None
         self.args = None
         self.image = {}
-        self.resolvers = {
-            'Alldebrid': all_debrid.AllDebrid,
-            'Debrid-Link': debrid_link.DebridLink,
-            'Premiumize': premiumize.Premiumize,
-            'Real-Debrid': real_debrid.RealDebrid,
-            'TorBox': torbox.TorBox,
-            'EasyDebrid': easydebrid.EasyDebrid,
-            'Easynews': easynews.Easynews,
-        }
+        self.resolvers = _build_resolvers_map()
         self.source_select = source_select
         self.pack_select = False
         self.mal_id = actionArgs.get('mal_id') if actionArgs else None
@@ -141,16 +165,7 @@ class Resolver(BaseWindow):
 
     def get_enabled_debrid_providers(self):
         """Return list of resolver keys that are currently authenticated and enabled."""
-        mapping = {
-            'realdebrid': 'Real-Debrid',
-            'alldebrid': 'Alldebrid',
-            'debridlink': 'Debrid-Link',
-            'premiumize': 'Premiumize',
-            'torbox': 'TorBox',
-            'easydebrid': 'EasyDebrid',
-        }
-        enabled_map = control.enabled_debrid()
-        return [mapping[k] for k, v in enabled_map.items() if v and k in mapping and mapping[k] in self.resolvers]
+        return get_enabled_debrid_names(self.resolvers)
 
     def onInit(self):
         if isinstance(self.actionArgs, dict) and self.actionArgs.get('ui_review'):
@@ -548,6 +563,20 @@ class Resolver(BaseWindow):
 
                 link_info = self.return_data.get('linkinfo') or {}
                 ch = link_info.get('chapters') if isinstance(link_info, dict) else None
+                active_url = str(link_info.get('url') or stream_url or '')
+                active_parsed = urllib.parse.urlparse(active_url.split('|', 1)[0]) if active_url else None
+                database.save_playback_failover_context(
+                    self.mal_id,
+                    self.episode or 1,
+                    {
+                        'sources': list(self.sources or []),
+                        'candidate_index': int(self.return_data.get('candidate_index') or 0),
+                        'active_url': active_url,
+                        'active_host': active_parsed.netloc.lower() if active_parsed and active_parsed.netloc else '',
+                        'debrid_provider': (resolved_source or {}).get('debrid_provider', '') if isinstance(resolved_source, dict) else '',
+                        'media_type': getattr(self, 'media_type', 'episode') or 'episode',
+                    },
+                )
                 player.WatchlistPlayer().handle_player(
                     self.mal_id,
                     watchlist_update_episode,
@@ -904,6 +933,149 @@ def _HLS_HOOK(item):
     return item
 
 
+class _HeadlessResolver:
+    """Resolve one source candidate to a raw link without opening WindowXML UI."""
+
+    def __init__(self, ep, mid):
+        try:
+            self.episode = int(ep) if ep is not None and str(ep).strip() != '' else 1
+        except (TypeError, ValueError):
+            self.episode = 1
+        self.mal_id = mid
+        self.pack_select = False
+
+    def resolve_source(self, api_cls, source):
+        try:
+            api = api_cls()
+            hash_ = source.get('hash')
+            if not hash_:
+                return None
+            magnet = source.get('magnet') or f"magnet:?xt=urn:btih:{hash_}"
+            stream_link = None
+
+            if source.get('type') == 'torrent':
+                filename = source.get('filename')
+                if filename:
+                    ep_reg = source_utils.get_cache_check_reg(self.episode)
+                    clean_fname = re.sub(r'\[.*?\]', '', filename.split('/')[-1])
+                    if not ep_reg.search(clean_fname):
+                        filename = None
+                ep_re = source.get('episode_re') or str(self.episode)
+                stream_link = api.resolve_single_magnet(hash_, magnet, ep_re, self.pack_select, filename)
+            elif source.get('type') == 'cloud':
+                if source.get('debrid_provider') == 'Alldebrid':
+                    return hash_
+                resolved_hash = api.resolve_cloud(source, self.pack_select)
+                if resolved_hash:
+                    stream_link = api.resolve_hoster(resolved_hash)
+            elif source.get('type') == 'hoster':
+                if source.get('debrid_provider') == 'Easynews':
+                    stream_link = api.unrestrict_link(source['hash'])
+                else:
+                    ep_re = source.get('episode_re') or str(self.episode)
+                    stream_link = api.resolve_hoster(magnet, ep_re, self.pack_select)
+            return stream_link
+        except Exception as e:
+            control.log(f"Headless resolver error: {e}", 'debug')
+            return None
+
+
+def _resolve_candidate_raw_link(helper, resolvers_map, s):
+    stype = s.get('type')
+    if stype in ('torrent', 'cloud', 'hoster'):
+        dprov = s.get('debrid_provider')
+        if stype == 'cloud' and dprov == 'Alldebrid':
+            return s.get('hash') or s.get('url')
+        if dprov in resolvers_map:
+            return helper.resolve_source(resolvers_map[dprov], s)
+        return None
+    if stype in ('direct', 'local'):
+        return s.get('hash') or s.get('url')
+    if stype == 'embed':
+        from resources.lib.ui import embed_extractor
+        embed_url = s.get('hash') or s.get('url')
+        return embed_extractor.load_video_from_url(embed_url) if embed_url else None
+    return None
+
+
+def build_midstream_failover_candidates(ctx, failing_host='', enabled_providers=None, circuit_breaker=None):
+    """Order alternate Debrid providers and remaining sources for NF-11 mid-stream CDN failover."""
+    if not isinstance(ctx, dict):
+        return []
+    sources = list(ctx.get('sources') or [])
+    if not sources:
+        return []
+    cand_idx = max(0, min(len(sources) - 1, int(ctx.get('candidate_index') or 0)))
+    cur_src = sources[cand_idx]
+    cur_prov = cur_src.get('debrid_provider') or ctx.get('debrid_provider') or ''
+    cb = circuit_breaker or domains.adaptive_circuit_breaker
+
+    out = []
+    if cur_src.get('type') == 'torrent' and cur_src.get('hash'):
+        providers = list(enabled_providers) if enabled_providers is not None else get_enabled_debrid_names()
+        for alt_prov in providers:
+            if not alt_prov or alt_prov == cur_prov:
+                continue
+            if cb and cb.is_tripped(alt_prov.lower(), category='debrid'):
+                continue
+            alt = dict(cur_src)
+            alt['debrid_provider'] = alt_prov
+            out.append(alt)
+
+    healthy_tail = []
+    fallback_tail = []
+    for cand in sources[cand_idx + 1:]:
+        if not isinstance(cand, dict):
+            continue
+        prov = str(cand.get('debrid_provider') or '').lower()
+        origin = _extract_source_origin(cand)
+        origin_host = urllib.parse.urlparse(origin).netloc.lower() if origin else ''
+        host_tripped = bool(
+            (failing_host and origin_host and origin_host == failing_host.lower())
+            or (prov and cb and cb.is_tripped(prov, category='debrid'))
+            or (origin and not domains.is_mirror_healthy(origin))
+        )
+        if host_tripped:
+            fallback_tail.append(cand)
+        else:
+            healthy_tail.append(cand)
+    out.extend(healthy_tail)
+    if not out:
+        out.extend(fallback_tail)
+    return out
+
+
+def resolve_failover_candidate(ctx, mal_id=None, episode='1', failing_host='', circuit_breaker=None):
+    """Resolve and probe the first healthy backup stream candidate for NF-11 mid-stream failover."""
+    candidates = build_midstream_failover_candidates(ctx, failing_host=failing_host, circuit_breaker=circuit_breaker)
+    if not candidates:
+        return None
+    resolvers_map = _build_resolvers_map()
+    helper = _HeadlessResolver(episode, mal_id)
+    f_host_low = str(failing_host or '').strip().lower()
+    for cand in candidates:
+        try:
+            raw_link = _resolve_candidate_raw_link(helper, resolvers_map, cand)
+            if not raw_link:
+                continue
+            verified = Resolver.prefetch_play_link(raw_link)
+            if not verified or not verified.get('url'):
+                continue
+            cand_host = urllib.parse.urlparse(str(verified['url']).split('|', 1)[0]).netloc.lower()
+            if f_host_low and cand_host and cand_host == f_host_low and len(candidates) > 1:
+                continue
+            return {
+                'source': cand,
+                'linkinfo': verified,
+                'url': verified['url'],
+                'headers': verified.get('headers') or {},
+                'sub': cand.get('subs') or [],
+            }
+        except Exception as e:
+            control.log(f"NF-11 failover probe error ({cand.get('debrid_provider') or cand.get('provider')}): {e}", level='debug')
+    return None
+
+
 def resolve_silent(sources, episode, mal_id=None):
     """
     Resolve the top candidate source silently in background without launching WindowXML dialog.
@@ -919,59 +1091,7 @@ def resolve_silent(sources, episode, mal_id=None):
     if not source_list:
         return None
 
-    from resources.lib.debrid import all_debrid, debrid_link, easynews, premiumize, real_debrid, torbox, easydebrid
-    resolvers = {
-        'Alldebrid': all_debrid.AllDebrid,
-        'Debrid-Link': debrid_link.DebridLink,
-        'Premiumize': premiumize.Premiumize,
-        'Real-Debrid': real_debrid.RealDebrid,
-        'TorBox': torbox.TorBox,
-        'EasyDebrid': easydebrid.EasyDebrid,
-        'Easynews': easynews.Easynews,
-    }
-
-    class _HeadlessResolver:
-        def __init__(self, ep, mid):
-            try:
-                self.episode = int(ep) if ep is not None and str(ep).strip() != '' else 1
-            except (TypeError, ValueError):
-                self.episode = 1
-            self.mal_id = mid
-            self.pack_select = False
-
-        def resolve_source(self, api_cls, source):
-            try:
-                api = api_cls()
-                hash_ = source.get('hash')
-                if not hash_:
-                    return None
-                magnet = f"magnet:?xt=urn:btih:{hash_}"
-                stream_link = None
-
-                if source.get('type') == 'torrent':
-                    filename = source.get('filename')
-                    if filename:
-                        ep_reg = source_utils.get_cache_check_reg(self.episode)
-                        clean_fname = re.sub(r'\[.*?\]', '', filename.split('/')[-1])
-                        if not ep_reg.search(clean_fname):
-                            filename = None
-                    ep_re = source.get('episode_re') or str(self.episode)
-                    stream_link = api.resolve_single_magnet(hash_, magnet, ep_re, self.pack_select, filename)
-                elif source.get('type') == 'cloud':
-                    hash_ = api.resolve_cloud(source, self.pack_select)
-                    if hash_:
-                        stream_link = api.resolve_hoster(hash_)
-                elif source.get('type') == 'hoster':
-                    if source.get('debrid_provider') == 'Easynews':
-                        stream_link = api.unrestrict_link(source['hash'])
-                    else:
-                        ep_re = source.get('episode_re') or str(self.episode)
-                        stream_link = api.resolve_hoster(magnet, ep_re, self.pack_select)
-                return stream_link
-            except Exception as e:
-                control.log(f"resolve_silent helper error: {e}", 'debug')
-                return None
-
+    resolvers = _build_resolvers_map()
     helper = _HeadlessResolver(episode, mal_id)
     ordered_sources = _deprioritize_unhealthy_hosts(source_list)
     has_cache_key = (
@@ -1003,23 +1123,27 @@ def resolve_silent(sources, episode, mal_id=None):
             continue
         stream_link = None
         try:
-            stype = s.get('type')
-            if stype in ['torrent', 'cloud', 'hoster']:
-                dprov = s.get('debrid_provider')
-                if dprov in resolvers:
-                    stream_link = helper.resolve_source(resolvers[dprov], s)
-            elif stype == 'direct':
-                stream_link = s.get('hash') or s.get('url')
-            elif stype == 'embed':
-                from resources.lib.ui import embed_extractor
-                embed_url = s.get('hash') or s.get('url')
-                if embed_url:
-                    stream_link = embed_extractor.load_video_from_url(embed_url)
+            stream_link = _resolve_candidate_raw_link(helper, resolvers, s)
 
             if stream_link:
                 linkinfo = Resolver.prefetch_play_link(stream_link)
                 if linkinfo:
                     _persist_pruned_sources()
+                    if has_cache_key:
+                        active_u = str(linkinfo.get('url') or '')
+                        ap = urllib.parse.urlparse(active_u.split('|', 1)[0]) if active_u else None
+                        database.save_playback_failover_context(
+                            mal_id,
+                            episode,
+                            {
+                                'sources': [src for i2, src in enumerate(ordered_sources) if i2 not in failed_indices],
+                                'candidate_index': 0,
+                                'active_url': active_u,
+                                'active_host': ap.netloc.lower() if ap and ap.netloc else '',
+                                'debrid_provider': s.get('debrid_provider', ''),
+                                'media_type': 'episode',
+                            },
+                        )
                     return {
                         'url': linkinfo.get('url'),
                         'headers': linkinfo.get('headers', {}),

@@ -130,11 +130,12 @@ def PLAY(payload, params):
 
     if resume:
         resume = float(resume)
-        context = control.context_menu([f'Resume from {utils.format_time(resume)}', 'Play from beginning'])
-        if context == -1:
-            return control.exit_code()
-        elif context == 1:
-            resume = None
+        if not _param_flag_true(params, 'auto_resume'):
+            context = control.context_menu([f'Resume from {utils.format_time(resume)}', 'Play from beginning'])
+            if context == -1:
+                return control.exit_code()
+            elif context == 1:
+                resume = None
 
     # Guard against premature scraping of unaired episodes
     episode_info = params.get('info', {})
@@ -248,6 +249,22 @@ def PLAY(payload, params):
 
         stype = source_dict.get('type', '')
         sprovider = source_dict.get('provider', '')
+        import urllib.parse as _up
+        pr_parsed = _up.urlparse(str(preresolved_url).split('|', 1)[0])
+        existing_fc = database.get_playback_failover_context(mal_id, episode)
+        fc_sources = (existing_fc.get('sources') if isinstance(existing_fc, dict) else None) or ([source_dict] if source_dict else [])
+        database.save_playback_failover_context(
+            mal_id,
+            episode,
+            {
+                'sources': fc_sources,
+                'candidate_index': 0,
+                'active_url': str(preresolved_url),
+                'active_host': pr_parsed.netloc.lower() if pr_parsed and pr_parsed.netloc else '',
+                'debrid_provider': source_dict.get('debrid_provider', ''),
+                'media_type': 'episode',
+            },
+        )
         xbmcplugin.setResolvedUrl(control.HANDLE, True, item)
         player.WatchlistPlayer().handle_player(
             mal_id,
@@ -325,11 +342,12 @@ def PLAY_MOVIE(payload, params):
 
     if resume:
         resume = float(resume)
-        context = control.context_menu([f'Resume from {utils.format_time(resume)}', 'Play from beginning'])
-        if context == -1:
-            return control.exit_code()
-        elif context == 1:
-            resume = None
+        if not _param_flag_true(params, 'auto_resume'):
+            context = control.context_menu([f'Resume from {utils.format_time(resume)}', 'Play from beginning'])
+            if context == -1:
+                return control.exit_code()
+            elif context == 1:
+                resume = None
 
     sources = MetaBrowser.get_sources(mal_id, 1, 'movie', rescrape, source_select)
     if sources:
@@ -1117,3 +1135,23 @@ def PLAYBACK_OPTIONS(payload, params):
         pass
 
     control.exit_code()
+
+
+@Route('step_scene_marker/*')
+def STEP_SCENE_MARKER(payload, params):
+    """Step to next/previous native chapter or AniSkip/IntroDB scene marker, or open jump picker."""
+    from resources.lib.ui import player as player_mod
+    action = str(payload or 'menu').strip('/').lower() or 'menu'
+    control.log(f"SceneMarkers: STEP_SCENE_MARKER payload={payload!r} action={action!r}", 'info')
+    res = player_mod.handle_scene_marker_action(action)
+    control.exit_code()
+    return res
+
+
+@Route('scene_markers')
+def SCENE_MARKERS(payload, params):
+    """Open interactive scene-marker / chapter jump dialog for active playback."""
+    from resources.lib.ui import player as player_mod
+    res = player_mod.handle_scene_marker_action('menu')
+    control.exit_code()
+    return res

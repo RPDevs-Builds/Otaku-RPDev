@@ -1049,6 +1049,11 @@
 						<dependency type="enable" setting="general.smartplay">true</dependency>
 					</dependencies>
 				</setting>
+				<setting id="smartplay.stream_failover" type="boolean" label="30435" help="30436">
+					<level>2</level>
+					<default>true</default>
+					<control type="toggle" />
+				</setting>
 				<setting id="animeskip.enable" type="boolean" label="30991" help="30992">
 					<level>1</level>
 					<default>true</default>
@@ -1136,6 +1141,11 @@
 			</group>
 			<group id="3" label="30471">
 				<setting id="chapters.python.enable" type="boolean" label="30987" help="30988">
+					<level>1</level>
+					<default>true</default>
+					<control type="toggle" />
+				</setting>
+				<setting id="smartplay.scene_markers" type="boolean" label="30437" help="30438">
 					<level>1</level>
 					<default>true</default>
 					<control type="toggle" />

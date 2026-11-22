@@ -1,0 +1,344 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<window type="dialog">
+    <coordinates>
+        <left>0</left>
+        <top>0</top>
+        <width>1920</width>
+        <height>1080</height>
+    </coordinates>
+    <controls>
+        <!-- Background Dimmer -->
+        <control type="image">
+            <left>0</left>
+            <top>0</top>
+            <width>1920</width>
+            <height>1080</height>
+            <texture>white.png</texture>
+            <colordiffuse>D0000000</colordiffuse>
+        </control>
+
+        <!-- Main Dialog Frame (1600x880) -->
+        <control type="group">
+            <left>160</left>
+            <top>100</top>
+            <width>1600</width>
+            <height>880</height>
+
+            <!-- Card Background -->
+            <control type="image">
+                <left>0</left>
+                <top>0</top>
+                <width>1600</width>
+                <height>880</height>
+                <texture border="10">white.png</texture>
+                <colordiffuse>FF181C24</colordiffuse>
+            </control>
+
+            <!-- Top Accent Bar -->
+            <control type="image">
+                <left>0</left>
+                <top>0</top>
+                <width>1600</width>
+                <height>6</height>
+                <texture>white.png</texture>
+                <colordiffuse>FF00BFFF</colordiffuse>
+            </control>
+
+            <!-- Dialog Header -->
+            <control type="label">
+                <left>45</left>
+                <top>25</top>
+                <width>1510</width>
+                <height>38</height>
+                <font>font16</font>
+                <textcolor>FFFFFFFF</textcolor>
+                <label>[B]$INFO[Window.Property(series_title)][/B]</label>
+            </control>
+
+            <control type="label">
+                <left>45</left>
+                <top>68</top>
+                <width>1510</width>
+                <height>25</height>
+                <font>font12</font>
+                <textcolor>88FFFFFF</textcolor>
+                <label>$INFO[Window.Property(series_subtitle)]</label>
+            </control>
+
+            <!-- Left Panel: Override Fields List (Control ID: 1000) -->
+            <control type="list" id="1000">
+                <left>45</left>
+                <top>115</top>
+                <width>980</width>
+                <height>720</height>
+                <onup>1000</onup>
+                <ondown>1000</ondown>
+                <onright>2000</onright>
+                <onleft>2000</onleft>
+                <pagecontrol>17</pagecontrol>
+                <scrolltime>150</scrolltime>
+
+                <itemlayout height="84" width="980">
+                    <control type="image">
+                        <left>0</left>
+                        <top>0</top>
+                        <width>980</width>
+                        <height>76</height>
+                        <texture border="6">white.png</texture>
+                        <colordiffuse>15FFFFFF</colordiffuse>
+                    </control>
+                    <control type="label">
+                        <left>22</left>
+                        <top>10</top>
+                        <width>560</width>
+                        <height>32</height>
+                        <aligny>center</aligny>
+                        <font>font13</font>
+                        <textcolor>E0FFFFFF</textcolor>
+                        <label>$INFO[ListItem.Label]</label>
+                    </control>
+                    <control type="label">
+                        <left>22</left>
+                        <top>42</top>
+                        <width>560</width>
+                        <height>24</height>
+                        <aligny>center</aligny>
+                        <font>font12</font>
+                        <textcolor>80FFFFFF</textcolor>
+                        <label>$INFO[ListItem.Property(description)]</label>
+                    </control>
+                    <control type="image">
+                        <left>610</left>
+                        <top>16</top>
+                        <width>345</width>
+                        <height>44</height>
+                        <texture border="4">white.png</texture>
+                        <colordiffuse>2500BFFF</colordiffuse>
+                        <visible>String.IsEqual(ListItem.Property(is_overridden),true)</visible>
+                    </control>
+                    <control type="image">
+                        <left>610</left>
+                        <top>16</top>
+                        <width>345</width>
+                        <height>44</height>
+                        <texture border="4">white.png</texture>
+                        <colordiffuse>14FFFFFF</colordiffuse>
+                        <visible>!String.IsEqual(ListItem.Property(is_overridden),true)</visible>
+                    </control>
+                    <control type="label">
+                        <left>620</left>
+                        <top>16</top>
+                        <width>325</width>
+                        <height>44</height>
+                        <align>center</align>
+                        <aligny>center</aligny>
+                        <font>font12</font>
+                        <textcolor>FFFFFFFF</textcolor>
+                        <label>$INFO[ListItem.Property(value_badge)]</label>
+                    </control>
+                </itemlayout>
+
+                <focusedlayout height="84" width="980">
+                    <control type="image">
+                        <left>0</left>
+                        <top>0</top>
+                        <width>980</width>
+                        <height>76</height>
+                        <texture border="6">white.png</texture>
+                        <colordiffuse>3500BFFF</colordiffuse>
+                    </control>
+                    <control type="image">
+                        <left>0</left>
+                        <top>0</top>
+                        <width>6</width>
+                        <height>76</height>
+                        <texture>white.png</texture>
+                        <colordiffuse>FF00BFFF</colordiffuse>
+                    </control>
+                    <control type="label">
+                        <left>22</left>
+                        <top>10</top>
+                        <width>560</width>
+                        <height>32</height>
+                        <aligny>center</aligny>
+                        <font>font13</font>
+                        <textcolor>FFFFFFFF</textcolor>
+                        <label>[B]$INFO[ListItem.Label][/B]</label>
+                    </control>
+                    <control type="label">
+                        <left>22</left>
+                        <top>42</top>
+                        <width>560</width>
+                        <height>24</height>
+                        <aligny>center</aligny>
+                        <font>font12</font>
+                        <textcolor>CCFFFFFF</textcolor>
+                        <label>$INFO[ListItem.Property(description)]</label>
+                    </control>
+                    <control type="image">
+                        <left>610</left>
+                        <top>16</top>
+                        <width>345</width>
+                        <height>44</height>
+                        <texture border="4">white.png</texture>
+                        <colordiffuse>6000BFFF</colordiffuse>
+                    </control>
+                    <control type="label">
+                        <left>620</left>
+                        <top>16</top>
+                        <width>325</width>
+                        <height>44</height>
+                        <align>center</align>
+                        <aligny>center</aligny>
+                        <font>font12</font>
+                        <textcolor>FFFFFFFF</textcolor>
+                        <label>[B]$INFO[ListItem.Property(value_badge)][/B]</label>
+                    </control>
+                </focusedlayout>
+            </control>
+
+            <!-- Scrollbar (Control ID: 17) -->
+            <control type="scrollbar" id="17">
+                <left>1035</left>
+                <top>115</top>
+                <width>14</width>
+                <height>720</height>
+                <visible>true</visible>
+                <orientation>vertical</orientation>
+                <onleft>1000</onleft>
+                <onright>2000</onright>
+            </control>
+
+            <!-- Right Panel: Series Poster + Timing Preview + Action Buttons -->
+            <control type="group">
+                <left>1070</left>
+                <top>115</top>
+                <width>485</width>
+                <height>235</height>
+
+                <control type="image">
+                    <left>0</left>
+                    <top>0</top>
+                    <width>485</width>
+                    <height>235</height>
+                    <texture border="6">white.png</texture>
+                    <colordiffuse>15FFFFFF</colordiffuse>
+                </control>
+                <control type="image">
+                    <left>16</left>
+                    <top>16</top>
+                    <width>138</width>
+                    <height>203</height>
+                    <aspectratio>keep</aspectratio>
+                    <texture>$INFO[Window.Property(series_poster)]</texture>
+                </control>
+                <control type="label">
+                    <left>172</left>
+                    <top>18</top>
+                    <width>295</width>
+                    <height>28</height>
+                    <font>font13</font>
+                    <textcolor>FF00BFFF</textcolor>
+                    <label>[B]Rule &amp; Skip Preview[/B]</label>
+                </control>
+                <control type="textbox">
+                    <left>172</left>
+                    <top>52</top>
+                    <width>295</width>
+                    <height>165</height>
+                    <font>font12</font>
+                    <textcolor>CCFFFFFF</textcolor>
+                    <label>$INFO[Window.Property(skip_preview)]</label>
+                </control>
+            </control>
+
+            <control type="grouplist" id="2000">
+                <left>1070</left>
+                <top>370</top>
+                <width>485</width>
+                <height>465</height>
+                <itemgap>14</itemgap>
+                <onleft>1000</onleft>
+                <onright>1000</onright>
+
+                <control type="button" id="3001">
+                    <height>60</height>
+                    <width>485</width>
+                    <align>center</align>
+                    <aligny>center</aligny>
+                    <font>font13</font>
+                    <label>[B]Edit Selected Override[/B]</label>
+                    <onleft>1000</onleft>
+                    <onright>1000</onright>
+                    <texturenofocus colordiffuse="30FFFFFF">white.png</texturenofocus>
+                    <texturefocus colordiffuse="FF00BFFF">white.png</texturefocus>
+                </control>
+
+                <control type="button" id="3002">
+                    <height>56</height>
+                    <width>485</width>
+                    <align>center</align>
+                    <aligny>center</aligny>
+                    <font>font13</font>
+                    <label>[B]-1 / Previous Option[/B]</label>
+                    <onleft>1000</onleft>
+                    <onright>1000</onright>
+                    <texturenofocus colordiffuse="30FFFFFF">white.png</texturenofocus>
+                    <texturefocus colordiffuse="FF00BFFF">white.png</texturefocus>
+                </control>
+
+                <control type="button" id="3003">
+                    <height>56</height>
+                    <width>485</width>
+                    <align>center</align>
+                    <aligny>center</aligny>
+                    <font>font13</font>
+                    <label>[B]+1 / Next Option[/B]</label>
+                    <onleft>1000</onleft>
+                    <onright>1000</onright>
+                    <texturenofocus colordiffuse="30FFFFFF">white.png</texturenofocus>
+                    <texturefocus colordiffuse="FF00BFFF">white.png</texturefocus>
+                </control>
+
+                <control type="button" id="3004">
+                    <height>56</height>
+                    <width>485</width>
+                    <align>center</align>
+                    <aligny>center</aligny>
+                    <font>font13</font>
+                    <label>[B]Reset to Global Defaults[/B]</label>
+                    <onleft>1000</onleft>
+                    <onright>1000</onright>
+                    <texturenofocus colordiffuse="30FFFFFF">white.png</texturenofocus>
+                    <texturefocus colordiffuse="FF00BFFF">white.png</texturefocus>
+                </control>
+
+                <control type="button" id="3005">
+                    <height>68</height>
+                    <width>485</width>
+                    <align>center</align>
+                    <aligny>center</aligny>
+                    <font>font14</font>
+                    <label>[B]Save &amp; Apply Profile[/B]</label>
+                    <onleft>1000</onleft>
+                    <onright>1000</onright>
+                    <texturenofocus colordiffuse="8000BFFF">white.png</texturenofocus>
+                    <texturefocus colordiffuse="FF00BFFF">white.png</texturefocus>
+                </control>
+
+                <control type="button" id="3006">
+                    <height>56</height>
+                    <width>485</width>
+                    <align>center</align>
+                    <aligny>center</aligny>
+                    <font>font13</font>
+                    <label>[B]Cancel[/B]</label>
+                    <onleft>1000</onleft>
+                    <onright>1000</onright>
+                    <texturenofocus colordiffuse="20FFFFFF">white.png</texturenofocus>
+                    <texturefocus colordiffuse="FFFF6B6B">white.png</texturefocus>
+                </control>
+            </control>
+        </control>
+    </controls>
+</window>

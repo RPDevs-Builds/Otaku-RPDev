@@ -1,3 +1,9 @@
+Changelog v6.4.0 (2026-11-22):
+- Failover, Profiles & Scenes:
+  - NF-11: Mid-stream CURL-56 and stall Debrid CDN failover with auto-resume reconnect and health telemetry
+  - NF-12: Dedicated WindowXML series_profile.xml editor for per-series overrides
+  - NF-14: Kodi 22 native Player.GetChapters merged with AniSkip and IntroDB scene-marker stepping and jump picker
+
 Changelog v6.3.9 (2026-11-22):
 - Year/Season Filters & Idle Sync:
   - Add interactive All/TV/Movie/OVA/ONA format filter rows and counts in browse_year_season and browse_year_filter/*

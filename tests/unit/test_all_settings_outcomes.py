@@ -167,6 +167,7 @@ PLAYBACK_SETTING_IDS = {
     "smartplay.prefer_same_embed",
     "smartplay.prescrape",
     "smartplay.preresolve",
+    "smartplay.stream_failover",
     "animeskip.enable",
     "animeskip.apikey",
     "introdb.enable",
@@ -182,6 +183,7 @@ PLAYBACK_SETTING_IDS = {
     "smartplay.skip_mixed_filler",
     "smartplay.continue_sequel",
     "chapters.python.enable",
+    "smartplay.scene_markers",
     "ffprobe.chapters.enable",
     "ffprobe.path",
     "smartplay.skipintrodialog",
@@ -752,8 +754,8 @@ class TestAllSettingsOutcomes(unittest.TestCase):
         Assert that TESTED_SETTING_IDS contains exactly all 471 declared settings
         from resources/settings.xml, ensuring 0 omitted settings across all categories.
         """
-        self.assertEqual(len(self.declared_settings), 497, f"Expected 497 declared settings, got {len(self.declared_settings)}")
-        self.assertEqual(len(TESTED_SETTING_IDS), 497, f"Expected 497 tested settings in registry, got {len(TESTED_SETTING_IDS)}")
+        self.assertEqual(len(self.declared_settings), 499, f"Expected 499 declared settings, got {len(self.declared_settings)}")
+        self.assertEqual(len(TESTED_SETTING_IDS), 499, f"Expected 499 tested settings in registry, got {len(TESTED_SETTING_IDS)}")
         self.assertEqual(
             set(self.declared_settings.keys()), TESTED_SETTING_IDS,
             "TESTED_SETTING_IDS does not match declared_settings in resources/settings.xml"
@@ -764,7 +766,7 @@ class TestAllSettingsOutcomes(unittest.TestCase):
         self.assertEqual(len(PROVIDERS_SETTING_IDS), 20)
         self.assertEqual(len(SCRAPING_SETTING_IDS), 15)
         self.assertEqual(len(CACHE_SETTING_IDS), 16)
-        self.assertEqual(len(PLAYBACK_SETTING_IDS), 44)
+        self.assertEqual(len(PLAYBACK_SETTING_IDS), 46)
         self.assertEqual(len(SUBTITLES_SETTING_IDS), 29)
         self.assertEqual(len(SORT_AND_FILTER_SETTING_IDS), 43)
         self.assertEqual(len(ACCOUNTS_SETTING_IDS), 40)
@@ -1030,6 +1032,29 @@ class TestAllSettingsOutcomes(unittest.TestCase):
                  patch('resources.lib.ui.player.playList.add', side_effect=lambda url, listitem: queued_fil.append(int(url.rsplit('/', 1)[-1]))):
                 wp_fil.build_playlist()
             self.assertEqual(queued_fil, expected_eps)
+
+        # Behavioral outcome: smartplay.stream_failover gates _attempt_midstream_failover()
+        wp_fail = WatchlistPlayer()
+        wp_fail.mal_id = '52991'
+        wp_fail.episode = 1
+        control.setBool('smartplay.stream_failover', False)
+        with patch.object(database, 'get_playback_failover_context') as mock_ctx:
+            self.assertFalse(wp_fail._attempt_midstream_failover('curl56'))
+            mock_ctx.assert_not_called()
+        control.setBool('smartplay.stream_failover', True)
+        with patch.object(database, 'get_playback_failover_context', return_value={'mal_id': '52991', 'episode': 1, 'candidates': []}) as mock_ctx:
+            self.assertFalse(wp_fail._attempt_midstream_failover('curl56'))
+            mock_ctx.assert_called_once()
+
+        # Behavioral outcome: smartplay.scene_markers gates _publish_scene_markers()
+        wp.ffprobe_chapters = [{'title': 'Opening', 'start': 0.0, 'end': 90.0}]
+        control.setBool('smartplay.scene_markers', True)
+        published_markers = wp._publish_scene_markers()
+        self.assertEqual(len(published_markers), 1)
+        self.assertTrue(control.playerWindow.getProperty('otaku.scene_markers'))
+        control.setBool('smartplay.scene_markers', False)
+        self.assertEqual(wp._publish_scene_markers(), [])
+        self.assertEqual(control.playerWindow.getProperty('otaku.scene_markers'), '')
 
     # ── Category 6: Subtitles (25 settings) ────────────────────────────────────
 
@@ -1313,7 +1338,7 @@ class TestAllSettingsOutcomes(unittest.TestCase):
 
         # Verify clean_settings.get_active_setting_ids() keeps all declared settings (including legacy keys)
         active_ids = clean_settings.get_active_setting_ids(self.settings_xml_path)
-        self.assertEqual(len(active_ids), 497)
+        self.assertEqual(len(active_ids), 499)
         for legacy_key in LEGACY_LEVEL_4_KEYS:
             self.assertIn(legacy_key, active_ids)
 

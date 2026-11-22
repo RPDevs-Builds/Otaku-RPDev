@@ -668,6 +668,51 @@ def test_mock_server_playback(profile_dir, mock_server_url):
                 except Exception:
                     pass
 
+                # Exercise NF-14 scene-marker stepping during live playback
+                # Wait briefly for Kodi VideoPlayer + FullscreenVideo transition to settle before dispatching Addons.ExecuteAddon
+                settle_deadline = time.time() + 4.0
+                while time.time() < settle_deadline:
+                    pt_now = (jsonrpc("Player.GetProperties", {"playerid": pid, "properties": ["time"]}, timeout=3.0).get("result", {}).get("time") or {})
+                    sec_now = (pt_now.get("hours", 0) * 3600) + (pt_now.get("minutes", 0) * 60) + pt_now.get("seconds", 0)
+                    if sec_now >= 1:
+                        break
+                    time.sleep(0.3)
+
+                scene_step_ok = False
+                scene_step_marker = ""
+                scene_step_outro_marker = ""
+                scene_step_time = None
+                step_res = None
+                outro_res = None
+                try:
+                    step_res = jsonrpc("Addons.ExecuteAddon", {"addonid": "plugin.video.otaku.rpdev", "params": ["/step_scene_marker/next"], "wait": True}, timeout=10.0)
+                    step_deadline = time.time() + 8.0
+                    while time.time() < step_deadline:
+                        lbl_res = jsonrpc("XBMC.GetInfoLabels", {"labels": ["Window(Home).Property(otaku.current_scene_marker)", "Window(10000).Property(otaku.current_scene_marker)"]}, timeout=4.0).get("result", {})
+                        scene_step_marker = lbl_res.get("Window(Home).Property(otaku.current_scene_marker)") or lbl_res.get("Window(10000).Property(otaku.current_scene_marker)") or ""
+                        if scene_step_marker == "Main":
+                            break
+                        time.sleep(0.4)
+                    if chapters_info:
+                        # Chapter 'Main' (5s) snaps to keyframe 0s in 10s-GOP sample_chapters.mkv; step to 'Outro' (15s) to cross keyframe @10.44s
+                        outro_res = jsonrpc("Addons.ExecuteAddon", {"addonid": "plugin.video.otaku.rpdev", "params": ["/step_scene_marker/outro"], "wait": True}, timeout=10.0)
+                        outro_deadline = time.time() + 8.0
+                        while time.time() < outro_deadline:
+                            lbl2 = jsonrpc("XBMC.GetInfoLabels", {"labels": ["Window(Home).Property(otaku.current_scene_marker)", "Window(10000).Property(otaku.current_scene_marker)"]}, timeout=4.0).get("result", {})
+                            scene_step_outro_marker = lbl2.get("Window(Home).Property(otaku.current_scene_marker)") or lbl2.get("Window(10000).Property(otaku.current_scene_marker)") or ""
+                            pprops_after = jsonrpc("Player.GetProperties", {"playerid": pid, "properties": ["time"]}, timeout=4.0).get("result", {})
+                            ta = pprops_after.get("time") or {}
+                            scene_step_time = (ta.get("hours", 0) * 3600) + (ta.get("minutes", 0) * 60) + ta.get("seconds", 0)
+                            if scene_step_outro_marker and scene_step_time >= 10:
+                                break
+                            time.sleep(0.4)
+                        scene_step_ok = ("error" not in step_res) and ("error" not in outro_res) and (scene_step_marker == "Main") and (scene_step_time >= 10)
+                    else:
+                        time.sleep(1.5)
+                        scene_step_ok = "error" not in step_res
+                except Exception:
+                    scene_step_ok = False
+
                 active_info = {
                     "ok": True,
                     "playing": True,
@@ -677,6 +722,12 @@ def test_mock_server_playback(profile_dir, mock_server_url):
                     "audiostream": pprops.get("currentaudiostream"),
                     "chapters_count": len(chapters_info),
                     "chapters": chapters_info,
+                    "scene_step_ok": scene_step_ok,
+                    "scene_step_marker": scene_step_marker,
+                    "scene_step_outro_marker": scene_step_outro_marker,
+                    "scene_step_time": scene_step_time,
+                    "step_rpc": step_res,
+                    "outro_rpc": outro_res,
                 }
                 jsonrpc("Player.Stop", {"playerid": pid}, timeout=5.0)
                 stop_deadline = time.time() + 8.0
@@ -777,6 +828,7 @@ def audit_kodi_log(log_path):
         "otaku_errors": [],
         "otaku_warnings": [],
         "otaku_cf_logs": [],
+        "scene_marker_logs": [],
         "clean_audit": True,
     }
     if not os.path.exists(log_path):
@@ -803,6 +855,8 @@ def audit_kodi_log(log_path):
             log_summary["missing_skin_controls"].append(line.strip()[:300])
         if any(w in low for w in ("cloudflare", "flaresolverr", "ddos-guard", "collect tokens", "wcostream", "animepahe")):
             log_summary["otaku_cf_logs"].append(line.strip()[:260])
+        if "scenemarkers:" in low:
+            log_summary["scene_marker_logs"].append(line.strip()[:260])
         if "otaku" in low:
             if " <error> " in low or "error:" in low:
                 log_summary["otaku_errors"].append(line.strip()[:260])
@@ -988,6 +1042,7 @@ def run_kodi_version_suite(ver, mode, fs_url, mock_server_url=None, skip_playbac
             ("filter_select_modal", "source_filter", "filter_select.xml"),
             ("stats_window_modal", "anime_statistics/52991", "stats_window.xml"),
             ("menu_order_modal", "menu_order", "menu_order.xml"),
+            ("series_profile_modal", "series_profile/52991", "series_profile.xml"),
             ("download_manager_modal", "download_manager", "download_manager.xml"),
         ]
         modal_summary = {}
@@ -1171,7 +1226,8 @@ def run_kodi_version_suite(ver, mode, fs_url, mock_server_url=None, skip_playbac
                 tests["playback_hermetic_mock_stream"] = pb_mock
                 print(
                     f"  [Playback:HermeticMKV] playing={pb_mock.get('playing')} "
-                    f"chapters={pb_mock.get('chapters_count', 0)} ({pb_mock.get('startup_ms', 0)}ms)"
+                    f"chapters={pb_mock.get('chapters_count', 0)} scene_step_ok={pb_mock.get('scene_step_ok')} "
+                    f"({pb_mock.get('startup_ms', 0)}ms)"
                 )
 
             if mode in ("live", "all"):

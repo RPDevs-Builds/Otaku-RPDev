@@ -256,6 +256,14 @@ class WatchlistPlayer(player):
         self.preferred_subtitle_keyword = control.getInt('subtitles.keywords')
 
         self.ffprobe_chapters = []
+        self.scene_markers = []
+        self._skipintro_source = ''
+        self._skipoutro_source = ''
+        self.recap_start = 0
+        self.recap_end = 0
+        self.post_credits_start = 0
+        self.post_credits_end = 0
+        self._failover_triggered = False
         self._playback_stopped = False
         self._playback_ended = False
         self._user_stopped_or_errored = False
@@ -325,6 +333,7 @@ class WatchlistPlayer(player):
                 if self.introdb_enable:
                     self.process_introdb()
                 self._skip_processed = True
+                self._publish_scene_markers()
             except Exception as e:
                 control.log(f'Error processing skip times: {e}', 'error')
 
@@ -343,6 +352,132 @@ class WatchlistPlayer(player):
             'otaku.preResolved_data',
         ):
             control.playerWindow.clearProperty(prop)
+
+    @staticmethod
+    def _clear_scene_markers():
+        """Clear published NF-14 scene-marker properties from playerWindow."""
+        for prop in ('otaku.scene_markers', 'otaku.current_scene_marker'):
+            control.playerWindow.clearProperty(prop)
+
+    def _publish_scene_markers(self):
+        """Build unified chapter + API scene markers and publish compact JSON to playerWindow (<8 KB)."""
+        if not control.getBool('smartplay.scene_markers', default=True):
+            self._clear_scene_markers()
+            return []
+        markers = build_scene_markers(
+            self.ffprobe_chapters,
+            aniskip_start=self.skipintro_start if self.skipintro_aniskip else 0,
+            aniskip_end=self.skipintro_end if self.skipintro_aniskip else 0,
+            aniskip_source=self._skipintro_source or ('chapter' if self.skipintro_from_chapters else ''),
+            outro_start=self.skipoutro_start if self.skipoutro_aniskip else 0,
+            outro_end=self.skipoutro_end if self.skipoutro_aniskip else 0,
+            outro_source=self._skipoutro_source or ('chapter' if self.skipoutro_from_chapters else ''),
+            recap_start=getattr(self, 'recap_start', 0) or 0,
+            recap_end=getattr(self, 'recap_end', 0) or 0,
+            post_credits_start=getattr(self, 'post_credits_start', 0) or 0,
+            post_credits_end=getattr(self, 'post_credits_end', 0) or 0,
+            total_time=self.total_time or 0,
+        )
+        self.scene_markers = markers
+        if not markers:
+            self._clear_scene_markers()
+            return []
+        trimmed = list(markers)
+        while trimmed:
+            payload = json.dumps(trimmed, separators=(',', ':'))
+            if len(payload.encode('utf-8', errors='replace')) <= 8192:
+                control.playerWindow.setProperty('otaku.scene_markers', payload)
+                break
+            trimmed.pop()
+        return markers
+
+    def _attempt_midstream_failover(self, reason='stream_error'):
+        """Attempt seamless mid-stream Debrid/CDN reconnect at current playback position (NF-11)."""
+        if not control.getBool('smartplay.stream_failover', default=True):
+            return False
+        if getattr(self, '_failover_triggered', False) or getattr(self, '_user_stopped_or_errored', False):
+            return False
+        if not self.mal_id:
+            return False
+        ep_str = str(self.episode if self.episode not in (None, '') else 1)
+        fail_key = f"otaku.failover_attempts_{self.mal_id}_{ep_str}"
+        try:
+            attempts = int(control.playerWindow.getProperty(fail_key) or 0)
+        except (TypeError, ValueError):
+            attempts = 0
+        if attempts >= 2:
+            return False
+
+        self._failover_triggered = True
+        import urllib.parse
+        from resources.lib.ui import domains, utils
+        ctx = database.get_playback_failover_context(self.mal_id, ep_str)
+        if not isinstance(ctx, dict):
+            return False
+
+        failing_host = str(ctx.get('active_host') or '').lower()
+        if not failing_host:
+            active_src_url = ''
+            try:
+                active_src_url = self.getPlayingFile()
+            except Exception:
+                active_src_url = str(ctx.get('active_url') or self.path or '')
+            if active_src_url and active_src_url.lower().startswith(('http://', 'https://')):
+                failing_host = urllib.parse.urlparse(active_src_url.split('|', 1)[0]).netloc.lower()
+        if failing_host:
+            domains.adaptive_circuit_breaker.record_failure(failing_host, category='debrid')
+        elif ctx.get('debrid_provider'):
+            domains.adaptive_circuit_breaker.record_failure(str(ctx['debrid_provider']).lower(), category='debrid')
+
+        from resources.lib.windows import resolver as resolver_mod
+        backup = resolver_mod.resolve_failover_candidate(
+            ctx,
+            mal_id=self.mal_id,
+            episode=ep_str,
+            failing_host=failing_host,
+        )
+        if not backup or not backup.get('url'):
+            return False
+
+        control.playerWindow.setProperty(fail_key, str(attempts + 1))
+        resume_pos = max(0, int(self.current_time or 0) - 3)
+        b_src = backup.get('source') or {}
+        b_prov = b_src.get('debrid_provider') or b_src.get('provider') or 'backup'
+        b_url = str(backup['url'])
+        b_host = urllib.parse.urlparse(b_url.split('|', 1)[0]).netloc.lower()
+        updated_ctx = dict(ctx)
+        updated_ctx['active_url'] = b_url
+        updated_ctx['active_host'] = b_host
+        updated_ctx['debrid_provider'] = b_src.get('debrid_provider', '')
+        database.save_playback_failover_context(self.mal_id, ep_str, updated_ctx)
+
+        pr_payload = json.dumps({
+            'headers': backup.get('headers') or {},
+            'source': b_src,
+            'sub': backup.get('sub') or [],
+        })
+        if len(pr_payload.encode('utf-8', errors='replace')) <= 65536:
+            control.playerWindow.setProperty('otaku.preResolved_url', b_url)
+            control.playerWindow.setProperty('otaku.preResolved_malId', str(self.mal_id))
+            control.playerWindow.setProperty('otaku.preResolved_episode', ep_str)
+            control.playerWindow.setProperty('otaku.preResolved_data', pr_payload)
+
+        control.notify(
+            control.ADDON_NAME,
+            f"Stream dropped ({reason}); reconnecting via {b_prov} at {utils.format_time(resume_pos)}",
+            time=4000,
+            sound=False,
+        )
+        is_movie = (self.media_type == 'movie') or (ctx.get('media_type') == 'movie')
+        route_path = (
+            f"play_movie/{self.mal_id}/?resume={resume_pos}&auto_resume=1"
+            if is_movie
+            else f"play/{self.mal_id}/{ep_str}?resume={resume_pos}&auto_resume=1"
+        )
+        self._playback_stopped = True
+        self._clear_scene_markers()
+        control.execute(f"PlayMedia(plugin://{control.ADDON_ID}/{route_path})")
+        return True
 
     def _resolve_resume_target_file(self):
         """Return a safe non-HTTP(S) file path for Files.SetFileDetails (prevents EOF CCurlFile::Stat HTTP 22 errors)."""
@@ -366,6 +501,7 @@ class WatchlistPlayer(player):
         self._playback_stopped = True
         self._user_stopped_or_errored = True
         self._clear_preresolved_properties()
+        self._clear_scene_markers()
         control.closeAllDialogs()
         playList.clear()
         try:
@@ -416,8 +552,17 @@ class WatchlistPlayer(player):
         control.clean_memory()
 
     def onPlayBackEnded(self):
+        if (
+            not getattr(self, '_user_stopped_or_errored', False)
+            and not getattr(self, '_failover_triggered', False)
+            and (getattr(self, 'total_time', 0) or 0) > 120
+            and 15 < (getattr(self, 'current_time', 0) or 0) < (self.total_time * 0.85)
+        ):
+            if self._attempt_midstream_failover('premature_eof'):
+                return
         self._playback_stopped = True
         self._playback_ended = True
+        self._clear_scene_markers()
         control.closeAllDialogs()
         # Only purge temp subs when no next playlist episode is queued; during Zero-Wait
         # transitions, the incoming episode writes its own temp subs concurrently and
@@ -453,9 +598,18 @@ class WatchlistPlayer(player):
         control.clean_memory()
 
     def onPlayBackError(self):
+        if (
+            not getattr(self, '_user_stopped_or_errored', False)
+            and not getattr(self, '_failover_triggered', False)
+            and (getattr(self, 'total_time', 0) or 0) > 60
+            and (getattr(self, 'current_time', 0) or 0) > 15
+        ):
+            if self._attempt_midstream_failover('playback_error'):
+                return
         self._playback_stopped = True
         self._user_stopped_or_errored = True
         self._clear_preresolved_properties()
+        self._clear_scene_markers()
         control.closeAllDialogs()
         playList.clear()
         try:
@@ -748,17 +902,34 @@ class WatchlistPlayer(player):
                 if not (self.skipintro_aniskip or self.skipoutro_aniskip):
                     self.process_ffprobe_chapter_skips()
 
+            self._publish_scene_markers()
+
             # Unified playback monitoring loop: handles intro skip, watched %, and outro/playing next concurrently
             self._run_unified_episode_monitor()
         else:
+            self.query_demuxer_chapters()
+            self._publish_scene_markers()
             self.onWatchedPercent()
 
-        # Continue monitoring until playback finishes (responsive 200ms slices)
+        # Continue monitoring until playback finishes (responsive 200ms slices + NF-11 stall watchdog)
+        stagnant_cycles = 0
+        last_pos = int(self.current_time or 0)
         while not self._playback_stopped and self.isPlaying():
             try:
-                self.current_time = int(self.getTime())
+                cur_pos = int(self.getTime())
+                self.current_time = cur_pos
             except RuntimeError:
                 break
+            paused = bool(xbmc.getCondVisibility("Player.Paused"))
+            if not paused and (self.total_time or 0) > 120 and abs(cur_pos - last_pos) < 1:
+                stagnant_cycles += 1
+                if stagnant_cycles >= 4:
+                    if self._attempt_midstream_failover('buffer_stall'):
+                        break
+                    stagnant_cycles = 0
+            else:
+                stagnant_cycles = 0
+                last_pos = cur_pos
             for _ in range(25):  # 25 x 200ms = 5000ms max, checks stop/abort every 200ms
                 if self._playback_stopped or not self.isPlaying() or (self._monitor and self._monitor.abortRequested()):
                     break
@@ -768,10 +939,11 @@ class WatchlistPlayer(player):
         if self._monitor:
             del self._monitor
 
-        # Clear pre-resolved stream properties only on explicit stop/error or single-item playback.
-        # Do NOT require _playback_ended here: Kodi's isPlaying() flips False on natural EOF
-        # before the async onPlayBackEnded() callback is dispatched.
-        if getattr(self, '_user_stopped_or_errored', False) or playList.size() <= 1:
+        # Clear pre-resolved stream properties only on explicit stop/error or single-item playback
+        # (never wipe fresh preResolved_* properties prepared by active mid-stream NF-11 failover).
+        if not getattr(self, '_failover_triggered', False) and (
+            getattr(self, '_user_stopped_or_errored', False) or playList.size() <= 1
+        ):
             self._clear_preresolved_properties()
 
     # ── Skip Intro / Outro / Playing Next ──────────────────────────────
@@ -811,11 +983,12 @@ class WatchlistPlayer(player):
                 if self.current_time > intro_end:
                     intro_handled = True
                 elif self.current_time >= intro_start:
+                    next_end = self._contiguous_skip_end(intro_end) if control.getBool('smartplay.scene_markers', default=True) else None
                     if self.skipintro_aniskip_auto and self.skipintro_aniskip:
-                        self.seekTime(intro_end)
-                        control.log(f'Auto-skipped intro: {intro_start}-{intro_end}', 'info')
+                        self.seekTime(next_end or intro_end)
+                        control.log(f'Auto-skipped intro: {intro_start}-{next_end or intro_end}', 'info')
                     else:
-                        PlayerDialogs().show_skip_intro(self.skipintro_aniskip, intro_end)
+                        PlayerDialogs().show_skip_intro(self.skipintro_aniskip, intro_end, next_marker_end=next_end)
                     intro_handled = True
 
             # 2. Watched Percentage check & 70% Background Pre-Scraping
@@ -1359,6 +1532,26 @@ class WatchlistPlayer(player):
                         'info',
                     )
 
+    def _apply_skip_interval(self, kind, interval, source_label):
+        """Record intro or outro skip bounds with series/global offset and source tag."""
+        if not isinstance(interval, dict) or 'startTime' not in interval or 'endTime' not in interval:
+            return False
+        if kind == 'intro':
+            self.skipintro_start = max(0, int(interval['startTime']) + self.skipintro_offset)
+            self.skipintro_end = int(interval['endTime']) + self.skipintro_offset
+            self.skipintro_aniskip = True
+            self.skipintro_from_chapters = False
+            self._skipintro_source = source_label
+            return True
+        if kind == 'outro':
+            self.skipoutro_start = max(0, int(interval['startTime']) + self.skipoutro_offset)
+            self.skipoutro_end = int(interval['endTime']) + self.skipoutro_offset
+            self.skipoutro_aniskip = True
+            self.skipoutro_from_chapters = False
+            self._skipoutro_source = source_label
+            return True
+        return False
+
     def process_aniskip(self):
         # AniSkip integration takes precedence over chapter extraction fallback
         if self.skipintro_aniskip_enable and (not self.skipintro_aniskip or self.skipintro_from_chapters):
@@ -1366,24 +1559,16 @@ class WatchlistPlayer(player):
             if not skipintro_aniskip_res or not skipintro_aniskip_res.get('results'):
                 skipintro_aniskip_res = aniskip.get_skip_times(self.mal_id, self.episode, 'mixed-op')
             if skipintro_aniskip_res and skipintro_aniskip_res.get('results'):
-                skip_times = skipintro_aniskip_res['results'][0]['interval']
-                self.skipintro_start = max(0, int(skip_times['startTime']) + self.skipintro_offset)
-                self.skipintro_end = int(skip_times['endTime']) + self.skipintro_offset
-                self.skipintro_aniskip = True
-                self.skipintro_from_chapters = False
-                control.log(f'AniSkip: applied intro {self.skipintro_start}-{self.skipintro_end}s (precedence over chapters)', 'info')
+                if self._apply_skip_interval('intro', skipintro_aniskip_res['results'][0]['interval'], 'aniskip'):
+                    control.log(f'AniSkip: applied intro {self.skipintro_start}-{self.skipintro_end}s (precedence over chapters)', 'info')
 
         if self.skipoutro_aniskip_enable and (not self.skipoutro_aniskip or self.skipoutro_from_chapters):
             skipoutro_aniskip_res = aniskip.get_skip_times(self.mal_id, self.episode, 'ed')
             if not skipoutro_aniskip_res or not skipoutro_aniskip_res.get('results'):
                 skipoutro_aniskip_res = aniskip.get_skip_times(self.mal_id, self.episode, 'mixed-ed')
             if skipoutro_aniskip_res and skipoutro_aniskip_res.get('results'):
-                skip_times = skipoutro_aniskip_res['results'][0]['interval']
-                self.skipoutro_start = max(0, int(skip_times['startTime']) + self.skipoutro_offset)
-                self.skipoutro_end = int(skip_times['endTime']) + self.skipoutro_offset
-                self.skipoutro_aniskip = True
-                self.skipoutro_from_chapters = False
-                control.log(f'AniSkip: applied outro {self.skipoutro_start}-{self.skipoutro_end}s (precedence over chapters)', 'info')
+                if self._apply_skip_interval('outro', skipoutro_aniskip_res['results'][0]['interval'], 'aniskip'):
+                    control.log(f'AniSkip: applied outro {self.skipoutro_start}-{self.skipoutro_end}s (precedence over chapters)', 'info')
 
     def process_animeskip(self):
         # Anime-Skip secondary fallback when AniSkip returns 404 or empty results
@@ -1408,22 +1593,14 @@ class WatchlistPlayer(player):
         if need_intro:
             intro_res = anime_skip.get_skip_times(self.mal_id, self.episode, 'op', client_id=self.animeskip_apikey)
             if intro_res and intro_res.get('results'):
-                skip_times = intro_res['results'][0]['interval']
-                self.skipintro_start = max(0, int(skip_times['startTime']) + self.skipintro_offset)
-                self.skipintro_end = int(skip_times['endTime']) + self.skipintro_offset
-                self.skipintro_aniskip = True
-                self.skipintro_from_chapters = False
-                control.log(f'Anime-Skip: applied intro {self.skipintro_start}-{self.skipintro_end}s (fallback from AniSkip)', 'info')
+                if self._apply_skip_interval('intro', intro_res['results'][0]['interval'], 'animeskip'):
+                    control.log(f'Anime-Skip: applied intro {self.skipintro_start}-{self.skipintro_end}s (fallback from AniSkip)', 'info')
 
         if need_outro:
             outro_res = anime_skip.get_skip_times(self.mal_id, self.episode, 'ed', client_id=self.animeskip_apikey)
             if outro_res and outro_res.get('results'):
-                skip_times = outro_res['results'][0]['interval']
-                self.skipoutro_start = max(0, int(skip_times['startTime']) + self.skipoutro_offset)
-                self.skipoutro_end = int(skip_times['endTime']) + self.skipoutro_offset
-                self.skipoutro_aniskip = True
-                self.skipoutro_from_chapters = False
-                control.log(f'Anime-Skip: applied outro {self.skipoutro_start}-{self.skipoutro_end}s (fallback from AniSkip)', 'info')
+                if self._apply_skip_interval('outro', outro_res['results'][0]['interval'], 'animeskip'):
+                    control.log(f'Anime-Skip: applied outro {self.skipoutro_start}-{self.skipoutro_end}s (fallback from AniSkip)', 'info')
 
     def process_introdb(self):
         # IntroDB tertiary fallback when AniSkip and Anime-Skip return 404 or empty results
@@ -1446,22 +1623,14 @@ class WatchlistPlayer(player):
         if need_intro:
             intro_res = introdb.get_skip_times(self.mal_id, self.episode, 'op')
             if intro_res and intro_res.get('results'):
-                skip_times = intro_res['results'][0]['interval']
-                self.skipintro_start = max(0, int(skip_times['startTime']) + self.skipintro_offset)
-                self.skipintro_end = int(skip_times['endTime']) + self.skipintro_offset
-                self.skipintro_aniskip = True
-                self.skipintro_from_chapters = False
-                control.log(f'IntroDB: applied intro {self.skipintro_start}-{self.skipintro_end}s (fallback from AniSkip/Anime-Skip)', 'info')
+                if self._apply_skip_interval('intro', intro_res['results'][0]['interval'], 'introdb'):
+                    control.log(f'IntroDB: applied intro {self.skipintro_start}-{self.skipintro_end}s (fallback from AniSkip/Anime-Skip)', 'info')
 
         if need_outro:
             outro_res = introdb.get_skip_times(self.mal_id, self.episode, 'ed')
             if outro_res and outro_res.get('results'):
-                skip_times = outro_res['results'][0]['interval']
-                self.skipoutro_start = max(0, int(skip_times['startTime']) + self.skipoutro_offset)
-                self.skipoutro_end = int(skip_times['endTime']) + self.skipoutro_offset
-                self.skipoutro_aniskip = True
-                self.skipoutro_from_chapters = False
-                control.log(f'IntroDB: applied outro {self.skipoutro_start}-{self.skipoutro_end}s (fallback from AniSkip/Anime-Skip)', 'info')
+                if self._apply_skip_interval('outro', outro_res['results'][0]['interval'], 'introdb'):
+                    control.log(f'IntroDB: applied outro {self.skipoutro_start}-{self.skipoutro_end}s (fallback from AniSkip/Anime-Skip)', 'info')
 
         extras = introdb.get_extra_segments(self.mal_id, self.episode)
         if extras.get('recap'):
@@ -1490,6 +1659,25 @@ class WatchlistPlayer(player):
                 self.skipoutro_start = embed_skipoutro_start + self.skipoutro_offset
                 self.skipoutro_end = embed_skipoutro_end + self.skipoutro_offset
                 self.skipoutro_aniskip = True
+
+    def _contiguous_skip_end(self, default_end):
+        """Extend intro skip target if contiguous Recap + Intro segments sit back-to-back."""
+        markers = getattr(self, 'scene_markers', None) or self._publish_scene_markers()
+        if not markers:
+            return None
+        cur = int(getattr(self, 'current_time', 0) or 0)
+        cur_marker = None
+        for m in markers:
+            if m['start'] - 2 <= cur <= m['end']:
+                cur_marker = m
+                break
+        if not cur_marker or cur_marker.get('kind') not in ('recap', 'intro'):
+            return None
+        end_target = float(cur_marker.get('end') or default_end or 0)
+        for m in markers:
+            if m['start'] >= cur_marker['end'] - 1 and m['start'] - end_target <= 12.0 and m.get('kind') in ('recap', 'intro'):
+                end_target = max(end_target, float(m.get('end') or end_target))
+        return int(end_target) if end_target > (default_end or 0) else None
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1575,12 +1763,13 @@ class PlayerDialogs(xbmc.Player):
                         del dlg
 
     @staticmethod
-    def show_skip_intro(skipintro_aniskip, skipintro_end):
+    def show_skip_intro(skipintro_aniskip, skipintro_end, next_marker_end=None):
         from resources.lib.windows.skip_intro import SkipIntro
         args = {
             'item_type': 'skip_intro',
             'skipintro_aniskip': skipintro_aniskip,
-            'skipintro_end': skipintro_end
+            'skipintro_end': skipintro_end,
+            'next_marker_end': next_marker_end,
         }
 
         dialog_mapping = {
@@ -1664,3 +1853,207 @@ class Monitor(xbmc.Monitor):
                 return
             if not self._playback_started:
                 self.playbackerror = True
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  NF-14 - Native Chapter & API Scene-Marker Aggregation / Stepping
+# ═══════════════════════════════════════════════════════════════════════════
+
+def _classify_chapter_kind(title):
+    low = str(title or '').strip().lower()
+    if any(k in low for k in ('prologue', 'cold open', 'before title', '序章')):
+        return 'prologue'
+    if any(k in low for k in ('recap', 'previously', 'あらすじ')):
+        return 'recap'
+    if source_utils.chapter_title_matches_intro(low):
+        return 'intro'
+    if any(k in low for k in ('preview', 'next episode', 'next time', '次回予告')):
+        return 'preview'
+    if any(k in low for k in ('post credit', 'post-credit', 'epilogue', 'omake')):
+        return 'post_credits'
+    if source_utils.chapter_title_matches_outro(low):
+        return 'outro'
+    return 'chapter'
+
+
+def build_scene_markers(
+    chapters,
+    aniskip_start=0,
+    aniskip_end=0,
+    aniskip_source='',
+    outro_start=0,
+    outro_end=0,
+    outro_source='',
+    recap_start=0,
+    recap_end=0,
+    post_credits_start=0,
+    post_credits_end=0,
+    total_time=0,
+):
+    """Merge demuxer chapters with AniSkip/Anime-Skip/IntroDB bounds into chronological scene markers."""
+    markers = []
+    for idx, ch in enumerate(chapters or (), 1):
+        if not isinstance(ch, dict):
+            continue
+        start = max(0.0, float(ch.get('start', 0) or 0))
+        end = float(ch.get('end', 0) or 0)
+        if end <= start and total_time and idx == len(chapters):
+            end = float(total_time)
+        title = str(ch.get('title') or f"Chapter {idx}").strip()
+        markers.append({
+            'title': title,
+            'start': round(start, 2),
+            'end': round(max(start, end), 2),
+            'kind': _classify_chapter_kind(title),
+            'source': 'chapter',
+        })
+
+    api_windows = []
+    if aniskip_end and float(aniskip_end) > float(aniskip_start or 0):
+        api_windows.append((float(aniskip_start or 0), float(aniskip_end), 'Opening', 'intro', aniskip_source or 'aniskip'))
+    if outro_end and float(outro_end) > float(outro_start or 0):
+        api_windows.append((float(outro_start or 0), float(outro_end), 'Ending', 'outro', outro_source or 'aniskip'))
+    if recap_end and float(recap_end) > float(recap_start or 0):
+        api_windows.append((float(recap_start or 0), float(recap_end), 'Recap', 'recap', 'introdb'))
+    if post_credits_end and float(post_credits_end) > float(post_credits_start or 0):
+        api_windows.append((float(post_credits_start or 0), float(post_credits_end), 'Post-Credits', 'post_credits', 'introdb'))
+
+    for w_start, w_end, w_title, w_kind, w_src in api_windows:
+        if w_src == 'chapter':
+            continue
+        merged = False
+        for m in markers:
+            if m['kind'] == w_kind or abs(m['start'] - w_start) <= 12.0:
+                m['start'] = round(w_start, 2)
+                m['end'] = round(w_end, 2)
+                if w_src not in m['source']:
+                    m['source'] = f"{m['source']}+{w_src}"
+                merged = True
+                break
+        if not merged:
+            markers.append({
+                'title': w_title,
+                'start': round(w_start, 2),
+                'end': round(w_end, 2),
+                'kind': w_kind,
+                'source': w_src,
+            })
+
+    markers.sort(key=lambda m: (m['start'], m['end']))
+    return markers
+
+
+def find_next_scene_marker(markers, current_time, min_step=2.0):
+    """Return earliest marker starting cleanly ahead of *current_time*."""
+    cur = float(current_time or 0)
+    for m in sorted(markers or (), key=lambda x: float(x.get('start', 0) or 0)):
+        if float(m.get('start', 0) or 0) > cur + float(min_step):
+            return m
+    return None
+
+
+def find_prev_scene_marker(markers, current_time, restart_threshold=4.0):
+    """Return previous marker before *current_time* (or start of current marker if past threshold)."""
+    cur = float(current_time or 0)
+    ordered = sorted(markers or (), key=lambda x: float(x.get('start', 0) or 0))
+    prior = [m for m in ordered if float(m.get('start', 0) or 0) < cur - float(restart_threshold)]
+    if prior:
+        return prior[-1]
+    return ordered[0] if ordered else None
+
+
+def format_scene_marker_label(marker):
+    """Format a compact [MM:SS] Title (Source) display string for jump menus."""
+    start_s = max(0, int(float(marker.get('start', 0) or 0)))
+    mm, ss = divmod(start_s, 60)
+    title = str(marker.get('title') or 'Scene').strip()
+    src = str(marker.get('source') or 'chapter').upper()
+    return f"[{mm:02d}:{ss:02d}] {title} ({src})"
+
+
+def fetch_live_scene_markers():
+    """Return active scene markers from playerWindow, or fall back to live Kodi Player.GetChapters."""
+    raw = control.playerWindow.getProperty('otaku.scene_markers')
+    if raw:
+        parsed = control.loads_json(raw, default=[])
+        if isinstance(parsed, list) and parsed:
+            return parsed
+    try:
+        active_res = control.jsonrpc({'jsonrpc': '2.0', 'method': 'Player.GetActivePlayers', 'id': 1})
+        active_players = (active_res or {}).get('result') or []
+        vid_players = [ap for ap in active_players if ap.get('type') == 'video']
+        pid = (vid_players or active_players or [{}])[0].get('playerid', 1)
+        res = control.jsonrpc({'jsonrpc': '2.0', 'method': 'Player.GetChapters', 'params': {'playerid': pid}, 'id': 1})
+        raw_ch = ((res or {}).get('result') or {}).get('chapters') or []
+        control.log(f"SceneMarkers: live pid={pid!r} active={active_players!r} raw_ch={len(raw_ch)}", 'info')
+        parsed_ch = []
+        for idx, ch in enumerate(raw_ch, 1):
+            t_raw = ch.get('time')
+            if isinstance(t_raw, dict):
+                st = (
+                    float(t_raw.get('hours', 0) or 0) * 3600.0
+                    + float(t_raw.get('minutes', 0) or 0) * 60.0
+                    + float(t_raw.get('seconds', 0) or 0)
+                    + (float(t_raw.get('milliseconds', 0) or 0) / 1000.0)
+                )
+            else:
+                st = float(t_raw or 0)
+            parsed_ch.append({'title': ch.get('title') or ch.get('name') or f"Chapter {idx}", 'start': st, 'end': 0.0})
+        parsed_ch.sort(key=lambda x: x['start'])
+        for idx in range(len(parsed_ch) - 1):
+            parsed_ch[idx]['end'] = parsed_ch[idx + 1]['start']
+        return build_scene_markers(parsed_ch)
+    except Exception as e:
+        control.log(f"SceneMarkers: fetch_live_scene_markers failed: {e}", 'warning')
+        return []
+
+
+def handle_scene_marker_action(action='menu'):
+    """Execute next/prev/intro/outro step or interactive chapter jump dialog for active player."""
+    markers = fetch_live_scene_markers()
+    if not markers:
+        control.log(f"SceneMarkers: No scene markers or chapters found for action={action!r}", 'info')
+        control.notify(control.ADDON_NAME, "No scene markers or chapters found for current video", time=3000, sound=False)
+        return False
+
+    p = xbmc.Player()
+    if not p.isPlaying():
+        control.log(f"SceneMarkers: No active video playback for action={action!r}", 'info')
+        control.notify(control.ADDON_NAME, "No active video playback", time=2500, sound=False)
+        return False
+
+    try:
+        cur_time = float(p.getTime() or 0)
+    except Exception:
+        cur_time = 0.0
+
+    act = str(action or 'menu').strip().lower()
+    target = None
+    if act == 'next':
+        target = find_next_scene_marker(markers, cur_time)
+    elif act == 'prev':
+        target = find_prev_scene_marker(markers, cur_time)
+    elif act in ('intro', 'outro', 'recap'):
+        for m in markers:
+            if m.get('kind') == act:
+                target = {'start': float(m.get('end') or m.get('start') or 0), 'title': f"Skip {m.get('title')}"}
+                break
+    else:
+        labels = [format_scene_marker_label(m) for m in markers]
+        pick = control.select_dialog(f"{control.ADDON_NAME}: Jump to Scene / Chapter", labels)
+        if pick < 0 or pick >= len(markers):
+            return False
+        target = markers[pick]
+
+    if not target:
+        control.log(f"SceneMarkers: No {act!r} target remaining at {cur_time:.1f}s (markers={len(markers)})", 'info')
+        control.notify(control.ADDON_NAME, f"No {act} scene marker remaining", time=2500, sound=False)
+        return False
+
+    seek_pos = max(0.0, float(target.get('start', 0) or 0))
+    p.seekTime(seek_pos)
+    mm, ss = divmod(int(seek_pos), 60)
+    control.playerWindow.setProperty('otaku.current_scene_marker', str(target.get('title') or ''))
+    control.log(f"SceneMarkers: action={act!r} from={cur_time:.1f}s -> {target.get('title')!r} ({seek_pos:.1f}s)", 'info')
+    control.notify(control.ADDON_NAME, f"Scene: {target.get('title', 'Chapter')} ({mm:02d}:{ss:02d})", time=2500, sound=False)
+    return True

@@ -3201,4 +3201,75 @@ def verify_sqlite_integrity(db_path, required_tables=('anime',)):
         return False, f"sqlite_error:{e}"
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+#  Playback Failover Context Storage (NF-11, offloads >64KB from Window props)
+# ═══════════════════════════════════════════════════════════════════════════
+
+def _pb_failover_key(mal_id, episode):
+    return f"otaku_pb_failover_{mal_id}_{episode}"
+
+
+def save_playback_failover_context(mal_id, episode, payload):
+    """Store compact ordered source candidates and params in cache.db for mid-stream NF-11 failover."""
+    if not mal_id or not isinstance(payload, dict):
+        return False
+    ep = str(episode if episode is not None else 1)
+    try:
+        slim_sources = []
+        for s in (payload.get('sources') or [])[:30]:
+            if not isinstance(s, dict):
+                continue
+            slim_sources.append({
+                'provider': s.get('provider', ''),
+                'type': s.get('type', ''),
+                'debrid_provider': s.get('debrid_provider', ''),
+                'hash': s.get('hash', ''),
+                'magnet': s.get('magnet', ''),
+                'release_title': s.get('release_title', ''),
+                'name': s.get('name', ''),
+                'quality': s.get('quality', 0),
+                'info': list(s.get('info') or []),
+                'size': s.get('size', ''),
+                'filename': s.get('filename', ''),
+                'episode_re': s.get('episode_re', ''),
+                'subs': list(s.get('subs') or [])[:4] if s.get('subs') else [],
+            })
+        doc = {
+            'mal_id': str(mal_id),
+            'episode': ep,
+            'candidate_index': int(payload.get('candidate_index') or 0),
+            'active_url': str(payload.get('active_url') or ''),
+            'active_host': str(payload.get('active_host') or ''),
+            'debrid_provider': str(payload.get('debrid_provider') or ''),
+            'media_type': str(payload.get('media_type') or 'episode'),
+            'sources': slim_sources,
+            'saved_at': int(time.time()),
+        }
+        cache_insert(_pb_failover_key(mal_id, ep), json.dumps(doc))
+        return True
+    except Exception as e:
+        control.log(f"save_playback_failover_context error: {e}", level='debug')
+        return False
+
+
+def get_playback_failover_context(mal_id, episode, max_age_seconds=14400):
+    """Retrieve stored mid-stream failover context from cache.db if fresh."""
+    if not mal_id:
+        return None
+    ep = str(episode if episode is not None else 1)
+    try:
+        row = cache_get(_pb_failover_key(mal_id, ep))
+        if not row or not row.get('value'):
+            return None
+        doc = control.loads_json(row['value'], default={})
+        if not isinstance(doc, dict) or not doc.get('sources'):
+            return None
+        saved_at = int(doc.get('saved_at') or 0)
+        if saved_at and (time.time() - saved_at) > max_age_seconds:
+            return None
+        return doc
+    except Exception:
+        return None
+
+
 

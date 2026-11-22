@@ -1771,7 +1771,21 @@ msgctxt "#30434"
 msgid "HTTP/2 Status"
 msgstr ""
 
+msgctxt "#30435"
+msgid "Mid-Stream Debrid & CDN Failover"
+msgstr ""
 
+msgctxt "#30436"
+msgid "Automatically switch to an alternate Debrid provider, CDN mirror, or source at the current timestamp on mid-stream CURL-56 resets or buffer stalls (Default: Enabled)."
+msgstr ""
+
+msgctxt "#30437"
+msgid "Kodi 22 Native Scene-Marker Stepping"
+msgstr ""
+
+msgctxt "#30438"
+msgid "Merge native Kodi 22 demuxer chapters with AniSkip/IntroDB bounds into unified scene markers for multi-segment skip and chapter stepping (Default: Enabled)."
+msgstr ""
 
 msgctxt "#30439"
 msgid "Large"

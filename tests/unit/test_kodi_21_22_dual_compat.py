@@ -64,6 +64,7 @@ from resources.lib.windows.still_watching import StillWatchingXML
 from resources.lib.windows.textviewer import TextViewerXML
 from resources.lib.windows.wlf_auth import WatchlistFlavorAuth
 from resources.lib.windows.playing_next import PlayingNext
+from resources.lib.windows.series_profile import SeriesProfileDialog
 from resources.lib.windows.skip_intro import SkipIntro
 
 
@@ -443,7 +444,7 @@ class TestSkinControlValidationAcrossAllXMLs(unittest.TestCase):
 
     def test_all_40_skin_templates_controls_and_types(self):
         xml_files = glob.glob(os.path.join(SKINS_1080I_DIR, '*.xml'))
-        self.assertEqual(len(xml_files), 41, "Expected exactly 41 skin XML templates")
+        self.assertEqual(len(xml_files), 42, "Expected exactly 42 skin XML templates")
         for xml_path in xml_files:
             fname = os.path.basename(xml_path)
             controls = parse_skin_xml(fname)
@@ -489,9 +490,10 @@ class TestSkinControlValidationAcrossAllXMLs(unittest.TestCase):
                 TextViewerXML('textviewer.xml', control.ADDON_PATH),
                 WatchlistFlavorAuth('wlf_auth_anilist.xml', control.ADDON_PATH, flavor='anilist'),
                 PlayingNext('playing_next_default.xml', control.ADDON_PATH, actionArgs={'item_information': {}}),
+                SeriesProfileDialog('series_profile.xml', control.ADDON_PATH, mal_id=52991),
                 SkipIntro('skip_intro_default.xml', control.ADDON_PATH, actionArgs={'item_information': {}, 'skipintro_end': 90, 'skipintro_aniskip': True}),
             ]
-            self.assertEqual(len(instances), 16)
+            self.assertEqual(len(instances), 17)
             for dlg in instances:
                 self.assertIsInstance(dlg, xbmcgui.WindowXMLDialog)
                 self.assertTrue(callable(getattr(dlg, 'close', None)))

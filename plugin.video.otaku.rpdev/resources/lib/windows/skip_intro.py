@@ -19,6 +19,7 @@ class SkipIntro(BaseWindow):
         self.current_time = 0
         self.skipintro_end_skip_time = actionArgs['skipintro_end'] if actionArgs else 90
         self.skipintro_aniskip = actionArgs['skipintro_aniskip'] if actionArgs else False
+        self.next_marker_end = actionArgs.get('next_marker_end') if isinstance(actionArgs, dict) else None
         self.closed = False
         self.actioned = None
 
@@ -63,8 +64,9 @@ class SkipIntro(BaseWindow):
     def handle_action(self, controlId):
         if controlId == 3001:
             self.actioned = True
-            if self.skipintro_aniskip:
-                self.player.seekTime(self.skipintro_end_skip_time)
+            target_end = self.next_marker_end or self.skipintro_end_skip_time
+            if self.skipintro_aniskip or self.next_marker_end:
+                self.player.seekTime(target_end)
             else:
                 self.player.seekTime(int(self.player.getTime()) + control.getInt('skipintro.time'))
             self.close()
