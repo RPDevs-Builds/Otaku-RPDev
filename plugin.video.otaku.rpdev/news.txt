@@ -1,7 +1,21 @@
 ========================
+[B]OTAKU RPDEV v6.3.8[/B]
+Offline Year/Season Browsing
+========================
+
+v6.3.8 Highlights:
+  * Add Browse by Year & Season (Offline) submenu in Search powered by local
+    mappings.db
+  * Merge offline mappings.db title and alias matches into page 1 Search
+    results
+  * Add index-backed get_mapping_years, get_mapping_season_counts, and
+    browse_mappings_by_year_season queries
+  * Record ONN Review #23 telemetry (0 addon errors or warnings)
+
+--------------------------------
 [B]OTAKU RPDEV v6.3.7[/B]
 Mapping Consumers & Audit Fixes
-========================
+--------------------------------
 
 v6.3.7 Highlights:
   * Resolve OtakuAPI.get_simkl_id() from offline mappings.db before live
