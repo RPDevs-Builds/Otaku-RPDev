@@ -279,7 +279,9 @@ def _main_menu():
 def _search_menu():
     kinds = ('anime', 'movie', 'tv_show', 'tv_short', 'special', 'ova', 'ona', 'music')
     lids = range(30060, 30068)
-    return [(control.lang(lid), 'search_history_%s' % k, 'search.png', {}) for lid, k in zip(lids, kinds)]
+    items = [(control.lang(lid), 'search_history_%s' % k, 'search.png', {}) for lid, k in zip(lids, kinds)]
+    items.append((control.lang(30597), 'browse_year_season', 'genres_&_tags.png', {}))
+    return items
 
 
 def _tools_menu():

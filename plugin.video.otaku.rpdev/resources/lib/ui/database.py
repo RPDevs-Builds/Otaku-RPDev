@@ -1323,20 +1323,132 @@ def get_mapping_aliases(mal_id, limit=12):
     return aliases[:limit]
 
 
+_MAPPING_FMT_MAP = {
+    'tv': 'TV', 'TV': 'TV', 'TV_SHOW': 'TV',
+    'movie': 'MOVIE', 'MOVIE': 'MOVIE',
+    'ova': 'OVA', 'OVA': 'OVA',
+    'ona': 'ONA', 'ONA': 'ONA',
+    'special': 'SPECIAL', 'SPECIAL': 'SPECIAL', 'tv_special': 'SPECIAL', 'TV_SHORT': 'TV',
+    'music': 'SPECIAL', 'MUSIC': 'SPECIAL',
+}
+_MAPPING_SEASON_ORDER = ('WINTER', 'SPRING', 'SUMMER', 'FALL')
+
+
+def _normalize_mapping_format(media_format):
+    return _MAPPING_FMT_MAP.get(str(media_format or '').strip(), '')
+
+
+def _mapping_select_columns(cur):
+    acols = _mapping_anime_columns(cur)
+    extra_cols = [f'a.{c}' for c in ('year', 'anime_season') if c in acols]
+    cols = (
+        'a.mal_id, a.mal_dub_id, a.anilist_id, a.mal_title, a.mal_picture, '
+        'a.score, a.status, a.anime_media_type, a.anime_media_episodes, '
+        'a.duration, a.thetvdb_id, a.themoviedb_id'
+        + (', ' + ', '.join(extra_cols) if extra_cols else '')
+    )
+    return cols, acols
+
+
+def get_mapping_years(limit=75):
+    """Return [{'year': int, 'count': int}, ...] descending from offline mappings.db."""
+    if not getattr(control, 'mappingDB', None) or not os.path.exists(control.mappingDB):
+        return []
+    import datetime
+    max_year = datetime.date.today().year + 1
+    try:
+        with SQL(control.mappingDB, is_readonly=True) as cur:
+            if 'anime' not in _mapping_tables(cur):
+                return []
+            if 'year' not in _mapping_anime_columns(cur):
+                return []
+            rows = cur.execute(
+                'SELECT year, COUNT(*) AS cnt FROM anime '
+                'WHERE year IS NOT NULL AND year BETWEEN 1950 AND ? '
+                'GROUP BY year ORDER BY year DESC LIMIT ?',
+                (int(max_year), int(limit)),
+            ).fetchall() or []
+            return [{'year': int(r['year']), 'count': int(r['cnt'] or 0)} for r in rows if r.get('year')]
+    except Exception:
+        return []
+
+
+def get_mapping_season_counts(year):
+    """Return {'total': int, 'seasons': [(season_upper, count), ...]} for *year* from mappings.db."""
+    yr = _coerce_pos_int(year)
+    if not yr or not getattr(control, 'mappingDB', None) or not os.path.exists(control.mappingDB):
+        return {'total': 0, 'seasons': []}
+    try:
+        with SQL(control.mappingDB, is_readonly=True) as cur:
+            if 'anime' not in _mapping_tables(cur):
+                return {'total': 0, 'seasons': []}
+            acols = _mapping_anime_columns(cur)
+            if 'year' not in acols:
+                return {'total': 0, 'seasons': []}
+            tot_row = cur.execute('SELECT COUNT(*) AS cnt FROM anime WHERE year=?', (yr,)).fetchone()
+            total = int((tot_row or {}).get('cnt') or 0)
+            seasons = []
+            if 'anime_season' in acols:
+                srows = cur.execute(
+                    'SELECT UPPER(anime_season) AS s, COUNT(*) AS cnt FROM anime '
+                    'WHERE year=? AND anime_season IS NOT NULL GROUP BY UPPER(anime_season)',
+                    (yr,),
+                ).fetchall() or []
+                by_s = {str(r.get('s') or ''): int(r.get('cnt') or 0) for r in srows}
+                seasons = [(s, by_s[s]) for s in _MAPPING_SEASON_ORDER if by_s.get(s, 0) > 0]
+            return {'total': total, 'seasons': seasons}
+    except Exception:
+        return {'total': 0, 'seasons': []}
+
+
+def browse_mappings_by_year_season(year, anime_season='', media_format='', page=1, per_page=40):
+    """Return (rows, has_next) for *year* + optional *anime_season* / *media_format* from mappings.db."""
+    yr = _coerce_pos_int(year)
+    if not yr or not getattr(control, 'mappingDB', None) or not os.path.exists(control.mappingDB):
+        return [], False
+    target_fmt = _normalize_mapping_format(media_format)
+    seas_u = str(anime_season or '').strip().upper()
+    if seas_u not in _MAPPING_SEASON_ORDER:
+        seas_u = ''
+    page_num = max(1, int(page or 1))
+    limit_n = max(1, int(per_page or 40))
+    offset_n = (page_num - 1) * limit_n
+
+    try:
+        with SQL(control.mappingDB, is_readonly=True) as cur:
+            if 'anime' not in _mapping_tables(cur):
+                return [], False
+            cols, acols = _mapping_select_columns(cur)
+            if 'year' not in acols:
+                return [], False
+            clauses = ['a.year = ?']
+            params = [yr]
+            if seas_u and 'anime_season' in acols:
+                clauses.append('UPPER(a.anime_season) = ?')
+                params.append(seas_u)
+            if target_fmt:
+                clauses.append('a.anime_media_type = ?')
+                params.append(target_fmt)
+            where_sql = ' AND '.join(clauses)
+            params.extend([limit_n + 1, offset_n])
+            rows = cur.execute(
+                f'SELECT {cols} FROM anime a WHERE {where_sql} '
+                f'ORDER BY COALESCE(a.score, 0) DESC, a.mal_id DESC LIMIT ? OFFSET ?',
+                tuple(params),
+            ).fetchall() or []
+            out = [dict(r) for r in rows]
+            has_next = len(out) > limit_n
+            return out[:limit_n], has_next
+    except Exception:
+        return [], False
+
+
 def search_mappings_by_title(query, limit=25, media_format=''):
     """Offline title + alias search across mappings.db returning normalized anime metadata dicts."""
     q = ' '.join(str(query or '').strip().split())
     if len(q) < 2 or not getattr(control, 'mappingDB', None) or not os.path.exists(control.mappingDB):
         return []
-    fmt_map = {
-        'tv': 'TV', 'TV': 'TV', 'TV_SHOW': 'TV',
-        'movie': 'MOVIE', 'MOVIE': 'MOVIE',
-        'ova': 'OVA', 'OVA': 'OVA',
-        'ona': 'ONA', 'ONA': 'ONA',
-        'special': 'SPECIAL', 'SPECIAL': 'SPECIAL', 'tv_special': 'SPECIAL', 'TV_SHORT': 'TV',
-        'music': 'SPECIAL', 'MUSIC': 'SPECIAL',
-    }
-    target_fmt = fmt_map.get(str(media_format or '').strip(), '')
+    target_fmt = _normalize_mapping_format(media_format)
     esc = q.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
     prefix_pat = f"{esc}%"
     sub_pat = f"%{esc}%"
@@ -1349,18 +1461,7 @@ def search_mappings_by_title(query, limit=25, media_format=''):
             tables = _mapping_tables(cur)
             if 'anime' not in tables:
                 return []
-            acols = _mapping_anime_columns(cur)
-            extra_cols = []
-            if 'year' in acols:
-                extra_cols.append('a.year')
-            if 'anime_season' in acols:
-                extra_cols.append('a.anime_season')
-            cols = (
-                'a.mal_id, a.mal_dub_id, a.anilist_id, a.mal_title, a.mal_picture, '
-                'a.score, a.status, a.anime_media_type, a.anime_media_episodes, '
-                'a.duration, a.thetvdb_id, a.themoviedb_id'
-                + (', ' + ', '.join(extra_cols) if extra_cols else '')
-            )
+            cols, _acols = _mapping_select_columns(cur)
             fmt_sql = " AND a.anime_media_type = ?" if target_fmt else ""
 
             def _run_fetch(sql, params):

@@ -748,6 +748,77 @@ class TestMappingDbIntegration(unittest.TestCase):
                 playback.TMDB_HELPER('movie', {'actionArgs': json.dumps({'item_type': 'movie', 'title': 'Classic Film Remake', 'year': 2024})})
             self.assertEqual(picked, ['3002/'])
 
+    def test_offline_year_season_browsing_and_search_alias_merge(self):
+        with E2EHermeticEnv('22'):
+            from resources.lib import Main
+            from resources.lib.ui import control, database, multipage, utils
+            from resources.lib.routes import search
+
+            # 1. Search menu surfaces Browse by Year & Season (Offline) without touching 24-item Main menu_order
+            search_menu = Main.get_menu_items('search')
+            self.assertIn('browse_year_season', [row[1] for row in search_menu])
+
+            db_path = control.mappingDB
+            database.close_all_connections(db_path)
+            _create_v2_mappings_db(db_path, include_rules=False, include_v22=True)
+            conn = sqlite3.connect(db_path)
+            conn.execute('ALTER TABLE anime ADD COLUMN year INTEGER')
+            conn.execute('ALTER TABLE anime ADD COLUMN anime_season TEXT')
+            rows_seed = [
+                (4100 + idx, f'Autumn Hit {idx}', 'FINISHED', 'TV', 2024, 'FALL', 8.0 + (idx % 5) * 0.1)
+                for idx in range(45)
+            ]
+            rows_seed.append((4200, 'Winter Film', 'FINISHED', 'MOVIE', 2024, 'WINTER', 9.2))
+            rows_seed.append((4201, 'Older Hit', 'FINISHED', 'TV', 2020, 'SPRING', 7.8))
+            conn.executemany(
+                "INSERT INTO anime (mal_id, mal_title, status, anime_media_type, year, anime_season, score) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                rows_seed,
+            )
+            conn.execute("INSERT OR IGNORE INTO anime_aliases (mal_id, title) VALUES (4201, 'Aki Special Alias')")
+            conn.commit()
+            conn.close()
+            database.close_all_connections(db_path)
+
+            # 2. DB query helpers aggregate years/seasons and paginate deterministically
+            years = database.get_mapping_years(limit=10)
+            by_year = {y['year']: y['count'] for y in years}
+            self.assertEqual(by_year.get(2024), 46)
+            self.assertEqual(by_year.get(2020), 1)
+
+            sc = database.get_mapping_season_counts(2024)
+            self.assertEqual(sc['total'], 46)
+            self.assertEqual(dict(sc['seasons']), {'WINTER': 1, 'FALL': 45})
+
+            p1, has_next1 = database.browse_mappings_by_year_season(2024, 'FALL', page=1, per_page=40)
+            p2, has_next2 = database.browse_mappings_by_year_season(2024, 'FALL', page=2, per_page=40)
+            self.assertEqual(len(p1), 40)
+            self.assertTrue(has_next1)
+            self.assertEqual(len(p2), 5)
+            self.assertFalse(has_next2)
+
+            # 3. Routes browse_year_season & browse_year/* render directory items + pagination cleanly
+            y_res = invoke_plugin_route('browse_year_season')
+            self.assertTrue(any('browse_year/2024' in it[1] for it in y_res['directory_items']))
+
+            c_res = invoke_plugin_route('browse_year/2024')
+            urls = [it[1] for it in c_res['directory_items']]
+            self.assertTrue(any('browse_year/2024/ALL' in u for u in urls))
+            self.assertTrue(any('browse_year/2024/FALL' in u for u in urls))
+
+            f_res = invoke_plugin_route('browse_year/2024/FALL')
+            self.assertEqual(len(f_res['directory_items']), 41)  # 40 shows + Next Page (2)
+            self.assertTrue(any('Next Page (2)' in it[2].getLabel() for it in f_res['directory_items']))
+
+            # 4. SEARCH() merges offline alias matches on page 1 BEFORE trailing Next Page without duplicating live mal_ids
+            live_dupe = utils.allocate_item('Duplicate Show', 'animes/4100/', True, False, [], '', {'UniqueIDs': {'mal_id': '4100'}})
+            live_next = utils.allocate_item('Next Page (2)', 'search_anime/Aki?page=2', True, False, [], 'next.png', {'plot': 'Next Page (2)'}, 'next.png')
+            merged = search._merge_offline_search_hits([live_dupe, live_next], 'Aki Special', '')
+            merged_mids = [search._extract_item_mal_id(it) for it in merged]
+            self.assertEqual(merged_mids.count('4100'), 1)
+            self.assertIn('4201', merged_mids)
+            self.assertTrue(multipage.is_next_page_item(merged[-1]))
+
 
 if __name__ == '__main__':
     unittest.main()

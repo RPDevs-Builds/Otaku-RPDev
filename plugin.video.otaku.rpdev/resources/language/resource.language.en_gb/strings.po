@@ -4009,6 +4009,10 @@ msgctxt "#30596"
 msgid "When Filler Auto-Skip is active, exclude episodes marked 'Mixed Canon/Filler' in addition to pure 'Filler' and 'Recap' episodes (Default: Disabled)."
 msgstr ""
 
+msgctxt "#30597"
+msgid "Browse by Year & Season (Offline)"
+msgstr ""
+
 
 
 

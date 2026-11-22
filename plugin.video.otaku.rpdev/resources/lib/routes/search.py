@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 from urllib.parse import unquote
 
-from resources.lib.ui import control, database, utils
+from resources.lib.ui import control, database, multipage, utils
+from resources.lib.ui.BrowserBase import BrowserBase
 from resources.lib.ui.router import Route, multi_route
 
 _MAL_OTAKU_APIS = frozenset(('mal', 'otaku'))
@@ -106,6 +107,50 @@ def EDIT_SEARCH_ITEM(payload, params):
     control.exit_code()
 
 
+def _extract_item_mal_id(item):
+    if not isinstance(item, dict):
+        return ''
+    uids = ((item.get('info') or {}).get('UniqueIDs') or {}) if isinstance(item.get('info'), dict) else {}
+    if isinstance(uids, dict) and uids.get('mal_id'):
+        return str(uids['mal_id'])
+    url = str(item.get('url') or '').strip('/')
+    parts = url.split('/')
+    if len(parts) >= 2 and parts[0] in ('animes', 'play_movie') and parts[1].isdigit():
+        return parts[1]
+    return ''
+
+
+def _merge_offline_search_hits(items, query, media_format='', limit=15):
+    """Merge unique offline mappings.db title/alias matches on page 1 before trailing pagination rows."""
+    live_items = list(items or [])
+    if not live_items:
+        return utils.allocate_offline_mapping_items(
+            database.search_mappings_by_title(query, limit=25, media_format=media_format)
+        )
+    offline_rows = database.search_mappings_by_title(query, limit=limit, media_format=media_format)
+    if not offline_rows:
+        return live_items
+
+    body_items = []
+    paging_items = []
+    seen_ids = set()
+    for it in live_items:
+        if multipage.is_next_page_item(it):
+            paging_items.append(it)
+            continue
+        body_items.append(it)
+        mid = _extract_item_mal_id(it)
+        if mid:
+            seen_ids.add(mid)
+
+    missing_rows = [r for r in offline_rows if r.get('mal_id') and str(r['mal_id']) not in seen_ids]
+    if not missing_rows:
+        return live_items
+    body_items.extend(utils.allocate_offline_mapping_items(missing_rows))
+    body_items.extend(paging_items)
+    return body_items
+
+
 @multi_route(*_SEARCH_WILDCARD_ROUTES)
 def SEARCH(payload, params):
     from resources.lib import Main
@@ -140,14 +185,90 @@ def SEARCH(payload, params):
         items = Main.BROWSER.get_search(query, page, format, prefix)
     except Exception:
         items = []
-    if not items and page == 1:
-        items = utils.allocate_offline_mapping_items(
-            database.search_mappings_by_title(query, limit=25, media_format=format)
-        )
+    if page == 1:
+        items = _merge_offline_search_hits(items, query, format)
     control.draw_items(items, 'tvshows')
     control.schedule_next_page_prefetch(
         items,
         lambda q=query, p=page + 1, fmt=format, pr=prefix: Main.BROWSER.get_search(q, p, fmt, pr))
+
+
+@Route('browse_year_season')
+def BROWSE_YEAR_MENU(payload, params):
+    """List release years backed by offline mappings.db index (0 HTTP calls)."""
+    years = database.get_mapping_years(limit=75)
+    view_type = 'addons' if control.getBool('interface.content_type') else ''
+    items = [
+        utils.allocate_item(
+            f"{row['year']} ({row['count']})",
+            f"browse_year/{row['year']}",
+            True,
+            False,
+            [],
+            'trending.png',
+            {'plot': f"Browse {row['count']} offline catalog entries from {row['year']}"},
+        )
+        for row in years
+    ]
+    control.draw_items(items, view_type)
+
+
+@Route('browse_year/*')
+def BROWSE_YEAR_SEASON(payload, params):
+    """Browse offline mappings.db catalog by release year and seasonal cour (Winter/Spring/Summer/Fall)."""
+    parts = [p for p in str(payload or '').strip('/').split('/') if p]
+    if not parts or not parts[0].isdigit():
+        control.draw_items([], 'tvshows')
+        return
+    year_int = int(parts[0])
+    season_tok = parts[1].strip().upper() if len(parts) > 1 else ''
+
+    if not season_tok:
+        summary = database.get_mapping_season_counts(year_int)
+        total = summary.get('total', 0)
+        view_type = 'addons' if control.getBool('interface.content_type') else ''
+        menu_items = [
+            utils.allocate_item(
+                f"All {year_int} Releases ({total})",
+                f"browse_year/{year_int}/ALL",
+                True,
+                False,
+                [],
+                'trending.png',
+                {'plot': f"All {total} catalog releases from {year_int} ordered by score"},
+            )
+        ]
+        for seas_u, cnt in summary.get('seasons', []):
+            menu_items.append(
+                utils.allocate_item(
+                    f"{seas_u.title()} {year_int} ({cnt})",
+                    f"browse_year/{year_int}/{seas_u}",
+                    True,
+                    False,
+                    [],
+                    'airing_anime.png',
+                    {'plot': f"{cnt} {seas_u.title()} {year_int} releases ordered by score"},
+                )
+            )
+        control.draw_items(menu_items, view_type)
+        return
+
+    try:
+        page = max(1, int((params or {}).get('page', 1) or 1))
+    except (ValueError, TypeError):
+        page = 1
+    media_fmt = str((params or {}).get('format', '') or '')
+    rows, has_next = database.browse_mappings_by_year_season(
+        year_int,
+        anime_season='' if season_tok == 'ALL' else season_tok,
+        media_format=media_fmt,
+        page=page,
+        per_page=40,
+    )
+    items = utils.allocate_offline_mapping_items(rows)
+    base_url = f"browse_year/{year_int}/{season_tok}" + (f"?format={media_fmt}" if media_fmt else "")
+    items.extend(BrowserBase.handle_paging(has_next, base_url, page))
+    control.draw_items(items, 'tvshows')
 
 
 @Route('search')
