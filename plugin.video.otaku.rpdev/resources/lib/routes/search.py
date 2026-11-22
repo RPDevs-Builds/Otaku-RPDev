@@ -136,7 +136,14 @@ def SEARCH(payload, params):
         if control.getInt('searchhistory') == 0:
             database.addSearchHistory(query, type)
     prefix = Main.plugin_url.split('/', 1)[0]
-    items = Main.BROWSER.get_search(query, page, format, prefix)
+    try:
+        items = Main.BROWSER.get_search(query, page, format, prefix)
+    except Exception:
+        items = []
+    if not items and page == 1:
+        items = utils.allocate_offline_mapping_items(
+            database.search_mappings_by_title(query, limit=25, media_format=format)
+        )
     control.draw_items(items, 'tvshows')
     control.schedule_next_page_prefetch(
         items,

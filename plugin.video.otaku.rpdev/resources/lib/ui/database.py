@@ -1227,8 +1227,17 @@ def get_tvdb_rules(mal_id):
 
 
 def get_mappings_metadata():
-    """Return row count, tvdb_rules count, last_updated epoch, and build_meta for diagnostics."""
-    info = {'row_count': 0, 'rule_count': 0, 'last_updated': 0, 'schema_version': '', 'built_at_utc': ''}
+    """Return row count, tvdb_rules, aliases, franchise links, schedule IDs, and build_meta."""
+    info = {
+        'row_count': 0,
+        'rule_count': 0,
+        'alias_count': 0,
+        'franchise_link_count': 0,
+        'schedule_id_count': 0,
+        'last_updated': 0,
+        'schema_version': '',
+        'built_at_utc': '',
+    }
     if not getattr(control, 'mappingDB', None) or not os.path.exists(control.mappingDB):
         return info
     try:
@@ -1238,18 +1247,21 @@ def get_mappings_metadata():
                 for r in (cur.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall() or [])
                 if r.get('name')
             }
-            if 'anime' in tables:
-                row = cur.execute('SELECT COUNT(*) AS cnt FROM anime').fetchone()
-                if row:
-                    info['row_count'] = int(row.get('cnt') or 0)
+            for tbl, out_key in (
+                ('anime', 'row_count'),
+                ('tvdb_rules', 'rule_count'),
+                ('anime_aliases', 'alias_count'),
+                ('franchise_links', 'franchise_link_count'),
+                ('schedule_ids', 'schedule_id_count'),
+            ):
+                if tbl in tables:
+                    row = cur.execute(f'SELECT COUNT(*) AS cnt FROM {tbl}').fetchone()
+                    if row:
+                        info[out_key] = int(row.get('cnt') or 0)
             if 'activities' in tables:
                 act = cur.execute('SELECT last_updated FROM activities WHERE sync_id=1').fetchone()
                 if act and str(act.get('last_updated') or '').isdigit():
                     info['last_updated'] = int(act['last_updated'])
-            if 'tvdb_rules' in tables:
-                rrow = cur.execute('SELECT COUNT(*) AS cnt FROM tvdb_rules').fetchone()
-                if rrow:
-                    info['rule_count'] = int(rrow.get('cnt') or 0)
             if 'build_meta' in tables:
                 for mrow in cur.execute('SELECT key, value FROM build_meta').fetchall() or []:
                     k = mrow.get('key')
@@ -1258,6 +1270,289 @@ def get_mappings_metadata():
     except Exception:
         pass
     return info
+
+
+def _mapping_tables(cur):
+    return {
+        r.get('name')
+        for r in (cur.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall() or [])
+        if r.get('name')
+    }
+
+
+def get_mapping_aliases(mal_id, limit=12):
+    """Return deduplicated alternate titles for *mal_id* from mappings.db (mal_title + anime_aliases)."""
+    mid = _coerce_pos_int(mal_id)
+    if not mid or not getattr(control, 'mappingDB', None) or not os.path.exists(control.mappingDB):
+        return []
+    aliases = []
+    seen = set()
+
+    def _add(val):
+        s = str(val or '').strip()
+        if s and s.lower() not in seen:
+            seen.add(s.lower())
+            aliases.append(s)
+
+    try:
+        with SQL(control.mappingDB, is_readonly=True) as cur:
+            tables = _mapping_tables(cur)
+            if 'anime' in tables:
+                row = cur.execute('SELECT mal_title FROM anime WHERE mal_id=?', (mid,)).fetchone()
+                if row:
+                    _add(row.get('mal_title'))
+            if 'anime_aliases' in tables:
+                rows = cur.execute(
+                    'SELECT title FROM anime_aliases WHERE mal_id=? LIMIT ?',
+                    (mid, int(limit)),
+                ).fetchall() or []
+                for r in rows:
+                    _add(r.get('title'))
+    except Exception:
+        pass
+    return aliases[:limit]
+
+
+def search_mappings_by_title(query, limit=25, media_format=''):
+    """Offline title + alias search across mappings.db returning normalized anime metadata dicts."""
+    q = ' '.join(str(query or '').strip().split())
+    if len(q) < 2 or not getattr(control, 'mappingDB', None) or not os.path.exists(control.mappingDB):
+        return []
+    fmt_map = {
+        'tv': 'TV', 'TV': 'TV', 'TV_SHOW': 'TV',
+        'movie': 'MOVIE', 'MOVIE': 'MOVIE',
+        'ova': 'OVA', 'OVA': 'OVA',
+        'ona': 'ONA', 'ONA': 'ONA',
+        'special': 'SPECIAL', 'SPECIAL': 'SPECIAL', 'tv_special': 'SPECIAL', 'TV_SHORT': 'TV',
+        'music': 'SPECIAL', 'MUSIC': 'SPECIAL',
+    }
+    target_fmt = fmt_map.get(str(media_format or '').strip(), '')
+    esc = q.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+    prefix_pat = f"{esc}%"
+    sub_pat = f"%{esc}%"
+    q_low = q.lower()
+    seen_ids = set()
+    candidates = []
+
+    try:
+        with SQL(control.mappingDB, is_readonly=True) as cur:
+            tables = _mapping_tables(cur)
+            if 'anime' not in tables:
+                return []
+            cols = (
+                'a.mal_id, a.mal_dub_id, a.anilist_id, a.mal_title, a.mal_picture, '
+                'a.score, a.status, a.anime_media_type, a.anime_media_episodes, '
+                'a.duration, a.thetvdb_id, a.themoviedb_id'
+            )
+            fmt_sql = " AND a.anime_media_type = ?" if target_fmt else ""
+
+            def _run_fetch(sql, params):
+                for row in (cur.execute(sql, params).fetchall() or []):
+                    mid = row.get('mal_id')
+                    if mid and mid not in seen_ids:
+                        seen_ids.add(mid)
+                        candidates.append(dict(row))
+
+            p_pfx = (prefix_pat, target_fmt, int(limit)) if target_fmt else (prefix_pat, int(limit))
+            _run_fetch(
+                f"SELECT {cols} FROM anime a WHERE a.mal_title LIKE ? ESCAPE '\\'{fmt_sql} "
+                f"ORDER BY COALESCE(a.score, 0) DESC LIMIT ?",
+                p_pfx,
+            )
+            if 'anime_aliases' in tables and len(candidates) < limit:
+                _run_fetch(
+                    f"SELECT {cols} FROM anime_aliases al JOIN anime a ON a.mal_id = al.mal_id "
+                    f"WHERE al.title LIKE ? ESCAPE '\\'{fmt_sql} "
+                    f"ORDER BY COALESCE(a.score, 0) DESC LIMIT ?",
+                    p_pfx,
+                )
+            if len(candidates) < limit:
+                p_sub = (sub_pat, target_fmt, int(limit)) if target_fmt else (sub_pat, int(limit))
+                _run_fetch(
+                    f"SELECT {cols} FROM anime a WHERE a.mal_title LIKE ? ESCAPE '\\'{fmt_sql} "
+                    f"ORDER BY COALESCE(a.score, 0) DESC LIMIT ?",
+                    p_sub,
+                )
+                if 'anime_aliases' in tables and len(candidates) < limit:
+                    _run_fetch(
+                        f"SELECT {cols} FROM anime_aliases al JOIN anime a ON a.mal_id = al.mal_id "
+                        f"WHERE al.title LIKE ? ESCAPE '\\'{fmt_sql} "
+                        f"ORDER BY COALESCE(a.score, 0) DESC LIMIT ?",
+                        p_sub,
+                    )
+    except Exception:
+        return []
+
+    def _rank(r):
+        title_l = str(r.get('mal_title') or '').lower()
+        exact = 0 if title_l == q_low else (1 if title_l.startswith(q_low) else 2)
+        return (exact, -(float(r.get('score') or 0.0)), int(r.get('mal_id') or 0))
+
+    candidates.sort(key=_rank)
+    return candidates[:limit]
+
+
+_FRANCHISE_ORDER = {
+    'PREQUEL': 0,
+    'PARENT': 1,
+    'SEQUEL': 2,
+    'SIDE_STORY': 3,
+    'SPIN_OFF': 4,
+    'ALTERNATIVE': 5,
+    'SUMMARY': 6,
+    'RELATED': 7,
+}
+
+
+def get_franchise_entries(mal_id):
+    """Return ordered related anime entries from franchise_links (with thetvdb_id sibling fallback)."""
+    mid = _coerce_pos_int(mal_id)
+    if not mid or not getattr(control, 'mappingDB', None) or not os.path.exists(control.mappingDB):
+        return []
+    entries = []
+    try:
+        with SQL(control.mappingDB, is_readonly=True) as cur:
+            tables = _mapping_tables(cur)
+            if 'anime' not in tables:
+                return []
+            if 'franchise_links' in tables:
+                rows = cur.execute(
+                    'SELECT fl.related_mal_id AS mal_id, fl.relation_type, fl.source, '
+                    'a.mal_title, a.mal_picture, a.score, a.status, a.anime_media_type, '
+                    'a.anime_media_episodes, a.duration, a.thetvdb_id, a.thetvdb_season, a.thetvdb_part '
+                    'FROM franchise_links fl JOIN anime a ON a.mal_id = fl.related_mal_id '
+                    'WHERE fl.mal_id=?',
+                    (mid,),
+                ).fetchall() or []
+                entries = [dict(r) for r in rows]
+
+            if not entries:
+                self_row = cur.execute('SELECT thetvdb_id FROM anime WHERE mal_id=?', (mid,)).fetchone()
+                tvdb_id = (self_row or {}).get('thetvdb_id')
+                if tvdb_id:
+                    sibs = cur.execute(
+                        'SELECT mal_id, "RELATED" AS relation_type, "tvdb_sibling" AS source, '
+                        'mal_title, mal_picture, score, status, anime_media_type, '
+                        'anime_media_episodes, duration, thetvdb_id, thetvdb_season, thetvdb_part '
+                        'FROM anime WHERE thetvdb_id=? AND mal_id != ? '
+                        'ORDER BY CASE WHEN typeof(thetvdb_season)="integer" THEN thetvdb_season ELSE 999 END, '
+                        'COALESCE(thetvdb_part, 1), mal_id',
+                        (tvdb_id, mid),
+                    ).fetchall() or []
+                    entries = [dict(r) for r in sibs]
+    except Exception:
+        return []
+
+    entries.sort(
+        key=lambda r: (
+            _FRANCHISE_ORDER.get(str(r.get('relation_type') or 'RELATED').upper(), 9),
+            int(r.get('mal_id') or 0),
+        )
+    )
+    return entries
+
+
+def get_sequel_mal_id(mal_id):
+    """Return direct released sequel entry dict for *mal_id* if known in mappings.db, else {}."""
+    mid = _coerce_pos_int(mal_id)
+    if not mid or not getattr(control, 'mappingDB', None) or not os.path.exists(control.mappingDB):
+        return {}
+    try:
+        entries = get_franchise_entries(mid)
+        tv_pref = {'TV': 0, 'ONA': 1, 'MOVIE': 2, 'OVA': 3, 'SPECIAL': 4}
+        sequels = [
+            e for e in entries
+            if str(e.get('relation_type') or '').upper() == 'SEQUEL'
+            and str(e.get('status') or '').upper() != 'UPCOMING'
+            and _coerce_pos_int(e.get('mal_id')) not in (None, mid)
+        ]
+        if sequels:
+            sequels.sort(
+                key=lambda e: (
+                    tv_pref.get(str(e.get('anime_media_type') or '').upper(), 5),
+                    int(e.get('mal_id') or 0),
+                )
+            )
+            return sequels[0]
+
+        # Sibling fallback: next cour/season sharing thetvdb_id
+        cur_row = get_mappings(mid, 'mal_id')
+        tvdb_id = cur_row.get('thetvdb_id') if cur_row else None
+        if tvdb_id and entries:
+            c_season = cur_row.get('thetvdb_season')
+            c_part = cur_row.get('thetvdb_part') or 1
+            if isinstance(c_season, int) and c_season >= 1:
+                next_cour = [
+                    e for e in entries
+                    if e.get('thetvdb_season') == c_season and (e.get('thetvdb_part') or 1) == c_part + 1
+                    and str(e.get('status') or '').upper() != 'UPCOMING'
+                ]
+                if next_cour:
+                    return next_cour[0]
+                next_season = [
+                    e for e in entries
+                    if e.get('thetvdb_season') == c_season + 1
+                    and str(e.get('status') or '').upper() != 'UPCOMING'
+                ]
+                if next_season:
+                    return next_season[0]
+    except Exception:
+        pass
+    return {}
+
+
+def get_schedule_ids(mal_id):
+    """Return {'syobocal_tid': ..., 'annict_id': ...} from schedule_ids if present, else {}."""
+    mid = _coerce_pos_int(mal_id)
+    if not mid or not getattr(control, 'mappingDB', None) or not os.path.exists(control.mappingDB):
+        return {}
+    try:
+        with SQL(control.mappingDB, is_readonly=True) as cur:
+            if 'schedule_ids' not in _mapping_tables(cur):
+                return {}
+            row = cur.execute(
+                'SELECT syobocal_tid, annict_id FROM schedule_ids WHERE mal_id=?', (mid,)
+            ).fetchone()
+            return dict(row) if row else {}
+    except Exception:
+        return {}
+
+
+def get_episode_offset_from_mappings(mal_id, episode=1):
+    """Compute local split-cour / global episode offset using tvdb_rules and global_media_episodes."""
+    mid = _coerce_pos_int(mal_id)
+    if not mid:
+        return 0
+    try:
+        ep_num = int(episode) if str(episode or '').isdigit() else 1
+    except (ValueError, TypeError):
+        ep_num = 1
+
+    # 1. Explicit tvdb_rules offset (range_start - ep_start)
+    for rl in get_tvdb_rules(mid):
+        r_start = rl.get('range_start')
+        r_end = rl.get('range_end')
+        ep_start = rl.get('ep_start') or 1
+        if r_start is None:
+            continue
+        r_start_i = int(r_start)
+        ep_start_i = int(ep_start)
+        local_end = None if r_end is None else ep_start_i + (int(r_end) - r_start_i)
+        if ep_num >= ep_start_i and (local_end is None or ep_num <= local_end):
+            off = r_start_i - ep_start_i
+            if off > 0:
+                return off
+
+    # 2. Fallback: anime_media_episodes vs global_media_episodes span start diff
+    mapping = get_mappings(mid, 'mal_id')
+    if mapping:
+        a_rng = str(mapping.get('anime_media_episodes') or '')
+        g_rng = str(mapping.get('global_media_episodes') or '')
+        a_start = int(a_rng.split('-', 1)[0].strip()) if '-' in a_rng and a_rng.split('-', 1)[0].strip().isdigit() else None
+        g_start = int(g_rng.split('-', 1)[0].strip()) if '-' in g_rng and g_rng.split('-', 1)[0].strip().isdigit() else None
+        if a_start is not None and g_start is not None and g_start > a_start:
+            return g_start - a_start
+    return 0
 
 
 def _coerce_pos_int(val):
@@ -1313,7 +1608,7 @@ def resolve_mappings_with_fallback(
         try:
             from resources.lib.ui import client
             resp = client.get('https://api.ani.zip/mappings', params={'mal_id': mid}, timeout=5)
-            if resp and resp.status_code == 200:
+            if resp and (getattr(resp, 'status_code', None) == 200 or getattr(resp, 'ok', False) is True):
                 az = control.safe_json(resp, default={})
                 m = az.get('mappings') or {}
                 for src_k, dest_k in (
@@ -1328,6 +1623,8 @@ def resolve_mappings_with_fallback(
                         overlay[dest_k] = v
                 if m.get('imdb_id'):
                     overlay['imdb_id'] = str(m['imdb_id']).strip()
+                if m.get('type'):
+                    overlay['anime_media_type'] = str(m['type']).strip()
                 ep1 = (az.get('episodes') or {}).get('1')
                 if isinstance(ep1, dict) and ep1.get('seasonNumber') is not None:
                     s_val = _coerce_pos_int(ep1.get('seasonNumber'))

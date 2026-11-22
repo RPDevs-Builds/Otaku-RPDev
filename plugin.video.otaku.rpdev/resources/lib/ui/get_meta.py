@@ -70,7 +70,9 @@ def update_meta(mal_id, mtype='tv', anilist_banner=None, in_batch=False):
         anilist_banner: AniList banner URL (from batch fetch) or None
         in_batch: Whether called as part of a batch fetch (flattens nested thread pools)
     """
-    meta_ids = database.get_mappings(mal_id, 'mal_id')
+    meta_ids = database.resolve_mappings_with_fallback(
+        mal_id, required_keys=('thetvdb_id', 'themoviedb_id', 'imdb_id'), require_all=False
+    )
 
     # Read artwork settings
     artwork_preference = control.getInt('artwork.preference')  # 0=Fanart-TV, 1=TMDb, 2=TVDB, 3=All

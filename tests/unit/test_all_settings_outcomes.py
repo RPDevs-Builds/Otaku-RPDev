@@ -179,6 +179,7 @@ PLAYBACK_SETTING_IDS = {
     "general.audio",
     "playlist.unaired",
     "smartplay.skip_filler",
+    "smartplay.continue_sequel",
     "chapters.python.enable",
     "ffprobe.chapters.enable",
     "ffprobe.path",
@@ -750,8 +751,8 @@ class TestAllSettingsOutcomes(unittest.TestCase):
         Assert that TESTED_SETTING_IDS contains exactly all 471 declared settings
         from resources/settings.xml, ensuring 0 omitted settings across all categories.
         """
-        self.assertEqual(len(self.declared_settings), 495, f"Expected 495 declared settings, got {len(self.declared_settings)}")
-        self.assertEqual(len(TESTED_SETTING_IDS), 495, f"Expected 495 tested settings in registry, got {len(TESTED_SETTING_IDS)}")
+        self.assertEqual(len(self.declared_settings), 496, f"Expected 496 declared settings, got {len(self.declared_settings)}")
+        self.assertEqual(len(TESTED_SETTING_IDS), 496, f"Expected 496 tested settings in registry, got {len(TESTED_SETTING_IDS)}")
         self.assertEqual(
             set(self.declared_settings.keys()), TESTED_SETTING_IDS,
             "TESTED_SETTING_IDS does not match declared_settings in resources/settings.xml"
@@ -762,7 +763,7 @@ class TestAllSettingsOutcomes(unittest.TestCase):
         self.assertEqual(len(PROVIDERS_SETTING_IDS), 20)
         self.assertEqual(len(SCRAPING_SETTING_IDS), 15)
         self.assertEqual(len(CACHE_SETTING_IDS), 16)
-        self.assertEqual(len(PLAYBACK_SETTING_IDS), 40)
+        self.assertEqual(len(PLAYBACK_SETTING_IDS), 41)
         self.assertEqual(len(SUBTITLES_SETTING_IDS), 29)
         self.assertEqual(len(SORT_AND_FILTER_SETTING_IDS), 43)
         self.assertEqual(len(ACCOUNTS_SETTING_IDS), 40)
@@ -978,6 +979,24 @@ class TestAllSettingsOutcomes(unittest.TestCase):
         without_badges = dlg.display_list.addItem.call_args[0][0].getProperty('colored_debrid') or ''
         self.assertIn('[COLOR', with_badges)
         self.assertNotIn('[COLOR', without_badges)
+
+        # Behavioral outcome: smartplay.continue_sequel queues Ep 1 of direct sequel on finale when enabled
+        wp_fin = WatchlistPlayer.__new__(WatchlistPlayer)
+        wp_fin.mal_id = '1001'
+        wp_fin.episode = 12
+        wp_fin.episodes = [{'number': 12}]
+        sequel_row = {'mal_id': 1002, 'mal_title': 'Test Saga S2', 'status': 'FINISHED', 'anime_media_type': 'TV'}
+        for enabled, expected_count in ((True, 1), (False, 0)):
+            queued = []
+            control.setBool('smartplay.continue_sequel', enabled)
+            with patch.object(database, 'get_sequel_mal_id', return_value=sequel_row), \
+                 patch('resources.lib.ui.control.getBool', side_effect=lambda k, default=False: enabled if k == 'smartplay.continue_sequel' else True), \
+                 patch('resources.lib.ui.control.bulk_dir_list', side_effect=lambda items, _: [(f"plugin://plugin.video.otaku.rpdev/{it['url']}", MagicMock()) for it in items]), \
+                 patch('resources.lib.ui.player.playList.add', side_effect=lambda url, listitem: queued.append(url)):
+                wp_fin.build_playlist()
+            self.assertEqual(len(queued), expected_count)
+            if enabled:
+                self.assertEqual(queued[0], 'plugin://plugin.video.otaku.rpdev/play/1002/1')
 
     # ── Category 6: Subtitles (25 settings) ────────────────────────────────────
 
@@ -1261,7 +1280,7 @@ class TestAllSettingsOutcomes(unittest.TestCase):
 
         # Verify clean_settings.get_active_setting_ids() keeps all declared settings (including legacy keys)
         active_ids = clean_settings.get_active_setting_ids(self.settings_xml_path)
-        self.assertEqual(len(active_ids), 495)
+        self.assertEqual(len(active_ids), 496)
         for legacy_key in LEGACY_LEVEL_4_KEYS:
             self.assertIn(legacy_key, active_ids)
 

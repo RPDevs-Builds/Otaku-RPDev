@@ -396,7 +396,12 @@ def generate_diagnostics_report():
                         age_days = max(0, int((time.time() - mmeta['last_updated']) / 86400))
                         stale = " [STALE >14d]" if age_days > 14 else ""
                         age_tag = f", Age: {age_days}d{stale}"
-                    extra_info = f" | Rows: {mmeta['row_count']:,}, Rules: {mmeta.get('rule_count', 0):,}{age_tag}"
+                    extra_info = f" | Rows: {mmeta['row_count']:,}, Rules: {mmeta.get('rule_count', 0):,}"
+                    if mmeta.get('alias_count'):
+                        extra_info += f", Aliases: {mmeta['alias_count']:,}"
+                    if mmeta.get('franchise_link_count'):
+                        extra_info += f", Franchise: {mmeta['franchise_link_count']:,}"
+                    extra_info += age_tag
             lines.append(f"  • {db_label:<16}: {status} | Size: {size_mb:.2f} MB (WAL: {wal_mb:.2f} MB){extra_info}")
         except Exception as e:
             lines.append(f"  • {db_label:<16}: ERROR ({e})")
@@ -1485,6 +1490,10 @@ def INSPECT_MAPPINGS(payload, params):
     def _fmt(val):
         return str(val) if val not in (None, '', 0, '0') else '—'
 
+    aliases = database.get_mapping_aliases(mal_id, limit=6)
+    franchise = database.get_franchise_entries(mal_id)[:6]
+    sched_ids = database.get_schedule_ids(mal_id)
+
     lines = [
         f"[B]Title:[/B] {title}",
         "",
@@ -1499,9 +1508,17 @@ def INSPECT_MAPPINGS(payload, params):
         f"  • TMDb ID:           {_fmt(unique_ids.get('tmdb') or mapping_row.get('themoviedb_id'))}",
         f"  • IMDb ID:           {_fmt(unique_ids.get('imdb') or mapping_row.get('imdb_id'))}",
         f"  • Trakt ID:          {_fmt(unique_ids.get('trakt') or mapping_row.get('trakt_id'))}",
+        f"  • Syobocal / Annict: {_fmt(sched_ids.get('syobocal_tid'))} / {_fmt(sched_ids.get('annict_id'))}",
         "",
         f"  • Type / Season / Part: {_fmt(mapping_row.get('anime_media_type'))} / S{_fmt(mapping_row.get('thetvdb_season'))} / P{_fmt(mapping_row.get('thetvdb_part'))}",
     ]
+    if aliases:
+        lines.extend(["", f"[B]Known Aliases ({len(aliases)}):[/B] " + " | ".join(aliases)])
+    if franchise:
+        lines.extend(["", f"[B]Franchise Links ({len(franchise)}):[/B]"])
+        for fe in franchise:
+            rel = str(fe.get('relation_type') or 'RELATED').replace('_', ' ').title()
+            lines.append(f"  • [{rel}] {fe.get('mal_title') or 'Unknown'} (MAL #{fe.get('mal_id')})")
 
     from resources.lib.windows.textviewer import TextViewerXML
     window = None

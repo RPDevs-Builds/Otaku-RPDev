@@ -37,19 +37,16 @@ def resolve_imdb_and_season(mal_id, episode=1):
             except Exception:
                 pass
 
-    # 3. Tertiary fallback: AniZip online mappings
+    # 3. Tertiary fallback: shared cached live AniZip/Simkl overlay
     if not imdb_id:
-        try:
-            url = f'https://api.ani.zip/mappings?mal_id={mal_id_int}'
-            resp = client.get(url, timeout=3.0)
-            if resp and resp.ok:
-                data = control.safe_json(resp, default={})
-                mappings = data.get('mappings') or {}
-                imdb_id = mappings.get('imdb_id')
-                if not media_type:
-                    media_type = mappings.get('type')
-        except Exception:
-            pass
+        remote_map = database.resolve_mappings_with_fallback(
+            mal_id_int, required_keys=('imdb_id',), require_all=False, fetch_remote=True
+        ) or {}
+        imdb_id = remote_map.get('imdb_id')
+        if season is None:
+            season = remote_map.get('thetvdb_season')
+        if not media_type:
+            media_type = remote_map.get('anime_media_type') or remote_map.get('global_media_type')
 
     if not media_type:
         media_type = 'TV'

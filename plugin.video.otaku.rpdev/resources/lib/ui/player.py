@@ -533,6 +533,39 @@ class WatchlistPlayer(player):
 
             control.playList.add(url=url, listitem=listitem)
 
+        # Tier-2 finale UX: when on the last episode of a finished season, queue Episode 1 of direct sequel
+        if not upcoming_episodes and control.getBool('smartplay.continue_sequel', default=True):
+            try:
+                seq = database.get_sequel_mal_id(self.mal_id)
+                seq_mid = seq.get('mal_id') if isinstance(seq, dict) else None
+                if seq_mid and str(seq_mid) != str(self.mal_id):
+                    seq_title = (seq.get('mal_title') or f"Anime {seq_mid}").strip()
+                    pic = str(seq.get('mal_picture') or '').strip()
+                    if pic and not pic.startswith(('http://', 'https://')):
+                        pic = f"https://cdn.myanimelist.net/images/anime/{pic}"
+                    is_movie = str(seq.get('anime_media_type') or '').upper() == 'MOVIE'
+                    seq_url_path = f"play_movie/{seq_mid}/" if is_movie else f"play/{seq_mid}/1"
+                    seq_item = {
+                        'url': seq_url_path,
+                        'name': f"Sequel: {seq_title} - Episode 1" if not is_movie else f"Sequel: {seq_title}",
+                        'isfolder': False,
+                        'isplayable': True,
+                        'cm': [],
+                        'image': {'icon': pic, 'thumb': pic, 'poster': pic} if pic else {},
+                        'info': {
+                            'title': seq_title,
+                            'tvshowtitle': seq_title,
+                            'episode': 1,
+                            'mediatype': 'movie' if is_movie else 'episode',
+                            'UniqueIDs': {'mal_id': str(seq_mid), 'mal': str(seq_mid)},
+                        },
+                    }
+                    seq_built = control.bulk_dir_list([seq_item], True)
+                    for s_url, s_li in seq_built or ():
+                        control.playList.add(url=s_url, listitem=s_li)
+            except Exception as e:
+                control.log(f"Player: build_playlist sequel lookup failed: {e}", 'debug')
+
     def getWatchedPercent(self):
         return (self.current_time / self.total_time) * 100 if self.total_time != 0 else 0
 

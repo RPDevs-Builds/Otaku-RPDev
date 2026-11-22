@@ -1143,6 +1143,11 @@
 					<default>false</default>
 					<control type="toggle" />
 				</setting>
+				<setting id="smartplay.continue_sequel" type="boolean" label="30592" help="30593">
+					<level>2</level>
+					<default>true</default>
+					<control type="toggle" />
+				</setting>
 			</group>
 			<group id="3" label="30471">
 				<setting id="chapters.python.enable" type="boolean" label="30987" help="30988">

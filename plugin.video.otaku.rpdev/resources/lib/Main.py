@@ -431,13 +431,19 @@ def FIND_RECOMMENDATIONS(payload, params):
 @Route('find_relations/*')
 def FIND_RELATIONS(payload, params):
     mal_id = _extract_mal_id(payload)
-    control.draw_items(BROWSER.get_relations(mal_id), 'tvshows')
+    items = BROWSER.get_relations(mal_id)
+    if not items:
+        items = utils.allocate_offline_mapping_items(database.get_franchise_entries(mal_id), show_relation=True)
+    control.draw_items(items, 'tvshows')
 
 
 @Route('watch_order/*')
 def WATCH_ORDER(payload, params):
     mal_id = _extract_mal_id(payload)
-    control.draw_items(BROWSER.get_watch_order(mal_id), 'tvshows')
+    items = BROWSER.get_watch_order(mal_id)
+    if not items:
+        items = utils.allocate_offline_mapping_items(database.get_franchise_entries(mal_id), show_relation=True)
+    control.draw_items(items, 'tvshows')
 
 
 @Route('anime_reviews/*')

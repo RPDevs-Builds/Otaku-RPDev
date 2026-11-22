@@ -29,7 +29,7 @@ import conftest  # noqa: F401
 from tests.e2e_v630.e2e_helpers import E2EHermeticEnv, E2EMockServer, invoke_plugin_route, send_http_response
 
 
-def _create_v2_mappings_db(path, last_updated=None, include_rules=True):
+def _create_v2_mappings_db(path, last_updated=None, include_rules=True, include_v22=False):
     if os.path.exists(path):
         os.remove(path)
     conn = sqlite3.connect(path)
@@ -43,10 +43,10 @@ def _create_v2_mappings_db(path, last_updated=None, include_rules=True):
         "global_media_type TEXT, anime_media_episodes TEXT, global_media_episodes TEXT, UNIQUE(mal_id))"
     )
     conn.execute(
-        "INSERT INTO anime (mal_id, anilist_id, kitsu_id, anidb_id, thetvdb_id, themoviedb_id, imdb_id, "
-        "mal_title, thetvdb_season, thetvdb_part, anime_media_type, anime_media_episodes, global_media_episodes) VALUES "
-        "(1001, 2001, 3001, 4001, 55501, 66601, 'tt1111111', 'Test Saga - Cour One', 1, 1, 'TV', '1 - 12', '1 - 12'), "
-        "(1002, 2002, 3002, 4002, 55501, 66601, 'tt1111111', 'Test Saga - Cour Two', 1, 2, 'TV', '1 - 13', '13 - 25')"
+        "INSERT INTO anime (mal_id, mal_dub_id, anilist_id, kitsu_id, anidb_id, thetvdb_id, themoviedb_id, imdb_id, "
+        "mal_title, mal_picture, status, thetvdb_season, thetvdb_part, anime_media_type, anime_media_episodes, global_media_episodes) VALUES "
+        "(1001, 1001, 2001, 3001, 4001, 55501, 66601, 'tt1111111', 'Test Saga - Cour One', '12/1001.jpg', 'FINISHED', 1, 1, 'TV', '1 - 12', '1 - 12'), "
+        "(1002, NULL, 2002, 3002, 4002, 55501, 66601, 'tt1111111', 'Test Saga - Cour Two', '12/1002.jpg', 'FINISHED', 1, 2, 'TV', '1 - 13', '13 - 25')"
     )
     ts = str(int(last_updated if last_updated is not None else time.time()))
     conn.execute("INSERT INTO activities VALUES (1, ?)", (ts,))
@@ -61,7 +61,27 @@ def _create_v2_mappings_db(path, last_updated=None, include_rules=True):
             "INSERT INTO tvdb_rules VALUES (1002, 55501, 1, 'cour', 13, 25, 1, 13, 'malsync_rules')"
         )
         conn.execute("CREATE TABLE build_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
-        conn.execute("INSERT INTO build_meta VALUES ('schema_version', '2.0')")
+        conn.execute("INSERT INTO build_meta VALUES ('schema_version', ?)", ('2.2' if include_v22 else '2.0',))
+    if include_v22:
+        conn.execute(
+            "CREATE TABLE anime_aliases ("
+            "mal_id INTEGER NOT NULL, title TEXT NOT NULL COLLATE NOCASE, "
+            "PRIMARY KEY (mal_id, title)) WITHOUT ROWID"
+        )
+        conn.execute("CREATE INDEX IF NOT EXISTS ix_aliases_title ON anime_aliases (title)")
+        conn.execute("INSERT INTO anime_aliases VALUES (1001, 'Test Saga Alternate Alias')")
+        conn.execute("INSERT INTO anime_aliases VALUES (1002, 'Test Saga Part 2 English')")
+        conn.execute(
+            "CREATE TABLE franchise_links ("
+            "mal_id INTEGER NOT NULL, related_mal_id INTEGER NOT NULL, "
+            "relation_type TEXT NOT NULL, source TEXT NOT NULL, "
+            "PRIMARY KEY (mal_id, related_mal_id, relation_type)) WITHOUT ROWID"
+        )
+        conn.execute("CREATE INDEX IF NOT EXISTS ix_franchise_rel ON franchise_links (related_mal_id)")
+        conn.execute("INSERT INTO franchise_links VALUES (1001, 1002, 'SEQUEL', 'anilist')")
+        conn.execute("INSERT INTO franchise_links VALUES (1002, 1001, 'PREQUEL', 'anilist_inv')")
+        conn.execute("CREATE TABLE schedule_ids (mal_id INTEGER PRIMARY KEY, syobocal_tid INTEGER, annict_id INTEGER)")
+        conn.execute("INSERT INTO schedule_ids VALUES (1001, 7001, 8001)")
     conn.commit()
     conn.close()
 
@@ -258,6 +278,97 @@ class TestMappingDbIntegration(unittest.TestCase):
             self.assertEqual(len(captured), 1)
             self.assertIn('live overlay (AniZip/Simkl)', captured[0])
             self.assertIn('475631', captured[0])
+
+    def test_v22_aliases_franchise_search_relations_maldub_offset_and_sequel(self):
+        with E2EHermeticEnv('22'):
+            from resources.lib.ui import control, database, divide_flavors, utils
+            from resources.lib import MetaBrowser
+            from resources.lib.routes import tools
+            import resources.lib.windows.textviewer as tv_mod
+
+            # 0. v2.0 DB without v2.2 tables returns safe fallbacks
+            _create_v2_mappings_db(control.mappingDB, include_rules=True, include_v22=False)
+            database.close_all_connections(control.mappingDB)
+            self.assertEqual(database.get_mapping_aliases(1001), ['Test Saga - Cour One'])
+            self.assertEqual(database.get_schedule_ids(1001), {})
+            # Sibling fallback finds 1002 even without franchise_links table
+            self.assertEqual(database.get_sequel_mal_id(1001).get('mal_id'), 1002)
+
+            # 1. Full v2.2 DB with anime_aliases, franchise_links, and schedule_ids
+            _create_v2_mappings_db(control.mappingDB, include_rules=True, include_v22=True)
+            database.close_all_connections(control.mappingDB)
+
+            meta = database.get_mappings_metadata()
+            self.assertEqual(meta['schema_version'], '2.2')
+            self.assertEqual(meta['alias_count'], 2)
+            self.assertEqual(meta['franchise_link_count'], 2)
+            self.assertEqual(meta['schedule_id_count'], 1)
+
+            aliases = database.get_mapping_aliases(1001)
+            self.assertIn('Test Saga - Cour One', aliases)
+            self.assertIn('Test Saga Alternate Alias', aliases)
+
+            hits = database.search_mappings_by_title('Test Saga Alternate Alias')
+            self.assertEqual(len(hits), 1)
+            self.assertEqual(hits[0]['mal_id'], 1001)
+
+            franchise = database.get_franchise_entries(1001)
+            self.assertEqual(len(franchise), 1)
+            self.assertEqual(franchise[0]['relation_type'], 'SEQUEL')
+            self.assertEqual(franchise[0]['mal_id'], 1002)
+
+            self.assertEqual(database.get_schedule_ids(1001), {'syobocal_tid': 7001, 'annict_id': 8001})
+
+            # 2. Offline tvdb_rules episode offset inside get_source_context (no HTTP to ani.zip)
+            self.assertEqual(database.get_episode_offset_from_mappings(1002, 1), 12)
+            with patch.object(utils, 'get_anizip_summary', side_effect=AssertionError("Must not call remote AniZip")):
+                season, hints = utils.get_source_context(1002, {'name': 'Test Saga - Cour Two'}, 1, 3)
+            self.assertEqual(season, 1)
+            self.assertEqual(hints['absolute_episode'], 15)
+
+            # 3. mal_dub_id DB fallback inside divide_flavors._MalDubMap
+            divide_flavors._mal_dub_cache = None
+            dub_map = divide_flavors._get_mal_dub()
+            self.assertEqual(dub_map.get('1001'), 1001)
+            self.assertTrue('1001' in dub_map)
+            self.assertIsNone(dub_map.get('1002'))
+
+            # 4. Offline FIND_RELATIONS & SEARCH fallbacks when remote APIs return []
+            with patch.object(MetaBrowser.BROWSER, 'get_relations', return_value=[]):
+                rel_res = invoke_plugin_route('find_relations/1001')
+            rel_items = rel_res['directory_items']
+            self.assertEqual(len(rel_items), 1)
+            self.assertIn('Test Saga - Cour Two [Sequel]', rel_items[0][2].getLabel())
+
+            with patch.object(MetaBrowser.BROWSER, 'get_search', return_value=[]):
+                search_res = invoke_plugin_route('search_anime/Alternate%20Alias')
+            search_items = search_res['directory_items']
+            self.assertEqual(len(search_items), 1)
+            self.assertEqual(search_items[0][2].getLabel(), 'Test Saga - Cour One')
+
+            # 5. INSPECT_MAPPINGS & System Health Diagnostics surface v2.2 schedule/aliases/franchise
+            captured = []
+
+            class _SpyTV2:
+                def __init__(self, xml_file, addon_path, **kwargs):
+                    captured.append(kwargs.get('instructions_text', ''))
+
+                def run(self):
+                    pass
+
+                def close(self):
+                    pass
+
+            with patch.object(tv_mod, 'TextViewerXML', _SpyTV2):
+                invoke_plugin_route('inspect_mappings/1001')
+            self.assertEqual(len(captured), 1)
+            self.assertIn('7001 / 8001', captured[0])
+            self.assertIn('Test Saga Alternate Alias', captured[0])
+            self.assertIn('Test Saga - Cour Two', captured[0])
+
+            report = tools.generate_diagnostics_report()
+            self.assertIn('Aliases: 2', report)
+            self.assertIn('Franchise: 2', report)
 
 
 if __name__ == '__main__':

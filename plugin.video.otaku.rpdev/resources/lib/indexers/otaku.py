@@ -25,7 +25,9 @@ class OtakuAPI:
         self.kitsuBaseUrl = "https://kitsu.io/api/edge"
 
     def get_kitsu_id(self, mal_id):
-        meta_ids = database.get_mappings(mal_id, 'mal_id')
+        meta_ids = database.resolve_mappings_with_fallback(
+            mal_id, required_keys=('kitsu_id',), require_all=False
+        )
         return meta_ids.get('kitsu_id')
 
     def get_kitsu_episode_meta(self, mal_id):
@@ -107,7 +109,9 @@ class OtakuAPI:
         return episodes
 
     def get_anidb_id(self, mal_id):
-        meta_ids = database.get_mappings(mal_id, 'mal_id')
+        meta_ids = database.resolve_mappings_with_fallback(
+            mal_id, required_keys=('anidb_id',), require_all=False
+        )
         return meta_ids.get('anidb_id')
 
     def get_anidb_episode_meta(self, mal_id):

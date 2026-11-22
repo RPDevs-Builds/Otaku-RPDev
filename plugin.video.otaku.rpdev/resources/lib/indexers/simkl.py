@@ -176,8 +176,13 @@ class SIMKLAPI:
                 return anime_id
 
     def get_mapping_ids_from_simkl(self, anime_id, send_id):
-        # Query local database for all available IDs
-        meta_ids = database.get_mappings(anime_id, send_id)
+        # Query local database (+ cached runtime overlay when keyed by mal_id)
+        if send_id == 'mal_id':
+            meta_ids = database.resolve_mappings_with_fallback(
+                anime_id, required_keys=('simkl_id',), require_all=False, fetch_remote=False
+            )
+        else:
+            meta_ids = database.get_mappings(anime_id, send_id)
         if meta_ids:
             return meta_ids  # Return the full mapping dictionary
         # Fallback to SIMKL API if not found

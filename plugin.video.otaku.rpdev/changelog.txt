@@ -1,3 +1,11 @@
+Changelog v6.3.4 (2026-11-21):
+- Otaku-Mapping-DB v2.2 & Sequels:
+  - Consume Otaku-Mapping-DB v2.2 anime_aliases (63k+ offline alternate titles), franchise_links (31k+ bidirectional links), and schedule_ids (13k+ Syobocal/Annict IDs)
+  - Add offline FIND_RELATIONS, WATCH_ORDER, and search_anime fallbacks backed by local mappings.db
+  - Add automatic finale Sequel Episode 1 playlist queueing via smartplay.continue_sequel (#30592/#30593)
+  - Feed offline anime_aliases & tvdb_rules episode offsets directly into sortSources, utils.get_source_context, and part_filter
+  - Extend resolve_mappings_with_fallback() across artwork, IntroDB, Anime-Skip, debrid, and indexers plus mal_dub_id dub badge fallback
+
 Changelog v6.3.3 (2026-11-21):
 - Otaku-Mapping-DB v2.1 Client:
   - Switch automated mappings sync to RPDevs-Builds/Otaku-Mapping-DB v2.1 rolling .xz + manifest.json SHA-256 verification (1.86 MB LZMA, indexed queries, 32,228 rows, 2,868 tvdb_rules)

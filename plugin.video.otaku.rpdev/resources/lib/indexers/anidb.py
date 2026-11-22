@@ -14,7 +14,9 @@ class ANIDBAPI:
         self.base_url = 'http://api.anidb.net:9001/httpapi'
 
     def get_anidb_id(self, mal_id):
-        meta_ids = database.get_mappings(mal_id, 'mal_id')
+        meta_ids = database.resolve_mappings_with_fallback(
+            mal_id, required_keys=('anidb_id',), require_all=False
+        )
         return meta_ids.get('anidb_id')
 
     def get_episode_meta(self, mal_id):

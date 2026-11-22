@@ -70,7 +70,9 @@ class Debrid:
         try:
             if mal_id:
                 from resources.lib.ui import database
-                mappings = database.get_mappings(mal_id, 'mal_id')
+                mappings = database.resolve_mappings_with_fallback(
+                    mal_id, required_keys=('imdb_id',), require_all=False
+                )
                 if mappings:
                     imdb_id = mappings.get('imdb_id')
                     db_media_type = mappings.get('anime_media_type') or mappings.get('global_media_type') or media_type

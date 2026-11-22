@@ -13,7 +13,9 @@ class KitsuAPI:
         self.baseUrl = "https://kitsu.io/api/edge"
 
     def get_kitsu_id(self, mal_id):
-        meta_ids = database.get_mappings(mal_id, 'mal_id')
+        meta_ids = database.resolve_mappings_with_fallback(
+            mal_id, required_keys=('kitsu_id',), require_all=False
+        )
         return meta_ids.get('kitsu_id')
 
     def get_anime_info(self, mal_id):

@@ -165,7 +165,9 @@ def _normalize_title_items(titles_list):
 
 
 def _mapped_season(mal_id):
-    meta_ids = database.get_mappings(mal_id, 'mal_id')
+    meta_ids = database.resolve_mappings_with_fallback(
+        mal_id, required_keys=('thetvdb_season',), require_all=False, fetch_remote=False
+    )
     if meta_ids and meta_ids.get('thetvdb_season') is not None:
         tvdb_season = meta_ids.get('thetvdb_season')
         if tvdb_season in (0, '0', 'a'):
@@ -266,8 +268,10 @@ def get_source_context(mal_id, kodi_meta, stored_season, episode):
         control.log(f'Correcting stored season {stored_season} -> {season} for {mal_id} ({source})')
         database.update_show_season(mal_id, season)
 
-    summary = get_anizip_summary(mal_id)
-    offset = summary.get('offset') or 0
+    offset = database.get_episode_offset_from_mappings(mal_id, episode or 1)
+    if not offset:
+        summary = get_anizip_summary(mal_id)
+        offset = summary.get('offset') or 0
     try:
         abs_ep = int(episode) + int(offset) if offset and episode is not None else None
     except (ValueError, TypeError):
@@ -276,6 +280,39 @@ def get_source_context(mal_id, kodi_meta, stored_season, episode):
         'season_source': source,
         'absolute_episode': abs_ep,
     }
+
+
+def allocate_offline_mapping_items(rows, show_relation=False):
+    """Build standard Kodi directory items from offline mappings.db anime/franchise rows."""
+    out = []
+    for row in rows or ():
+        mid = row.get('mal_id')
+        if not mid:
+            continue
+        title = (row.get('mal_title') or f"Anime {mid}").strip()
+        rel = str(row.get('relation_type') or '').replace('_', ' ').title()
+        display_name = f"{title} [{rel}]" if (show_relation and rel) else title
+        pic = str(row.get('mal_picture') or '').strip()
+        if pic and not pic.startswith(('http://', 'https://')):
+            pic = f"https://cdn.myanimelist.net/images/anime/{pic}"
+        mtype_raw = str(row.get('anime_media_type') or 'TV').upper()
+        kodi_mtype = 'movie' if mtype_raw == 'MOVIE' else 'tvshow'
+        url = f"animes/{mid}/" if mtype_raw != 'MOVIE' else f"play_movie/{mid}/"
+        isfolder = (mtype_raw != 'MOVIE')
+        isplayable = (mtype_raw == 'MOVIE')
+        info = {
+            'UniqueIDs': {'mal_id': str(mid), 'mal': str(mid)},
+            'title': display_name,
+            'mediatype': kodi_mtype,
+            'status': row.get('status') or '',
+            'plot': f"{mtype_raw} • Episodes: {row.get('anime_media_episodes') or '?'} • Status: {row.get('status') or 'Unknown'}",
+        }
+        if row.get('score'):
+            info['rating'] = {'score': float(row['score'])}
+        if row.get('duration'):
+            info['duration'] = int(row['duration'])
+        out.append(allocate_item(display_name, url, isfolder, isplayable, [], image=pic, poster=pic, info=info))
+    return out
 
 
 # ═══════════════════════════════════════════════════════════════════════════

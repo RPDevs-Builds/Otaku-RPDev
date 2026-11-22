@@ -40,7 +40,7 @@ def resolve_anilist_id(mal_id):
     except (ValueError, TypeError):
         mal_id_int = mal_id
 
-    # 1. Primary lookup: SQLite mappings.db
+    # 1. Primary lookup: SQLite mappings.db (instant local query)
     mapping = database.get_mappings(mal_id_int, 'mal_id') or {}
     anilist_id = mapping.get('anilist_id')
 
@@ -54,17 +54,12 @@ def resolve_anilist_id(mal_id):
             except Exception:
                 pass
 
-    # 3. Tertiary fallback: AniZip online mappings
+    # 3. Tertiary fallback: live AniZip/Simkl overlay via shared mappings resolver
     if not anilist_id:
-        try:
-            url = f'https://api.ani.zip/mappings?mal_id={mal_id_int}'
-            resp = client.get(url, timeout=3.0)
-            if resp and resp.ok:
-                data = control.safe_json(resp, default={})
-                mappings = data.get('mappings') or {}
-                anilist_id = mappings.get('anilist_id')
-        except Exception:
-            pass
+        remote_map = database.resolve_mappings_with_fallback(
+            mal_id_int, required_keys=('anilist_id',), require_all=False, fetch_remote=True
+        ) or {}
+        anilist_id = remote_map.get('anilist_id')
 
     return anilist_id or mal_id_int
 

@@ -3989,6 +3989,14 @@ msgctxt "#30591"
 msgid "Show the Inspect ID Mappings context menu option to display cross-tracker MAL, AniList, Kitsu, Simkl, AniDB, TVDB, and TMDB IDs (Default: Enabled)."
 msgstr ""
 
+msgctxt "#30592"
+msgid "Continue to Sequel Season at Finale"
+msgstr ""
+
+msgctxt "#30593"
+msgid "Automatically queue Episode 1 of the direct Sequel (via mappings.db franchise links) when playing the final episode of a finished season (Default: Enabled)."
+msgstr ""
+
 
 
 

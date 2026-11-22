@@ -708,6 +708,7 @@ class TestWave3FeaturesNF01ToNF08(unittest.TestCase):
                     control.setInt('watchlist.sync.conflict_policy', 2)
                     control.setBool('interface.filler.badges', True)
                     control.setBool('smartplay.skip_filler', True)
+                    control.setBool('smartplay.continue_sequel', False)
                     control.setBool('subtitles.strip_sdh_tags', True)
                     control.setBool('context.otaku.inspectmappings', False)
                     ok, out_p, exported_count = settings_manager.export_settings(scope, td)
@@ -724,6 +725,7 @@ class TestWave3FeaturesNF01ToNF08(unittest.TestCase):
                             'watchlist.sync.conflict_policy',
                             'interface.filler.badges',
                             'smartplay.skip_filler',
+                            'smartplay.continue_sequel',
                             'subtitles.strip_sdh_tags',
                             'context.otaku.inspectmappings',
                         ):
@@ -734,6 +736,7 @@ class TestWave3FeaturesNF01ToNF08(unittest.TestCase):
                     # Mutate runtime before restore, then restore and assert round-trip
                     control.setSetting('easynews.user', 'wiped_user')
                     control.setInt('watchlist.sync.conflict_policy', 0)
+                    control.setBool('smartplay.continue_sequel', True)
                     control.setBool('context.otaku.inspectmappings', True)
                     imp_ok, imp_count = settings_manager.import_settings(scope, out_p)
                     self.assertTrue(imp_ok, f"import failed for scope={scope}")
@@ -742,6 +745,7 @@ class TestWave3FeaturesNF01ToNF08(unittest.TestCase):
                         self.assertEqual(control.getSetting('easynews.user'), 'en_tester_p32')
                     if scope in ('all', 'settings'):
                         self.assertEqual(control.getInt('watchlist.sync.conflict_policy'), 2)
+                        self.assertFalse(control.getBool('smartplay.continue_sequel'))
                         self.assertFalse(control.getBool('context.otaku.inspectmappings'))
 
     def test_p32_studio_dedup_aliases_and_context_inspectmappings_and_videodb_safety(self):

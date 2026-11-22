@@ -672,6 +672,11 @@ class Sources(GetSources):
             except Exception:
                 pass
             try:
+                for db_alias in database.get_mapping_aliases(mal_id):
+                    _append_alias(db_alias)
+            except Exception:
+                pass
+            try:
                 mal_id_int = int(mal_id)
                 enrichment_map = database.get_anilist_enrichment_batch([mal_id_int], max_age_hours=24 * 365)
                 enrich = enrichment_map.get(mal_id_int) if isinstance(enrichment_map, dict) else None

@@ -11,7 +11,7 @@ Ported and enhanced from upstream Goldenfreddy0703/Otaku PR #501.
 
 import os
 import re
-from resources.lib.ui import control
+from resources.lib.ui import control, database
 
 _CHINESE_TAGS = (
     '[chs]', '[cht]', '[gb]', '[big5]', '简体', '繁体', 'gb_mp4', 'big5_mp4', '[b-global]',
@@ -268,6 +268,12 @@ def filter_sources(sources, mal_id=None, episode=1, season=None, part=None):
         if a_start is not None and g_start is not None and g_start > a_start:
             offset = g_start - a_start
             global_ep = ep_num + offset
+
+    if offset == 0 and mal_id:
+        rule_off = database.get_episode_offset_from_mappings(mal_id, ep_num)
+        if rule_off > 0:
+            offset = rule_off
+            global_ep = ep_num + rule_off
 
     if target_part is None and sib_number is not None:
         target_part = sib_number
