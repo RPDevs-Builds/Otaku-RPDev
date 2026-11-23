@@ -74,6 +74,185 @@ def _clear_preresolved_handoff():
         control.playerWindow.clearProperty(prop)
 
 
+def _enrich_video_info(mal_id, episode, info_dict, media_type='episode'):
+    """Ensure clean non-null UniqueIDs and fallback season/episode metadata for Kodi/Trakt."""
+    video_info = dict(info_dict or {})
+    if mal_id:
+        uids = dict(video_info.get('UniqueIDs') or {}) if isinstance(video_info.get('UniqueIDs'), dict) else {}
+        if 'tvdb' not in uids and 'tmdb' not in uids:
+            uids.update(database.get_unique_ids(mal_id, 'mal_id') or {})
+        uids.setdefault('mal_id', str(mal_id))
+        uids.setdefault('mal', str(mal_id))
+        video_info['UniqueIDs'] = {
+            str(k): str(v) for k, v in uids.items()
+            if v is not None and str(v).strip() not in ('', 'None', 'null')
+        }
+        if media_type != 'movie' and video_info.get('season') in (None, ''):
+            from resources.lib.ui import player as _player_mod
+            mapped_s, mapped_ep = _player_mod.resolve_trakt_season_episode(mal_id, episode, is_movie=False)
+            if mapped_s is not None:
+                video_info['season'] = mapped_s
+                if video_info.get('episode') in (None, '', 0):
+                    video_info['episode'] = mapped_ep
+    return video_info
+
+
+def _try_preresolved_handoff(mal_id, episode, params, resume, media_type='episode', source_select=False, rescrape=False):
+    """Consume Zero-Wait pre-resolved window properties across PLAY & PLAY_MOVIE."""
+    preresolved_url = control.playerWindow.getProperty('otaku.preResolved_url')
+    preresolved_mal_id = control.playerWindow.getProperty('otaku.preResolved_malId')
+    preresolved_ep = control.playerWindow.getProperty('otaku.preResolved_episode')
+    preresolved_data_str = control.playerWindow.getProperty('otaku.preResolved_data')
+
+    if not (
+        preresolved_url
+        and preresolved_mal_id == str(mal_id)
+        and preresolved_ep == str(episode)
+        and not source_select
+        and not rescrape
+        and control.getBool('smartplay.preresolve', default=True)
+    ):
+        return False
+
+    control.log(f"Playback: Zero-Wait Pre-Resolved Stream Hit for {mal_id} Ep {episode} ({media_type})!", 'info')
+    _clear_preresolved_handoff()
+
+    preresolved_data = control.loads_json(preresolved_data_str, default={}) if preresolved_data_str else {}
+    if not isinstance(preresolved_data, dict):
+        preresolved_data = {}
+
+    import xbmc, xbmcgui, xbmcplugin
+    item = xbmcgui.ListItem(path=preresolved_url, offscreen=True)
+
+    # Always purge stale temporary subtitle files and embed sub flags before preparing new playback
+    from resources.lib.ui import embed_extractor, source_utils, player
+    embed_extractor.del_subs()
+    control.clearGlobalProp('otaku.embed_sub_signs_only')
+    control.clearGlobalProp('otaku.embed_sub_has_full_dialog')
+
+    if preresolved_data.get('sub'):
+        from resources.lib.subtitles import languages
+        pref_lang = languages.get_preferred_subtitle_language()
+        sub_entries = []
+        if pref_lang != 'none':
+            for idx, sub in enumerate(preresolved_data['sub']):
+                sub_lang = sub.get('lang') or embed_extractor.detect_sub_lang(sub.get('url'), sub.get('name'))
+                if pref_lang and not languages.is_language_match(sub_lang, pref_lang):
+                    control.log(f"Playback: Skipping embed subtitle '{sub.get('name', '')}' ({sub_lang}) - does not match preferred '{pref_lang}'", 'debug')
+                    continue
+                entry = embed_extractor.get_sub(
+                    sub.get('url'),
+                    sub.get('lang'),
+                    headers=sub.get('headers'),
+                    sub_index=sub.get('index', idx),
+                    display_name=sub.get('name'),
+                    source_url=sub.get('file'),
+                    sub_tag=f"{mal_id}_{episode}_{int(time.time() * 1000)}",
+                )
+                if entry:
+                    sub_entries.append(entry)
+        if sub_entries:
+            item.setSubtitles([e['path'] for e in sub_entries])
+
+    headers = preresolved_data.get('headers') or {}
+    from resources.lib.windows.resolver import _get_header_ci, hook_mimetype
+    content_type = _get_header_ci(headers, 'Content-Type')
+    if content_type:
+        item.setProperty('MimeType', content_type.split(';', 1)[0].strip())
+        item = hook_mimetype.trigger(content_type, item)
+
+    source_dict = preresolved_data.get('source') or {}
+    source_tags = source_dict.get('info', []) if isinstance(source_dict, dict) else []
+    hdr_type = None
+    if 'DV' in source_tags:
+        hdr_type = 'dolbyvision'
+    elif 'HDR' in source_tags:
+        hdr_type = 'hdr10'
+
+    base_info = dict(params.get('info', {})) if params.get('info') else dict(params)
+    if hdr_type and 'hdr_type' not in base_info:
+        base_info['hdr_type'] = hdr_type
+    video_info = _enrich_video_info(mal_id, episode, base_info, media_type=media_type)
+    control.set_videotags(item, video_info)
+
+    clean_filename = source_utils.format_video_filename(video_info)
+    if clean_filename:
+        item.setProperty('original_filename', clean_filename)
+        item.setProperty('VideoPlayer.OriginalFilename', clean_filename)
+        item.setLabel(clean_filename)
+    if params.get('image'):
+        clean_art = control.clean_art_dict(params.get('image'))
+        if clean_art:
+            item.setArt(clean_art)
+            studio_art = clean_art.get('studio') or clean_art.get('tvshow.studio')
+            if studio_art:
+                item.setProperty('StudioIcon', studio_art)
+                item.setProperty('StudioLogo', studio_art)
+                item.setProperty('Studio.Icon', studio_art)
+                item.setProperty('Studio.Logo', studio_art)
+                item.setProperty('Studio.1.Icon', studio_art)
+                item.setProperty('Studio.1.Logo', studio_art)
+                item.setProperty('Studio.1.Art', studio_art)
+
+    from resources.lib.WatchlistIntegration import watchlist_update_episode
+    if source_dict:
+        database.save_last_played_source(mal_id, source_dict)
+        if source_dict.get('type') in ['embed', 'direct']:
+            lp_key = f"{source_dict.get('provider', '')} {' '.join(map(str, source_dict.get('info') or []))}".strip()
+        else:
+            lp_key = str(source_dict.get('release_title') or source_dict.get('name') or '')
+        control.setSetting('last_played_source', lp_key)
+        control.setSetting('last_watched_series', str(mal_id))
+
+    stype = source_dict.get('type', '')
+    sprovider = source_dict.get('provider', '')
+    import urllib.parse as _up
+    pr_parsed = _up.urlparse(str(preresolved_url).split('|', 1)[0])
+    existing_fc = database.get_playback_failover_context(mal_id, episode)
+    fc_sources = (existing_fc.get('sources') if isinstance(existing_fc, dict) else None) or ([source_dict] if source_dict else [])
+    fc_tried = list(existing_fc.get('tried_candidates') or []) if isinstance(existing_fc, dict) else []
+    fc_idx = int(existing_fc.get('candidate_index') or 0) if isinstance(existing_fc, dict) else 0
+    database.save_playback_failover_context(
+        mal_id,
+        episode,
+        {
+            'sources': fc_sources,
+            'candidate_index': fc_idx,
+            'tried_candidates': fc_tried,
+            'active_url': str(preresolved_url),
+            'active_host': pr_parsed.netloc.lower() if pr_parsed and pr_parsed.netloc else '',
+            'debrid_provider': source_dict.get('debrid_provider', ''),
+            'media_type': media_type,
+        },
+    )
+    if control.getBool('trakt.enabled'):
+        player.publish_trakt_ids(mal_id, fetch_remote=False)
+    else:
+        player.clear_trakt_ids()
+
+    if control.HANDLE is not None and control.HANDLE < 0:
+        control.playList.clear()
+        control.playList.add(item.getPath(), item)
+        pl_to_play = control.playList._get_pl() if hasattr(control.playList, '_get_pl') else control.playList
+        xbmc.Player().play(pl_to_play, item)
+    else:
+        xbmcplugin.setResolvedUrl(control.HANDLE, True, item)
+
+    player.WatchlistPlayer().handle_player(
+        mal_id,
+        watchlist_update_episode,
+        int(episode),
+        resume,
+        params.get('path', ''),
+        stype,
+        sprovider,
+        False,
+        None,
+    )
+    control.exit_code()
+    return True
+
+
 @Route('play/*')
 def PLAY(payload, params):
     parts = [p for p in payload.strip('/').split('/') if p]
@@ -86,12 +265,14 @@ def PLAY(payload, params):
     last_played = control.getSetting('last_played_source')
     last_watched = control.getSetting('last_watched_series')
     resume = params.get('resume')
+    auto_resume = _param_flag_true(params, 'auto_resume')
     if rating := params.get('rating'):
         try:
             params['rating'] = ast.literal_eval(rating)
         except (ValueError, SyntaxError):
             params['rating'] = rating
-    params['path'] = f"{control.addon_url(f'play/{payload}')}"
+    play_path = params.get('path') or f"{control.addon_url(f'play/{payload}')}"
+    params['path'] = play_path
 
     # Populate params with episode metadata from database if not already present
     # This ensures metadata is available even when playing from Information dialog
@@ -110,27 +291,35 @@ def PLAY(payload, params):
                 kodi_meta = database.loads(show_meta['kodi_meta'])
                 show_art = database.get_show_meta(mal_id)
                 art = database.loads(show_art['art']) if show_art and show_art.get('art') else {}
+                ep_int = int(episode) if str(episode).isdigit() else 1
+                info_dict = {
+                    'title': f"{kodi_meta.get('title_userPreferred', '')} - Episode {episode}",
+                    'tvshowtitle': kodi_meta.get('title_userPreferred', ''),
+                    'episode': ep_int,
+                    'plot': kodi_meta.get('plot', ''),
+                    'mediatype': 'episode',
+                    'UniqueIDs': {'mal_id': str(mal_id), 'mal': str(mal_id), **database.get_unique_ids(mal_id, 'mal_id')},
+                }
+                if kodi_meta.get('season') is not None:
+                    info_dict['season'] = kodi_meta.get('season')
                 params = {
-                    'info': {
-                        'title': f"{kodi_meta.get('title_userPreferred', '')} - Episode {episode}",
-                        'tvshowtitle': kodi_meta.get('title_userPreferred', ''),
-                        'episode': int(episode),
-                        'plot': kodi_meta.get('plot', ''),
-                        'mediatype': 'episode',
-                        'UniqueIDs': {'mal_id': str(mal_id), **database.get_unique_ids(mal_id, 'mal_id')},
-                    },
+                    'info': _enrich_video_info(mal_id, ep_int, info_dict, media_type='episode'),
                     'image': {
                         'poster': art.get('poster') or kodi_meta.get('poster', ''),
                         'fanart': art.get('fanart', ''),
                         'icon': art.get('poster') or kodi_meta.get('poster', ''),
                         'thumb': art.get('thumb', ''),
                     },
-                    'path': params.get('path', ''),
+                    'path': play_path,
                 }
+        if isinstance(params, dict):
+            params.setdefault('path', play_path)
+            if auto_resume:
+                params['auto_resume'] = '1'
 
     if resume:
         resume = float(resume)
-        if not _param_flag_true(params, 'auto_resume'):
+        if not auto_resume and not _param_flag_true(params, 'auto_resume'):
             context = control.context_menu([f'Resume from {utils.format_time(resume)}', 'Play from beginning'])
             if context == -1:
                 return control.exit_code()
@@ -158,126 +347,7 @@ def PLAY(payload, params):
             control.log(f"playback aired_date check error: {e}", 'debug')
 
     # Zero-Wait Pre-Resolved Stream Handoff
-    preresolved_url = control.playerWindow.getProperty('otaku.preResolved_url')
-    preresolved_mal_id = control.playerWindow.getProperty('otaku.preResolved_malId')
-    preresolved_ep = control.playerWindow.getProperty('otaku.preResolved_episode')
-    preresolved_data_str = control.playerWindow.getProperty('otaku.preResolved_data')
-
-    if (
-        preresolved_url
-        and preresolved_mal_id == str(mal_id)
-        and preresolved_ep == str(episode)
-        and not source_select
-        and not rescrape
-        and control.getBool('smartplay.preresolve', default=True)
-    ):
-        control.log(f"Playback: Zero-Wait Pre-Resolved Stream Hit for {mal_id} Ep {episode}!", 'info')
-        control.playerWindow.clearProperty('otaku.preResolved_url')
-        control.playerWindow.clearProperty('otaku.preResolved_malId')
-        control.playerWindow.clearProperty('otaku.preResolved_episode')
-        control.playerWindow.clearProperty('otaku.preResolved_data')
-
-        preresolved_data = control.loads_json(preresolved_data_str, default={}) if preresolved_data_str else {}
-        if not isinstance(preresolved_data, dict):
-            preresolved_data = {}
-
-        import xbmcgui, xbmcplugin
-        item = xbmcgui.ListItem(path=preresolved_url, offscreen=True)
-
-        # Always purge stale temporary subtitle files and embed sub flags before preparing new playback
-        from resources.lib.ui import embed_extractor, source_utils
-        embed_extractor.del_subs()
-        control.clearGlobalProp('otaku.embed_sub_signs_only')
-        control.clearGlobalProp('otaku.embed_sub_has_full_dialog')
-
-        if preresolved_data.get('sub'):
-            from resources.lib.subtitles import languages
-            pref_lang = languages.get_preferred_subtitle_language()
-            sub_entries = []
-            if pref_lang != 'none':
-                for idx, sub in enumerate(preresolved_data['sub']):
-                    sub_lang = sub.get('lang') or embed_extractor.detect_sub_lang(sub.get('url'), sub.get('name'))
-                    if pref_lang and not languages.is_language_match(sub_lang, pref_lang):
-                        control.log(f"Playback: Skipping embed subtitle '{sub.get('name', '')}' ({sub_lang}) - does not match preferred '{pref_lang}'", 'debug')
-                        continue
-                    entry = embed_extractor.get_sub(
-                        sub.get('url'),
-                        sub.get('lang'),
-                        headers=sub.get('headers'),
-                        sub_index=sub.get('index', idx),
-                        display_name=sub.get('name'),
-                        source_url=sub.get('file'),
-                        sub_tag=f"{mal_id}_{episode}_{int(time.time() * 1000)}",
-                    )
-                    if entry:
-                        sub_entries.append(entry)
-            if sub_entries:
-                item.setSubtitles([e['path'] for e in sub_entries])
-
-        headers = preresolved_data.get('headers') or {}
-        from resources.lib.windows.resolver import _get_header_ci, hook_mimetype
-        content_type = _get_header_ci(headers, 'Content-Type')
-        if content_type:
-            item.setProperty('MimeType', content_type.split(';', 1)[0].strip())
-            item = hook_mimetype.trigger(content_type, item)
-
-        video_info = dict(params.get('info', {})) if params.get('info') else dict(params)
-        control.set_videotags(item, video_info)
-
-        # Signal standardized filename to Kodi Player and subtitle search addons
-        clean_filename = source_utils.format_video_filename(video_info)
-        if clean_filename:
-            item.setProperty('original_filename', clean_filename)
-            item.setProperty('VideoPlayer.OriginalFilename', clean_filename)
-            item.setLabel(clean_filename)
-        if params.get('image'):
-            clean_art = control.clean_art_dict(params.get('image'))
-            if clean_art:
-                item.setArt(clean_art)
-
-        from resources.lib.WatchlistIntegration import watchlist_update_episode
-        from resources.lib.ui import player
-        source_dict = preresolved_data.get('source') or {}
-        if source_dict:
-            database.save_last_played_source(mal_id, source_dict)
-            if source_dict.get('type') in ['embed', 'direct']:
-                lp_key = f"{source_dict.get('provider', '')} {' '.join(map(str, source_dict.get('info') or []))}".strip()
-            else:
-                lp_key = str(source_dict.get('release_title') or source_dict.get('name') or '')
-            control.setSetting('last_played_source', lp_key)
-            control.setSetting('last_watched_series', str(mal_id))
-
-        stype = source_dict.get('type', '')
-        sprovider = source_dict.get('provider', '')
-        import urllib.parse as _up
-        pr_parsed = _up.urlparse(str(preresolved_url).split('|', 1)[0])
-        existing_fc = database.get_playback_failover_context(mal_id, episode)
-        fc_sources = (existing_fc.get('sources') if isinstance(existing_fc, dict) else None) or ([source_dict] if source_dict else [])
-        database.save_playback_failover_context(
-            mal_id,
-            episode,
-            {
-                'sources': fc_sources,
-                'candidate_index': 0,
-                'active_url': str(preresolved_url),
-                'active_host': pr_parsed.netloc.lower() if pr_parsed and pr_parsed.netloc else '',
-                'debrid_provider': source_dict.get('debrid_provider', ''),
-                'media_type': 'episode',
-            },
-        )
-        xbmcplugin.setResolvedUrl(control.HANDLE, True, item)
-        player.WatchlistPlayer().handle_player(
-            mal_id,
-            watchlist_update_episode,
-            int(episode),
-            resume,
-            params.get('path', ''),
-            stype,
-            sprovider,
-            False,
-            None,
-        )
-        control.exit_code()
+    if _try_preresolved_handoff(mal_id, episode, params, resume, media_type='episode', source_select=source_select, rescrape=rescrape):
         return
 
     sources = MetaBrowser.get_sources(mal_id, episode, 'show', rescrape, source_select)
@@ -316,7 +386,9 @@ def PLAY_MOVIE(payload, params):
     if source_select or rescrape:
         _clear_preresolved_handoff()
     resume = params.get('resume')
-    params['path'] = f"{control.addon_url(f'play_movie/{payload}')}"
+    auto_resume = _param_flag_true(params, 'auto_resume')
+    play_path = params.get('path') or f"{control.addon_url(f'play_movie/{payload}')}"
+    params['path'] = play_path
 
     # Populate params with movie metadata from database if not already present
     # This ensures metadata is available even when playing from Information dialog
@@ -330,24 +402,31 @@ def PLAY_MOVIE(payload, params):
             return
         kodi_meta = database.loads(anime_data['kodi_meta']) if anime_data.get('kodi_meta') else {}
         art_data = database.loads(anime_meta['art']) if anime_meta.get('art') else {}
+        enriched_info = _enrich_video_info(mal_id, 1, kodi_meta, media_type='movie')
 
         params = {
             **kodi_meta,
-            'info': kodi_meta,  # video info tags
+            'info': enriched_info,  # video info tags
             'image': {  # art fields for UI
                 k: (v[0] if isinstance(v, list) else v)
                 for k, v in art_data.items()
-            }
+            },
+            'path': play_path,
         }
+        if auto_resume:
+            params['auto_resume'] = '1'
 
     if resume:
         resume = float(resume)
-        if not _param_flag_true(params, 'auto_resume'):
+        if not auto_resume and not _param_flag_true(params, 'auto_resume'):
             context = control.context_menu([f'Resume from {utils.format_time(resume)}', 'Play from beginning'])
             if context == -1:
                 return control.exit_code()
             elif context == 1:
                 resume = None
+
+    if _try_preresolved_handoff(mal_id, 1, params, resume, media_type='movie', source_select=source_select, rescrape=rescrape):
+        return
 
     sources = MetaBrowser.get_sources(mal_id, 1, 'movie', rescrape, source_select)
     if sources:
@@ -727,6 +806,28 @@ def find_episode_by_title(mal_ids, episode_titles, show_title=''):
         if local_hit:
             control.log(f"LOCAL EPISODE MATCH FOUND: '{local_hit['matched_title']}' -> MAL {mal_id} ep {local_hit['episode_number']}")
             return {'mal_id': mal_id, **local_hit}
+
+        # 1b. Cached AniZip metadata check (0 network requests) before rate-limited Jikan
+        try:
+            from resources.lib.indexers import anizip as anizip_idx
+            az_cached = database.peek(anizip_idx.ANIZIPAPI().get_anime_info, 24, mal_id)
+            if isinstance(az_cached, dict) and isinstance(az_cached.get('episodes'), dict):
+                az_cached_pairs = []
+                for ep_key, ep_obj in az_cached['episodes'].items():
+                    if not str(ep_key).isdigit() or not isinstance(ep_obj, dict):
+                        continue
+                    ep_num = int(ep_obj.get('episode') or ep_key)
+                    tmap = ep_obj.get('title') if isinstance(ep_obj.get('title'), dict) else {}
+                    for tlang in ('en', 'x-jat', 'ja'):
+                        cand = str(tmap.get(tlang) or '').strip()
+                        if cand:
+                            az_cached_pairs.append((cand, ep_num, cand))
+                az_cached_hit = _match_episode_title_candidates(cleaned_titles, az_cached_pairs, get_fuzzy_match, clean_text)
+                if az_cached_hit:
+                    control.log(f"CACHED ANIZIP EPISODE MATCH FOUND: '{az_cached_hit['matched_title']}' -> MAL {mal_id} ep {az_cached_hit['episode_number']}")
+                    return {'mal_id': mal_id, **az_cached_hit}
+        except Exception:
+            pass
 
         # 2. Rate-limited Jikan lookup (title, title_romanji, title_japanese)
         if requests_made == 3:

@@ -716,10 +716,16 @@ class AniListWLF(WatchlistFlavorBase):
             return None
 
     def _get_anilist_id(self, mal_id):
-        """Return the AniList ID for a MAL ID, querying AniList directly when not stored yet."""
+        """Return the AniList ID for a MAL ID via shows DB -> offline mappings.db -> AniList GraphQL."""
         show = database.get_show(mal_id)
         anilist_id = self._clean_anilist_id(show.get('anilist_id')) if show else None
         if anilist_id:
+            return anilist_id
+        mp = database.get_mappings(mal_id, 'mal_id')
+        anilist_id = self._clean_anilist_id(mp.get('anilist_id')) if isinstance(mp, dict) else None
+        if anilist_id:
+            if show:
+                database.add_mapping_id(mal_id, 'anilist_id', anilist_id)
             return anilist_id
         query = '''
         query ($malId: Int) {

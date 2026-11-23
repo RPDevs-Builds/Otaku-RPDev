@@ -291,28 +291,59 @@ class WatchlistPlayer(player):
             )
 
         # NF-06 / NF-03: Apply per-series override profile if configured
+        self._series_audio_override = False
+        self._series_sub_override = False
+        self._series_sub_mode_override = False
         self.series_override = database.get_series_override(self.mal_id) if self.mal_id else None
         if isinstance(self.series_override, dict):
             ov_audio = (self.series_override.get('audio_lang') or '').lower()
             if ov_audio in ('jpn', 'ja', 'japanese', 'sub'):
                 self.preferred_audio = 0
+                self._series_audio_override = True
             elif ov_audio in ('eng', 'en', 'english', 'dub'):
                 self.preferred_audio = 1
+                self._series_audio_override = True
             ov_sub = (self.series_override.get('sub_lang') or '').lower()
-            _sub_idx_map = {'none': 0, 'eng': 1, 'en': 1, 'jpn': 2, 'ja': 2, 'spa': 3, 'es': 3, 'fre': 4, 'fr': 4, 'ger': 5, 'de': 5}
+            _sub_idx_map = {
+                'none': 0, 'eng': 1, 'en': 1, 'jpn': 2, 'ja': 2, 'spa': 3, 'es': 3,
+                'fre': 4, 'fra': 4, 'fr': 4, 'ger': 5, 'deu': 5, 'de': 5,
+                'ita': 6, 'it': 6, 'dut': 7, 'nld': 7, 'nl': 7, 'rus': 8, 'ru': 8,
+                'por': 9, 'pt': 9, 'kor': 10, 'ko': 10, 'chi': 11, 'zho': 11, 'zh': 11,
+                'ara': 12, 'ar': 12, 'hin': 13, 'hi': 13, 'tur': 14, 'tr': 14,
+                'pol': 15, 'pl': 15, 'swe': 16, 'sv': 16, 'nor': 17, 'no': 17,
+                'dan': 18, 'da': 18, 'fin': 19, 'fi': 19,
+            }
             if ov_sub in _sub_idx_map:
                 self.preferred_subtitle_setting = _sub_idx_map[ov_sub]
+                self._series_sub_override = True
             ov_mode = (self.series_override.get('sub_mode') or '').lower()
             if ov_mode == 'dialog':
                 self.preferred_subtitle_keyword = 1
+                self._series_sub_mode_override = True
             elif ov_mode == 'signs':
                 self.preferred_subtitle_keyword = 2
+                self._series_sub_mode_override = True
             elif ov_mode == 'smart':
                 self.preferred_subtitle_keyword = 4
-            if self.series_override.get('intro_offset_s') is not None:
-                self.skipintro_offset = int(self.series_override.get('intro_offset_s') or 0)
-            if self.series_override.get('outro_offset_s') is not None:
-                self.skipoutro_offset = int(self.series_override.get('outro_offset_s') or 0)
+                self._series_sub_mode_override = True
+            try:
+                ov_in_off = int(self.series_override.get('intro_offset_s') or 0)
+                if ov_in_off != 0:
+                    self.skipintro_offset = ov_in_off
+            except (ValueError, TypeError):
+                pass
+            try:
+                ov_out_off = int(self.series_override.get('outro_offset_s') or 0)
+                if ov_out_off != 0:
+                    self.skipoutro_offset = ov_out_off
+            except (ValueError, TypeError):
+                pass
+
+        # Ensure script.trakt.ids is ready before OnAVStart / keepAlive settles
+        if control.getBool('trakt.enabled'):
+            publish_trakt_ids(self.mal_id, fetch_remote=False)
+        else:
+            clear_trakt_ids()
 
         # Process skip times asynchronously to not block playback
         if not self._skip_processed:
@@ -408,7 +439,6 @@ class WatchlistPlayer(player):
         if attempts >= 2:
             return False
 
-        self._failover_triggered = True
         import urllib.parse
         from resources.lib.ui import domains, utils
         ctx = database.get_playback_failover_context(self.mal_id, ep_str)
@@ -430,8 +460,21 @@ class WatchlistPlayer(player):
             domains.adaptive_circuit_breaker.record_failure(str(ctx['debrid_provider']).lower(), category='debrid')
 
         from resources.lib.windows import resolver as resolver_mod
+        sources_list = list(ctx.get('sources') or [])
+        try:
+            cur_idx = int(ctx.get('candidate_index') or 0)
+        except (TypeError, ValueError):
+            cur_idx = 0
+        tried = list(ctx.get('tried_candidates') or [])
+        if 0 <= cur_idx < len(sources_list):
+            cur_key = resolver_mod.failover_candidate_key(sources_list[cur_idx])
+            if cur_key and cur_key not in tried:
+                tried.append(cur_key)
+
+        ctx_for_lookup = dict(ctx)
+        ctx_for_lookup['tried_candidates'] = tried
         backup = resolver_mod.resolve_failover_candidate(
-            ctx,
+            ctx_for_lookup,
             mal_id=self.mal_id,
             episode=ep_str,
             failing_host=failing_host,
@@ -439,13 +482,30 @@ class WatchlistPlayer(player):
         if not backup or not backup.get('url'):
             return False
 
+        self._failover_triggered = True
         control.playerWindow.setProperty(fail_key, str(attempts + 1))
         resume_pos = max(0, int(self.current_time or 0) - 3)
         b_src = backup.get('source') or {}
+        b_key = resolver_mod.failover_candidate_key(b_src)
+        if b_key and b_key not in tried:
+            tried.append(b_key)
+        next_idx = cur_idx
+        b_hash = str(b_src.get('hash') or b_src.get('url') or '').strip()
+        b_prov_name = str(b_src.get('provider') or '').strip().lower()
+        for idx, src in enumerate(sources_list):
+            if idx > cur_idx and isinstance(src, dict):
+                s_hash = str(src.get('hash') or src.get('url') or '').strip()
+                s_prov = str(src.get('provider') or '').strip().lower()
+                if b_hash and s_hash == b_hash and (not b_prov_name or s_prov == b_prov_name):
+                    next_idx = idx
+                    break
+
         b_prov = b_src.get('debrid_provider') or b_src.get('provider') or 'backup'
         b_url = str(backup['url'])
         b_host = urllib.parse.urlparse(b_url.split('|', 1)[0]).netloc.lower()
         updated_ctx = dict(ctx)
+        updated_ctx['candidate_index'] = next_idx
+        updated_ctx['tried_candidates'] = tried
         updated_ctx['active_url'] = b_url
         updated_ctx['active_host'] = b_host
         updated_ctx['debrid_provider'] = b_src.get('debrid_provider', '')
@@ -497,11 +557,24 @@ class WatchlistPlayer(player):
             return ''
         return str(target_file)
 
+    def _clear_failover_attempts(self):
+        if not getattr(self, 'mal_id', None):
+            return
+        ep_str = str(self.episode if getattr(self, 'episode', None) not in (None, '') else 1)
+        control.playerWindow.clearProperty(f"otaku.failover_attempts_{self.mal_id}_{ep_str}")
+
     def onPlayBackStopped(self):
+        if getattr(self, '_failover_triggered', False):
+            # NF-11 replacement PlayMedia interrupts old stream: preserve preResolved_*, playList, subs, and script.trakt.ids
+            self._playback_stopped = True
+            self._clear_scene_markers()
+            return
         self._playback_stopped = True
         self._user_stopped_or_errored = True
         self._clear_preresolved_properties()
+        self._clear_failover_attempts()
         self._clear_scene_markers()
+        clear_trakt_ids()
         control.closeAllDialogs()
         playList.clear()
         try:
@@ -562,6 +635,7 @@ class WatchlistPlayer(player):
                 return
         self._playback_stopped = True
         self._playback_ended = True
+        self._clear_failover_attempts()
         self._clear_scene_markers()
         control.closeAllDialogs()
         # Only purge temp subs when no next playlist episode is queued; during Zero-Wait
@@ -569,6 +643,7 @@ class WatchlistPlayer(player):
         # purges stale ones before writing.
         has_next_item = playList.size() > 1 and (playList.getposition() < 0 or playList.getposition() < playList.size() - 1)
         if not has_next_item:
+            clear_trakt_ids()
             try:
                 from resources.lib.ui import embed_extractor
                 embed_extractor.del_subs()
@@ -609,7 +684,9 @@ class WatchlistPlayer(player):
         self._playback_stopped = True
         self._user_stopped_or_errored = True
         self._clear_preresolved_properties()
+        self._clear_failover_attempts()
         self._clear_scene_markers()
+        clear_trakt_ids()
         control.closeAllDialogs()
         playList.clear()
         try:
@@ -720,6 +797,24 @@ class WatchlistPlayer(player):
                         pic = f"https://cdn.myanimelist.net/images/anime/{pic}"
                     is_movie = str(seq.get('anime_media_type') or '').upper() == 'MOVIE'
                     seq_url_path = f"play_movie/{seq_mid}/" if is_movie else f"play/{seq_mid}/1"
+                    seq_uid_raw = database.get_unique_ids(seq_mid, 'mal_id') or {}
+                    seq_uids = {
+                        str(k): str(v)
+                        for k, v in seq_uid_raw.items()
+                        if v is not None and str(v).strip() not in ('', 'None', 'null')
+                    }
+                    seq_uids['mal_id'] = str(seq_mid)
+                    seq_uids['mal'] = str(seq_mid)
+                    seq_season = seq.get('thetvdb_season')
+                    seq_info = {
+                        'title': seq_title,
+                        'tvshowtitle': seq_title,
+                        'episode': 1,
+                        'mediatype': 'movie' if is_movie else 'episode',
+                        'UniqueIDs': seq_uids,
+                    }
+                    if not is_movie and seq_season is not None and str(seq_season).isdigit():
+                        seq_info['season'] = int(seq_season)
                     seq_item = {
                         'url': seq_url_path,
                         'name': f"Sequel: {seq_title} - Episode 1" if not is_movie else f"Sequel: {seq_title}",
@@ -727,13 +822,7 @@ class WatchlistPlayer(player):
                         'isplayable': True,
                         'cm': [],
                         'image': {'icon': pic, 'thumb': pic, 'poster': pic} if pic else {},
-                        'info': {
-                            'title': seq_title,
-                            'tvshowtitle': seq_title,
-                            'episode': 1,
-                            'mediatype': 'movie' if is_movie else 'episode',
-                            'UniqueIDs': {'mal_id': str(seq_mid), 'mal': str(seq_mid)},
-                        },
+                        'info': seq_info,
                     }
                     seq_built = control.bulk_dir_list([seq_item], True)
                     for s_url, s_li in seq_built or ():
@@ -818,12 +907,11 @@ class WatchlistPlayer(player):
         self.total_time = int(self.getTotalTime())
 
         # Continue with the rest of the method after playback is confirmed
-        unique_ids = database.get_unique_ids(self.mal_id, 'mal_id')
-
-        # Trakt scrobbling support
+        # Trakt scrobbling support (clean non-null IDs with fallback enrichment)
         if control.getBool('trakt.enabled'):
-            control.clearGlobalProp('script.trakt.ids')
-            control.setGlobalProp('script.trakt.ids', json.dumps(unique_ids))
+            publish_trakt_ids(self.mal_id, fetch_remote=True)
+        else:
+            clear_trakt_ids()
 
         # Always record current show & episode in watch history
         previous_last_watched = control.getSetting('addon.last_watched')
@@ -863,7 +951,7 @@ class WatchlistPlayer(player):
                 'season': self.vtag.getSeason() if self.vtag else '',
                 'episode': self.episode or (self.vtag.getEpisode() if self.vtag else ''),
                 'year': self.vtag.getYear() if self.vtag else '',
-                'UniqueIDs': unique_ids or {},
+                'UniqueIDs': database.get_unique_ids(self.mal_id, 'mal_id') or {},
             }
             _subs_mod.publish_active_playback_meta(_active_video_info, mal_id=str(self.mal_id or ''))
         except Exception as e:
@@ -958,10 +1046,13 @@ class WatchlistPlayer(player):
         outro_enabled = (playnext_time > 0) or self.skipoutro_aniskip_auto or (self.skipoutro_aniskip and self.skipoutro_start > 0)
         outro_handled = not outro_enabled
         prescrape_triggered = False
+        stagnant_cycles = 0
+        last_pos = int(self.current_time or 0)
 
         while not self._playback_stopped and self.isPlaying() and not (intro_handled and self.updated and outro_handled):
             # When player is paused, yield to prevent CPU churn and preserve hardware-plane rendering
             if xbmc.getCondVisibility("Player.Paused"):
+                stagnant_cycles = 0
                 for _ in range(5):
                     if self._playback_stopped or not self.isPlaying() or (self._monitor and self._monitor.abortRequested()):
                         break
@@ -969,11 +1060,22 @@ class WatchlistPlayer(player):
                 continue
 
             try:
-                self.current_time = int(self.getTime())
+                cur_pos = int(self.getTime())
+                self.current_time = cur_pos
                 if (self.total_time or 0) <= 0:
                     self.total_time = int(self.getTotalTime())
             except RuntimeError:
                 break
+
+            if (self.total_time or 0) > 120 and abs(cur_pos - last_pos) < 1:
+                stagnant_cycles += 1
+                if stagnant_cycles >= 8:
+                    if self._attempt_midstream_failover('buffer_stall'):
+                        break
+                    stagnant_cycles = 0
+            else:
+                stagnant_cycles = 0
+                last_pos = cur_pos
 
             intro_start = self.skipintro_start if self.skipintro_aniskip else (control.getInt('skipintro.delay') or 1)
             intro_end = self.skipintro_end if self.skipintro_aniskip else intro_start + control.getInt('skipintro.duration')
@@ -1235,7 +1337,12 @@ class WatchlistPlayer(player):
 
     def setup_audio_and_subtitles(self):
         """Handle audio and subtitle setup, plus automatic external subtitle download when none exist."""
-        if control.getBool('general.kodi_language'):
+        kodi_lang_mode = control.getBool('general.kodi_language')
+        has_audio_ovr = getattr(self, '_series_audio_override', False)
+        has_sub_ovr = getattr(self, '_series_sub_override', False)
+        has_mode_ovr = getattr(self, '_series_sub_mode_override', False)
+
+        if kodi_lang_mode and not (has_audio_ovr or has_sub_ovr or has_mode_ovr):
             # Kodi manages language selection, but still auto-download subtitles when no matching track exists
             self._ensure_subtitles_available()
             return
@@ -1262,28 +1369,36 @@ class WatchlistPlayer(player):
 
         # Set preferred audio stream using multi-format language and name matching
         selected_audio_stream = None
-        for stream in audio_streams:
-            s_lang = stream.get('language') or ''
-            s_name = stream.get('name') or ''
-            if is_language_match(s_lang, s_name, preferred_audio_streams):
-                self.setAudioStream(stream['index'])
-                selected_audio_stream = stream
-                control.log(f"Player: Selected audio stream {stream['index']} (lang={s_lang}, name={s_name}) matching '{preferred_audio_streams}'", 'info')
-                break
-        else:
-            # If no preferred audio stream is found, set to the default audio stream
+        if not kodi_lang_mode or has_audio_ovr:
             for stream in audio_streams:
-                if stream.get('isdefault', False):
+                s_lang = stream.get('language') or ''
+                s_name = stream.get('name') or ''
+                if is_language_match(s_lang, s_name, preferred_audio_streams):
                     self.setAudioStream(stream['index'])
                     selected_audio_stream = stream
-                    control.log(f"Player: Fallback to default audio stream {stream['index']} (lang={stream.get('language')}, name={stream.get('name')})", 'info')
+                    control.log(f"Player: Selected audio stream {stream['index']} (lang={s_lang}, name={s_name}) matching '{preferred_audio_streams}'", 'info')
                     break
             else:
-                # If no default audio stream is found, set to the first available audio stream
-                if audio_streams:
-                    self.setAudioStream(audio_streams[0]['index'])
-                    selected_audio_stream = audio_streams[0]
-                    control.log(f"Player: Fallback to first audio stream {audio_streams[0]['index']} (lang={audio_streams[0].get('language')}, name={audio_streams[0].get('name')})", 'info')
+                # If no preferred audio stream is found, set to the default audio stream
+                for stream in audio_streams:
+                    if stream.get('isdefault', False):
+                        self.setAudioStream(stream['index'])
+                        selected_audio_stream = stream
+                        control.log(f"Player: Fallback to default audio stream {stream['index']} (lang={stream.get('language')}, name={stream.get('name')})", 'info')
+                        break
+                else:
+                    # If no default audio stream is found, set to the first available audio stream
+                    if audio_streams:
+                        self.setAudioStream(audio_streams[0]['index'])
+                        selected_audio_stream = audio_streams[0]
+                        control.log(f"Player: Fallback to first audio stream {audio_streams[0]['index']} (lang={audio_streams[0].get('language')}, name={audio_streams[0].get('name')})", 'info')
+        else:
+            for stream in audio_streams:
+                if stream.get('isactive') or stream.get('isdefault'):
+                    selected_audio_stream = stream
+                    break
+            if selected_audio_stream is None and audio_streams:
+                selected_audio_stream = audio_streams[0]
 
         is_eng_audio = is_language_match(
             selected_audio_stream.get('language') if selected_audio_stream else '',
@@ -1292,7 +1407,7 @@ class WatchlistPlayer(player):
         )
 
         # Determine target subtitle mode: 'dialog', 'signs', 'custom', or None
-        if control.getBool('general.subtitles.keyword'):
+        if control.getBool('general.subtitles.keyword') or has_mode_ovr:
             kw_setting = self.preferred_subtitle_keyword
             if kw_setting == 4:
                 # Option 4: Smart Pair (Dialog for Sub / Signs for Dub)
@@ -1603,22 +1718,19 @@ class WatchlistPlayer(player):
                     control.log(f'Anime-Skip: applied outro {self.skipoutro_start}-{self.skipoutro_end}s (fallback from AniSkip)', 'info')
 
     def process_introdb(self):
-        # IntroDB tertiary fallback when AniSkip and Anime-Skip return 404 or empty results
+        # IntroDB tertiary fallback for OP/ED and standalone source for recap/post-credits segments
+        if not self.introdb_enable:
+            return
         need_intro = (
             self.skipintro_aniskip_enable
-            and self.introdb_enable
             and self.skipintro_introdb_enable
             and (not self.skipintro_aniskip or self.skipintro_from_chapters)
         )
         need_outro = (
             self.skipoutro_aniskip_enable
-            and self.introdb_enable
             and self.skipoutro_introdb_enable
             and (not self.skipoutro_aniskip or self.skipoutro_from_chapters)
         )
-
-        if not need_intro and not need_outro:
-            return
 
         if need_intro:
             intro_res = introdb.get_skip_times(self.mal_id, self.episode, 'op')
@@ -1856,6 +1968,116 @@ class Monitor(xbmc.Monitor):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+#  Trakt IDs & TVDB Season/Episode Normalization Helpers
+# ═══════════════════════════════════════════════════════════════════════════
+
+def resolve_trakt_season_episode(mal_id, episode=1, is_movie=False):
+    """Map canonical MAL episode to TVDB/Trakt seasonal (season, episode) via mappings.db & tvdb_rules."""
+    try:
+        ep_num = int(episode) if episode is not None and str(episode).isdigit() else 1
+    except (TypeError, ValueError):
+        ep_num = 1
+    if is_movie or not mal_id:
+        return (None if is_movie else 1), ep_num
+
+    mp = database.get_mappings(mal_id, 'mal_id') or {}
+    rules = database.get_tvdb_rules(mal_id) or []
+    for rule in rules:
+        r_start = rule.get('range_start')
+        r_end = rule.get('range_end')
+        r_season = rule.get('season')
+        try:
+            s_val = int(r_season) if r_season is not None else None
+            ep_s = int(rule.get('ep_start') or 1)
+            rs = int(r_start) if r_start is not None else None
+            re_val = int(r_end) if r_end is not None else None
+        except (TypeError, ValueError):
+            continue
+        if s_val is None or s_val < 0 or rs is None:
+            continue
+        if rs > ep_s:
+            max_mal_ep = (ep_s + re_val - rs) if re_val is not None else None
+            if ep_num >= ep_s and (max_mal_ep is None or ep_num <= max_mal_ep):
+                return s_val, rs + ep_num - ep_s
+        elif rs <= ep_num <= (re_val if re_val is not None else ep_num):
+            return s_val, ep_num
+
+    tvdb_s = mp.get('thetvdb_season')
+    if tvdb_s is not None and str(tvdb_s).isdigit():
+        s_val = int(tvdb_s)
+        g_rng = str(mp.get('global_media_episodes') or '')
+        if '-' in g_rng and g_rng.split('-', 1)[0].strip().isdigit():
+            g_start = int(g_rng.split('-', 1)[0].strip())
+            a_rng = str(mp.get('anime_media_episodes') or '')
+            a_start = int(a_rng.split('-', 1)[0].strip()) if '-' in a_rng and a_rng.split('-', 1)[0].strip().isdigit() else 1
+            if g_start > a_start and ep_num < g_start:
+                return s_val, (g_start - a_start) + ep_num
+        return s_val, ep_num
+    return None, ep_num
+
+
+def build_trakt_ids(mal_id, fetch_remote=False):
+    """Build clean non-null Trakt external ID dict for script.trakt.ids."""
+    if not mal_id:
+        return {}
+    merged = {}
+    if fetch_remote:
+        try:
+            resolved = database.resolve_mappings_with_fallback(
+                mal_id,
+                required_keys=('thetvdb_id', 'themoviedb_id', 'imdb_id'),
+                require_all=False,
+                fetch_remote=True,
+            ) or {}
+            merged.update(resolved)
+        except Exception:
+            pass
+    else:
+        try:
+            merged.update(database.get_mappings(mal_id, 'mal_id') or {})
+        except Exception:
+            pass
+
+    uid_row = database.get_unique_ids(mal_id, 'mal_id') or {}
+    out = {}
+    key_candidates = (
+        ('trakt', merged.get('trakt_id') or uid_row.get('trakt')),
+        ('slug', merged.get('trakt_slug')),
+        ('imdb', merged.get('imdb_id') or uid_row.get('imdb')),
+        ('tmdb', merged.get('themoviedb_id') or uid_row.get('tmdb')),
+        ('tvdb', merged.get('thetvdb_id') or uid_row.get('tvdb')),
+    )
+    for k, raw_v in key_candidates:
+        if raw_v is None or isinstance(raw_v, bool):
+            continue
+        s_val = str(raw_v).strip()
+        if not s_val or s_val.lower() in ('none', 'null', '0'):
+            continue
+        if k in ('trakt', 'tmdb', 'tvdb') and s_val.isdigit():
+            out[k] = int(s_val)
+        else:
+            out[k] = s_val
+    return out
+
+
+def publish_trakt_ids(mal_id, fetch_remote=False):
+    """Publish cleaned Trakt IDs JSON to Window(10000) property 'script.trakt.ids'."""
+    if not control.getBool('trakt.enabled'):
+        clear_trakt_ids()
+        return {}
+    trakt_ids = build_trakt_ids(mal_id, fetch_remote=fetch_remote)
+    control.clearGlobalProp('script.trakt.ids')
+    if trakt_ids:
+        control.setGlobalProp('script.trakt.ids', json.dumps(trakt_ids))
+    return trakt_ids
+
+
+def clear_trakt_ids():
+    """Clear Window(10000) property 'script.trakt.ids' cleanly."""
+    control.clearGlobalProp('script.trakt.ids')
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 #  NF-14 - Native Chapter & API Scene-Marker Aggregation / Stepping
 # ═══════════════════════════════════════════════════════════════════════════
 
@@ -1921,16 +2143,23 @@ def build_scene_markers(
     for w_start, w_end, w_title, w_kind, w_src in api_windows:
         if w_src == 'chapter':
             continue
-        merged = False
+        target_m = None
         for m in markers:
-            if m['kind'] == w_kind or abs(m['start'] - w_start) <= 12.0:
-                m['start'] = round(w_start, 2)
-                m['end'] = round(w_end, 2)
-                if w_src not in m['source']:
-                    m['source'] = f"{m['source']}+{w_src}"
-                merged = True
+            if m['kind'] == w_kind:
+                target_m = m
                 break
-        if not merged:
+        if target_m is None:
+            for m in markers:
+                if m['kind'] == 'chapter' and abs(m['start'] - w_start) <= 12.0:
+                    target_m = m
+                    break
+        if target_m is not None:
+            target_m['kind'] = w_kind
+            target_m['start'] = round(w_start, 2)
+            target_m['end'] = round(w_end, 2)
+            if w_src not in target_m['source']:
+                target_m['source'] = f"{target_m['source']}+{w_src}"
+        else:
             markers.append({
                 'title': w_title,
                 'start': round(w_start, 2),
@@ -1973,6 +2202,8 @@ def format_scene_marker_label(marker):
 
 def fetch_live_scene_markers():
     """Return active scene markers from playerWindow, or fall back to live Kodi Player.GetChapters."""
+    if not control.getBool('smartplay.scene_markers', default=True):
+        return []
     raw = control.playerWindow.getProperty('otaku.scene_markers')
     if raw:
         parsed = control.loads_json(raw, default=[])
@@ -2000,9 +2231,16 @@ def fetch_live_scene_markers():
                 st = float(t_raw or 0)
             parsed_ch.append({'title': ch.get('title') or ch.get('name') or f"Chapter {idx}", 'start': st, 'end': 0.0})
         parsed_ch.sort(key=lambda x: x['start'])
+        total_time = 0.0
+        try:
+            total_time = float(xbmc.Player().getTotalTime() or 0)
+        except Exception:
+            total_time = 0.0
         for idx in range(len(parsed_ch) - 1):
             parsed_ch[idx]['end'] = parsed_ch[idx + 1]['start']
-        return build_scene_markers(parsed_ch)
+        if parsed_ch and total_time > parsed_ch[-1]['start']:
+            parsed_ch[-1]['end'] = total_time
+        return build_scene_markers(parsed_ch, total_time=total_time)
     except Exception as e:
         control.log(f"SceneMarkers: fetch_live_scene_markers failed: {e}", 'warning')
         return []

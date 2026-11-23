@@ -408,6 +408,7 @@ class WatchlistFlavor:
     @staticmethod
     def watchlist_set_all_status(mal_id, status):
         """Set status on ALL enabled watchlists using unified status mapping."""
+        from resources.lib.ui import database
         flavors = WatchlistFlavor.get_all_update_flavors()
         results = {}
         for flavor in flavors:
@@ -416,14 +417,24 @@ class WatchlistFlavor:
                 result = flavor.update_list_status(mal_id, mapped_status)
                 results[flavor.flavor_name] = result
                 control.log(f'Set status {mapped_status} on {flavor.flavor_name}: {result}')
+                if result:
+                    database.remove_scrobble_retry(flavor.flavor_name, 'set_status', mal_id)
+                else:
+                    database.enqueue_scrobble_retry(
+                        flavor.flavor_name, 'set_status', mal_id, status=mapped_status, error='set_status_returned_false'
+                    )
             except Exception as e:
                 control.log(f'Failed to set status on {flavor.flavor_name}: {e}', 'warning')
+                database.enqueue_scrobble_retry(
+                    flavor.flavor_name, 'set_status', mal_id, status=mapped_status, error=str(e)
+                )
                 results[flavor.flavor_name] = False
         return results
 
     @staticmethod
     def watchlist_set_all_score(mal_id, score):
         """Set score on ALL enabled watchlists."""
+        from resources.lib.ui import database
         flavors = WatchlistFlavor.get_all_update_flavors()
         results = {}
         for flavor in flavors:
@@ -431,8 +442,17 @@ class WatchlistFlavor:
                 result = flavor.update_score(mal_id, score)
                 results[flavor.flavor_name] = result
                 control.log(f'Set score {score} on {flavor.flavor_name}: {result}')
+                if result:
+                    database.remove_scrobble_retry(flavor.flavor_name, 'set_score', mal_id)
+                else:
+                    database.enqueue_scrobble_retry(
+                        flavor.flavor_name, 'set_score', mal_id, score=int(score or 0), error='set_score_returned_false'
+                    )
             except Exception as e:
                 control.log(f'Failed to set score on {flavor.flavor_name}: {e}', 'warning')
+                database.enqueue_scrobble_retry(
+                    flavor.flavor_name, 'set_score', mal_id, score=int(score or 0), error=str(e)
+                )
                 results[flavor.flavor_name] = False
         return results
 

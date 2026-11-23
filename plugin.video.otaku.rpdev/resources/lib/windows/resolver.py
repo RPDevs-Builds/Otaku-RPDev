@@ -425,9 +425,29 @@ class Resolver(BaseWindow):
         video_info = dict(self.params.get('info', {})) if self.params.get('info') else dict(self.params)
         if hdr_type and 'hdr_type' not in video_info:
             video_info['hdr_type'] = hdr_type
+        if getattr(self, 'mal_id', None):
+            uids = dict(video_info.get('UniqueIDs') or {}) if isinstance(video_info.get('UniqueIDs'), dict) else {}
+            if 'tvdb' not in uids and 'tmdb' not in uids:
+                uids.update(database.get_unique_ids(self.mal_id, 'mal_id') or {})
+            uids.setdefault('mal_id', str(self.mal_id))
+            uids.setdefault('mal', str(self.mal_id))
+            video_info['UniqueIDs'] = {
+                str(k): str(v) for k, v in uids.items()
+                if v is not None and str(v).strip() not in ('', 'None', 'null')
+            }
+            if video_info.get('season') in (None, '') and getattr(self, 'media_type', 'episode') != 'movie':
+                mapped_s, mapped_ep = player.resolve_trakt_season_episode(self.mal_id, self.episode or 1, is_movie=False)
+                if mapped_s is not None:
+                    video_info['season'] = mapped_s
+                    if video_info.get('episode') in (None, '', 0):
+                        video_info['episode'] = mapped_ep
 
         # Set video tags from the best available source
         control.set_videotags(item, video_info)
+        if control.getBool('trakt.enabled') and getattr(self, 'mal_id', None):
+            player.publish_trakt_ids(self.mal_id, fetch_remote=False)
+        else:
+            player.clear_trakt_ids()
 
         # Signal standardized filename to Kodi Player and subtitle search addons (e.g. a4kSubtitles / OpenSubtitles)
         clean_filename = source_utils.format_video_filename(video_info)
@@ -998,6 +1018,17 @@ def _resolve_candidate_raw_link(helper, resolvers_map, s):
     return None
 
 
+def failover_candidate_key(source, host=''):
+    """Canonical deduplication key so failed CDN/debrid/mirror candidates are not retried."""
+    if not isinstance(source, dict):
+        return ''
+    prov = str(source.get('provider') or '').strip().lower()
+    dprov = str(source.get('debrid_provider') or '').strip().lower()
+    h_val = str(source.get('hash') or source.get('url') or '').strip().lower()
+    host_l = str(host or '').strip().lower()
+    return f"{prov}|{dprov}|{h_val}|{host_l}"
+
+
 def build_midstream_failover_candidates(ctx, failing_host='', enabled_providers=None, circuit_breaker=None):
     """Order alternate Debrid providers and remaining sources for NF-11 mid-stream CDN failover."""
     if not isinstance(ctx, dict):
@@ -1009,6 +1040,13 @@ def build_midstream_failover_candidates(ctx, failing_host='', enabled_providers=
     cur_src = sources[cand_idx]
     cur_prov = cur_src.get('debrid_provider') or ctx.get('debrid_provider') or ''
     cb = circuit_breaker or domains.adaptive_circuit_breaker
+    tried = {str(k).strip().lower() for k in (ctx.get('tried_candidates') or []) if k}
+
+    def _was_tried(src_item):
+        if not tried:
+            return False
+        k_no_host = failover_candidate_key(src_item, '')
+        return k_no_host in tried or any(tk.startswith(k_no_host) for tk in tried if k_no_host)
 
     out = []
     if cur_src.get('type') == 'torrent' and cur_src.get('hash'):
@@ -1020,12 +1058,13 @@ def build_midstream_failover_candidates(ctx, failing_host='', enabled_providers=
                 continue
             alt = dict(cur_src)
             alt['debrid_provider'] = alt_prov
-            out.append(alt)
+            if not _was_tried(alt):
+                out.append(alt)
 
     healthy_tail = []
     fallback_tail = []
     for cand in sources[cand_idx + 1:]:
-        if not isinstance(cand, dict):
+        if not isinstance(cand, dict) or _was_tried(cand):
             continue
         prov = str(cand.get('debrid_provider') or '').lower()
         origin = _extract_source_origin(cand)

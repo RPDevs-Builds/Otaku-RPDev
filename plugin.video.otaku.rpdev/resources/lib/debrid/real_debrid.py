@@ -351,8 +351,9 @@ class RealDebrid:
         if not self.torrentSelect(magnet_data['id']):
             self.deleteTorrent(magnet_data['id'])
             control.ok_dialog(control.ADDON_NAME, "BAD LINK")
-            if runinbackground:
-                return
+            if runinforground:
+                control.progressDialog.close()
+            return None
 
         torrent_id = magnet_data['id']
         torrent_info = self.torrentInfo(torrent_id)

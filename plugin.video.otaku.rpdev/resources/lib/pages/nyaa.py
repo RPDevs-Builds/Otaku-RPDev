@@ -92,11 +92,14 @@ class Sources(BrowserBase):
         self.sources = self.get_episode_sources(query, mal_id, episode, season, part, status, include_show_pack=True)
 
         if not self.sources and ':' in query:
-            q1, q2 = query.split('|', 2)
-            q1 = q1[1:-1].split(':')[0]
-            q2 = q2[1:-1].split(':')[0]
-            query2 = '({0})|({1})'.format(q1, q2)
-            self.sources = self.get_episode_sources(query2, mal_id, episode, season, part, status, include_show_pack=True)
+            simplified = []
+            for t in source_utils.parse_query_titles(query):
+                base = t.split(':')[0].strip()
+                if base and base not in simplified:
+                    simplified.append(base)
+            if simplified:
+                query2 = '|'.join(f'({b})' for b in simplified)
+                self.sources = self.get_episode_sources(query2, mal_id, episode, season, part, status, include_show_pack=True)
 
         # remove any duplicate sources
         self.append_cache_uncached_noduplicates()

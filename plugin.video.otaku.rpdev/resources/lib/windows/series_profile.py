@@ -8,6 +8,7 @@
 
 import xbmcgui
 from resources.lib.ui import control, database
+from resources.lib.windows.base_window import BaseWindow
 
 _AUDIO_CHOICES = [
     (None, 'Global Default'),
@@ -17,12 +18,26 @@ _AUDIO_CHOICES = [
 
 _SUB_LANG_CHOICES = [
     (None, 'Global Default'),
+    ('none', 'Disabled (None)'),
     ('eng', 'English'),
     ('jpn', 'Japanese'),
     ('spa', 'Spanish'),
     ('fre', 'French'),
     ('ger', 'German'),
-    ('none', 'Disabled (None)'),
+    ('ita', 'Italian'),
+    ('dut', 'Dutch'),
+    ('rus', 'Russian'),
+    ('por', 'Portuguese'),
+    ('kor', 'Korean'),
+    ('chi', 'Chinese'),
+    ('ara', 'Arabic'),
+    ('hin', 'Hindi'),
+    ('tur', 'Turkish'),
+    ('pol', 'Polish'),
+    ('swe', 'Swedish'),
+    ('nor', 'Norwegian'),
+    ('dan', 'Danish'),
+    ('fin', 'Finnish'),
 ]
 
 _SUB_MODE_CHOICES = [
@@ -36,10 +51,17 @@ _PROVIDER_CHOICES = [
     (None, 'Global Default'),
     ('nyaa', 'Nyaa'),
     ('animetosho', 'AnimeTosho'),
+    ('nekobt', 'NekoBT'),
+    ('bitsearch', 'Bitsearch'),
+    ('piratebay', 'The Pirate Bay'),
     ('torrentio', 'Torrentio'),
     ('hianime', 'HiAnime'),
     ('animepahe', 'AnimePahe'),
     ('anikoto', 'Anikoto'),
+    ('animekai', 'AnimeKai'),
+    ('watchnixtoons2', 'WatchNixtoons2'),
+    ('gogo', 'Gogoanime'),
+    ('easynews', 'Easynews'),
 ]
 
 _FILLER_CHOICES = [
@@ -126,15 +148,16 @@ _FIELD_SPECS = [
 ]
 
 
-class SeriesProfileDialog(xbmcgui.WindowXMLDialog):
+class SeriesProfileDialog(BaseWindow):
     """Interactive WindowXML dialog for editing per-series playback & timing profiles."""
 
-    def __init__(self, xml_file, location, mal_id=None):
-        super().__init__(xml_file, location)
+    def __init__(self, xml_file, location, mal_id=None, actionArgs=None):
+        super().__init__(xml_file, location, actionArgs=actionArgs)
         self.mal_id = str(mal_id or '')
         self.list_control = None
         self.selected_index = 0
         self.modified = False
+        self._pending_reset = False
         self._win_closed = False
         self.show_title = f"MAL #{self.mal_id}" if self.mal_id else "Series Profile"
         self.poster_art = ''
@@ -161,6 +184,17 @@ class SeriesProfileDialog(xbmcgui.WindowXMLDialog):
                     if isinstance(poster, list) and poster:
                         poster = poster[0]
                     self.poster_art = str(poster or '')
+            if (self.show_title == f"MAL #{self.mal_id}" or not self.poster_art):
+                mp = database.get_mappings(self.mal_id, 'mal_id')
+                if isinstance(mp, dict):
+                    if self.show_title == f"MAL #{self.mal_id}":
+                        mp_title = mp.get('title_english') or mp.get('mal_title')
+                        if mp_title:
+                            self.show_title = str(mp_title).strip()
+                    if not self.poster_art and mp.get('mal_picture'):
+                        pic = str(mp.get('mal_picture') or '').strip()
+                        if pic:
+                            self.poster_art = pic if pic.startswith(('http://', 'https://')) else f"https://cdn.myanimelist.net/images/anime/{pic}"
             existing = database.get_series_override(self.mal_id)
             if isinstance(existing, dict):
                 for spec in _FIELD_SPECS:
@@ -197,12 +231,17 @@ class SeriesProfileDialog(xbmcgui.WindowXMLDialog):
         in_off = int(self.values.get('intro_offset_s') or 0)
         out_off = int(self.values.get('outro_offset_s') or 0)
         ep1_mapped = max(1, 1 + ep_off)
+        if ep_off < 0:
+            src_ep = 1 - ep_off
+            ep_line = f"Ep {src_ep} -> Mapped #{max(1, src_ep + ep_off)} ({ep_off:+d} ep)"
+        else:
+            ep_line = f"Ep 1 -> Mapped #{ep1_mapped} ({ep_off:+d} ep)"
         intro_demo = f"{max(0, 90 + in_off)}s - {max(1, 180 + in_off)}s"
         outro_demo = f"{max(0, 1290 + out_off)}s - {max(1, 1380 + out_off)}s"
         lines = [
             f"Cour Rules (mappings.db): {len(rules or [])}",
             f"Filler Tagged Episodes: {len(filler or {})}",
-            f"Ep 1 -> Mapped #{ep1_mapped} ({ep_off:+d} ep)",
+            ep_line,
             f"OP Example (90-180s): {intro_demo} ({in_off:+d}s)",
             f"ED Example (21:30-23:00): {outro_demo} ({out_off:+d}s)",
         ]
@@ -259,6 +298,7 @@ class SeriesProfileDialog(xbmcgui.WindowXMLDialog):
 
     def _refresh_row_in_place(self, idx):
         self.modified = True
+        self._pending_reset = False
         self._update_preview_property()
         if self.list_control is not None and 0 <= idx < len(_FIELD_SPECS):
             try:
@@ -293,21 +333,15 @@ class SeriesProfileDialog(xbmcgui.WindowXMLDialog):
         else:
             unit = spec.get('unit', '')
             cur_v = int(self.values.get(spec['key']) or 0)
+            deltas = (-12, -5, -1, None, 1, 5, 12) if spec['key'] == 'episode_offset' else (-10, -5, -1, None, 1, 5, 10)
             step_opts = [
-                f"-5{unit}", f"-1{unit}", "0 (Reset)", f"+1{unit}", f"+5{unit}", "Enter Value..."
-            ]
+                "0 (Reset to Global Default)" if d is None else f"{d:+d}{unit}"
+                for d in deltas
+            ] + ["Enter Value..."]
             pick = control.select_dialog(f"{spec['title']} (Current: {cur_v:+d}{unit})", step_opts)
-            if pick == 0:
-                new_v = cur_v - 5
-            elif pick == 1:
-                new_v = cur_v - 1
-            elif pick == 2:
-                new_v = 0
-            elif pick == 3:
-                new_v = cur_v + 1
-            elif pick == 4:
-                new_v = cur_v + 5
-            elif pick == 5:
+            if pick < 0 or pick >= len(step_opts):
+                return
+            if pick == len(step_opts) - 1:
                 raw = control.input_dialog(spec['title'], str(cur_v))
                 if raw is None or not str(raw).strip():
                     return
@@ -316,7 +350,8 @@ class SeriesProfileDialog(xbmcgui.WindowXMLDialog):
                 except ValueError:
                     return
             else:
-                return
+                d_val = deltas[pick]
+                new_v = 0 if d_val is None else (cur_v + d_val)
             self.values[spec['key']] = max(spec['min'], min(spec['max'], new_v))
             self._refresh_row_in_place(idx)
 
@@ -339,32 +374,41 @@ class SeriesProfileDialog(xbmcgui.WindowXMLDialog):
         self._refresh_row_in_place(idx)
 
     def reset_defaults(self):
-        if self.mal_id:
-            database.delete_series_override(self.mal_id)
         self.values = self._default_values()
-        self.modified = False
+        self.modified = True
+        self._pending_reset = True
         self._update_preview_property()
         self._populate_list(selected_idx=self._get_current_index())
-        control.notify(control.ADDON_NAME, f"Reset Series Profile for MAL #{self.mal_id}")
+        control.notify(control.ADDON_NAME, "Staged reset to Global Defaults — Save to apply")
 
     def save_and_close(self):
         if self.mal_id:
-            database.set_series_override(
-                self.mal_id,
-                audio_lang=self.values.get('audio_lang'),
-                sub_lang=self.values.get('sub_lang'),
-                sub_mode=self.values.get('sub_mode'),
-                preferred_provider=self.values.get('preferred_provider'),
-                intro_offset_s=int(self.values.get('intro_offset_s') or 0),
-                outro_offset_s=int(self.values.get('outro_offset_s') or 0),
-                episode_offset=int(self.values.get('episode_offset') or 0),
-                skip_filler_mode=self.values.get('skip_filler_mode') or 'default',
-            )
-            control.notify(control.ADDON_NAME, f"Saved Series Profile for MAL #{self.mal_id}")
+            defaults = self._default_values()
+            all_default = all(self.values.get(k) == defaults.get(k) for k in defaults)
+            if self._pending_reset or all_default:
+                database.delete_series_override(self.mal_id)
+                control.notify(control.ADDON_NAME, f"Cleared Series Profile for MAL #{self.mal_id}")
+            else:
+                database.set_series_override(
+                    self.mal_id,
+                    audio_lang=self.values.get('audio_lang'),
+                    sub_lang=self.values.get('sub_lang'),
+                    sub_mode=self.values.get('sub_mode'),
+                    preferred_provider=self.values.get('preferred_provider'),
+                    intro_offset_s=int(self.values.get('intro_offset_s') or 0),
+                    outro_offset_s=int(self.values.get('outro_offset_s') or 0),
+                    episode_offset=int(self.values.get('episode_offset') or 0),
+                    skip_filler_mode=self.values.get('skip_filler_mode') or 'default',
+                )
+                control.notify(control.ADDON_NAME, f"Saved Series Profile for MAL #{self.mal_id}")
+            database.clear_episode_sources(self.mal_id)
+            database.clear_season_pack(self.mal_id)
+        self._pending_reset = False
         self._win_closed = True
         self.close()
 
     def cancel_and_close(self):
+        self._pending_reset = False
         self._win_closed = True
         self.close()
 

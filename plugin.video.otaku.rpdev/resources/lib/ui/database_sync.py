@@ -452,8 +452,9 @@ class SyncDatabase:
                 self._update_menu_config(key, lw, wh, nu)
 
             from resources.lib.ui.BrowserBase import BrowserBase
-            control.setStringList(
-                'embed.config', list(BrowserBase.EMBED_SERVERS_DEFAULT))
+            if not control.getStringList('embed.config'):
+                control.setStringList(
+                    'embed.config', list(BrowserBase.EMBED_SERVERS_DEFAULT))
 
             # if was_returning_user:
             #     choice = control.yesno_dialog(
@@ -506,7 +507,7 @@ class SyncDatabase:
                 return
 
         service.update_mappings_db()
-        service.update_dub_json()
+        service.update_dub_json(force=False)
 
         try:
             with SQL(control.malSyncDB) as cur:

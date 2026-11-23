@@ -763,19 +763,24 @@ class Sources(GetSources):
         # NF-06: Per-Series Preferred Provider Override
         series_override = database.get_series_override(mal_id) if mal_id else None
         override_prov = (series_override.get('preferred_provider') or '').strip().lower() if isinstance(series_override, dict) else ''
+        override_applied = False
         if override_prov and override_prov not in ('auto', 'default', 'none'):
             match_idx = -1
             for idx, src in enumerate(sortedList):
                 if str(src.get('provider') or '').lower() == override_prov or str(src.get('debrid_provider') or '').lower() == override_prov:
                     match_idx = idx
                     break
-            if match_idx > 0:
+            if match_idx == 0:
+                override_applied = True
+            elif match_idx > 0:
                 matching_source = sortedList[match_idx]
                 if not sortedList or _get_relevance_tier(matching_source) <= _get_relevance_tier(sortedList[0]):
                     sortedList.insert(0, sortedList.pop(match_idx))
+                    override_applied = True
 
         # SmartPlay: prioritize preferred embed provider and matching quality/release if enabled
-        if mal_id and control.getBool('general.smartplay', default=True):
+        # (never override an explicit per-series preferred_provider selection)
+        if not override_applied and mal_id and control.getBool('general.smartplay', default=True):
             last_played_profile = database.get_last_played_source(mal_id)
             if last_played_profile:
                 if control.getBool('smartplay.prefer_same_embed', default=True) and last_played_profile.get('type') in ('embed', 'direct'):

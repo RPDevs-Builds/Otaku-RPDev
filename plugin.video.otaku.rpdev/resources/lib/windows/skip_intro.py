@@ -40,7 +40,8 @@ class SkipIntro(BaseWindow):
                 self.current_time = int(p.getTime())
                 if self.total_time <= 0:
                     self.total_time = int(p.getTotalTime())
-                if (self.total_time > 0 and (self.total_time - self.current_time <= 2)) or (self.current_time > self.skipintro_end_skip_time):
+                end_limit = max(float(self.skipintro_end_skip_time or 0), float(self.next_marker_end or 0))
+                if (self.total_time > 0 and (self.total_time - self.current_time <= 2)) or (self.current_time > end_limit):
                     break
             except Exception:
                 break
@@ -65,10 +66,14 @@ class SkipIntro(BaseWindow):
         if controlId == 3001:
             self.actioned = True
             target_end = self.next_marker_end or self.skipintro_end_skip_time
-            if self.skipintro_aniskip or self.next_marker_end:
-                self.player.seekTime(target_end)
-            else:
-                self.player.seekTime(int(self.player.getTime()) + control.getInt('skipintro.time'))
+            if self.player:
+                try:
+                    if self.skipintro_aniskip or self.next_marker_end:
+                        self.player.seekTime(target_end)
+                    else:
+                        self.player.seekTime(int(self.player.getTime()) + control.getInt('skipintro.time'))
+                except Exception as e:
+                    control.log(f'SkipIntro seekTime error: {e}', 'debug')
             self.close()
 
         if controlId == 3002:

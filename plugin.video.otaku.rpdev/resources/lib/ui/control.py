@@ -1554,7 +1554,7 @@ def set_videotags(li, info):
                 vinfo.setRating(float(rating), 0)
             except (ValueError, TypeError):
                 vinfo.setRating(0.0, 0)
-    if season := info.get('season'):
+    if (season := info.get('season')) is not None and str(season).strip() != '':
         try:
             vinfo.setSeason(int(season))
         except (ValueError, TypeError):
@@ -1648,12 +1648,24 @@ def set_videotags(li, info):
                 pass
 
     if uniqueids := info.get('UniqueIDs'):
-        uniqueids = {str(key): str(value) for key, value in uniqueids.items() if value is not None}
-        vinfo.setUniqueIDs(uniqueids)
-        if 'imdb' in uniqueids:
-            vinfo.setIMDBNumber(str(uniqueids['imdb']))
-        for key, value in uniqueids.items():
-            li.setProperty(key, str(value))
+        uniqueids = {
+            str(key): str(value)
+            for key, value in uniqueids.items()
+            if value is not None and str(value).strip() not in ('', 'None', 'null')
+        }
+        if uniqueids:
+            default_uid = next(
+                (k for k in ('tvdb', 'tmdb', 'imdb', 'trakt', 'mal', 'mal_id', 'anilist') if k in uniqueids),
+                next(iter(uniqueids)),
+            )
+            try:
+                vinfo.setUniqueIDs(uniqueids, default_uid)
+            except TypeError:
+                vinfo.setUniqueIDs(uniqueids)
+            if 'imdb' in uniqueids:
+                vinfo.setIMDBNumber(str(uniqueids['imdb']))
+            for key, value in uniqueids.items():
+                li.setProperty(key, str(value))
 
     if resume := info.get('resume'):
         try:

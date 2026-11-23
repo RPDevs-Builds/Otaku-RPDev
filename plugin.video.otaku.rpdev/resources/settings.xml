@@ -301,8 +301,8 @@
 					<dependencies>
 						<dependency type="visible">
 							<or>
-								<condition setting="browser.api">mal</condition>
-								<condition setting="browser.api">otaku</condition>
+								<condition operator="is" setting="browser.api">mal</condition>
+								<condition operator="is" setting="browser.api">otaku</condition>
 							</or>
 						</dependency>
 					</dependencies>
@@ -1206,8 +1206,8 @@
 					<dependencies>
 						<dependency type="visible">
 							<and>
-								<condition setting="smartplay.skipintrodialog">true</condition>
-								<condition setting="skipintro.aniskip.enable">true</condition>
+								<condition operator="is" setting="smartplay.skipintrodialog">true</condition>
+								<condition operator="is" setting="skipintro.aniskip.enable">true</condition>
 							</and>
 						</dependency>
 					</dependencies>
@@ -1219,9 +1219,9 @@
 					<dependencies>
 						<dependency type="visible">
 							<and>
-								<condition setting="smartplay.skipintrodialog">true</condition>
-								<condition setting="skipintro.aniskip.enable">true</condition>
-								<condition setting="animeskip.enable">true</condition>
+								<condition operator="is" setting="smartplay.skipintrodialog">true</condition>
+								<condition operator="is" setting="skipintro.aniskip.enable">true</condition>
+								<condition operator="is" setting="animeskip.enable">true</condition>
 							</and>
 						</dependency>
 					</dependencies>
@@ -1233,9 +1233,9 @@
 					<dependencies>
 						<dependency type="visible">
 							<and>
-								<condition setting="smartplay.skipintrodialog">true</condition>
-								<condition setting="skipintro.aniskip.enable">true</condition>
-								<condition setting="introdb.enable">true</condition>
+								<condition operator="is" setting="smartplay.skipintrodialog">true</condition>
+								<condition operator="is" setting="skipintro.aniskip.enable">true</condition>
+								<condition operator="is" setting="introdb.enable">true</condition>
 							</and>
 						</dependency>
 					</dependencies>
@@ -1329,7 +1329,7 @@
 						<dependency type="enable" setting="smartplay.stillwatching_count" operator="gt">0</dependency>
 					</dependencies>
 				</setting>
-				<setting id="skipoutro.aniskip.enable" type="boolean" label="30189" help="30801">
+				<setting id="skipoutro.aniskip.enable" type="boolean" label="30108" help="30801">
 					<level>2</level>
 					<default>true</default>
 					<control type="toggle" />
@@ -1345,7 +1345,7 @@
 						<dependency type="visible" setting="skipoutro.aniskip.enable">true</dependency>
 					</dependencies>
 				</setting>
-				<setting id="skipoutro.aniskip.offset" type="integer" label="30190" help="30803">
+				<setting id="skipoutro.aniskip.offset" type="integer" label="30109" help="30803">
 					<level>2</level>
 					<default>-3</default>
 					<constraints>
@@ -1359,36 +1359,36 @@
 					<dependencies>
 						<dependency type="visible">
 							<and>
-								<condition setting="smartplay.playingnextdialog">true</condition>
-								<condition setting="skipoutro.aniskip.enable">true</condition>
+								<condition operator="is" setting="smartplay.playingnextdialog">true</condition>
+								<condition operator="is" setting="skipoutro.aniskip.enable">true</condition>
 							</and>
 						</dependency>
 					</dependencies>
 				</setting>
-				<setting id="skipoutro.animeskip.enable" type="boolean" label="30997" help="30998">
+				<setting id="skipoutro.animeskip.enable" type="boolean" label="30110" help="30111">
 					<level>2</level>
 					<default>true</default>
 					<control type="toggle" />
 					<dependencies>
 						<dependency type="visible">
 							<and>
-								<condition setting="smartplay.playingnextdialog">true</condition>
-								<condition setting="skipoutro.aniskip.enable">true</condition>
-								<condition setting="animeskip.enable">true</condition>
+								<condition operator="is" setting="smartplay.playingnextdialog">true</condition>
+								<condition operator="is" setting="skipoutro.aniskip.enable">true</condition>
+								<condition operator="is" setting="animeskip.enable">true</condition>
 							</and>
 						</dependency>
 					</dependencies>
 				</setting>
-				<setting id="skipoutro.introdb.enable" type="boolean" label="30989" help="30990">
+				<setting id="skipoutro.introdb.enable" type="boolean" label="30114" help="30121">
 					<level>2</level>
 					<default>true</default>
 					<control type="toggle" />
 					<dependencies>
 						<dependency type="visible">
 							<and>
-								<condition setting="smartplay.playingnextdialog">true</condition>
-								<condition setting="skipoutro.aniskip.enable">true</condition>
-								<condition setting="introdb.enable">true</condition>
+								<condition operator="is" setting="smartplay.playingnextdialog">true</condition>
+								<condition operator="is" setting="skipoutro.aniskip.enable">true</condition>
+								<condition operator="is" setting="introdb.enable">true</condition>
 							</and>
 						</dependency>
 					</dependencies>
@@ -1505,8 +1505,12 @@
 					<default>true</default>
 					<control type="toggle" />
 					<dependencies>
-						<dependency type="visible" setting="subtitles.enabled">true</dependency>
-						<dependency type="visible" setting="subtitles.auto_search">true</dependency>
+						<dependency type="visible">
+							<and>
+								<condition operator="is" setting="subtitles.enabled">true</condition>
+								<condition operator="is" setting="subtitles.auto_search">true</condition>
+							</and>
+						</dependency>
 					</dependencies>
 				</setting>
 				<setting id="subtitles.prefer_sdh" type="boolean" label="30606" help="30663" parent="subtitles.enabled">
@@ -1627,8 +1631,12 @@
 						<hidden>false</hidden>
 					</control>
 					<dependencies>
-						<dependency type="visible" setting="general.subtitles.keyword">true</dependency>
-						<dependency type="visible" setting="subtitles.keywords">3</dependency>
+						<dependency type="visible">
+							<and>
+								<condition operator="is" setting="general.subtitles.keyword">true</condition>
+								<condition operator="is" setting="subtitles.keywords">3</condition>
+							</and>
+						</dependency>
 					</dependencies>
 				</setting>
 				<setting id="general.dubsubtitles" type="boolean" label="30298" help="30651">
@@ -1661,8 +1669,12 @@
 						<heading>30616</heading>
 					</control>
 					<dependencies>
-						<dependency type="visible" setting="subtitles.enabled">true</dependency>
-						<dependency type="visible" setting="subtitles.provider.opensubtitles">true</dependency>
+						<dependency type="visible">
+							<and>
+								<condition operator="is" setting="subtitles.enabled">true</condition>
+								<condition operator="is" setting="subtitles.provider.opensubtitles">true</condition>
+							</and>
+						</dependency>
 					</dependencies>
 				</setting>
 				<setting id="subtitles.opensubtitles.password" type="string" label="30617" help="30813" parent="subtitles.provider.opensubtitles">
@@ -1676,8 +1688,12 @@
 						<hidden>true</hidden>
 					</control>
 					<dependencies>
-						<dependency type="visible" setting="subtitles.enabled">true</dependency>
-						<dependency type="visible" setting="subtitles.provider.opensubtitles">true</dependency>
+						<dependency type="visible">
+							<and>
+								<condition operator="is" setting="subtitles.enabled">true</condition>
+								<condition operator="is" setting="subtitles.provider.opensubtitles">true</condition>
+							</and>
+						</dependency>
 					</dependencies>
 				</setting>
 				<setting id="subtitles.provider.subdl" type="boolean" label="30618" help="30814" parent="subtitles.enabled">
@@ -1698,8 +1714,12 @@
 						<heading>30619</heading>
 					</control>
 					<dependencies>
-						<dependency type="visible" setting="subtitles.enabled">true</dependency>
-						<dependency type="visible" setting="subtitles.provider.subdl">true</dependency>
+						<dependency type="visible">
+							<and>
+								<condition operator="is" setting="subtitles.enabled">true</condition>
+								<condition operator="is" setting="subtitles.provider.subdl">true</condition>
+							</and>
+						</dependency>
 					</dependencies>
 				</setting>
 				<setting id="subtitles.provider.subsource" type="boolean" label="30620" help="30816" parent="subtitles.enabled">
@@ -1720,8 +1740,12 @@
 						<heading>30621</heading>
 					</control>
 					<dependencies>
-						<dependency type="visible" setting="subtitles.enabled">true</dependency>
-						<dependency type="visible" setting="subtitles.provider.subsource">true</dependency>
+						<dependency type="visible">
+							<and>
+								<condition operator="is" setting="subtitles.enabled">true</condition>
+								<condition operator="is" setting="subtitles.provider.subsource">true</condition>
+							</and>
+						</dependency>
 					</dependencies>
 				</setting>
 				<setting id="subtitles.provider.podnadpisi" type="boolean" label="30622" help="30818" parent="subtitles.enabled">
@@ -1857,8 +1881,8 @@
 					<dependencies>
 						<dependency type="visible">
 							<and>
-								<condition setting="browser.api">anilist</condition>
-								<condition setting="contentstatus.bool">true</condition>
+								<condition operator="is" setting="browser.api">anilist</condition>
+								<condition operator="is" setting="contentstatus.bool">true</condition>
 							</and>
 						</dependency>
 					</dependencies>
@@ -1878,10 +1902,10 @@
 						<dependency type="visible">
 							<and>
 								<or>
-									<condition setting="browser.api">mal</condition>
-									<condition setting="browser.api">otaku</condition>
+									<condition operator="is" setting="browser.api">mal</condition>
+									<condition operator="is" setting="browser.api">otaku</condition>
 								</or>
-								<condition setting="contentstatus.bool">true</condition>
+								<condition operator="is" setting="contentstatus.bool">true</condition>
 							</and>
 						</dependency>
 					</dependencies>
@@ -1893,8 +1917,8 @@
 					<dependencies>
 						<dependency type="visible">
 							<or>
-								<condition setting="browser.api">mal</condition>
-								<condition setting="browser.api">otaku</condition>
+								<condition operator="is" setting="browser.api">mal</condition>
+								<condition operator="is" setting="browser.api">otaku</condition>
 							</or>
 						</dependency>
 					</dependencies>
@@ -1917,10 +1941,10 @@
 						<dependency type="visible">
 							<and>
 								<or>
-									<condition setting="browser.api">mal</condition>
-									<condition setting="browser.api">otaku</condition>
+									<condition operator="is" setting="browser.api">mal</condition>
+									<condition operator="is" setting="browser.api">otaku</condition>
 								</or>
-								<condition setting="contentrating.bool">true</condition>
+								<condition operator="is" setting="contentrating.bool">true</condition>
 							</and>
 						</dependency>
 					</dependencies>
@@ -1948,8 +1972,8 @@
 					<dependencies>
 						<dependency type="visible">
 							<and>
-								<condition setting="browser.api">anilist</condition>
-								<condition setting="contentorigin.bool">true</condition>
+								<condition operator="is" setting="browser.api">anilist</condition>
+								<condition operator="is" setting="contentorigin.bool">true</condition>
 							</and>
 						</dependency>
 					</dependencies>
@@ -4853,40 +4877,45 @@
 						<allowempty>true</allowempty>
 					</constraints>
 				</setting>
-				<setting id="fanart.all" type="list[String]" label="" help="">
+				<setting id="fanart.all" type="list[string]" label="" help="">
 					<level>4</level>
 					<default />
 					<constraints>
 						<allowempty>true</allowempty>
 					</constraints>
+					<control type="list" format="string" />
 				</setting>
-				<setting id="fanart.mal_ids" type="list[String]" label="" help="">
+				<setting id="fanart.mal_ids" type="list[string]" label="" help="">
 					<level>4</level>
 					<default />
 					<constraints>
 						<allowempty>true</allowempty>
 					</constraints>
+					<control type="list" format="string" />
 				</setting>
-				<setting id="fanart.selections" type="list[String]" label="" help="">
+				<setting id="fanart.selections" type="list[string]" label="" help="">
 					<level>4</level>
 					<default />
 					<constraints>
 						<allowempty>true</allowempty>
 					</constraints>
+					<control type="list" format="string" />
 				</setting>
-				<setting id="DMIndex" type="list[String]" label="" help="">
+				<setting id="DMIndex" type="list[string]" label="" help="">
 					<level>4</level>
 					<default />
 					<constraints>
 						<allowempty>true</allowempty>
 					</constraints>
+					<control type="list" format="string" />
 				</setting>
-				<setting id="general.filters" type="list[String]" label="" help="">
+				<setting id="general.filters" type="list[string]" label="" help="">
 					<level>4</level>
 					<default />
 					<constraints>
 						<allowempty>true</allowempty>
 					</constraints>
+					<control type="list" format="string" />
 					<visible>false</visible>
 				</setting>
 				<setting id="last_played_source" type="string" label="" help="">

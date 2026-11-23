@@ -223,11 +223,11 @@ class DebridLink:
         If the torrent cannot be selected, returns (None, None, None).
         """
         magnet_data = self.addMagnet(magnet)
-        if not magnet_data or not magnet_data['id']:
+        if not magnet_data or not magnet_data.get('id'):
             control.ok_dialog(control.ADDON_NAME, "BAD LINK")
             return None, None, None
         status = magnet_data.get('downloadPercent') == 100
-        return magnet, status, magnet_data
+        return magnet_data['id'], status, magnet_data
 
     def magnet_status(self, magnet_id):
         url = f'{self.api_url}/seedbox/{magnet_id}/infos'

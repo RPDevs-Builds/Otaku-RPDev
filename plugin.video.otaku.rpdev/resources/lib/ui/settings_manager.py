@@ -399,6 +399,22 @@ def set_typed_setting(sid: str, value, stype: str = None):
             except (ValueError, TypeError):
                 n_val = 0.0
             control.setNumber(sid, n_val)
+        elif stype and 'list' in stype.lower():
+            if isinstance(value, (list, tuple)):
+                list_val = [str(x).strip() for x in value if str(x).strip()]
+            else:
+                raw_s = str(value if value is not None else '').strip()
+                if raw_s.startswith('[') and raw_s.endswith(']'):
+                    try:
+                        parsed = control.loads_json(raw_s, default=None)
+                        if parsed is None:
+                            raise ValueError('invalid list json')
+                        list_val = [str(x).strip() for x in parsed if str(x).strip()] if isinstance(parsed, list) else []
+                    except Exception:
+                        list_val = [x.strip() for x in raw_s.split(',') if x.strip()]
+                else:
+                    list_val = [x.strip() for x in raw_s.split(',') if x.strip()]
+            control.setStringList(sid, list_val)
         else:
             s_val = str(value if value is not None else '')
             control.setString(sid, s_val)

@@ -50,7 +50,7 @@
                 <top>30</top>
                 <width>1260</width>
                 <height>40</height>
-                <font>font16</font>
+                <font>font14</font>
                 <textcolor>FFFFFFFF</textcolor>
                 <label>[B]Otaku - Cache &amp; Database Maintenance[/B]</label>
             </control>

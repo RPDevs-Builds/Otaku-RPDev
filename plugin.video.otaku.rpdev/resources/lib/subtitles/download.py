@@ -22,7 +22,16 @@ def strip_sdh_hearing_impaired_tags(sub_text: str) -> str:
     """Strip SDH hearing-impaired bracketed sound effects ([sighs], (applause)) and speaker prefixes."""
     if not sub_text:
         return sub_text
-    cleaned = re.sub(r'\[[^\]\n]{1,48}\]', '', sub_text)
+    ass_header = re.compile(r'(?mi)^\[(?:Script Info|V4\+? Styles|Events|Fonts|Graphics|Aegisub[^\]\n]*)\][ \t]*$')
+    placeholders = {}
+
+    def _protect(m):
+        key = f'\x00ASSHDR{len(placeholders)}\x00'
+        placeholders[key] = m.group(0)
+        return key
+
+    cleaned = ass_header.sub(_protect, sub_text)
+    cleaned = re.sub(r'\[[^\]\n]{1,48}\]', '', cleaned)
     cleaned = re.sub(r'\([^\)\n]{1,48}\)', '', cleaned)
     cleaned = re.sub(
         r'(?m)^((?:Dialogue:[^,\n]*,[^,\n]*,[^,\n]*,[^,\n]*,[^,\n]*,[^,\n]*,[^,\n]*,[^,\n]*,[^,\n]*,)?(?:[ \t]*\{[^}\n]*\})*)[ \t]*[A-Z][A-Z0-9 _\-\.]{1,20}:\s*',
@@ -30,6 +39,8 @@ def strip_sdh_hearing_impaired_tags(sub_text: str) -> str:
         cleaned,
     )
     cleaned = re.sub(r'[ \t]{2,}', ' ', cleaned)
+    for key, val in placeholders.items():
+        cleaned = cleaned.replace(key, val)
     return cleaned
 
 

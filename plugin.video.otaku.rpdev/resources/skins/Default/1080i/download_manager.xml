@@ -107,7 +107,7 @@
                     <aligny>center</aligny>
                     <textcolor>66FFFFFF</textcolor>
                     <shadowcolor>dimgrey</shadowcolor>
-                    <font>font11</font>
+                    <font>font12</font>
                     <label>$INFO[ListItem.Property(item.info.status)] - $INFO[ListItem.Property(item.info.progress)]%</label>
                 </control>
             </itemlayout>
@@ -146,7 +146,7 @@
                     <width>320</width>
                     <height>25</height>
                     <aligny>center</aligny>
-                    <font>font11</font>
+                    <font>font12</font>
                     <textcolor>FFFFFFFF</textcolor>
                     <label>Progress: [COLOR deepskyblue]$INFO[ListItem.Property(item.info.progress)]%[/COLOR]</label>
                 </control>
@@ -157,7 +157,7 @@
                     <height>25</height>
                     <aligny>center</aligny>
                     <textcolor>FFFFFFFF</textcolor>
-                    <font>font11</font>
+                    <font>font12</font>
                     <label>ETA: [COLOR deepskyblue]$INFO[ListItem.Property(item.info.eta)][/COLOR]</label>
                 </control>
                 <control type="label">
@@ -166,7 +166,7 @@
                     <width>400</width>
                     <height>25</height>
                     <aligny>center</aligny>
-                    <font>font11</font>
+                    <font>font12</font>
                     <textcolor>FFFFFFFF</textcolor>
                     <align>left</align>
                     <label>Download: [COLOR deepskyblue]$INFO[ListItem.Property(item.info.downloaded)]/$INFO[ListItem.Property(item.info.filesize)][/COLOR]</label>
@@ -177,7 +177,7 @@
                     <width>400</width>
                     <height>25</height>
                     <aligny>center</aligny>
-                    <font>font11</font>
+                    <font>font12</font>
                     <textcolor>FFFFFFFF</textcolor>
                     <align>left</align>
                     <label>Speed: [COLOR deepskyblue]$INFO[ListItem.Property(item.info.speed)][/COLOR]</label>

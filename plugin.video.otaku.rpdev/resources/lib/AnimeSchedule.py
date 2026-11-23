@@ -308,11 +308,27 @@ class AnimeScheduleCalendar:
         by_mal = {}
 
         for idx, anime in enumerate(anime_list):
+            mal_id = control.safe_call(int, anime.get('mal_id'))
+            if not mal_id:
+                q_title = str(anime.get('title') or anime.get('romaji') or anime.get('route', '').replace('-', ' ') or '').strip()
+                if q_title:
+                    hits = database.search_mappings_by_title(q_title, limit=1)
+                    if hits and hits[0].get('mal_id'):
+                        mal_id = control.safe_call(int, hits[0]['mal_id'])
+                        if mal_id:
+                            anime['mal_id'] = mal_id
             if self._has_description(anime.get('description')):
                 continue
+            if mal_id:
+                show_row = database.get_show(mal_id)
+                if show_row and show_row.get('kodi_meta'):
+                    kmeta = database.loads(show_row['kodi_meta'])
+                    local_plot = kmeta.get('plot') if isinstance(kmeta, dict) else ''
+                    if self._has_description(local_plot):
+                        anime['description'] = local_plot
+                        continue
             missing_indexes.append(idx)
 
-            mal_id = control.safe_call(int, anime.get('mal_id'))
             if mal_id:
                 by_mal.setdefault(mal_id, []).append(idx)
 

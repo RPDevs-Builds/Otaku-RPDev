@@ -249,6 +249,10 @@ def _quarantine_and_recover_db(path):
     mapping_path = os.path.abspath(control.mappingDB) if getattr(control, 'mappingDB', None) else ''
 
     try:
+        stale_prefixes = (f"{path}:", f"{abs_path}:")
+        for ready_tag in list(_tables_ready):
+            if ready_tag.startswith(stale_prefixes):
+                _tables_ready.discard(ready_tag)
         if abs_path == cache_path:
             _tables_ready.discard(f"{control.cacheFile}:cache")
             _init_cache_table()
@@ -348,17 +352,21 @@ class SQL:
             try:
                 if cache_key not in conns:
                     if self.is_readonly and os.path.exists(self.path):
+                        import urllib.parse
+                        ro_uri = f"file:{urllib.parse.quote(abs_path, safe='/:\\')}?mode=ro"
                         try:
                             conn = dbapi2.connect(
-                                f"file:{abs_path}?mode=ro",
+                                ro_uri,
                                 uri=True,
                                 timeout=float(self.timeout),
                                 isolation_level=None,
                                 check_same_thread=False
                             )
-                        except Exception:
+                        except Exception as ro_exc:
+                            control.log(f"SQL read-only URI fallback for {abs_path}: {ro_exc}", 'warning')
                             conn = dbapi2.connect(
-                                self.path,
+                                f"file:{abs_path}?mode=ro",
+                                uri=True,
                                 timeout=float(self.timeout),
                                 isolation_level=None,
                                 check_same_thread=False
@@ -438,8 +446,6 @@ class SQL:
                 control.log('database OperationalError', level='error')
                 control.log(''.join(traceback.format_exception(
                     exc_type, exc_val, exc_tb)), level='error')
-                if 'no such table' in str(exc_val).lower():
-                    return True
                 return False
             import traceback
             control.log('database error', level='error')
@@ -532,6 +538,7 @@ def _mem_del(key):
 # ═══════════════════════════════════════════════════════════════════════════
 
 _tables_ready = set()
+_tables_ready_lock = threading.RLock()
 
 
 def _ensure_table(db_path, name, ddl):
@@ -539,10 +546,13 @@ def _ensure_table(db_path, name, ddl):
     tag = f"{db_path}:{name}"
     if tag in _tables_ready:
         return
-    with SQL(db_path) as cur:
-        cur.execute(ddl)
-        cur.connection.commit()
-    _tables_ready.add(tag)
+    with _tables_ready_lock:
+        if tag in _tables_ready:
+            return
+        with SQL(db_path) as cur:
+            cur.execute(ddl)
+            cur.connection.commit()
+        _tables_ready.add(tag)
 
 
 def _init_cache_table():
@@ -680,6 +690,11 @@ def get_coalesced(function, duration, *args, **kwargs):
             pass
 
     with _coalesce_meta_lock:
+        if len(_coalesce_locks) > 256:
+            # Prune uncontended coalesce locks to keep long-lived service memory bounded
+            idle_keys = [k for k, lk in list(_coalesce_locks.items()) if k != key and not lk.locked()]
+            for k in idle_keys[:len(_coalesce_locks) - 128]:
+                _coalesce_locks.pop(k, None)
         key_lock = _coalesce_locks.get(key)
         if key_lock is None:
             key_lock = threading.Lock()
@@ -980,38 +995,94 @@ def checkpoint_databases(truncate=True):
 #  Show Operations
 # ═══════════════════════════════════════════════════════════════════════════
 
+_SYNC_TABLE_DDLS = {
+    'shows': (
+        'CREATE TABLE IF NOT EXISTS shows ('
+        'mal_id INTEGER PRIMARY KEY, '
+        'anilist_id INTEGER, '
+        'simkl_id INTEGER, '
+        'kitsu_id INTEGER, '
+        'kodi_meta BLOB NOT NULL, '
+        'anime_schedule_route TEXT NOT NULL, '
+        'UNIQUE(mal_id))'
+    ),
+    'shows_meta': (
+        'CREATE TABLE IF NOT EXISTS shows_meta ('
+        'mal_id INTEGER PRIMARY KEY, '
+        'meta_ids BLOB, '
+        'art BLOB, '
+        'UNIQUE(mal_id))'
+    ),
+    'episodes': (
+        'CREATE TABLE IF NOT EXISTS episodes ('
+        'mal_id INTEGER NOT NULL, '
+        'season INTEGER NOT NULL, '
+        'kodi_meta BLOB NOT NULL, '
+        'last_updated TEXT NOT NULL, '
+        'number INTEGER NOT NULL, '
+        'filler TEXT, '
+        'anidb_ep_id INTEGER, '
+        'FOREIGN KEY(mal_id) REFERENCES shows(mal_id) '
+        'ON DELETE CASCADE)'
+    ),
+    'show_data': (
+        'CREATE TABLE IF NOT EXISTS show_data ('
+        'mal_id INTEGER PRIMARY KEY, '
+        'data BLOB NOT NULL, '
+        'last_updated TEXT NOT NULL, '
+        'UNIQUE(mal_id))'
+    ),
+    'watchlist_cache': (
+        'CREATE TABLE IF NOT EXISTS watchlist_cache ('
+        'id INTEGER PRIMARY KEY AUTOINCREMENT, '
+        'service TEXT NOT NULL, '
+        'status TEXT NOT NULL, '
+        'mal_id INTEGER, '
+        'item_order INTEGER NOT NULL, '
+        'data BLOB NOT NULL, '
+        'last_updated INTEGER NOT NULL, '
+        'UNIQUE(service, status, item_order))'
+    ),
+    'watchlist_activity': (
+        'CREATE TABLE IF NOT EXISTS watchlist_activity ('
+        'service TEXT PRIMARY KEY, '
+        'activity_timestamp TEXT NOT NULL, '
+        'last_checked INTEGER NOT NULL)'
+    ),
+    'anilist_enrichment': (
+        'CREATE TABLE IF NOT EXISTS anilist_enrichment ('
+        'mal_id INTEGER PRIMARY KEY, '
+        'data BLOB NOT NULL, '
+        'last_updated INTEGER NOT NULL)'
+    ),
+}
+
+
+def _ensure_sync_table(table_name):
+    ddl = _SYNC_TABLE_DDLS.get(table_name)
+    if ddl and getattr(control, 'malSyncDB', None):
+        _ensure_table(control.malSyncDB, table_name, ddl)
+
+
 def get_show(mal_id):
+    _ensure_sync_table('shows')
     with SQL(control.malSyncDB) as cur:
-        try:
-            cur.execute('SELECT * FROM shows WHERE mal_id=?', (mal_id,))
-            return cur.fetchone()
-        except OperationalError as e:
-            if 'no such table' in str(e).lower():
-                from resources.lib.ui.database_sync import SyncDatabase
-                SyncDatabase._build_shows()
-                return None
-            raise
+        cur.execute('SELECT * FROM shows WHERE mal_id=?', (mal_id,))
+        return cur.fetchone()
 
 
 def update_show(mal_id, kodi_meta, anime_schedule_route=''):
-    for attempt in range(2):
-        with SQL(control.malSyncDB) as cur:
-            try:
-                cur.execute(
-                    'INSERT INTO shows (mal_id, kodi_meta, anime_schedule_route) VALUES (?, ?, ?) '
-                    'ON CONFLICT(mal_id) DO UPDATE SET kodi_meta=excluded.kodi_meta, anime_schedule_route=excluded.anime_schedule_route',
-                    (mal_id, kodi_meta, anime_schedule_route))
-                cur.connection.commit()
-                return
-            except OperationalError as e:
-                if attempt == 0 and 'no such table' in str(e).lower():
-                    from resources.lib.ui.database_sync import SyncDatabase
-                    SyncDatabase._build_shows()
-                    continue
-                raise
+    _ensure_sync_table('shows')
+    with SQL(control.malSyncDB) as cur:
+        cur.execute(
+            'INSERT INTO shows (mal_id, kodi_meta, anime_schedule_route) VALUES (?, ?, ?) '
+            'ON CONFLICT(mal_id) DO UPDATE SET kodi_meta=excluded.kodi_meta, anime_schedule_route=excluded.anime_schedule_route',
+            (mal_id, kodi_meta, anime_schedule_route))
+        cur.connection.commit()
 
 
 def get_show_meta(mal_id):
+    _ensure_sync_table('shows_meta')
     with SQL(control.malSyncDB) as cur:
         cur.execute('SELECT * FROM shows_meta WHERE mal_id=?', (mal_id,))
         return cur.fetchone()
@@ -1028,6 +1099,7 @@ def _validate_identifier(name):
 
 
 def update_show_meta(mal_id, meta_ids, art):
+    _ensure_sync_table('shows_meta')
     with SQL(control.malSyncDB) as cur:
         cur.execute('PRAGMA foreign_keys=OFF')
         cur.execute(
@@ -1038,6 +1110,7 @@ def update_show_meta(mal_id, meta_ids, art):
 
 
 def update_kodi_meta(mal_id, kodi_meta):
+    _ensure_sync_table('shows')
     with SQL(control.malSyncDB) as cur:
         cur.execute(
             'UPDATE shows SET kodi_meta=? WHERE mal_id=?',
@@ -1047,6 +1120,7 @@ def update_kodi_meta(mal_id, kodi_meta):
 
 def add_mapping_id(mal_id, column, value):
     _validate_identifier(column)
+    _ensure_sync_table('shows')
     with SQL(control.malSyncDB) as cur:
         cur.execute(
             f'UPDATE shows SET {column}=? WHERE mal_id=?', (value, mal_id))
@@ -1054,12 +1128,14 @@ def add_mapping_id(mal_id, column, value):
 
 
 def get_show_data(mal_id):
+    _ensure_sync_table('show_data')
     with SQL(control.malSyncDB) as cur:
         cur.execute('SELECT * FROM show_data WHERE mal_id=?', (mal_id,))
         return cur.fetchone()
 
 
 def update_show_data(mal_id, data, last_updated=''):
+    _ensure_sync_table('show_data')
     with SQL(control.malSyncDB) as cur:
         cur.execute('PRAGMA foreign_keys=OFF')
         cur.execute(
@@ -1075,6 +1151,7 @@ def update_show_data(mal_id, data, last_updated=''):
 # ═══════════════════════════════════════════════════════════════════════════
 
 def get_episode(mal_id, episode=None):
+    _ensure_sync_table('episodes')
     with SQL(control.malSyncDB) as cur:
         if episode:
             cur.execute(
@@ -1087,6 +1164,7 @@ def get_episode(mal_id, episode=None):
 
 
 def get_episode_list(mal_id):
+    _ensure_sync_table('episodes')
     with SQL(control.malSyncDB) as cur:
         cur.execute('SELECT * FROM episodes WHERE mal_id=?', (mal_id,))
         return cur.fetchall()
@@ -1094,6 +1172,7 @@ def get_episode_list(mal_id):
 
 def update_episode(mal_id, season, number, update_time, kodi_meta,
                    filler='', anidb_ep_id=''):
+    _ensure_sync_table('episodes')
     with SQL(control.malSyncDB) as cur:
         cur.execute(
             'REPLACE INTO episodes '
@@ -1104,6 +1183,7 @@ def update_episode(mal_id, season, number, update_time, kodi_meta,
 
 
 def update_show_season(mal_id, season):
+    _ensure_sync_table('episodes')
     with SQL(control.malSyncDB) as cur:
         cur.execute(
             'UPDATE OR REPLACE episodes SET season=? WHERE mal_id=? AND season!=?',
@@ -1113,6 +1193,7 @@ def update_show_season(mal_id, season):
 
 def update_episode_column(mal_id, episode, column, value):
     _validate_identifier(column)
+    _ensure_sync_table('episodes')
     with SQL(control.malSyncDB) as cur:
         cur.execute(
             f'UPDATE episodes SET {column}=? WHERE mal_id=? AND number=?',
@@ -1124,6 +1205,7 @@ def update_episode_batch(episode_batch):
     """Batch insert/replace episodes in a single transaction using executemany."""
     if not episode_batch:
         return
+    _ensure_sync_table('episodes')
     with SQL(control.malSyncDB) as cur:
         cur.executemany(
             'REPLACE INTO episodes '
@@ -1169,8 +1251,9 @@ def get_unique_ids(anime_id, send_id):
             row = cur.fetchone()
             if not row:
                 return {}
-            return {
+            raw_uids = {
                 'mal_id':     row.get('mal_id'),
+                'mal':        row.get('mal_id'),
                 'mal_dub_id': row.get('mal_dub_id'),
                 'anilist_id': row.get('anilist_id'),
                 'kitsu_id':   row.get('kitsu_id'),
@@ -1180,6 +1263,10 @@ def get_unique_ids(anime_id, send_id):
                 'tmdb':       row.get('themoviedb_id'),
                 'imdb':       row.get('imdb_id'),
                 'trakt':      row.get('trakt_id'),
+            }
+            return {
+                k: v for k, v in raw_uids.items()
+                if v is not None and str(v).strip() not in ('', 'None', 'null')
             }
     except Exception:
         pass
@@ -1308,12 +1395,19 @@ def get_mapping_aliases(mal_id, limit=12):
         with SQL(control.mappingDB, is_readonly=True) as cur:
             tables = _mapping_tables(cur)
             if 'anime' in tables:
-                row = cur.execute('SELECT mal_title FROM anime WHERE mal_id=?', (mid,)).fetchone()
-                if row:
-                    _add(row.get('mal_title'))
+                acols = _mapping_anime_columns(cur)
+                if 'title_english' in acols:
+                    row = cur.execute('SELECT mal_title, title_english FROM anime WHERE mal_id=?', (mid,)).fetchone()
+                    if row:
+                        _add(row.get('title_english'))
+                        _add(row.get('mal_title'))
+                else:
+                    row = cur.execute('SELECT mal_title FROM anime WHERE mal_id=?', (mid,)).fetchone()
+                    if row:
+                        _add(row.get('mal_title'))
             if 'anime_aliases' in tables:
                 rows = cur.execute(
-                    'SELECT title FROM anime_aliases WHERE mal_id=? LIMIT ?',
+                    'SELECT title FROM anime_aliases WHERE mal_id=? ORDER BY LENGTH(title), title LIMIT ?',
                     (mid, int(limit)),
                 ).fetchall() or []
                 for r in rows:
@@ -1340,7 +1434,11 @@ def _normalize_mapping_format(media_format):
 
 def _mapping_select_columns(cur):
     acols = _mapping_anime_columns(cur)
-    extra_cols = [f'a.{c}' for c in ('year', 'anime_season') if c in acols]
+    extra_cols = [
+        f'a.{c}'
+        for c in ('year', 'anime_season', 'title_english', 'genres', 'studios', 'start_date', 'trakt_slug')
+        if c in acols
+    ]
     cols = (
         'a.mal_id, a.mal_dub_id, a.anilist_id, a.mal_title, a.mal_picture, '
         'a.score, a.status, a.anime_media_type, a.anime_media_episodes, '
@@ -1484,7 +1582,7 @@ def browse_mappings_by_year_season(year, anime_season='', media_format='', page=
 
 
 def search_mappings_by_title(query, limit=25, media_format=''):
-    """Offline title + alias search across mappings.db returning normalized anime metadata dicts."""
+    """Offline title + alias search across mappings.db using FTS5 (v2.6+) with LIKE fallback."""
     q = ' '.join(str(query or '').strip().split())
     if len(q) < 2 or not getattr(control, 'mappingDB', None) or not os.path.exists(control.mappingDB):
         return []
@@ -1501,7 +1599,7 @@ def search_mappings_by_title(query, limit=25, media_format=''):
             tables = _mapping_tables(cur)
             if 'anime' not in tables:
                 return []
-            cols, _acols = _mapping_select_columns(cur)
+            cols, acols = _mapping_select_columns(cur)
             fmt_sql = " AND a.anime_media_type = ?" if target_fmt else ""
 
             def _run_fetch(sql, params):
@@ -1511,19 +1609,42 @@ def search_mappings_by_title(query, limit=25, media_format=''):
                         seen_ids.add(mid)
                         candidates.append(dict(row))
 
-            p_pfx = (prefix_pat, target_fmt, int(limit)) if target_fmt else (prefix_pat, int(limit))
-            _run_fetch(
-                f"SELECT {cols} FROM anime a WHERE a.mal_title LIKE ? ESCAPE '\\'{fmt_sql} "
-                f"ORDER BY COALESCE(a.score, 0) DESC LIMIT ?",
-                p_pfx,
-            )
-            if 'anime_aliases' in tables and len(candidates) < limit:
+            if 'anime_fts' in tables:
+                fts_tokens = [tok.replace('"', '') for tok in re.findall(r'[\w]+', q) if tok]
+                if fts_tokens:
+                    fts_expr = ' '.join(f'"{tok}"*' for tok in fts_tokens[:8])
+                    p_fts = (fts_expr, target_fmt, int(limit)) if target_fmt else (fts_expr, int(limit))
+                    try:
+                        _run_fetch(
+                            f"SELECT {cols} FROM anime_fts "
+                            f"JOIN anime a ON a.mal_id = anime_fts.mal_id "
+                            f"WHERE anime_fts MATCH ?{fmt_sql} "
+                            f"ORDER BY COALESCE(a.score, 0) DESC LIMIT ?",
+                            p_fts,
+                        )
+                    except Exception:
+                        pass
+
+            if len(candidates) < limit:
+                p_pfx = (prefix_pat, target_fmt, int(limit)) if target_fmt else (prefix_pat, int(limit))
                 _run_fetch(
-                    f"SELECT {cols} FROM anime_aliases al JOIN anime a ON a.mal_id = al.mal_id "
-                    f"WHERE al.title LIKE ? ESCAPE '\\'{fmt_sql} "
+                    f"SELECT {cols} FROM anime a WHERE a.mal_title LIKE ? ESCAPE '\\'{fmt_sql} "
                     f"ORDER BY COALESCE(a.score, 0) DESC LIMIT ?",
                     p_pfx,
                 )
+                if 'title_english' in acols and len(candidates) < limit:
+                    _run_fetch(
+                        f"SELECT {cols} FROM anime a WHERE a.title_english LIKE ? ESCAPE '\\'{fmt_sql} "
+                        f"ORDER BY COALESCE(a.score, 0) DESC LIMIT ?",
+                        p_pfx,
+                    )
+                if 'anime_aliases' in tables and len(candidates) < limit:
+                    _run_fetch(
+                        f"SELECT {cols} FROM anime_aliases al JOIN anime a ON a.mal_id = al.mal_id "
+                        f"WHERE al.title LIKE ? ESCAPE '\\'{fmt_sql} "
+                        f"ORDER BY COALESCE(a.score, 0) DESC LIMIT ?",
+                        p_pfx,
+                    )
             if len(candidates) < limit:
                 p_sub = (sub_pat, target_fmt, int(limit)) if target_fmt else (sub_pat, int(limit))
                 _run_fetch(
@@ -1531,6 +1652,12 @@ def search_mappings_by_title(query, limit=25, media_format=''):
                     f"ORDER BY COALESCE(a.score, 0) DESC LIMIT ?",
                     p_sub,
                 )
+                if 'title_english' in acols and len(candidates) < limit:
+                    _run_fetch(
+                        f"SELECT {cols} FROM anime a WHERE a.title_english LIKE ? ESCAPE '\\'{fmt_sql} "
+                        f"ORDER BY COALESCE(a.score, 0) DESC LIMIT ?",
+                        p_sub,
+                    )
                 if 'anime_aliases' in tables and len(candidates) < limit:
                     _run_fetch(
                         f"SELECT {cols} FROM anime_aliases al JOIN anime a ON a.mal_id = al.mal_id "
@@ -1543,7 +1670,13 @@ def search_mappings_by_title(query, limit=25, media_format=''):
 
     def _rank(r):
         title_l = str(r.get('mal_title') or '').lower()
-        exact = 0 if title_l == q_low else (1 if title_l.startswith(q_low) else 2)
+        eng_l = str(r.get('title_english') or '').lower()
+        if title_l == q_low or (eng_l and eng_l == q_low):
+            exact = 0
+        elif title_l.startswith(q_low) or (eng_l and eng_l.startswith(q_low)):
+            exact = 1
+        else:
+            exact = 2
         return (exact, -(float(r.get('score') or 0.0)), int(r.get('mal_id') or 0))
 
     candidates.sort(key=_rank)
@@ -1613,6 +1746,51 @@ def get_franchise_entries(mal_id):
         )
     )
     return entries
+
+
+def get_franchise_watch_order(mal_id, max_hops=12):
+    """Walk multi-hop PREQUEL/SEQUEL links offline to return chronological watch order including *mal_id*."""
+    mid = _coerce_pos_int(mal_id)
+    if not mid or not getattr(control, 'mappingDB', None) or not os.path.exists(control.mappingDB):
+        return []
+    try:
+        with SQL(control.mappingDB, is_readonly=True) as cur:
+            tables = _mapping_tables(cur)
+            if 'anime' not in tables or 'franchise_links' not in tables:
+                return []
+            cols, _acols = _mapping_select_columns(cur)
+            cur_id = mid
+            seen_back = {cur_id}
+            for _ in range(int(max_hops)):
+                pre = cur.execute(
+                    "SELECT related_mal_id FROM franchise_links "
+                    "WHERE mal_id=? AND UPPER(relation_type)='PREQUEL' ORDER BY related_mal_id LIMIT 1",
+                    (cur_id,),
+                ).fetchone()
+                nxt_pre = _coerce_pos_int((pre or {}).get('related_mal_id'))
+                if not nxt_pre or nxt_pre in seen_back:
+                    break
+                seen_back.add(nxt_pre)
+                cur_id = nxt_pre
+
+            chain = []
+            seen_fwd = set()
+            while cur_id and cur_id not in seen_fwd and len(chain) < int(max_hops) * 2:
+                seen_fwd.add(cur_id)
+                row = cur.execute(f"SELECT {cols} FROM anime a WHERE a.mal_id=?", (cur_id,)).fetchone()
+                if row:
+                    chain.append(dict(row))
+                seq = cur.execute(
+                    "SELECT fl.related_mal_id FROM franchise_links fl "
+                    "JOIN anime a ON a.mal_id = fl.related_mal_id "
+                    "WHERE fl.mal_id=? AND UPPER(fl.relation_type)='SEQUEL' "
+                    "ORDER BY CASE WHEN UPPER(COALESCE(a.anime_media_type,''))='TV' THEN 0 ELSE 1 END, fl.related_mal_id LIMIT 1",
+                    (cur_id,),
+                ).fetchone()
+                cur_id = _coerce_pos_int((seq or {}).get('related_mal_id'))
+            return chain
+    except Exception:
+        return []
 
 
 def get_sequel_mal_id(mal_id):
@@ -1720,20 +1898,26 @@ def get_episode_offset_from_mappings(mal_id, episode=1):
     except (ValueError, TypeError):
         ep_num = 1
 
-    # 1. Explicit tvdb_rules offset (range_start - ep_start)
+    # 1. Explicit tvdb_rules offset (range_start - ep_start, with absolute_start fallback)
     for rl in get_tvdb_rules(mid):
         r_start = rl.get('range_start')
         r_end = rl.get('range_end')
         ep_start = rl.get('ep_start') or 1
-        if r_start is None:
+        abs_start = rl.get('absolute_start')
+        if r_start is None and abs_start is None:
             continue
-        r_start_i = int(r_start)
         ep_start_i = int(ep_start)
-        local_end = None if r_end is None else ep_start_i + (int(r_end) - r_start_i)
-        if ep_num >= ep_start_i and (local_end is None or ep_num <= local_end):
-            off = r_start_i - ep_start_i
-            if off > 0:
-                return off
+        if r_start is not None:
+            r_start_i = int(r_start)
+            local_end = None if r_end is None else ep_start_i + max(0, int(r_end) - r_start_i)
+            if ep_num >= ep_start_i and (local_end is None or ep_num <= local_end):
+                off = r_start_i - ep_start_i
+                if off > 0:
+                    return off
+        if abs_start is not None:
+            abs_start_i = int(abs_start)
+            if ep_num >= ep_start_i and abs_start_i > ep_start_i:
+                return abs_start_i - ep_start_i
 
     # 2. Fallback: anime_media_episodes vs global_media_episodes span start diff
     mapping = get_mappings(mid, 'mal_id')
@@ -1906,6 +2090,7 @@ def get_info(api_name):
 def remove_from_database(table, mal_id):
     if table not in _VALID_SYNC_TABLES:
         raise ValueError(f"Invalid sync table: {table!r}")
+    _ensure_sync_table(table)
     with SQL(control.malSyncDB) as cur:
         cur.execute(f'DELETE FROM {table} WHERE mal_id=?', (mal_id,))
         cur.connection.commit()
@@ -1954,6 +2139,7 @@ def get_watchlist_cache(service, status, limit=None, offset=0, sort_by=None, ord
         params.extend([int(limit), int(offset)])
 
     def _exec():
+        _ensure_sync_table('watchlist_cache')
         with SQL(control.malSyncDB) as cur:
             cur.execute(query, tuple(params))
             return cur.fetchall()
@@ -1989,6 +2175,7 @@ def get_watchlist_cache(service, status, limit=None, offset=0, sort_by=None, ord
 
 def get_watchlist_cache_count(service, status):
     """Count of cached items for a service / status pair."""
+    _ensure_sync_table('watchlist_cache')
     with SQL(control.malSyncDB) as cur:
         cur.execute(
             'SELECT COUNT(*) as count FROM watchlist_cache '
@@ -1999,6 +2186,7 @@ def get_watchlist_cache_count(service, status):
 
 def get_watchlist_cache_last_updated(service, status):
     """Oldest update timestamp for a service / status pair."""
+    _ensure_sync_table('watchlist_cache')
     with SQL(control.malSyncDB) as cur:
         cur.execute(
             'SELECT MIN(last_updated) as last_updated FROM watchlist_cache '
@@ -2044,6 +2232,7 @@ def _extract_mal_id(service, item):
 
 def clear_watchlist_cache(service=None, status=None):
     """Clear cache, optionally filtered by service and/or status."""
+    _ensure_sync_table('watchlist_cache')
     with SQL(control.malSyncDB) as cur:
         if service and status:
             cur.execute(
@@ -2069,6 +2258,7 @@ def is_watchlist_cache_valid(service, status, cache_hours=24):
 
 def get_watchlist_activity(service):
     """Stored activity record for a watchlist service."""
+    _ensure_sync_table('watchlist_activity')
     with SQL(control.malSyncDB) as cur:
         cur.execute(
             'SELECT * FROM watchlist_activity WHERE service=?', (service,))
@@ -2077,6 +2267,7 @@ def get_watchlist_activity(service):
 
 def save_watchlist_activity(service, activity_timestamp):
     """Save the last known activity timestamp for a service."""
+    _ensure_sync_table('watchlist_activity')
     with SQL(control.malSyncDB) as cur:
         cur.execute(
             'REPLACE INTO watchlist_activity '
@@ -2087,6 +2278,7 @@ def save_watchlist_activity(service, activity_timestamp):
 
 def clear_watchlist_activity(service=None):
     """Clear stored activity timestamps."""
+    _ensure_sync_table('watchlist_activity')
     try:
         with SQL(control.malSyncDB) as cur:
             if service:
@@ -2106,6 +2298,7 @@ def clear_watchlist_activity(service=None):
 
 def get_all_watchlist_mal_ids():
     """All unique MAL IDs across every cached watchlist entry."""
+    _ensure_sync_table('watchlist_cache')
     rows = []
     with SQL(control.malSyncDB) as cur:
         cur.execute(
@@ -2125,6 +2318,7 @@ def save_anilist_enrichment_batch(data_list):
     """Save AniList media objects keyed by ``idMal``."""
     if not data_list:
         return
+    _ensure_sync_table('anilist_enrichment')
     now = int(time.time())
     rows = [
         (int(item['idMal']), dumps(item), now)
@@ -2145,6 +2339,7 @@ def get_anilist_enrichment_batch(mal_ids, max_age_hours=168):
     """Cached AniList enrichment for given MAL IDs (default 7 days max)."""
     if not mal_ids:
         return {}
+    _ensure_sync_table('anilist_enrichment')
     cutoff = int(time.time()) - (max_age_hours * 3600)
     result = {}
     with SQL(control.malSyncDB) as cur:
@@ -2163,6 +2358,7 @@ def get_anilist_enrichment_batch(mal_ids, max_age_hours=168):
 
 def clear_anilist_enrichment():
     """Clear all AniList enrichment data."""
+    _ensure_sync_table('anilist_enrichment')
     with SQL(control.malSyncDB) as cur:
         cur.execute('DELETE FROM anilist_enrichment')
         cur.connection.commit()
@@ -3075,14 +3271,15 @@ def enqueue_scrobble_retry(service_name, action, mal_id, episode=0, status='', s
     now = int(time.time())
     base_delay = max(0, int(delay_seconds if delay_seconds is not None else 60))
     if retry_after is None and error:
-        m = re.search(r'retry[-_ ]?after[:=\s]+(\d+)', str(error), re.IGNORECASE)
+        m = re.search(r'retry[-_ ]?after[:=\s]+(\d+(?:\.\d+)?)', str(error), re.IGNORECASE)
         if m:
-            retry_after = int(m.group(1))
+            retry_after = float(m.group(1))
+    retry_after_sec = None
     if retry_after is not None:
         try:
-            base_delay = max(base_delay, int(float(retry_after)))
+            retry_after_sec = min(3600, max(0, int(float(retry_after))))
         except (ValueError, TypeError):
-            pass
+            retry_after_sec = None
     try:
         with SQL(control.malSyncDB) as cur:
             cur.execute(
@@ -3092,6 +3289,8 @@ def enqueue_scrobble_retry(service_name, action, mal_id, episode=0, status='', s
             existing = cur.fetchone()
             attempts = (int(existing.get('attempts') or 0) + 1) if existing else 1
             backoff = min(3600, base_delay * (2 ** max(0, attempts - 1)))
+            if retry_after_sec is not None:
+                backoff = max(backoff, retry_after_sec)
             next_retry = now + backoff
             execute_write_with_retry(
                 cur,

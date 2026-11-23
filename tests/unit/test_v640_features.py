@@ -201,10 +201,19 @@ class TestV640Features(unittest.TestCase):
             self.assertEqual(saved['episode_offset'], 1)
             self.assertEqual(saved['intro_offset_s'], -1)
 
-            # Reset via button 3004
+            # Reset via button 3004 stages defaults in UI; Cancel keeps existing DB row, Save deletes DB row
             dlg.reset_defaults()
-            self.assertIsNone(database.get_series_override(52991))
             self.assertEqual(dlg.values['episode_offset'], 0)
+            self.assertIsNotNone(database.get_series_override(52991))
+            dlg.onClick(3006)  # Cancel leaves DB override intact
+            self.assertIsNotNone(database.get_series_override(52991))
+
+            dlg_save_reset = SeriesProfileDialog('series_profile.xml', control.ADDON_PATH, mal_id=52991)
+            dlg_save_reset.onInit()
+            dlg_save_reset.reset_defaults()
+            dlg_save_reset.onClick(3005)  # Save commits staged reset -> deletes DB override
+            self.assertIsNone(database.get_series_override(52991))
+            self.assertEqual(dlg_save_reset.values['episode_offset'], 0)
 
             # Non-parameterized route opens SeriesProfileDialog cleanly under try...finally
             with patch('resources.lib.windows.series_profile.SeriesProfileDialog.doModal', return_value=None) as mock_dm:

@@ -1238,7 +1238,10 @@ def SET_SETTINGS(payload, params):
                 control.setBool(k, False)
             elif v.isdigit():
                 control.setInt(k, int(v))
-            elif ',' in v or k.endswith('.config') or k in ('fanart.all', 'fanart.mal_ids', 'fanart.selections', 'DMIndex', 'general.filters'):
+            elif (
+                (k.endswith('.config') or k in ('fanart.all', 'fanart.mal_ids', 'fanart.selections', 'DMIndex', 'general.filters'))
+                or (',' in v and not k.endswith('.order'))
+            ):
                 items = [x.strip() for x in v.split(',') if x.strip()]
                 control.setStringList(k, items)
             else:

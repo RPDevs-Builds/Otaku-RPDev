@@ -1,4 +1,5 @@
 import json
+import os
 
 from resources.lib.ui import control, database
 
@@ -41,12 +42,26 @@ class _MalDubMap(dict):
 def _get_mal_dub():
     global _mal_dub_cache
     if _mal_dub_cache is None:
+        raw = None
         try:
             with open(control.maldubFile) as file:
                 raw = json.load(file)
-                _mal_dub_cache = _MalDubMap(raw if isinstance(raw, dict) else {})
-        except (FileNotFoundError, json.JSONDecodeError):
-            _mal_dub_cache = _MalDubMap()
+        except (FileNotFoundError, json.JSONDecodeError, OSError):
+            raw = None
+        if isinstance(raw, dict) and raw:
+            _mal_dub_cache = _MalDubMap(raw)
+        else:
+            # Prefer mappings.db mal_dub_id directly when mal_dub.json is retired/absent
+            db_dubs = {}
+            try:
+                if getattr(control, 'mappingDB', None) and os.path.exists(control.mappingDB):
+                    with database.SQL(control.mappingDB, is_readonly=True) as cur:
+                        rows = cur.execute('SELECT mal_id, mal_dub_id FROM anime WHERE mal_dub_id IS NOT NULL').fetchall() or []
+                        for r in rows:
+                            db_dubs[str(r['mal_id'])] = r['mal_dub_id']
+            except Exception:
+                db_dubs = {}
+            _mal_dub_cache = _MalDubMap(db_dubs)
     return _mal_dub_cache
 
 

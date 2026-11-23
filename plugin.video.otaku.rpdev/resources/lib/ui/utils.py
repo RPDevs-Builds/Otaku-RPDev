@@ -270,8 +270,15 @@ def get_source_context(mal_id, kodi_meta, stored_season, episode):
 
     offset = database.get_episode_offset_from_mappings(mal_id, episode or 1)
     if not offset:
-        summary = get_anizip_summary(mal_id)
-        offset = summary.get('offset') or 0
+        mp = database.get_mappings(mal_id, 'mal_id')
+        has_offline_season_scope = isinstance(mp, dict) and bool(mp) and (
+            mp.get('thetvdb_id') is not None
+            or mp.get('global_media_episodes')
+            or int(season or 1) <= 1
+        )
+        if not has_offline_season_scope:
+            summary = get_anizip_summary(mal_id)
+            offset = (summary or {}).get('offset') or 0
     try:
         abs_ep = int(episode) + int(offset) if offset and episode is not None else None
     except (ValueError, TypeError):
@@ -289,7 +296,7 @@ def allocate_offline_mapping_items(rows, show_relation=False):
         mid = row.get('mal_id')
         if not mid:
             continue
-        title = (row.get('mal_title') or f"Anime {mid}").strip()
+        title = (row.get('title_english') or row.get('mal_title') or f"Anime {mid}").strip()
         rel = str(row.get('relation_type') or '').replace('_', ' ').title()
         display_name = f"{title} [{rel}]" if (show_relation and rel) else title
         pic = str(row.get('mal_picture') or '').strip()
@@ -303,18 +310,38 @@ def allocate_offline_mapping_items(rows, show_relation=False):
         year_val = row.get('year')
         seas_val = str(row.get('anime_season') or '').strip()
         year_part = f" • {seas_val.title()} {year_val}" if (year_val and seas_val) else (f" • {year_val}" if year_val else "")
+        dub_tag = " • Dub" if row.get('mal_dub_id') else ""
+        uids = {'mal_id': str(mid), 'mal': str(mid)}
+        for col_k, uid_k in (
+            ('anilist_id', 'anilist_id'),
+            ('thetvdb_id', 'tvdb'),
+            ('themoviedb_id', 'tmdb'),
+        ):
+            v = row.get(col_k)
+            if v is not None and str(v).strip() not in ('', 'None', 'null', '0'):
+                uids[uid_k] = str(v)
         info = {
-            'UniqueIDs': {'mal_id': str(mid), 'mal': str(mid)},
+            'UniqueIDs': uids,
             'title': display_name,
             'mediatype': kodi_mtype,
             'status': row.get('status') or '',
-            'plot': f"{mtype_raw}{year_part} • Episodes: {row.get('anime_media_episodes') or '?'} • Status: {row.get('status') or 'Unknown'}",
+            'plot': f"{mtype_raw}{year_part}{dub_tag} • Episodes: {row.get('anime_media_episodes') or '?'} • Status: {row.get('status') or 'Unknown'}",
         }
+        if row.get('mal_title') and row.get('title_english') and row.get('mal_title') != row.get('title_english'):
+            info['originaltitle'] = str(row['mal_title']).strip()
+        if row.get('genres'):
+            raw_g = str(row['genres'])
+            info['genre'] = [g.strip() for g in raw_g.split(',') if g.strip()] if ',' in raw_g else raw_g
+        if row.get('studios'):
+            raw_s = str(row['studios'])
+            info['studio'] = [s.strip() for s in raw_s.split(',') if s.strip()] if ',' in raw_s else raw_s
+        if row.get('start_date'):
+            info['premiered'] = str(row['start_date']).strip()
         if year_val:
             try:
                 yr_int = int(year_val)
                 info['year'] = yr_int
-                info['premiered'] = f"{yr_int:04d}-01-01"
+                info.setdefault('premiered', f"{yr_int:04d}-01-01")
             except (TypeError, ValueError):
                 pass
         if row.get('score'):

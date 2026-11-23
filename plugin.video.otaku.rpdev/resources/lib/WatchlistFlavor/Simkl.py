@@ -627,7 +627,11 @@ class SimklWLF(WatchlistFlavorBase):
         data = self.get_all_items('completed')
         completed = {}
         for dat in (data or {}).get('anime', []):
-            completed[str(dat['show']['ids']['mal'])] = dat['total_episodes_count']
+            if not isinstance(dat, dict):
+                continue
+            mal_id = ((dat.get('show') or {}).get('ids') or {}).get('mal')
+            if mal_id:
+                completed[str(mal_id)] = dat.get('total_episodes_count') or 0
         return completed
 
     def get_all_items(self, status):

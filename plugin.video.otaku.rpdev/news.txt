@@ -1,7 +1,30 @@
 ========================
+[B]OTAKU RPDEV v6.4.1[/B]
+Audit & Hardening
+========================
+
+v6.4.1 Highlights:
+  * Fix NF-11 failover wiping handoff, auto_resume loss and PLAY_MOVIE zero-
+    wait handoff
+  * buffer-stall detection moved into episode monitor
+  * Publish clean script.trakt.ids before playback with TVDB season/episode
+    normalization and full UniqueIDs
+  * NF-14 scene-marker kind collisions, IntroDB recap/post-credits and skip
+    dialog fixes
+  * NF-12 staged Reset, global-default offsets, series audio/sub overrides
+    and episode_offset before cache fast-paths
+  * mappings.db FTS5 search, watch order, offline metadata and local-first
+    AniList/Kitsu/Simkl lookups
+  * Settings freeze fixes: service idle churn, settings.xml schema and
+    distinct Intro/Outro labels
+  * Debrid, nyaa and ASS subtitle fixes
+  * Estuary font remaps
+  * remaining items tracked in docs/CONCERNS.md
+
+--------------------------------
 [B]OTAKU RPDEV v6.4.0[/B]
 Failover, Profiles & Scenes
-========================
+--------------------------------
 
 v6.4.0 Highlights:
   * NF-11: Mid-stream CURL-56 and stall Debrid CDN failover with auto-resume

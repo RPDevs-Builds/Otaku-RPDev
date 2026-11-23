@@ -337,7 +337,7 @@
                     <top>0</top>
                     <width>450</width>
                     <height>35</height>
-                    <font>font16</font>
+                    <font>font14</font>
                     <textcolor>AAFFFFFF</textcolor>
                     <align>left</align>
                     <scroll>true</scroll>
@@ -478,7 +478,7 @@
                         <top>55</top>
                         <width>300</width>
                         <height>18</height>
-                        <font>font9</font>
+                        <font>font10</font>
                         <textcolor>88B7C0CC</textcolor>
                         <align>left</align>
                         <label>$INFO[ListItem.Property(raw_day)] $INFO[ListItem.Property(raw_date_formatted)]</label>
@@ -490,7 +490,7 @@
                         <top>55</top>
                         <width>300</width>
                         <height>18</height>
-                        <font>font9</font>
+                        <font>font10</font>
                         <textcolor>88B7C0CC</textcolor>
                         <align>left</align>
                         <label>$INFO[ListItem.Property(sub_day)] $INFO[ListItem.Property(sub_date_formatted)]</label>
@@ -502,7 +502,7 @@
                         <top>55</top>
                         <width>300</width>
                         <height>18</height>
-                        <font>font9</font>
+                        <font>font10</font>
                         <textcolor>88B7C0CC</textcolor>
                         <align>left</align>
                         <label>$INFO[ListItem.Property(dub_day)] $INFO[ListItem.Property(dub_date_formatted)]</label>
@@ -516,7 +516,7 @@
                         <top>55</top>
                         <width>150</width>
                         <height>18</height>
-                        <font>font9</font>
+                        <font>font10</font>
                         <textcolor>FFFF9800</textcolor>
                         <align>left</align>
                         <label>$INFO[ListItem.Property(raw_countdown)]</label>
@@ -528,7 +528,7 @@
                         <top>55</top>
                         <width>150</width>
                         <height>18</height>
-                        <font>font9</font>
+                        <font>font10</font>
                         <textcolor>FFFF9800</textcolor>
                         <align>left</align>
                         <label>$INFO[ListItem.Property(sub_countdown)]</label>
@@ -540,7 +540,7 @@
                         <top>55</top>
                         <width>150</width>
                         <height>18</height>
-                        <font>font9</font>
+                        <font>font10</font>
                         <textcolor>FFFF9800</textcolor>
                         <align>left</align>
                         <label>$INFO[ListItem.Property(dub_countdown)]</label>
@@ -818,7 +818,7 @@
                     <top>0</top>
                     <width>450</width>
                     <height>35</height>
-                    <font>font16</font>
+                    <font>font14</font>
                     <textcolor>AAFFFFFF</textcolor>
                     <align>left</align>
                     <scroll>true</scroll>
@@ -959,7 +959,7 @@
                         <top>55</top>
                         <width>300</width>
                         <height>18</height>
-                        <font>font9</font>
+                        <font>font10</font>
                         <textcolor>88B7C0CC</textcolor>
                         <align>left</align>
                         <label>$INFO[ListItem.Property(raw_day)] $INFO[ListItem.Property(raw_date_formatted)]</label>
@@ -971,7 +971,7 @@
                         <top>55</top>
                         <width>300</width>
                         <height>18</height>
-                        <font>font9</font>
+                        <font>font10</font>
                         <textcolor>88B7C0CC</textcolor>
                         <align>left</align>
                         <label>$INFO[ListItem.Property(sub_day)] $INFO[ListItem.Property(sub_date_formatted)]</label>
@@ -983,7 +983,7 @@
                         <top>55</top>
                         <width>300</width>
                         <height>18</height>
-                        <font>font9</font>
+                        <font>font10</font>
                         <textcolor>88B7C0CC</textcolor>
                         <align>left</align>
                         <label>$INFO[ListItem.Property(dub_day)] $INFO[ListItem.Property(dub_date_formatted)]</label>
@@ -997,7 +997,7 @@
                         <top>55</top>
                         <width>150</width>
                         <height>18</height>
-                        <font>font9</font>
+                        <font>font10</font>
                         <textcolor>FFFF9800</textcolor>
                         <align>left</align>
                         <label>$INFO[ListItem.Property(raw_countdown)]</label>
@@ -1009,7 +1009,7 @@
                         <top>55</top>
                         <width>150</width>
                         <height>18</height>
-                        <font>font9</font>
+                        <font>font10</font>
                         <textcolor>FFFF9800</textcolor>
                         <align>left</align>
                         <label>$INFO[ListItem.Property(sub_countdown)]</label>
@@ -1021,7 +1021,7 @@
                         <top>55</top>
                         <width>150</width>
                         <height>18</height>
-                        <font>font9</font>
+                        <font>font10</font>
                         <textcolor>FFFF9800</textcolor>
                         <align>left</align>
                         <label>$INFO[ListItem.Property(dub_countdown)]</label>

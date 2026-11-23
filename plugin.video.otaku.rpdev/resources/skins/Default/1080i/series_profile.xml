@@ -50,7 +50,7 @@
                 <top>25</top>
                 <width>1510</width>
                 <height>38</height>
-                <font>font16</font>
+                <font>font14</font>
                 <textcolor>FFFFFFFF</textcolor>
                 <label>[B]$INFO[Window.Property(series_title)][/B]</label>
             </control>
@@ -204,6 +204,7 @@
                 <width>14</width>
                 <height>720</height>
                 <visible>true</visible>
+                <showonepage>false</showonepage>
                 <orientation>vertical</orientation>
                 <onleft>1000</onleft>
                 <onright>2000</onright>

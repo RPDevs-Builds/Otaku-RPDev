@@ -171,14 +171,18 @@ class SIMKLAPI:
 
     def get_mapping_ids_from_simkl(self, anime_id, send_id):
         # Query local database (+ cached runtime overlay when keyed by mal_id)
-        if send_id == 'mal_id':
+        norm_key = {'mal': 'mal_id', 'anilist': 'anilist_id', 'kitsu': 'kitsu_id'}.get(send_id, send_id)
+        if norm_key == 'mal_id':
             meta_ids = database.resolve_mappings_with_fallback(
                 anime_id, required_keys=('simkl_id',), require_all=False, fetch_remote=False
             )
         else:
-            meta_ids = database.get_mappings(anime_id, send_id)
+            meta_ids = database.get_mappings(anime_id, norm_key)
         if meta_ids:
-            return meta_ids  # Return the full mapping dictionary
+            out = dict(meta_ids)
+            if out.get('mal_id') and not out.get('mal'):
+                out['mal'] = out['mal_id']
+            return out  # Return the full mapping dictionary
         # Fallback to SIMKL API if not found
         simkl_query_key = 'mal' if send_id == 'mal_id' else send_id
         simkl_id = self.get_id(simkl_query_key, anime_id)

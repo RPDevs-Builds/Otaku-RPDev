@@ -32,8 +32,11 @@ NOISE_RE = re.compile(
     r'|ParseChildManifest|JSONRPC: Empty batch|OutputPicture - timeout|ActiveAE',
     re.IGNORECASE,
 )
-ERROR_RE = re.compile(r'error <general>|Traceback|PythonToCpp|EXCEPTION|\bERROR\b', re.IGNORECASE)
-WARNING_RE = re.compile(r'warning <general>|\bWARNING\b', re.IGNORECASE)
+ERROR_RE = re.compile(
+    r'\b(?:error|fatal|critical)\s+<general>|Traceback\s*\(most recent call last\)'
+    r'|PythonToCppException|EXCEPTION\s+Thrown|(?:^|\s)(?:ERROR|FATAL|CRITICAL):'
+)
+WARNING_RE = re.compile(r'\bwarning\s+<general>|(?:^|\s)WARNING:')
 OTAKU_RE = re.compile(r'otaku\.rpdev|OTAKU RPDEV', re.IGNORECASE)
 LOG_LINE_START_RE = re.compile(r'^\ufeff?\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}')
 ADDON_PATH_RE = re.compile(r'(?:[/\\]addons[/\\]|CAddon\[)([a-z0-9_.-]+)', re.IGNORECASE)
@@ -61,8 +64,17 @@ CONCERN_PATTERNS = {
     'C-06': re.compile(r'CHANGE_LOG.*(?:exit_code|directory|error)|exit_code.*CHANGE_LOG', re.IGNORECASE),
     'C-11': re.compile(r'Unable to create subtitle parser', re.IGNORECASE),
     'C-14': re.compile(r'FillBuffer Failed.*peer\(56\)|receiving data from the peer\(56\)', re.IGNORECASE),
-    'C-34': re.compile(r'resolve_silent.*(?:pruned|failed|error)|Zero-Wait.*failed', re.IGNORECASE),
-    'C-35': re.compile(r'WatchlistFlavorAuth|wlf_auth_|Closing unattended|window 12600', re.IGNORECASE),
+    'C-34': re.compile(r'resolve_silent:?\s*(?:pruned failing|failed|error)|Zero-Wait.*failed', re.IGNORECASE),
+    'C-35': re.compile(
+        r'WatchlistFlavorAuth.*(?:Closing unattended|idle timeout|error|failed)|wlf_auth_.*(?:error|failed|Closing)|window 12600',
+        re.IGNORECASE,
+    ),
+    'C-36': re.compile(r'EXCEPTION:\s*Invalid setting type|Invalid setting .* for ', re.IGNORECASE),
+    'C-37': re.compile(r'malloc\([^)]+\)\s*failed|std::bad_alloc|didn\'t stop in 5 seconds|APP CRASH\(NATIVE\)', re.IGNORECASE),
+    'C-38': re.compile(
+        r'GetDirectory - Error getting plugin://plugin\.video\.otaku\.rpdev|CGUIMediaWindow::GetDirectory\([^)]*otaku\.rpdev',
+        re.IGNORECASE,
+    ),
 }
 
 
@@ -84,8 +96,11 @@ def fetch_log_from_url(url, offset, timeout=10.0):
     parsed = urllib.parse.urlparse(url)
     if parsed.scheme.lower() not in ('http', 'https') or not parsed.netloc:
         raise ValueError(f"Unsupported or invalid audit URL: {url!r}")
-    sep = '&' if '?' in url else '?'
-    full_url = f"{url}{sep}offset={offset}"
+    if parsed.path in ('', '/'):
+        parsed = parsed._replace(path='/tail')
+    base_url = urllib.parse.urlunparse(parsed)
+    sep = '&' if '?' in base_url else '?'
+    full_url = f"{base_url}{sep}offset={offset}"
     req = urllib.request.Request(full_url, method='GET')
     with urllib.request.urlopen(req, timeout=float(timeout)) as resp:
         raw_bytes = resp.read()
@@ -281,10 +296,18 @@ def main(argv=None):
             raise ValueError(f"Offset must be >= 0, got {offset}")
 
         if args.input_path:
-            # When auditing a local fixture file with --concerns cursor > file size, read from 0 unless --offset was explicit
-            file_offset = int(args.offset) if args.offset is not None else 0
+            file_size = os.path.getsize(args.input_path) if os.path.isfile(args.input_path) else 0
+            if args.offset is not None:
+                file_offset = int(args.offset)
+                effective_offset = file_offset
+            elif offset < file_size:
+                file_offset = offset
+                effective_offset = offset
+            else:
+                # Auditing a small pre-captured fixture whose size is below docs/CONCERNS.md cursor
+                file_offset = 0
+                effective_offset = offset
             raw_bytes, x_seek = fetch_log_from_file(args.input_path, offset=file_offset)
-            effective_offset = file_offset if args.offset is not None else offset
         else:
             raw_bytes, x_seek = fetch_log_from_url(args.url, offset=offset, timeout=args.timeout)
             effective_offset = offset

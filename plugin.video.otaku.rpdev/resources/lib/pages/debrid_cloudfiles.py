@@ -43,7 +43,7 @@ class Sources(BrowserBase):
             torrent = torrents[i]
             torrent_info = api.torrentInfo(torrent['id'])
             if not torrent_info or 'files' not in torrent_info:
-                return
+                continue
             torrent_files = [selected for selected in torrent_info['files'] if selected['selected'] == 1]
 
             if len(torrent_files) > 1 and len(torrent_info['links']) == 1:

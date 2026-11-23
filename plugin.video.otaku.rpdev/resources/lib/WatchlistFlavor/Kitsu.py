@@ -753,8 +753,8 @@ class KitsuWLF(WatchlistFlavorBase):
                     mal_id = i['attributes']['externalId']
                     break
         if not mal_id:
-            ids = SIMKLAPI().get_mapping_ids_from_simkl(kitsu_id, 'kitsu_id')
-            mal_id = ids.get('mal', '')
+            ids = SIMKLAPI().get_mapping_ids_from_simkl(kitsu_id, 'kitsu_id') or {}
+            mal_id = ids.get('mal_id') or ids.get('mal') or ''
             if mal_id:
                 database.add_mapping_id(mal_id, 'kitsu_id', kitsu_id)
         return mal_id
@@ -802,9 +802,15 @@ class KitsuWLF(WatchlistFlavorBase):
     def save_completed(self):
         data = self.get_user_anime_list('completed')
         completed = {}
-        for dat in data:
-            mal_id = self.mapping_mal(dat['relationships']['anime']['data']['id'])
-            completed[str(mal_id)] = dat['attributes']['progress']
+        for dat in (data or []):
+            if not isinstance(dat, dict):
+                continue
+            kitsu_id = (((dat.get('relationships') or {}).get('anime') or {}).get('data') or {}).get('id')
+            if not kitsu_id:
+                continue
+            mal_id = self.mapping_mal(kitsu_id)
+            if mal_id:
+                completed[str(mal_id)] = (dat.get('attributes') or {}).get('progress') or 0
         return completed
 
     def get_user_anime_list(self, status):

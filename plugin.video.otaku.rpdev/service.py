@@ -152,12 +152,27 @@ def update_mappings_db(url=None, expected_sha256=None):
                         shutil.copy2(dest_path, bak_path)
                     except OSError:
                         pass
+
+                database.close_all_connections(dest_path)
                 try:
-                    os.remove(tmp_path)
+                    with open(tmp_path, 'rb+') as tf_sync:
+                        os.fsync(tf_sync.fileno())
                 except OSError:
                     pass
 
-                if control.atomic_write_bytes(dest_path, raw_payload):
+                atomic_ok = False
+                try:
+                    os.replace(tmp_path, dest_path)
+                    atomic_ok = os.path.exists(dest_path)
+                except OSError:
+                    atomic_ok = control.atomic_write_bytes(dest_path, raw_payload)
+                    try:
+                        if os.path.exists(tmp_path):
+                            os.remove(tmp_path)
+                    except OSError:
+                        pass
+
+                if atomic_ok:
                     database.close_all_connections(dest_path)
                     new_etag = response.headers.get('Etag') or response.headers.get('ETag', '')
                     new_mtime = response.headers.get('Last-Modified', '')
@@ -346,7 +361,24 @@ def prefetch_calendar():
         control.log(f'### Calendar prefetch failed: {e}', 'warning')
 
 
-def update_dub_json():
+def _mappings_has_dub_data():
+    """Return True if local read-only mappings.db already contains mal_dub_id rows."""
+    try:
+        mapping_path = getattr(control, 'mappingDB', None)
+        if not mapping_path or not os.path.exists(mapping_path):
+            return False
+        from resources.lib.ui import database
+        with database.SQL(mapping_path, is_readonly=True) as cur:
+            row = cur.execute('SELECT 1 FROM anime WHERE mal_dub_id IS NOT NULL LIMIT 1').fetchone()
+            return bool(row)
+    except Exception:
+        return False
+
+
+def update_dub_json(force=False):
+    if not force and _mappings_has_dub_data():
+        control.log("### Dub index served by mappings.db; skipping redundant dubInfo.json fetch")
+        return
     control.log("### Updating Dub json")
     url = 'https://raw.githubusercontent.com/MAL-Dubs/MAL-Dubs/main/data/dubInfo.json'
     headers = {}
@@ -485,24 +517,36 @@ def version_check():
             control.log(f"Failed to prune orphaned settings on startup: {e}", 'warning')
 
 
-def load_settings():
-    """Load settings into Kodi window properties by parsing settings.xml."""
-    import xml.etree.ElementTree as ET
+_SETTINGS_XML_CACHE = None
 
+
+def _get_settings_schema_entries():
+    global _SETTINGS_XML_CACHE
+    if _SETTINGS_XML_CACHE is not None:
+        return _SETTINGS_XML_CACHE
+    import xml.etree.ElementTree as ET
     settings_path = os.path.join(control.ADDON_PATH, 'resources', 'settings.xml')
+    tree = ET.parse(settings_path)
+    root = tree.getroot()
+    entries = []
+    for setting in root.iter('setting'):
+        s_id = setting.get('id')
+        s_type = setting.get('type')
+        if s_id and s_type and s_type != 'action':
+            entries.append((s_id, s_type.lower()))
+    _SETTINGS_XML_CACHE = tuple(entries)
+    return _SETTINGS_XML_CACHE
+
+
+def load_settings():
+    """Load settings into Kodi window properties using cached settings.xml schema."""
     try:
-        tree = ET.parse(settings_path)
-        root = tree.getroot()
+        entries = _get_settings_schema_entries()
     except Exception as e:
         control.log(f'Failed to parse settings.xml: {e}', 'error')
         return
 
-    for setting in root.iter('setting'):
-        s_id = setting.get('id')
-        s_type = setting.get('type')
-        if not s_id or s_type == 'action':
-            continue
-
+    for s_id, s_type in entries:
         prop_name = f"{control.ADDON_ID}_{s_id}"
         try:
             if s_type == 'boolean':
@@ -610,6 +654,7 @@ class Monitor(xbmc.Monitor):
     def __init__(self):
         super().__init__()
         self._menu_settings_snapshot = _get_menu_settings_snapshot()
+        self._webpdb_enabled = control.getBool('webpdb.enabled')
         self._webpdb_port = control.get_webpdb_port()
 
     def onSettingsChanged(self):
@@ -619,25 +664,28 @@ class Monitor(xbmc.Monitor):
             load_settings()
         control.process_context()
 
-        # Stop active Web-PDB server if Web-PDB was disabled or its port changed when settings were saved
+        # Stop active Web-PDB server when disabled or port changed
+        current_webpdb_enabled = control.getBool('webpdb.enabled')
         current_webpdb_port = control.get_webpdb_port()
-        if not control.getBool('webpdb.enabled'):
+        if not current_webpdb_enabled:
             control.stop_webpdb_trace(self._webpdb_port)
             if current_webpdb_port != self._webpdb_port:
                 control.stop_webpdb_trace(current_webpdb_port)
         elif current_webpdb_port != self._webpdb_port:
             control.stop_webpdb_trace(self._webpdb_port)
+        self._webpdb_enabled = current_webpdb_enabled
         self._webpdb_port = current_webpdb_port
 
-        # Check if any menu configuration settings were changed
+        # Check if any menu configuration settings were changed; defer Container.Refresh while AddonSettings modal is open
         new_snapshot = _get_menu_settings_snapshot()
         if new_snapshot != self._menu_settings_snapshot:
-            control.log('Menu configuration settings changed - refreshing menu container')
+            control.log('Menu configuration settings changed - flagging menu container refresh')
             self._menu_settings_snapshot = new_snapshot
             control.setGlobalProp('otaku.menu.needs_refresh', 'true')
-            folder_path = xbmc.getInfoLabel('Container.FolderPath')
-            if control.is_addon_visible() or folder_path.startswith('plugin://plugin.video.otaku.rpdev'):
-                control.refresh()
+            if not xbmc.getCondVisibility('Window.IsActive(addonsettings)'):
+                folder_path = xbmc.getInfoLabel('Container.FolderPath')
+                if control.is_addon_visible() or folder_path.startswith('plugin://plugin.video.otaku.rpdev'):
+                    control.refresh()
 
 
 class MultipageWorker(threading.Thread):
@@ -656,7 +704,7 @@ class MultipageWorker(threading.Thread):
         """Signal the worker thread to stop cleanly."""
         self._stop_event.set()
 
-    def _sleep(self, seconds, slice_time=0.05):
+    def _sleep(self, seconds, slice_time=0.5):
         """Sleep for up to `seconds`, returning True immediately if monitor abort or stop is requested."""
         if self.monitor.abortRequested() or self._stop_event.is_set():
             return True
@@ -672,7 +720,9 @@ class MultipageWorker(threading.Thread):
                 return True
             rem = seconds - (time.time() - start)
             chunk = min(slice_time, rem)
-            if self.monitor.waitForAbort(chunk) or self._stop_event.is_set():
+            if chunk > 0 and self._stop_event.wait(timeout=chunk):
+                return True
+            if self.monitor.abortRequested():
                 return True
         return False
 
@@ -685,7 +735,7 @@ class MultipageWorker(threading.Thread):
         return cls.PACING_MAL
 
     def _should_pause(self):
-        """Returns True if playback is active, display is in standby, or screensaver is active."""
+        """Returns True if playback is active, display is in standby, screensaver, or Settings UI is open."""
         try:
             if xbmc.Player().isPlaying():
                 return True
@@ -698,6 +748,11 @@ class MultipageWorker(threading.Thread):
             pass
         try:
             if xbmc.getCondVisibility("System.ScreenSaverActive"):
+                return True
+        except Exception:
+            pass
+        try:
+            if xbmc.getCondVisibility("Window.IsActive(addonsettings)"):
                 return True
         except Exception:
             pass
@@ -916,26 +971,32 @@ if __name__ == "__main__":
     database_sync.SyncDatabase()
     refresh_apis()
     if control.getInt('update.time.30') == 0 or control.getInt('update.time.7') == 0:
-        update_mappings_db()
-        update_dub_json()
+        threading.Thread(target=_maybe_sync_daily_mappings, daemon=True).start()
+        update_dub_json(force=False)
         sync_watchlist(True)
         cleanup_cache_databases()
-        control.setInt('update.time.30', int(time.time()))
         control.setInt('update.time.7', int(time.time()))
         control.setInt('update.time.1', int(time.time()))
     else:
-        if time.time() > control.getInt('update.time.30') + 86_400:   # daily ETag-checked mappings sync
-            update_mappings_db()
-            control.setInt('update.time.30', int(time.time()))
-        if time.time() > control.getInt('update.time.7') + 604_800:   # 7 days
-            update_dub_json()
+        now_ts = int(time.time())
+        did_watchlist_sync = False
+        if now_ts > control.getInt('update.time.30') + 86_400:   # daily ETag-checked mappings sync (non-blocking)
+            threading.Thread(target=_maybe_sync_daily_mappings, daemon=True).start()
+        if now_ts > control.getInt('update.time.7') + 604_800:   # 7 days
+            update_dub_json(force=False)
             sync_watchlist(True)
+            did_watchlist_sync = True
             cleanup_cache_databases()
-            control.setInt('update.time.7', int(time.time()))
-        if time.time() > control.getInt('update.time.1') + 86_400:   # 1 day
-            # update_calendars()
-            sync_watchlist(True)
-            control.setInt('update.time.1', int(time.time()))
+            control.setInt('update.time.7', now_ts)
+        if now_ts > control.getInt('update.time.1') + 86_400:   # 1 day
+            if not did_watchlist_sync:
+                sync_watchlist(True)
+            try:
+                from resources.lib.ui import database
+                database.prune_stale_multipage_jobs()
+            except Exception:
+                pass
+            control.setInt('update.time.1', now_ts)
     # Prefetch watchlist in background thread (non-blocking)
     threading.Thread(target=prefetch_watchlist, daemon=True).start()
     # Prefetch airing calendar in background thread (non-blocking)

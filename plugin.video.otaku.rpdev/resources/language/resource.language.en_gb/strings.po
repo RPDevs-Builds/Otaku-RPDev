@@ -464,19 +464,19 @@ msgid "How Long Before Checking for New Episodes (days)"
 msgstr ""
 
 msgctxt "#30108"
-msgid "Force View Types on Menus"
+msgid "Enable Outro Smart Skip"
 msgstr ""
 
 msgctxt "#30109"
-msgid "General Menu View"
+msgid "Offset for Outro Smart Skip (seconds)"
 msgstr ""
 
 msgctxt "#30110"
-msgid "TV Show View"
+msgid "Enable Outro Anime-Skip Fallback"
 msgstr ""
 
 msgctxt "#30111"
-msgid "Episode View"
+msgid "Query Anime-Skip for outro timestamps when AniSkip has no data (Default: Enabled)."
 msgstr ""
 
 msgctxt "#30112"
@@ -488,7 +488,7 @@ msgid "Hide Episode Info and Plot"
 msgstr ""
 
 msgctxt "#30114"
-msgid "Show Empty Episode Meta"
+msgid "Enable Outro IntroDB Fallback"
 msgstr ""
 
 msgctxt "#30115"
@@ -516,7 +516,7 @@ msgid "Show Filler Info If Found"
 msgstr ""
 
 msgctxt "#30121"
-msgid "JZ Settings"
+msgid "Query IntroDB (api.introdb.app) for outro skip times when AniSkip has no data (Default: Enabled)."
 msgstr ""
 
 msgctxt "#30122"
@@ -788,11 +788,11 @@ msgid "Duration of how long the Dialog will appear"
 msgstr ""
 
 msgctxt "#30189"
-msgid "Enable Smart Skip"
+msgid "Enable Intro Smart Skip"
 msgstr ""
 
 msgctxt "#30190"
-msgid "Offset for Smart Skip (seconds)"
+msgid "Offset for Intro Smart Skip (seconds)"
 msgstr ""
 
 msgctxt "#30191"
@@ -3916,11 +3916,11 @@ msgid "Extract container chapters (MKV/MP4) before playback using pure Python wi
 msgstr ""
 
 msgctxt "#30989"
-msgid "Enable IntroDB Fallback"
+msgid "Enable Intro IntroDB Fallback"
 msgstr ""
 
 msgctxt "#30990"
-msgid "Query IntroDB (api.introdb.app) for opening and ending skip times when AniSkip has no data (Default: Enabled)."
+msgid "Query IntroDB (api.introdb.app) for intro opening skip times when AniSkip has no data (Default: Enabled)."
 msgstr ""
 
 msgctxt "#30991"
@@ -3948,11 +3948,11 @@ msgid "Enable IntroDB (api.introdb.app) as a tertiary fallback skip service when
 msgstr ""
 
 msgctxt "#30997"
-msgid "Enable Anime-Skip Fallback"
+msgid "Enable Intro Anime-Skip Fallback"
 msgstr ""
 
 msgctxt "#30998"
-msgid "Query Anime-Skip for intro or outro timestamps when AniSkip has no data (Default: Enabled)."
+msgid "Query Anime-Skip for intro timestamps when AniSkip has no data (Default: Enabled)."
 msgstr ""
 
 msgctxt "#30598"

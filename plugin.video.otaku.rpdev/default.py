@@ -28,7 +28,19 @@ if __name__ == "__main__":
         from resources.lib import Main  # noQA
         plugin_url = control.get_plugin_url(sys.argv[0])
         plugin_params = control.get_plugin_params(sys.argv[2])
-        if not control.is_addon_visible():
+        _route_key = plugin_url.strip('/').split('/')[0] if plugin_url else ''
+        _no_delay_routes = (
+            'open_settings', 'clear_cache', 'clear_history', 'change_log', 'instructions',
+            'webpdb_trace', 'set_settings', 'probe_settings', 'setup_wizard', 'menu_order',
+            'series_profile', 'manual_subtitles', 'scene_markers', 'watchlist_drift_audit',
+            'source_filter', 'wlf_auth', 'play', 'play_movie', 'play_latest',
+            'rescrape_play', 'force_play', 'toggleLanguageInvoker',
+        )
+        if (
+            not control.is_addon_visible()
+            and _route_key not in _no_delay_routes
+            and not control.xbmc.getCondVisibility('Window.IsActive(addonsettings)')
+        ):
             widget_delay = control.getInt('widgets.delay') or 0
             if widget_delay > 0:
                 control.sleep(widget_delay)
