@@ -353,7 +353,8 @@ class SQL:
                 if cache_key not in conns:
                     if self.is_readonly and os.path.exists(self.path):
                         import urllib.parse
-                        ro_uri = f"file:{urllib.parse.quote(abs_path, safe='/:\\')}?mode=ro"
+                        safe_chars = '/:\\'
+                        ro_uri = f"file:{urllib.parse.quote(abs_path, safe=safe_chars)}?mode=ro"
                         try:
                             conn = dbapi2.connect(
                                 ro_uri,
