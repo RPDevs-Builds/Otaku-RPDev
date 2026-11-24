@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<addon id="context.otaku.rpdev" version="1.0.47" name="Otaku RPDev - Context Menu" provider-name="RPDev">
+<addon id="context.otaku.rpdev" version="1.0.48" name="Otaku RPDev - Context Menu" provider-name="RPDev">
   <requires>
      <import addon="xbmc.python" version="3.0.1"/>
   </requires>
@@ -7,43 +7,43 @@
     <menu id="kodi.core.main">
       <item library="default.py" args="findrecommendations">
         <label>Find Recommendations</label>
-        <visible>String.IsEqual(Window(home).Property(context.otaku.rpdev.findrecommendations),true) + String.StartsWith(ListItem.Path,plugin://plugin.video.otaku.rpdev/) + [String.IsEqual(ListItem.DBTYPE,tvshow)|String.IsEqual(ListItem.DBTYPE,movie)]</visible>
+        <visible>String.IsEqual(Window(home).Property(context.otaku.rpdev.findrecommendations),true) + [String.StartsWith(ListItem.Path,plugin://plugin.video.otaku.rpdev/) | !String.IsEmpty(ListItem.Property(mal_id)) | !String.IsEmpty(ListItem.UniqueID(mal_id))] + [String.IsEqual(ListItem.DBTYPE,tvshow)|String.IsEqual(ListItem.DBTYPE,movie)]</visible>
       </item>
       <item library="default.py" args="findrelations">
         <label>Find Relations</label>
-        <visible>String.IsEqual(Window(home).Property(context.otaku.rpdev.findrelations),true) + String.StartsWith(ListItem.Path,plugin://plugin.video.otaku.rpdev/) + [String.IsEqual(ListItem.DBTYPE,tvshow)|String.IsEqual(ListItem.DBTYPE,movie)]</visible>
+        <visible>String.IsEqual(Window(home).Property(context.otaku.rpdev.findrelations),true) + [String.StartsWith(ListItem.Path,plugin://plugin.video.otaku.rpdev/) | !String.IsEmpty(ListItem.Property(mal_id)) | !String.IsEmpty(ListItem.UniqueID(mal_id))] + [String.IsEqual(ListItem.DBTYPE,tvshow)|String.IsEqual(ListItem.DBTYPE,movie)]</visible>
       </item>
       <item library="default.py" args="getwatchorder">
         <label>Get Watch Order</label>
-        <visible>String.IsEqual(Window(home).Property(context.otaku.rpdev.getwatchorder),true) + String.StartsWith(ListItem.Path,plugin://plugin.video.otaku.rpdev/) + [String.IsEqual(ListItem.DBTYPE,tvshow)|String.IsEqual(ListItem.DBTYPE,movie)]</visible>
+        <visible>String.IsEqual(Window(home).Property(context.otaku.rpdev.getwatchorder),true) + [String.StartsWith(ListItem.Path,plugin://plugin.video.otaku.rpdev/) | !String.IsEmpty(ListItem.Property(mal_id)) | !String.IsEmpty(ListItem.UniqueID(mal_id))] + [String.IsEqual(ListItem.DBTYPE,tvshow)|String.IsEqual(ListItem.DBTYPE,movie)]</visible>
       </item>
       <item library="default.py" args="viewreviews">
         <label>View Reviews</label>
-        <visible>String.IsEqual(Window(home).Property(context.otaku.rpdev.viewreviews),true) + String.StartsWith(ListItem.Path,plugin://plugin.video.otaku.rpdev/) + [String.IsEqual(ListItem.DBTYPE,tvshow)|String.IsEqual(ListItem.DBTYPE,movie)]</visible>
+        <visible>String.IsEqual(Window(home).Property(context.otaku.rpdev.viewreviews),true) + [String.StartsWith(ListItem.Path,plugin://plugin.video.otaku.rpdev/) | !String.IsEmpty(ListItem.Property(mal_id)) | !String.IsEmpty(ListItem.UniqueID(mal_id))] + [String.IsEqual(ListItem.DBTYPE,tvshow)|String.IsEqual(ListItem.DBTYPE,movie)]</visible>
       </item>
       <item library="default.py" args="viewstatistics">
         <label>View Statistics</label>
-        <visible>String.IsEqual(Window(home).Property(context.otaku.rpdev.viewstatistics),true) + String.StartsWith(ListItem.Path,plugin://plugin.video.otaku.rpdev/) + [String.IsEqual(ListItem.DBTYPE,tvshow)|String.IsEqual(ListItem.DBTYPE,movie)]</visible>
+        <visible>String.IsEqual(Window(home).Property(context.otaku.rpdev.viewstatistics),true) + [String.StartsWith(ListItem.Path,plugin://plugin.video.otaku.rpdev/) | !String.IsEmpty(ListItem.Property(mal_id)) | !String.IsEmpty(ListItem.UniqueID(mal_id))] + [String.IsEqual(ListItem.DBTYPE,tvshow)|String.IsEqual(ListItem.DBTYPE,movie)]</visible>
       </item>
       <item library="default.py" args="markedaswatched">
         <label>Marked as Watched [COLOR blue]WatchList[/COLOR]</label>
-        <visible>String.IsEqual(Window(home).Property(context.otaku.rpdev.markedaswatched),true) + String.StartsWith(ListItem.Path,plugin://plugin.video.otaku.rpdev/) + [String.IsEqual(ListItem.DBTYPE,episode) | String.IsEqual(ListItem.DBTYPE,movie)] + !Player.HasMedia</visible>
+        <visible>String.IsEqual(Window(home).Property(context.otaku.rpdev.markedaswatched),true) + [String.StartsWith(ListItem.Path,plugin://plugin.video.otaku.rpdev/) | !String.IsEmpty(ListItem.Property(mal_id)) | !String.IsEmpty(ListItem.UniqueID(mal_id))] + [String.IsEqual(ListItem.DBTYPE,episode) | String.IsEqual(ListItem.DBTYPE,movie)] + !Player.HasMedia</visible>
       </item>
       <item library="default.py" args="markedasunwatched">
         <label>Mark as Unwatched [COLOR blue]WatchList[/COLOR]</label>
-        <visible>String.IsEqual(Window(home).Property(context.otaku.rpdev.markedasunwatched),true) + String.StartsWith(ListItem.Path,plugin://plugin.video.otaku.rpdev/) + [String.IsEqual(ListItem.DBTYPE,episode) | String.IsEqual(ListItem.DBTYPE,movie)] + !Player.HasMedia</visible>
+        <visible>String.IsEqual(Window(home).Property(context.otaku.rpdev.markedasunwatched),true) + [String.StartsWith(ListItem.Path,plugin://plugin.video.otaku.rpdev/) | !String.IsEmpty(ListItem.Property(mal_id)) | !String.IsEmpty(ListItem.UniqueID(mal_id))] + [String.IsEqual(ListItem.DBTYPE,episode) | String.IsEqual(ListItem.DBTYPE,movie)] + !Player.HasMedia</visible>
       </item>
       <item library="default.py" args="markpreviouswatched">
         <label>Mark Episodes Up To Here as Watched</label>
-        <visible>String.IsEqual(Window(home).Property(context.otaku.rpdev.markpreviouswatched),true) + String.StartsWith(ListItem.Path,plugin://plugin.video.otaku.rpdev/) + String.IsEqual(ListItem.DBTYPE,episode) + !Player.HasMedia</visible>
+        <visible>String.IsEqual(Window(home).Property(context.otaku.rpdev.markpreviouswatched),true) + [String.StartsWith(ListItem.Path,plugin://plugin.video.otaku.rpdev/) | !String.IsEmpty(ListItem.Property(mal_id)) | !String.IsEmpty(ListItem.UniqueID(mal_id))] + String.IsEqual(ListItem.DBTYPE,episode) + !Player.HasMedia</visible>
       </item>
       <item library="default.py" args="rescrape">
         <label>Rescrape</label>
-        <visible>String.IsEqual(Window(home).Property(context.otaku.rpdev.rescrape),true) + String.StartsWith(ListItem.Path,plugin://plugin.video.otaku.rpdev/) + [String.IsEqual(ListItem.DBTYPE,episode)|String.IsEqual(ListItem.DBTYPE,movie)] + !Player.HasMedia</visible>
+        <visible>String.IsEqual(Window(home).Property(context.otaku.rpdev.rescrape),true) + [String.StartsWith(ListItem.Path,plugin://plugin.video.otaku.rpdev/) | !String.IsEmpty(ListItem.Property(mal_id)) | !String.IsEmpty(ListItem.UniqueID(mal_id))] + [String.IsEqual(ListItem.DBTYPE,episode)|String.IsEqual(ListItem.DBTYPE,movie)] + !Player.HasMedia</visible>
       </item>
       <item library="default.py" args="sourceselect">
         <label>Source Select</label>
-        <visible>String.IsEqual(Window(home).Property(context.otaku.rpdev.sourceselect),true) + String.StartsWith(ListItem.Path,plugin://plugin.video.otaku.rpdev/) + [String.IsEqual(ListItem.DBTYPE,episode)|String.IsEqual(ListItem.DBTYPE,movie)] + !Player.HasMedia</visible>
+        <visible>String.IsEqual(Window(home).Property(context.otaku.rpdev.sourceselect),true) + [String.StartsWith(ListItem.Path,plugin://plugin.video.otaku.rpdev/) | !String.IsEmpty(ListItem.Property(mal_id)) | !String.IsEmpty(ListItem.UniqueID(mal_id))] + [String.IsEqual(ListItem.DBTYPE,episode)|String.IsEqual(ListItem.DBTYPE,movie)] + !Player.HasMedia</visible>
       </item>
       <item library="default.py" args="logout">
         <label>Logout</label>
@@ -51,15 +51,15 @@
       </item>
       <item library="default.py" args="deletefromdatabase">
         <label>Delete From Database</label>
-        <visible>String.IsEqual(Window(home).Property(context.otaku.rpdev.deletefromdatabase),true) + String.StartsWith(ListItem.Path,plugin://plugin.video.otaku.rpdev/) + [String.IsEqual(ListItem.DBTYPE,tvshow)|String.IsEqual(ListItem.DBTYPE,movie)]</visible>
+        <visible>String.IsEqual(Window(home).Property(context.otaku.rpdev.deletefromdatabase),true) + [String.StartsWith(ListItem.Path,plugin://plugin.video.otaku.rpdev/) | !String.IsEmpty(ListItem.Property(mal_id)) | !String.IsEmpty(ListItem.UniqueID(mal_id))] + [String.IsEqual(ListItem.DBTYPE,tvshow)|String.IsEqual(ListItem.DBTYPE,movie)]</visible>
       </item>
       <item library="default.py" args="watchlist">
         <label>WatchList Manager</label>
-        <visible>String.IsEqual(Window(home).Property(context.otaku.rpdev.watchlist),true) + String.StartsWith(ListItem.Path,plugin://plugin.video.otaku.rpdev/) + [String.IsEqual(ListItem.DBTYPE,tvshow)|String.IsEqual(ListItem.DBTYPE,movie)]</visible>
+        <visible>String.IsEqual(Window(home).Property(context.otaku.rpdev.watchlist),true) + [String.StartsWith(ListItem.Path,plugin://plugin.video.otaku.rpdev/) | !String.IsEmpty(ListItem.Property(mal_id)) | !String.IsEmpty(ListItem.UniqueID(mal_id))] + [String.IsEqual(ListItem.DBTYPE,tvshow)|String.IsEqual(ListItem.DBTYPE,movie)]</visible>
       </item>
       <item library="default.py" args="fanartselect">
         <label>Select Fanart</label>
-        <visible>String.IsEqual(Window(home).Property(context.otaku.rpdev.fanartselect),true) + String.StartsWith(ListItem.Path,plugin://plugin.video.otaku.rpdev/)+[String.IsEqual(ListItem.DBTYPE,tvshow)|String.IsEqual(ListItem.DBTYPE,movie)]</visible>
+        <visible>String.IsEqual(Window(home).Property(context.otaku.rpdev.fanartselect),true) + [String.StartsWith(ListItem.Path,plugin://plugin.video.otaku.rpdev/) | !String.IsEmpty(ListItem.Property(mal_id)) | !String.IsEmpty(ListItem.UniqueID(mal_id))] + [String.IsEqual(ListItem.DBTYPE,tvshow)|String.IsEqual(ListItem.DBTYPE,movie)]</visible>
       </item>
       <item library="default.py" args="clearcache">
         <label>Clear Addon Cache</label>
@@ -67,15 +67,15 @@
       </item>
       <item library="default.py" args="seriesprofile">
         <label>Series Playback Profile</label>
-        <visible>String.StartsWith(ListItem.Path,plugin://plugin.video.otaku.rpdev/) + [String.IsEqual(ListItem.DBTYPE,tvshow)|String.IsEqual(ListItem.DBTYPE,episode)]</visible>
+        <visible>String.IsEqual(Window(home).Property(context.otaku.rpdev.seriesprofile),true) + [String.StartsWith(ListItem.Path,plugin://plugin.video.otaku.rpdev/) | !String.IsEmpty(ListItem.Property(mal_id)) | !String.IsEmpty(ListItem.UniqueID(mal_id))] + [String.IsEqual(ListItem.DBTYPE,tvshow)|String.IsEqual(ListItem.DBTYPE,movie)|String.IsEqual(ListItem.DBTYPE,episode)]</visible>
       </item>
       <item library="default.py" args="manualsubtitles">
         <label>Manual Subtitle Search</label>
-        <visible>String.StartsWith(ListItem.Path,plugin://plugin.video.otaku.rpdev/)</visible>
+        <visible>[String.StartsWith(ListItem.Path,plugin://plugin.video.otaku.rpdev/) | !String.IsEmpty(ListItem.Property(mal_id)) | !String.IsEmpty(ListItem.UniqueID(mal_id))] + [Player.HasVideo | String.IsEqual(ListItem.DBTYPE,episode) | String.IsEqual(ListItem.DBTYPE,movie)]</visible>
       </item>
       <item library="default.py" args="inspectmappings">
         <label>Inspect ID Mappings</label>
-        <visible>String.IsEqual(Window(home).Property(context.otaku.rpdev.inspectmappings),true) + String.StartsWith(ListItem.Path,plugin://plugin.video.otaku.rpdev/) + [String.IsEqual(ListItem.DBTYPE,tvshow)|String.IsEqual(ListItem.DBTYPE,movie)|String.IsEqual(ListItem.DBTYPE,episode)]</visible>
+        <visible>String.IsEqual(Window(home).Property(context.otaku.rpdev.inspectmappings),true) + [String.StartsWith(ListItem.Path,plugin://plugin.video.otaku.rpdev/) | !String.IsEmpty(ListItem.Property(mal_id)) | !String.IsEmpty(ListItem.UniqueID(mal_id))] + [String.IsEqual(ListItem.DBTYPE,tvshow)|String.IsEqual(ListItem.DBTYPE,movie)|String.IsEqual(ListItem.DBTYPE,episode)]</visible>
       </item>
     </menu>
   </extension>

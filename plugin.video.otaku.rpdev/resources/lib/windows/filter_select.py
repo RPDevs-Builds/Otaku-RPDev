@@ -20,6 +20,8 @@ class FilterSelect(BaseWindow):
 
         filter_list = control.getStringList("general.filters")
         self.current_filters = set(filter_list) if filter_list else set()
+        self.initial_filters = set(self.current_filters)
+        self._cancelled = False
 
     def onInit(self):
         self.videocodec_list = self.getControlList(1000)
@@ -80,6 +82,23 @@ class FilterSelect(BaseWindow):
             self.current_filters.add(label)
             list_item.setProperty("value", str(True))
 
+    def reset_filters(self):
+        """Reset all filter items in lists 1000..5000 in-place without calling reset()."""
+        self.current_filters.clear()
+        for lst in (
+            self.videocodec_list,
+            self.hdrcodec_list,
+            self.audiocodec_list,
+            self.audiochannels_list,
+            self.misc_list,
+        ):
+            if lst is None:
+                continue
+            for idx in range(lst.size()):
+                li = lst.getListItem(idx)
+                if li is not None:
+                    li.setProperty("value", "False")
+
     def onClick(self, control_id):
         """Kodi callback when a control is clicked"""
         if control_id in [1000, 2000, 3000, 4000, 5000]:
@@ -95,6 +114,12 @@ class FilterSelect(BaseWindow):
             self._flip_info(li)
         elif control_id == 6001:
             self.close()
+        elif control_id == 6002:
+            self._cancelled = True
+            self.current_filters = set(self.initial_filters)
+            super().close()
+        elif control_id == 6003:
+            self.reset_filters()
 
     def onAction(self, action):
         """Kodi callback when an action occurs"""

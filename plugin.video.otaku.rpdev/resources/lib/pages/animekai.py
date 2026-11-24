@@ -3,7 +3,7 @@ import re
 import urllib.parse
 
 from bs4 import BeautifulSoup
-from resources.lib.ui import client, control, database, utils, domains
+from resources.lib.ui import client, control, database, source_utils, utils, domains
 from resources.lib.ui.BrowserBase import BrowserBase
 from resources.lib.ui.megacloud_extractor import extract_megacloud_sources
 
@@ -21,6 +21,8 @@ class Sources(BrowserBase):
     _ENCDEC_DEC_MEGA = 'https://enc-dec.app/api/dec-mega'
 
     def get_sources(self, mal_id, episode):
+        self._BASE_URL = domains.get_domain('animekai', 'https://animekai.to/')
+        self._AJAX_HEADERS = {'X-Requested-With': 'XMLHttpRequest', 'Referer': self._BASE_URL}
         control.log(f"AnimeKAI: Getting sources for MAL ID {mal_id}, Episode {episode}")
         show = database.get_show(mal_id)
         if not show:
@@ -149,9 +151,18 @@ class Sources(BrowserBase):
             short_title = title.split(':')[0]
             matches = [x['slug'] for x in sitems if (short_title.lower() + '  ') in (x['title'].lower() + '  ')]
 
-        # Fall back to first result
+        # Score remaining candidates rather than blindly picking sitems[0]
         if not matches:
-            matches = [sitems[0]['slug']]
+            scored = []
+            for item in sitems:
+                s1 = source_utils.score_title_candidate(title, item.get('title') or '', aliases=terms)
+                s2 = source_utils.score_title_candidate(title, item.get('jp_title') or '', aliases=terms) if item.get('jp_title') else 0
+                best = max(s1, s2)
+                if best >= 50:
+                    scored.append((best, item['slug']))
+            if scored:
+                scored.sort(key=lambda x: x[0], reverse=True)
+                return scored[0][1]
 
         return matches[0] if matches else None
 

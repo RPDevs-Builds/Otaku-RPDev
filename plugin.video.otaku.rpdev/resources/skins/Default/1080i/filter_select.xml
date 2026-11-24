@@ -93,8 +93,9 @@
 				<top>60</top>
 				<width>370</width>
 				<height>610</height>
-				<onleft>1111</onleft>
+				<onleft>6000</onleft>
 				<onright>3000</onright>
+				<onup>2000</onup>
 				<ondown>2000</ondown>
 				<pagecontrol>1111</pagecontrol>
 				<orientation>vertical</orientation>
@@ -262,9 +263,10 @@
 				<top>60</top>
 				<width>370</width>
 				<height>190</height>
-				<onleft>2222</onleft>
+				<onleft>6000</onleft>
 				<onright>4000</onright>
 				<onup>1000</onup>
+				<ondown>6001</ondown>
 				<pagecontrol>2222</pagecontrol>
 				<orientation>vertical</orientation>
 				<focusposition>1</focusposition>
@@ -432,8 +434,9 @@
 				<top>60</top>
 				<width>370</width>
 				<height>610</height>
-				<onleft>2000</onleft>
+				<onleft>1000</onleft>
 				<onright>5000</onright>
+				<onup>4000</onup>
 				<ondown>4000</ondown>
 				<pagecontrol>3333</pagecontrol>
 				<orientation>vertical</orientation>
@@ -602,9 +605,10 @@
 				<top>60</top>
 				<width>370</width>
 				<height>190</height>
-				<onleft>3000</onleft>
+				<onleft>2000</onleft>
 				<onright>5000</onright>
 				<onup>3000</onup>
+				<ondown>6001</ondown>
 				<pagecontrol>4444</pagecontrol>
 				<orientation>vertical</orientation>
 				<focusposition>1</focusposition>
@@ -772,8 +776,10 @@
 				<top>60</top>
 				<width>370</width>
 				<height>880</height>
-				<onleft>4000</onleft>
+				<onleft>3000</onleft>
 				<onright>6000</onright>
+				<onup>6003</onup>
+				<ondown>6001</ondown>
 				<pagecontrol>5555</pagecontrol>
 				<orientation>vertical</orientation>
 				<focusposition>1</focusposition>
@@ -902,7 +908,7 @@
 			<top>110</top>
 			<right>20</right>
 			<width>500</width>
-			<height>130</height>
+			<height>310</height>
 
 			<control type="group">
 
@@ -915,9 +921,10 @@
 				<control type="grouplist" id="6000">
 					<top>25</top>
 					<onleft>5000</onleft>
+					<onright>1000</onright>
 					<itemgap>10</itemgap>
 
-					<!-- Close -->
+					<!-- OK / Close -->
 					<control type="button" id="6001">
 						<height>80</height>
 						<textoffsetx>20</textoffsetx>
@@ -926,6 +933,40 @@
 						<label>Close</label>
 						<align>right</align>
 						<textcolor>FFFFFFFF</textcolor>
+						<onleft>5000</onleft>
+						<onright>1000</onright>
+						<onup>6003</onup>
+						<ondown>6002</ondown>
+					</control>
+
+					<!-- Cancel -->
+					<control type="button" id="6002">
+						<height>80</height>
+						<textoffsetx>20</textoffsetx>
+						<texturefocus colordiffuse="FFFF6B6B">white.png</texturefocus>
+						<texturenofocus colordiffuse="22000000">white.png</texturenofocus>
+						<label>Cancel</label>
+						<align>right</align>
+						<textcolor>FFFFFFFF</textcolor>
+						<onleft>5000</onleft>
+						<onright>2000</onright>
+						<onup>6001</onup>
+						<ondown>6003</ondown>
+					</control>
+
+					<!-- Reset / Clear All -->
+					<control type="button" id="6003">
+						<height>80</height>
+						<textoffsetx>20</textoffsetx>
+						<texturefocus colordiffuse="deepskyblue">white.png</texturefocus>
+						<texturenofocus colordiffuse="22000000">white.png</texturenofocus>
+						<label>Reset / Clear All</label>
+						<align>right</align>
+						<textcolor>FFFFFFFF</textcolor>
+						<onleft>5000</onleft>
+						<onright>2000</onright>
+						<onup>6002</onup>
+						<ondown>6001</ondown>
 					</control>
 				</control>
 			</control>

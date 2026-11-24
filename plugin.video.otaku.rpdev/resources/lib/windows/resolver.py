@@ -40,6 +40,14 @@ def _extract_source_origin(source):
     return ''
 
 
+def _is_candidate_host_healthy(source):
+    """Return False when an embed/direct candidate's origin is currently in mirror failure cooldown."""
+    origin = _extract_source_origin(source)
+    if origin and not domains.is_mirror_healthy(origin):
+        return False
+    return True
+
+
 def _deprioritize_unhealthy_hosts(sources):
     """Stably move embed/direct candidates whose stream host is in failure cooldown to the tail."""
     if not sources or len(sources) <= 1:
@@ -47,15 +55,14 @@ def _deprioritize_unhealthy_hosts(sources):
     healthy = []
     unhealthy = []
     for src in sources:
-        origin = _extract_source_origin(src)
-        if origin and not domains.is_mirror_healthy(origin):
+        if not _is_candidate_host_healthy(src):
             unhealthy.append(src)
         else:
             healthy.append(src)
     return healthy + unhealthy
 
 
-def _mark_candidate_mirror_failure(candidate, resolved_link=None, cooldown=300):
+def _mark_candidate_mirror_failure(candidate, resolved_link=None, cooldown=900):
     """Record mirror cooldown for failed embed/direct candidates and their resolved stream host."""
     if not isinstance(candidate, dict) or candidate.get('type') not in ('embed', 'direct'):
         return
@@ -194,6 +201,8 @@ class Resolver(BaseWindow):
             ]
 
             for idx, source in enumerate(sources):
+                if not _is_candidate_host_healthy(source):
+                    continue
                 # embed/direct-style
                 stype = source.get('type')
                 if stype in ['embed', 'direct']:
@@ -323,6 +332,7 @@ class Resolver(BaseWindow):
                     break
 
             if not self.return_data.get('linkinfo'):
+                _mark_candidate_mirror_failure(i, stream_link, cooldown=900)
                 control.log(f"Resolver: candidate {i.get('provider')} failed prefetch/verification, advancing to next candidate", level='warning')
                 self.return_data['link'] = None
 
@@ -416,6 +426,15 @@ class Resolver(BaseWindow):
         # Extract HDR / Dolby Vision metadata from resolved source if available
         selected_source = self.return_data.get('source', {}) if isinstance(self.return_data, dict) else {}
         source_tags = selected_source.get('info', []) if isinstance(selected_source, dict) else []
+        is_dub_source = bool(
+            isinstance(selected_source, dict)
+            and (
+                selected_source.get('lang') == 3
+                or str(selected_source.get('lang') or '').lower() in ('dub', 'eng')
+                or any('DUB' in str(t).upper().split() for t in (source_tags or []))
+            )
+        )
+        control.playerWindow.setProperty('otaku.active_source_is_dub', 'true' if is_dub_source else 'false')
         hdr_type = None
         if 'DV' in source_tags:
             hdr_type = 'dolbyvision'
@@ -1187,13 +1206,14 @@ def resolve_silent(sources, episode, mal_id=None):
                         'url': linkinfo.get('url'),
                         'headers': linkinfo.get('headers', {}),
                         'source': s,
-                        'sub': s.get('subs', [])
+                        'sub': s.get('subs', []),
+                        'resolved_at': time.time(),
                     }
         except Exception as e:
             control.log(f"resolve_silent error for candidate: {e}", 'debug')
 
         failed_indices.add(idx)
-        _mark_candidate_mirror_failure(s, stream_link, cooldown=300)
+        _mark_candidate_mirror_failure(s, stream_link, cooldown=900)
         control.log(
             f"resolve_silent: pruned failing candidate provider={s.get('provider')} type={s.get('type')}",
             level='warning',

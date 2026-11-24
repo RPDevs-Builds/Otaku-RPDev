@@ -305,9 +305,16 @@ def _tools_menu():
         (30078, 'download_manager', 'download_manager.png'),
         (30555, 'my_cloud', 'tools.png'),
         (30079, 'sort_select', 'sort_select.png'),
+        ('Source & Codec Filtering', 'source_filter', 'tools.png'),
+        (30597, 'browse_year_season', 'genres_&_tags.png'),
+        ('Watchlist Drift Auditor', 'watchlist_drift_auditor', 'tools.png'),
+        ('Watchlist Sync Telemetry', 'watchlist_telemetry', 'tools.png'),
+        ('Jump to Scene / Keymap Guide', 'scene_jump_guide', 'tools.png'),
+        ('Backup Addon Configuration', 'backup_settings', 'tools.png'),
+        ('Restore Addon Configuration', 'restore_settings', 'tools.png'),
         (30080, 'clear_selected_fanart', 'wipe_addon_data.png'),
     )
-    return [(control.lang(lid), path, icon, {}) for lid, path, icon in tools]
+    return [(control.lang(lid) if isinstance(lid, int) else lid, path, icon, {}) for lid, path, icon in tools]
 
 
 def _build_menu_registry():

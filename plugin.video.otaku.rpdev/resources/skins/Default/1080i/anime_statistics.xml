@@ -193,7 +193,7 @@
 					</control>
 
 					<!-- Score 10 -->
-					<control type="group" id="row1">
+					<control type="group" id="4110">
 						<top>310</top>
 						<left>0</left>
 						<control type="label">
@@ -233,7 +233,7 @@
 					</control>
 
 					<!-- Score 9 -->
-					<control type="group" id="row4">
+					<control type="group" id="4109">
 						<top>350</top>
 						<left>0</left>
 						<control type="label">
@@ -273,7 +273,7 @@
 					</control>
 
 					<!-- Score 8 -->
-					<control type="group" id="row3">
+					<control type="group" id="4108">
 						<top>390</top>
 						<left>0</left>
 						<control type="label">
@@ -313,7 +313,7 @@
 					</control>
 
 					<!-- Score 7 -->
-					<control type="group" id="row4">
+					<control type="group" id="4107">
 						<top>430</top>
 						<left>0</left>
 						<control type="label">
@@ -353,7 +353,7 @@
 					</control>
 
 					<!-- Score 6 -->
-					<control type="group" id="row5">
+					<control type="group" id="4106">
 						<top>470</top>
 						<left>0</left>
 						<control type="label">
@@ -393,7 +393,7 @@
 					</control>
 
 					<!-- Score 5 -->
-					<control type="group" id="row6">
+					<control type="group" id="4105">
 						<top>510</top>
 						<left>0</left>
 						<control type="label">
@@ -433,7 +433,7 @@
 					</control>
 
 					<!-- Score 4 -->
-					<control type="group" id="row7">
+					<control type="group" id="4104">
 						<top>550</top>
 						<left>0</left>
 						<control type="label">
@@ -473,7 +473,7 @@
 					</control>
 
 					<!-- Score 3 -->
-					<control type="group" id="row8">
+					<control type="group" id="4103">
 						<top>590</top>
 						<left>0</left>
 						<control type="label">
@@ -513,7 +513,7 @@
 					</control>
 
 					<!-- Score 2 -->
-					<control type="group" id="row9">
+					<control type="group" id="4102">
 						<top>630</top>
 						<left>0</left>
 						<control type="label">
@@ -553,7 +553,7 @@
 					</control>
 
 					<!-- Score 1-->
-					<control type="group" id="row10">
+					<control type="group" id="4101">
 						<top>670</top>
 						<left>0</left>
 						<control type="label">

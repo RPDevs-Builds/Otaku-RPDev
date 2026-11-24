@@ -90,10 +90,10 @@
             <top>140</top>
             <width>1700</width>
             <height>780</height>
-            <onleft>9000</onleft>
+            <onleft>1000</onleft>
             <onright>60</onright>
-            <onup>52</onup>
-            <ondown>52</ondown>
+            <onup>1000</onup>
+            <ondown>1000</ondown>
             <scrolltime tween="sine" easing="out">200</scrolltime>
             <autoscroll>true</autoscroll>
             <viewtype label="Sources">icon</viewtype>
@@ -1061,6 +1061,24 @@
                 </control>
 
             </focusedlayout>
+        </control>
+
+        <!-- Vertical scrollbar for panel 1000 -->
+        <control type="scrollbar" id="60">
+            <left>1825</left>
+            <top>140</top>
+            <width>16</width>
+            <height>780</height>
+            <visible>true</visible>
+            <orientation>vertical</orientation>
+            <showonepage>false</showonepage>
+            <onleft>1000</onleft>
+            <onright>1000</onright>
+            <onup>60</onup>
+            <ondown>60</ondown>
+            <texturesliderbackground colordiffuse="44000000">white.png</texturesliderbackground>
+            <texturesliderbar colordiffuse="66FFFFFF">white.png</texturesliderbar>
+            <texturesliderbarfocus colordiffuse="FF00BFFF">white.png</texturesliderbarfocus>
         </control>
 
         <!-- DEBUG: Layout grid (commented out) -->

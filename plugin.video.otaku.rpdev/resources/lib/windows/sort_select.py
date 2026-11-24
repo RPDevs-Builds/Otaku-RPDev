@@ -476,12 +476,11 @@ class SortSelect(BaseWindow):
         elif control_id == 9003:  # set default
             self.sort_options = dict(default_sort_options)
             self.save_settings()
-            self.close()
-            control.execute('RunPlugin(plugin://plugin.video.otaku.rpdev/sort_select)')
+            self.populate_all_lists()
         elif control_id == 9004:  # set Sub Preset
-            self.sort_options = dict(default_sub_options)
             yesno = control.yesno_dialog(control.ADDON_NAME, "Warning: This will change your audio and subtitle playback settings including your souce type and customization settings to prioritize content. Continue?")
             if yesno:
+                self.sort_options = dict(default_sub_options)
                 control.setInt('general.audio', 0)
                 control.setInt('general.subtitles', 1)
                 control.setBool('general.subtitles.keyword', True)
@@ -491,14 +490,12 @@ class SortSelect(BaseWindow):
                 control.setBool('divflavors.showdub', False)
                 control.setBool('jz.dub', False)
                 self.save_settings()
-                self.close()
-                control.execute('RunPlugin(plugin://plugin.video.otaku.rpdev/sort_select)')
-                if not control.monitor.waitForAbort(1):
-                    control.ok_dialog(control.ADDON_NAME, 'Saved Sort Configuration')
+                self.populate_all_lists()
+                control.ok_dialog(control.ADDON_NAME, 'Saved Sort Configuration')
         elif control_id == 9005:  # set Dub Preset
-            self.sort_options = dict(default_dub_options)
             yesno = control.yesno_dialog(control.ADDON_NAME, "Warning: This will change your audio and subtitle playback settings including souce type and customization settings to prioritize content. Continue?")
             if yesno:
+                self.sort_options = dict(default_dub_options)
                 control.setInt('general.audio', 1)
                 control.setInt('general.subtitles', 0)
                 control.setBool('general.subtitles.keyword', True)
@@ -508,30 +505,24 @@ class SortSelect(BaseWindow):
                 control.setBool('divflavors.showdub', True)
                 control.setBool('jz.dub', True)
                 self.save_settings()
-                self.close()
-                control.execute('RunPlugin(plugin://plugin.video.otaku.rpdev/sort_select)')
-                if not control.monitor.waitForAbort(1):
-                    control.ok_dialog(control.ADDON_NAME, 'Saved Sort Configuration')
+                self.populate_all_lists()
+                control.ok_dialog(control.ADDON_NAME, 'Saved Sort Configuration')
         elif control_id == 9006:  # set Multi-Audio Preset
-            self.sort_options = dict(default_multi_audio_options)
             yesno = control.yesno_dialog(control.ADDON_NAME, "Warning: This Preset is for people who are searching for anime in foreign audio languages other than Japanese or English. Continue?")
             if yesno:
+                self.sort_options = dict(default_multi_audio_options)
                 control.setInt('general.source', 1)
                 self.save_settings()
-                self.close()
-                control.execute('RunPlugin(plugin://plugin.video.otaku.rpdev/sort_select)')
-                if not control.monitor.waitForAbort(1):
-                    control.ok_dialog(control.ADDON_NAME, 'Saved Sort Configuration')
+                self.populate_all_lists()
+                control.ok_dialog(control.ADDON_NAME, 'Saved Sort Configuration')
         elif control_id == 9007:  # set Multi-Sub Preset
-            self.sort_options = dict(default_multi_sub_options)
             yesno = control.yesno_dialog(control.ADDON_NAME, "Warning: This Preset is for people who are searching for anime in foreign subtitle languages other than Japanese or English. Continue?")
             if yesno:
+                self.sort_options = dict(default_multi_sub_options)
                 control.setInt('general.source', 1)
                 self.save_settings()
-                self.close()
-                control.execute('RunPlugin(plugin://plugin.video.otaku.rpdev/sort_select)')
-                if not control.monitor.waitForAbort(1):
-                    control.ok_dialog(control.ADDON_NAME, 'Saved Sort Configuration')
+                self.populate_all_lists()
+                control.ok_dialog(control.ADDON_NAME, 'Saved Sort Configuration')
         elif control_id in [1111, 2222, 3333, 4444, 5555, 6666, 7777, 8888]:
             self.handle_reverse(int(control_id / 1111))
         else:

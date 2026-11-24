@@ -121,6 +121,22 @@ def _try_preresolved_handoff(mal_id, episode, params, resume, media_type='episod
     if not isinstance(preresolved_data, dict):
         preresolved_data = {}
 
+    # Re-verify only if the pre-resolved URL has been sitting idle >30 minutes (e.g. long pause)
+    resolved_at = preresolved_data.get('resolved_at')
+    try:
+        resolved_ts = float(resolved_at) if resolved_at else 0.0
+    except (TypeError, ValueError):
+        resolved_ts = 0.0
+    if resolved_ts > 0 and (time.time() - resolved_ts) > 1800:
+        from resources.lib.windows.resolver import Resolver, _mark_candidate_mirror_failure
+        if not Resolver.prefetch_play_link(preresolved_url):
+            control.log(
+                f"Playback: Pre-resolved stream expired after {int(time.time() - resolved_ts)}s; falling back to Resolver",
+                'warning',
+            )
+            _mark_candidate_mirror_failure(preresolved_data.get('source') or {}, preresolved_url, cooldown=900)
+            return False
+
     import xbmc, xbmcgui, xbmcplugin
     item = xbmcgui.ListItem(path=preresolved_url, offscreen=True)
 
@@ -163,6 +179,15 @@ def _try_preresolved_handoff(mal_id, episode, params, resume, media_type='episod
 
     source_dict = preresolved_data.get('source') or {}
     source_tags = source_dict.get('info', []) if isinstance(source_dict, dict) else []
+    is_dub_source = bool(
+        isinstance(source_dict, dict)
+        and (
+            source_dict.get('lang') == 3
+            or str(source_dict.get('lang') or '').lower() in ('dub', 'eng')
+            or any('DUB' in str(t).upper().split() for t in (source_tags or []))
+        )
+    )
+    control.playerWindow.setProperty('otaku.active_source_is_dub', 'true' if is_dub_source else 'false')
     hdr_type = None
     if 'DV' in source_tags:
         hdr_type = 'dolbyvision'

@@ -458,10 +458,15 @@ def request(
 
         if post is not None:
             if jpost:
-                post = json.dumps(post)
-                post = post.encode('utf8')
+                if isinstance(post, bytes):
+                    pass
+                elif isinstance(post, str):
+                    post = post.encode('utf8')
+                else:
+                    post = json.dumps(post).encode('utf8')
                 req = urllib.request.Request(url, post)
-                req.add_header('Content-Type', 'application/json')
+                _headers.setdefault('Content-Type', 'application/json')
+                req.add_header('Content-Type', _headers['Content-Type'])
             else:
                 if isinstance(post, (dict, list, tuple)):
                     post = byteify(post)
@@ -534,7 +539,8 @@ def request(
                                 timeout=timeout,
                                 output=output,
                                 tls_version=tls_ver,
-                                use_session=use_session
+                                use_session=use_session,
+                                jpost=jpost
                             )
                             if retry_response:
                                 if output == 'extended' and isinstance(retry_response, tuple) and len(retry_response) >= 2:

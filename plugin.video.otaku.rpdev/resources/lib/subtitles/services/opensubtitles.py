@@ -122,6 +122,8 @@ class OpenSubtitlesService:
             url = f"{API_URL}/subtitles"
             headers = _get_headers(token=token)
             res = client.get(url, params=params, headers=headers, timeout=timeout)
+            if res and res.status_code == 401:
+                _token_cache.clear()
             if not res or res.status_code != 200:
                 control.log(f"OpenSubtitles: Search failed with code {res.status_code if res else 'None'}", 'warning')
                 return []
@@ -195,6 +197,8 @@ class OpenSubtitlesService:
             headers = _get_headers(token=token)
             payload = json.dumps({'file_id': file_id})
             res = client.post(url, data=payload, headers=headers, timeout=timeout)
+            if res and res.status_code == 401:
+                _token_cache.clear()
             if not res or res.status_code != 200:
                 control.log(f"OpenSubtitles download token request failed: {res.status_code if res else 'None'}", 'warning')
                 return None

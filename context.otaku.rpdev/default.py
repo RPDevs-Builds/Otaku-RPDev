@@ -215,7 +215,8 @@ def main():
     elif arg == 'rescrape':
         if not _has_resolved_target(item, path, plugin):
             return
-        params = get_video_info(item)
+        params = dict(parse.parse_qsl(path.split('?', 1)[1])) if path and '?' in path else {}
+        params.update(get_video_info(item))
         params['rescrape'] = 'true'
         base_path = path.split('?', 1)[0] if (path and plugin in path) else f"{plugin}/play{_extract_watch_target(path, plugin, item=item)}"
         path = f"{base_path}?{parse.urlencode(params)}"
@@ -223,14 +224,17 @@ def main():
     elif arg == 'sourceselect':
         if not _has_resolved_target(item, path, plugin):
             return
-        params = get_video_info(item)
+        params = dict(parse.parse_qsl(path.split('?', 1)[1])) if path and '?' in path else {}
+        params.update(get_video_info(item))
         params['source_select'] = 'true'
         base_path = path.split('?', 1)[0] if (path and plugin in path) else f"{plugin}/play{_extract_watch_target(path, plugin, item=item)}"
         path = f"{base_path}?{parse.urlencode(params)}"
         xbmc.executebuiltin(f"PlayMedia({path})")
     elif arg == 'logout':
         subpath = _extract_subpath(path, f'{plugin}/watchlist', item=item)
-        xbmc.executebuiltin(f"RunPlugin({plugin}/watchlist_logout{subpath})")
+        segs = [s for s in subpath.strip('/').split('/') if s]
+        flavor_sub = f"/{segs[0]}" if segs else ""
+        xbmc.executebuiltin(f"RunPlugin({plugin}/watchlist_logout{flavor_sub})")
     elif arg == 'deletefromdatabase':
         if not _has_resolved_target(item, path, plugin):
             return

@@ -49,7 +49,10 @@
                 <label>$ADDON[plugin.video.otaku.rpdev 30093]</label>
             </control>
             <control type="label">
-                <top>50</top>
+                <top>110</top>
+                <width>900</width>
+                <height>60</height>
+                <font>font12</font>
                 <label>$INFO[Window().Property(copy2clip)]</label>
             </control>
             <control type="label">
@@ -86,6 +89,8 @@
                     <disabledcolor>FF000000</disabledcolor>
                     <invalidcolor>FFFFFFFF</invalidcolor>
                     <pulseonselect>no</pulseonselect>
+                    <onup>1002</onup>
+                    <ondown>1002</ondown>
                 </control>
             </control>
        </control>
@@ -113,6 +118,10 @@
                     <texturefocus colordiffuse="FF00BFFF">white.png</texturefocus>
                     <texturenofocus colordiffuse="40FFFFFF">white.png</texturenofocus>
                     <label>Authorize</label>
+                    <onleft>1003</onleft>
+                    <onright>1003</onright>
+                    <onup>1000</onup>
+                    <ondown>1000</ondown>
                 </control>
                 <control type="button" id="1003">
                     <width>300</width>
@@ -125,6 +134,10 @@
                     <texturefocus colordiffuse="FFFF6B6B">white.png</texturefocus>
                     <texturenofocus colordiffuse="40FFFFFF">white.png</texturenofocus>
                     <label>Cancel</label>
+                    <onleft>1002</onleft>
+                    <onright>1002</onright>
+                    <onup>1000</onup>
+                    <ondown>1000</ondown>
                 </control>
             </control>
        </control>

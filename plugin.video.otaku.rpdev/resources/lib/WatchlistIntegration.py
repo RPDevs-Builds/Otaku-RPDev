@@ -312,17 +312,18 @@ def WATCHLIST_DRIFT_AUDITOR(payload, params):
     if is_dry_run:
         return control.exit_code()
 
-    if want_reconcile:
+    interactive_prompt = ('reconcile' not in params)
+    if want_reconcile or interactive_prompt:
         skip_confirm = str(params.get('confirm', '')).lower() == 'true'
         confirmed = True if skip_confirm else bool(control.yesno_dialog(
             f"{control.ADDON_NAME}: Cross-Watchlist Drift Auditor",
             f"Dry-Run Summary: {planned_mutations} tracker update(s) across {len(drifts)} show(s).\n\n"
-            f"Confirm bulk watchlist reconciliation?"
+            f"Reconcile local & remote watchlist progress now?"
         ))
         if confirmed:
             count = WatchlistFlavor.reconcile_watchlist_drift(drifts)
             control.notify(control.ADDON_NAME, f'Reconciled {count} tracker drift entry/entries', time=4000)
-        else:
+        elif want_reconcile:
             control.notify(control.ADDON_NAME, 'Drift reconciliation cancelled (dry-run only)', time=3000)
     return control.exit_code()
 

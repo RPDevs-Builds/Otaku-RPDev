@@ -232,6 +232,7 @@
                 <width>14</width>
                 <height>720</height>
                 <visible>true</visible>
+                <showonepage>false</showonepage>
                 <orientation>vertical</orientation>
                 <onleft>1000</onleft>
                 <onright>2000</onright>

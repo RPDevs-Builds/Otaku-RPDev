@@ -1,7 +1,30 @@
 ========================
+[B]OTAKU RPDEV v6.4.2[/B]
+Review #24 & UX Polish
+========================
+
+v6.4.2 Highlights:
+  * Startup failover when Zero-Wait Pre-Resolved HLS manifests fail to open
+  * Re-probe idle (>30m) pre-resolved URLs without adding overhead to normal
+    5-7 minute binge transitions
+  * 900s embed mirror failure cooldown, unhealthy-host deprioritization, and
+    late-finishing embed scraper source persistence
+  * Additive embed.config migration for HiAnime ryu/volt/ayame servers and
+    single-track HLS Dub audio language hint for subtitle matching
+  * Bounded <1.5s service.py shutdown & passive WAL checkpointing
+  * WindowXML D-pad navigation fixes, filter_select Clear All, in-place
+    sort_select refresh, and XML navigation-ID AST lint
+  * context.otaku.rpdev v1.0.48 widget visibility, query param preservation,
+    and movie Series Profile support
+  * Tools shortcuts for Source Filter, Browse Year/Season, Drift Auditor
+    1-click reconcile, Telemetry, Scene Jump Guide, and Backup/Restore
+  * FlareSolverr jpost JSON header preservation and Bitsearch/PirateBay/
+    AnimeKAI/OpenSubtitles/Debrid polish
+
+--------------------------------
 [B]OTAKU RPDEV v6.4.1[/B]
 Audit & Hardening
-========================
+--------------------------------
 
 v6.4.1 Highlights:
   * Fix NF-11 failover wiping handoff, auto_resume loss and PLAY_MOVIE zero-

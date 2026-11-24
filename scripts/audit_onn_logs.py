@@ -26,6 +26,8 @@ DEFAULT_CONCERNS = 'docs/CONCERNS.md'
 
 CURSOR_RE = re.compile(r'\*\*Next review offset\*\*\s*\|\s*\*\*(\d+)\*\*')
 CURSOR_FALLBACK_RE = re.compile(r'Next review offset\*{0,2}\s*[:|]\s*\*{0,2}(\d+)')
+SESSION_START_RE = re.compile(r'\|\s*Log session started\s*\|\s*(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})')
+FIRST_TIMESTAMP_RE = re.compile(r'(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})')
 
 NOISE_RE = re.compile(
     r'plugin\.video\.umbrella|service\.upnext|/fake/|Control [0-9]+ in window 10025'
@@ -88,7 +90,26 @@ def read_concerns_offset(concerns_path):
     return int(m.group(1))
 
 
-def fetch_log_from_url(url, offset, timeout=10.0):
+def read_concerns_session_start(concerns_path):
+    """Extract the recorded 'Log session started' timestamp (YYYY-MM-DD HH:MM:SS) from docs/CONCERNS.md."""
+    try:
+        with open(concerns_path, 'r', encoding='utf-8') as f:
+            text = f.read()
+        m = SESSION_START_RE.search(text)
+        return m.group(1) if m else None
+    except OSError:
+        return None
+
+
+def extract_first_log_timestamp(text):
+    """Extract the first YYYY-MM-DD HH:MM:SS timestamp from the head of a log string."""
+    if not text:
+        return None
+    m = FIRST_TIMESTAMP_RE.search(text[:2048])
+    return m.group(1) if m else None
+
+
+def fetch_log_from_url(url, offset, timeout=10.0, max_bytes=None):
     """Fetch log tail strictly via HTTP GET with explicit timeout."""
     offset = int(offset)
     if offset < 0:
@@ -103,25 +124,25 @@ def fetch_log_from_url(url, offset, timeout=10.0):
     full_url = f"{base_url}{sep}offset={offset}"
     req = urllib.request.Request(full_url, method='GET')
     with urllib.request.urlopen(req, timeout=float(timeout)) as resp:
-        raw_bytes = resp.read()
+        raw_bytes = resp.read(int(max_bytes)) if max_bytes else resp.read()
         seek_hdr = resp.headers.get('X-Seek-Offset') if resp.headers else None
         x_seek = int(seek_hdr) if seek_hdr is not None and str(seek_hdr).strip().isdigit() else None
     return raw_bytes, x_seek
 
 
-def fetch_log_from_file(input_path, offset=0):
+def fetch_log_from_file(input_path, offset=0, max_bytes=None):
     """Read a local log fixture or capture starting from byte offset."""
     offset = int(offset)
     if offset < 0:
         raise ValueError(f"Offset must be >= 0, got {offset}")
     with open(input_path, 'rb') as f:
-        data = f.read()
-    if offset > 0:
-        data = data[offset:] if offset < len(data) else b''
+        if offset > 0:
+            f.seek(offset)
+        data = f.read(int(max_bytes)) if max_bytes else f.read()
     return data, None
 
 
-def _compute_rotation_and_next_offset(text, requested_offset, raw_bytes_len, x_seek_offset=None):
+def _compute_rotation_and_next_offset(text, requested_offset, raw_bytes_len, x_seek_offset=None, force_rotated=False):
     """Detect Kodi log rotation and compute the next byte cursor without double-counting EOF headers.
 
     ONN's HTTP `/tail` server sets `X-Seek-Offset` to the post-read EOF byte offset (which equals
@@ -129,8 +150,9 @@ def _compute_rotation_and_next_offset(text, requested_offset, raw_bytes_len, x_s
     start `0`. Handle both conventions consistently.
     """
     head_window = text[:2048].lstrip('\ufeff \t\r\n')
-    rotated = (
-        head_window.startswith('Starting Kodi (')
+    rotated = bool(
+        force_rotated
+        or head_window.startswith('Starting Kodi (')
         or 'Starting Kodi (' in head_window
         or (x_seek_offset is not None and x_seek_offset < requested_offset)
     )
@@ -179,7 +201,7 @@ def _find_foreign_traceback_indices(lines):
     return foreign_indices
 
 
-def analyze_log_text(text, requested_offset=0, x_seek_offset=None, raw_bytes_len=None):
+def analyze_log_text(text, requested_offset=0, x_seek_offset=None, raw_bytes_len=None, force_rotated=False):
     """Classify Otaku-RPDev log signals, non-Otaku noise, rotations, and open concerns."""
     requested_offset = int(requested_offset)
     if requested_offset < 0:
@@ -188,7 +210,7 @@ def analyze_log_text(text, requested_offset=0, x_seek_offset=None, raw_bytes_len
         raw_bytes_len = len(text.encode('utf-8', errors='replace'))
 
     rotated, next_offset = _compute_rotation_and_next_offset(
-        text, requested_offset, raw_bytes_len, x_seek_offset=x_seek_offset
+        text, requested_offset, raw_bytes_len, x_seek_offset=x_seek_offset, force_rotated=force_rotated
     )
 
     otaku_errors = []
@@ -283,14 +305,17 @@ def main(argv=None):
     args = parser.parse_args(argv)
 
     offset = int(args.offset) if args.offset is not None else 0
+    force_rotated = False
 
     try:
+        expected_session_start = None
         if args.offset is not None:
             offset = int(args.offset)
         elif args.input_path and args.concerns == DEFAULT_CONCERNS and not os.path.exists(args.concerns):
             offset = 0
         else:
             offset = read_concerns_offset(args.concerns)
+            expected_session_start = read_concerns_session_start(args.concerns)
 
         if offset < 0:
             raise ValueError(f"Offset must be >= 0, got {offset}")
@@ -303,6 +328,12 @@ def main(argv=None):
             elif offset < file_size:
                 file_offset = offset
                 effective_offset = offset
+                if expected_session_start and offset > 0:
+                    head_bytes, _ = fetch_log_from_file(args.input_path, offset=0, max_bytes=512)
+                    head_ts = extract_first_log_timestamp(head_bytes.decode('utf-8', errors='replace'))
+                    if head_ts and head_ts != expected_session_start:
+                        file_offset = 0
+                        force_rotated = True
             else:
                 # Auditing a small pre-captured fixture whose size is below docs/CONCERNS.md cursor
                 file_offset = 0
@@ -311,6 +342,15 @@ def main(argv=None):
         else:
             raw_bytes, x_seek = fetch_log_from_url(args.url, offset=offset, timeout=args.timeout)
             effective_offset = offset
+            if expected_session_start and offset > 0:
+                head_slice = raw_bytes[:2048].decode('utf-8', errors='replace')
+                already_rotated = ('Starting Kodi (' in head_slice) or (x_seek is not None and x_seek < offset)
+                if not already_rotated:
+                    head_bytes, _ = fetch_log_from_url(args.url, offset=0, timeout=args.timeout, max_bytes=512)
+                    head_ts = extract_first_log_timestamp(head_bytes.decode('utf-8', errors='replace'))
+                    if head_ts and head_ts != expected_session_start:
+                        raw_bytes, x_seek = fetch_log_from_url(args.url, offset=0, timeout=args.timeout)
+                        force_rotated = True
     except (OSError, urllib.error.URLError, ValueError) as exc:
         err_payload = {'status': 'error', 'error': str(exc), 'requested_offset': offset}
         if args.json_target == '-':
@@ -329,6 +369,7 @@ def main(argv=None):
         requested_offset=effective_offset,
         x_seek_offset=x_seek,
         raw_bytes_len=len(raw_bytes),
+        force_rotated=force_rotated,
     )
 
     if args.metrics_out:

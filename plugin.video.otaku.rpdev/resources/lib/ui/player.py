@@ -676,11 +676,13 @@ class WatchlistPlayer(player):
         if (
             not getattr(self, '_user_stopped_or_errored', False)
             and not getattr(self, '_failover_triggered', False)
-            and (getattr(self, 'total_time', 0) or 0) > 60
-            and (getattr(self, 'current_time', 0) or 0) > 15
         ):
-            if self._attempt_midstream_failover('playback_error'):
-                return
+            if (getattr(self, 'total_time', 0) or 0) > 60 and (getattr(self, 'current_time', 0) or 0) > 15:
+                if self._attempt_midstream_failover('playback_error'):
+                    return
+            elif getattr(self, 'mal_id', None) and getattr(self, 'episode', None) is not None:
+                if self._attempt_midstream_failover('startup_error'):
+                    return
         self._playback_stopped = True
         self._user_stopped_or_errored = True
         self._clear_preresolved_properties()
@@ -1332,6 +1334,13 @@ class WatchlistPlayer(player):
         if audio_streams:
             first_audio = audio_streams[0]
             is_eng_audio = is_language_match(first_audio.get('language'), first_audio.get('name'), 'eng')
+            if not is_eng_audio and len(audio_streams) == 1:
+                s_lang_low = str(first_audio.get('language') or '').strip().lower()
+                s_name_low = str(first_audio.get('name') or '').strip().lower()
+                if s_lang_low in ('', 'und', 'unknown') and not s_name_low:
+                    if control.playerWindow.getProperty('otaku.active_source_is_dub') == 'true':
+                        is_eng_audio = True
+                        control.log("Player: Single-track stream tagged as Dub; treating audio stream 0 as English", 'info')
 
         return self._trigger_auto_subtitle_download(preferred_subtitle_lang=preferred_lang, is_eng_audio=is_eng_audio)
 
@@ -1405,6 +1414,13 @@ class WatchlistPlayer(player):
             selected_audio_stream.get('name') if selected_audio_stream else '',
             'eng'
         )
+        if not is_eng_audio and len(audio_streams) == 1 and selected_audio_stream:
+            s_lang_low = str(selected_audio_stream.get('language') or '').strip().lower()
+            s_name_low = str(selected_audio_stream.get('name') or '').strip().lower()
+            if s_lang_low in ('', 'und', 'unknown') and not s_name_low:
+                if control.playerWindow.getProperty('otaku.active_source_is_dub') == 'true':
+                    is_eng_audio = True
+                    control.log("Player: Single-track stream tagged as Dub; treating audio stream 0 as English", 'info')
 
         # Determine target subtitle mode: 'dialog', 'signs', 'custom', or None
         if control.getBool('general.subtitles.keyword') or has_mode_ovr:

@@ -22,10 +22,10 @@ class BrowserBase(object):
     # Full embed host list applied on metadata schema bumps only
     # (see ``database_sync.SyncDatabase.check_database_version``).
     EMBED_SERVERS_DEFAULT = (
-        'doodstream', 'filelions', 'filemoon', 'hd-1', 'hd-2', 'hd-3', 'iga', 'kwik',
+        'ayame', 'doodstream', 'filelions', 'filemoon', 'hd-1', 'hd-2', 'hd-3', 'iga', 'kwik',
         'megacloud', 'megaf', 'moonf', 'mp4upload', 'mp4u', 'mycloud', 'noads',
-        'noadsalt', 'swish', 'streamtape', 'streamwish', 't-cloud', 'vidcdn',
-        'vidhide', 'vidplay', 'vidsrc', 'vidstream', 'yourupload', 'zto'
+        'noadsalt', 'ryu', 'swish', 'streamtape', 'streamwish', 't-cloud', 'vidcdn',
+        'vidhide', 'vidplay', 'vidsrc', 'vidstream', 'volt', 'yourupload', 'zto'
     )
 
     @staticmethod

@@ -1081,8 +1081,16 @@ def process_context():
                 prop_id = s_id.replace('context.otaku', prefix)
                 if homeWindow.getProperty(prop_id) != val_str:
                     homeWindow.setProperty(prop_id, val_str)
+                if s_id == 'context.otaku.markedaswatched':
+                    unw_prop = f'{prefix}.markedasunwatched'
+                    if homeWindow.getProperty(unw_prop) != val_str:
+                        homeWindow.setProperty(unw_prop, val_str)
         except Exception:
             log(f'Failed to cache context setting: {s_id}', 'error')
+    for prefix in ('context.otaku', 'context.otaku.testing', 'context.otaku.rpdev'):
+        sp_prop = f'{prefix}.seriesprofile'
+        if homeWindow.getProperty(sp_prop) != 'true':
+            homeWindow.setProperty(sp_prop, 'true')
 
 
 # ═══════════════════════════════════════════════════════════════════════════

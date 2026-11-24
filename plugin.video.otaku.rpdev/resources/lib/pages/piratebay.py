@@ -24,6 +24,7 @@ class Sources(BrowserBase):
         return source_utils.parse_query_titles(query)
 
     def get_sources(self, query, mal_id, episode, status, media_type, season=None, part=None, rescrape=False):
+        self._BASE_URL = domains.get_domain('piratebay', 'https://apibay.org')
         query = self._clean_title(query).replace('-', ' ')
         self.media_type = media_type
         self.rescrape = rescrape
@@ -31,20 +32,34 @@ class Sources(BrowserBase):
         if media_type == 'movie':
             return self.get_movie_sources(query, mal_id)
 
-        episode_sources = self.get_episode_sources(query, mal_id, episode, season, part, status)
-        show_sources = self.get_show_sources(query, mal_id, episode, season, part)
-        self.sources = episode_sources + show_sources
+        self.sources = self.get_episode_sources(query, mal_id, episode, season, part, status, include_show=True)
 
         # Remove duplicate sources
         self.append_cache_uncached_noduplicates()
         return {'cached': self.cached, 'uncached': self.uncached}
 
-    def get_episode_sources(self, show, mal_id, episode, season, part, status):
+    def get_episode_sources(self, show, mal_id, episode, season, part, status, include_show=False):
         season_zfill = str(season).zfill(2) if season else '01'
         episode_zfill = str(episode).zfill(2) if episode is not None else '01'
         titles = self._parse_titles(show)
 
         search_tasks = []
+        episodes = 0
+        if status in ["FINISHED", "Finished Airing"]:
+            show_data = database.get_show(mal_id)
+            if show_data and show_data.get('kodi_meta'):
+                try:
+                    episodes = int(database.loads(show_data['kodi_meta']).get('episodes', 0) or 0)
+                except Exception:
+                    episodes = 0
+            if not episodes:
+                try:
+                    m_row = database.get_mappings(mal_id, 'mal_id')
+                    if isinstance(m_row, dict) and m_row.get('episodes'):
+                        episodes = int(m_row['episodes'])
+                except Exception:
+                    episodes = 0
+
         for title in titles:
             # 1. Primary episode search: Title "01" (without "- " so Sphinx does not treat it as negation) or "S01E01"
             query1 = f'{title} {episode_zfill}'
@@ -57,17 +72,13 @@ class Sources(BrowserBase):
             if status in ["FINISHED", "Finished Airing"]:
                 query3 = f'{title} Batch'
                 search_tasks.append({'query': query3, 'name': f'batch:{title}'})
-                show_data = database.get_show(mal_id)
-                episodes = 0
-                if show_data and show_data.get('kodi_meta'):
-                    try:
-                        episodes = database.loads(show_data['kodi_meta']).get('episodes', 0)
-                    except Exception:
-                        episodes = 0
                 if episodes:
                     episodes_zfill = str(episodes).zfill(2)
                     query_range = f'{title} 01-{episodes_zfill}'
                     search_tasks.append({'query': query_range, 'name': f'range:{title}'})
+
+            if include_show:
+                search_tasks.append({'query': title, 'name': f'show:{title}'})
 
         control.log(f"PirateBay: Running {len(search_tasks)} searches for episode {episode_zfill}")
 

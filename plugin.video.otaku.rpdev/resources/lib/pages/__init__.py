@@ -353,7 +353,7 @@ class Sources(GetSources):
                 if accepts_hints:
                     all_sources = get_sources(*call_args, rescrape=True, hints=hints)
                 else:
-                    all_sources = get_sources(*call_args)
+                    all_sources = get_sources(*call_args, rescrape=True)
             else:
                 if accepts_hints and hints:
                     all_sources = database.get(get_sources, _scraper_cache_ttl(), *call_args, False, hints, key=cache_key)
@@ -373,7 +373,8 @@ class Sources(GetSources):
                     self.torrentCacheSources += all_sources.get('cached', [])
                     self.torrentSources += all_sources.get('cached', []) + all_sources.get('uncached', [])
         except Exception as e:
-            circuit_breaker.record_failure(hoster)
+            status_code = getattr(e, 'code', None) or getattr(getattr(e, 'response', None), 'status_code', None)
+            circuit_breaker.record_failure(hoster, status_code=status_code)
             control.log(f"Error in hoster worker '{hoster}': {e}", 'error')
         finally:
             with self._results_lock:
@@ -395,18 +396,31 @@ class Sources(GetSources):
                     src = get_sources(mal_id, episode)
                 else:
                     src = database.get(get_sources, _scraper_cache_ttl(), mal_id, episode, key=cache_key)
-            if self.canceled or control.abort_requested():
+            if control.abort_requested():
                 return
             if not src:
                 src = []
             else:
                 circuit_breaker.record_success(pid)
+            if self.canceled:
+                if src and mal_id is not None and episode is not None:
+                    try:
+                        existing = database.get_episode_sources(mal_id, episode)
+                        if isinstance(existing, list):
+                            seen_keys = {(s.get('provider'), s.get('hash') or s.get('url')) for s in existing if isinstance(s, dict)}
+                            new_items = [s for s in src if isinstance(s, dict) and (s.get('provider'), s.get('hash') or s.get('url')) not in seen_keys]
+                            if new_items:
+                                database.set_episode_sources(mal_id, episode, existing + new_items)
+                    except Exception:
+                        pass
+                return
             with self._results_lock:
                 self.embedSources += src
             if skip_prefix:
                 self._apply_embed_skip(skip_prefix, src)
         except Exception as e:
-            circuit_breaker.record_failure(pid)
+            status_code = getattr(e, 'code', None) or getattr(getattr(e, 'response', None), 'status_code', None)
+            circuit_breaker.record_failure(pid, status_code=status_code)
             control.log(f"Error in embed worker '{pid}': {e}", 'error')
         finally:
             with self._results_lock:

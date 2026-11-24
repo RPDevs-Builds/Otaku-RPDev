@@ -27,7 +27,7 @@ class SyncDatabase:
     # Bump this whenever the metadata schema changes;
     # a mismatch triggers re_build_database(silent=True) and refreshes
     # embed host defaults (see check_database_version).
-    SCHEMA_VERSION = '1.0.14'
+    SCHEMA_VERSION = '1.0.15'
 
     def __init__(self):
         self.activites = None
@@ -452,9 +452,16 @@ class SyncDatabase:
                 self._update_menu_config(key, lw, wh, nu)
 
             from resources.lib.ui.BrowserBase import BrowserBase
-            if not control.getStringList('embed.config'):
+            current_embeds = control.getStringList('embed.config')
+            if not current_embeds:
                 control.setStringList(
                     'embed.config', list(BrowserBase.EMBED_SERVERS_DEFAULT))
+            else:
+                # Additively merge newly introduced HiAnime servers (ryu/volt/ayame) if none are present yet
+                new_hianime = [s for s in ('ryu', 'volt', 'ayame') if s in BrowserBase.EMBED_SERVERS_DEFAULT]
+                if new_hianime and not any(s in current_embeds for s in new_hianime):
+                    merged_embeds = list(current_embeds) + [s for s in new_hianime if s not in current_embeds]
+                    control.setStringList('embed.config', merged_embeds)
 
             # if was_returning_user:
             #     choice = control.yesno_dialog(

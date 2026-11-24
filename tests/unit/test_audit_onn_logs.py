@@ -267,6 +267,35 @@ class TestAuditOnnLogs(unittest.TestCase):
         self.assertEqual(report['counts']['non_otaku_noise_filtered'], 4)
         self.assertEqual(len(report['samples']['otaku_errors']), 2)
 
+    def test_session_start_header_mismatch_resets_cursor_when_rotated_log_exceeds_old_offset(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            concerns_file = os.path.join(tmpdir, 'CONCERNS.md')
+            with open(concerns_file, 'w', encoding='utf-8') as f:
+                f.write(
+                    "| Field | Value |\n|---|---|\n"
+                    "| Log session started | 2026-11-21 20:25:51 (previous session) |\n"
+                    "| **Next review offset** | **100** |\n"
+                )
+            rotated_log_path = os.path.join(tmpdir, 'kodi.log')
+            rotated_content = (
+                "2026-11-23 09:25:27.498 T:23836 info <general>: -----------------------------------------------------------------------\n"
+                "2026-11-23 09:25:27.499 T:23836 info <general>: Starting Kodi (21.3)\n"
+                "2026-11-23 09:25:33.000 T:23850 info <general>: OTAKU RPDEV (0): clean_settings: Settings file clean\n"
+                "2026-11-23 12:37:46.000 T:24000 info <general>: OTAKU RPDEV (1): Playback: Zero-Wait Pre-Resolved Stream Hit for 51711 Ep 2!\n"
+            )
+            with open(rotated_log_path, 'w', encoding='utf-8') as f:
+                f.write(rotated_content)
+
+            out_json = os.path.join(tmpdir, 'report.json')
+            rc = audit_onn_logs.main(['--concerns', concerns_file, '--input', rotated_log_path, '--json', out_json])
+            self.assertEqual(rc, 0)
+            with open(out_json, 'r', encoding='utf-8') as f:
+                report = json.load(f)
+            self.assertTrue(report['rotated'])
+            self.assertEqual(report['counts']['clean_settings'], 1)
+            self.assertEqual(report['counts']['zero_wait'], 1)
+            self.assertEqual(report['next_offset'], len(rotated_content.encode('utf-8')))
+
 
 if __name__ == '__main__':
     unittest.main()

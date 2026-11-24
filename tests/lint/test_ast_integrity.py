@@ -489,6 +489,52 @@ class TestASTIntegrity(unittest.TestCase):
                     missing_defaultcontrols.append((os.path.basename(xf), dc_id))
         self.assertEqual(missing_defaultcontrols, [], f"Skin XML defaultcontrol IDs not found in control tree: {missing_defaultcontrols}")
 
+    def test_default_skin_xml_navigation_targets_exist(self):
+        """C-39/C-40: Every numeric navigation target (<onup>, <ondown>, <onleft>, <onright>, <pagecontrol>, <defaultcontrol>) must exist in the same XML, with unique numeric control IDs and no placeholder Null fonts."""
+        xml_files = sorted(glob.glob(f"{SKIN_XML_DIR}/*.xml"))
+        self.assertGreaterEqual(len(xml_files), 35, f"Expected >= 35 skin XMLs, got {len(xml_files)}")
+        missing_nav_targets = []
+        duplicate_or_invalid_ids = []
+        invalid_fonts = []
+        nav_tags = ('onup', 'ondown', 'onleft', 'onright', 'pagecontrol', 'defaultcontrol')
+
+        for xf in xml_files:
+            fname = os.path.basename(xf)
+            tree = ET.parse(xf)
+            root = tree.getroot()
+
+            raw_ctrl_ids = [elem.get('id').strip() for elem in root.iter('control') if elem.get('id')]
+            for cid in raw_ctrl_ids:
+                if not cid.isdigit():
+                    duplicate_or_invalid_ids.append((fname, f"non-numeric control id={cid!r}"))
+            seen_cids = set()
+            for cid in raw_ctrl_ids:
+                if cid in seen_cids:
+                    duplicate_or_invalid_ids.append((fname, f"duplicate control id={cid!r}"))
+                seen_cids.add(cid)
+
+            param_ids = {
+                (elem.get('value') or (elem.text and elem.text.strip()))
+                for elem in root.iter('param')
+                if elem.get('name') == 'id'
+            }
+            all_ids = (set(raw_ctrl_ids) | param_ids) - {None}
+
+            for tag in nav_tags:
+                for elem in root.iter(tag):
+                    target = (elem.text or '').strip()
+                    if target.isdigit() and target not in all_ids:
+                        missing_nav_targets.append((fname, tag, target))
+
+            for font_elem in root.iter('font'):
+                font_name = (font_elem.text or '').strip()
+                if font_name.lower() == 'null':
+                    invalid_fonts.append((fname, font_name))
+
+        self.assertEqual(missing_nav_targets, [], f"Dangling numeric navigation targets in skin XMLs: {missing_nav_targets}")
+        self.assertEqual(duplicate_or_invalid_ids, [], f"Duplicate or non-numeric control IDs in skin XMLs: {duplicate_or_invalid_ids}")
+        self.assertEqual(invalid_fonts, [], f"Invalid placeholder font names in skin XMLs: {invalid_fonts}")
+
     def test_skin_xml_bbcode_integrity(self):
         """Skin XML files must not contain malformed or unclosed BBCode tags."""
         xml_files = glob.glob(f"{SKIN_XML_DIR}/*.xml")

@@ -34,6 +34,31 @@ def SOURCE_FILTER(payload, params):
             del window
 
 
+@Route('scene_jump_guide')
+def SCENE_JUMP_GUIDE(payload, params):
+    """Open Jump to Scene/Chapter when playing video, or display Keymap & Shortcut Guide when idle."""
+    import xbmc
+    if xbmc.Player().isPlayingVideo():
+        control.execute(f"RunPlugin({control.addon_url('jump_to_scene')})")
+        return control.exit_code()
+    guide = (
+        "Otaku RPDev - Scene / Chapter Jump & Shortcuts\n"
+        + ("=" * 56) + "\n\n"
+        "• During Playback:\n"
+        "  - Run 'Jump to Scene / Chapter' from the OSD or Tools to jump to\n"
+        "    Prologue, Opening (OP), Part A/B, Ending (ED), Preview, or AniSkip\n"
+        "    / IntroDB segments.\n\n"
+        "• Context Menu Shortcuts (Remote Menu / Long-Press OK):\n"
+        "  - Series Playback Profile: per-show audio, subtitle & OP/ED offsets\n"
+        "  - Rescrape / Source Select: override stream or debrid host\n"
+        "  - Inspect ID Mappings: view MAL / AniList / Kitsu / TVDB / TMDB IDs\n\n"
+        "• Optional keymap.xml binding:\n"
+        f"  RunPlugin(plugin://{control.ADDON_ID}/jump_to_scene)\n"
+    )
+    control.textviewer_dialog('Jump to Scene / Chapter & Keymap Guide', guide)
+    return control.exit_code()
+
+
 @Route('delete_anime_database/*')
 def DELETE_ANIME_DATABASE(payload, params):
     from resources.lib import Main

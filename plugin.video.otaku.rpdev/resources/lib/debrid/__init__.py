@@ -79,9 +79,18 @@ class Debrid:
                     if db_media_type and 'movie' in str(db_media_type).lower():
                         season = None  # Movies don't use season/episode
                     else:
-                        from resources.lib.ui.utils import get_season
-                        title = mappings.get('mal_title', '')
-                        season = get_season([title], mal_id) if title else 1
+                        mapped_s, _ = database.resolve_tvdb_episode_mapping(mal_id, episode or 1)
+                        if mapped_s is not None:
+                            season = mapped_s
+                        elif mappings.get('thetvdb_season') not in (None, ''):
+                            try:
+                                season = int(mappings['thetvdb_season'])
+                            except (ValueError, TypeError):
+                                season = None
+                        if season is None:
+                            from resources.lib.ui.utils import get_season
+                            title = mappings.get('mal_title', '')
+                            season = get_season([title], mal_id) if title else 1
         except Exception as e:
             control.log(f'Failed to get IMDB ID for cache check: {e}', 'warning')
         return imdb_id, season

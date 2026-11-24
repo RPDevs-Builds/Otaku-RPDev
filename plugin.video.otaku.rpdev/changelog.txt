@@ -1,3 +1,16 @@
+Changelog v6.4.2 (2026-11-23):
+- Review #24 Live Log Hardening & UX Polish:
+  - C-45: Startup failover in player.onPlayBackError() when Zero-Wait Pre-Resolved HLS manifests fail OpenInputStream, plus >30m idle pre-resolved URL re-probe without overhead on normal 5-7m transitions
+  - C-46: 900s embed mirror failure cooldown, unhealthy-host skip in reorder_sources(), and late-finishing embed scraper source persistence in pages/__init__.py
+  - C-47: Additive embed.config migration (SCHEMA_VERSION 1.0.15) and settings.xml options for HiAnime ryu/volt/ayame servers
+  - C-48: Single-track lang=und HLS Dub audio detection hint for subtitle matching
+  - C-37: Bounded <1.5s service.py shutdown and passive WAL checkpoint busy_timeout
+  - C-39/C-40: WindowXML D-pad focus-trap fixes, filter_select Clear All (6003), in-place sort_select refresh, skip_intro dynamic label, and XML nav-ID AST lint
+  - C-41: context.otaku.rpdev v1.0.48 widget visibility, property caching, movie Series Profile, query param preservation, and logout path slicing
+  - C-42: Tools shortcuts (Source Filter, Browse Year/Season, Drift Auditor 1-click reconcile, Telemetry, Scene Jump Guide, Backup/Restore) and BROWSE_YEAR_FILTER isFolder=False
+  - C-43: FlareSolverr jpost JSON Content-Type preservation across Cloudflare/TLS retries
+  - Wave 3a polish: Bitsearch/PirateBay single-batch parallel queries, AnimeKAI title score threshold, Debrid tvdb_rules season lookup, OpenSubtitles 401 token eviction, and audit_onn_logs.py session-start rotation detection
+
 Changelog v6.4.1 (2026-11-23):
 - Audit & Hardening:
   - Fix NF-11 failover wiping handoff, auto_resume loss and PLAY_MOVIE zero-wait handoff

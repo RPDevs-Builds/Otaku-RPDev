@@ -86,7 +86,7 @@
                 <textoffsetx>0</textoffsetx>
                 <onleft>3002</onleft>
                 <onright>3002</onright>
-                <font>Null</font>
+                <font>Small</font>
                 <textcolor>PanelWhite30</textcolor>
                 <focusedcolor>PanelWhite100</focusedcolor>
                 <texturefocus colordiffuse="$VAR[ColorHighlight]" border="5">common/box.png</texturefocus>
@@ -116,7 +116,7 @@
                 <textoffsetx>0</textoffsetx>
                 <onleft>3001</onleft>
                 <onright>3001</onright>
-                <font>Null</font>
+                <font>Small</font>
                 <textcolor>PanelWhite30</textcolor>
                 <focusedcolor>PanelWhite100</focusedcolor>
                 <texturefocus colordiffuse="$VAR[ColorHighlight]" border="5">common/box.png</texturefocus>

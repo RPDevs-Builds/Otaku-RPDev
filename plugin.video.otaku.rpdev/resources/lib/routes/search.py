@@ -325,7 +325,7 @@ def BROWSE_YEAR_SEASON(payload, params):
                 utils.allocate_item(
                     "[COLOR skyblue][Filter Format: All / TV / Movie / OVA / ONA...][/COLOR]",
                     f"browse_year_filter/{year_int}/{season_tok}",
-                    True,
+                    False,
                     False,
                     [],
                     'genres_&_tags.png',

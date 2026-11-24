@@ -24,6 +24,19 @@ class SkipIntro(BaseWindow):
         self.actioned = None
 
     def onInit(self):
+        label = (
+            (self.actionArgs.get('skip_label') if isinstance(self.actionArgs, dict) else '')
+            or control.getGlobalProp('otaku.skipintro.label')
+            or 'Skip Intro'
+        )
+        self.setProperty('otaku.skipintro.label', str(label))
+        control.setGlobalProp('otaku.skipintro.label', str(label))
+        try:
+            btn = self.getControl(3001)
+            if btn is not None and hasattr(btn, 'setLabel'):
+                btn.setLabel(str(label))
+        except Exception:
+            pass
         if isinstance(self.actionArgs, dict) and self.actionArgs.get('ui_review'):
             return
         self.background_tasks()

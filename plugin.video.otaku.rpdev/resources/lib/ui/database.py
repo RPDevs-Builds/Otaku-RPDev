@@ -971,10 +971,12 @@ def prune_expired_cache(max_age_days=30):
 
 
 def checkpoint_databases(truncate=True):
-    """Run PRAGMA wal_checkpoint(TRUNCATE) and PRAGMA optimize across all databases.
+    """Run PRAGMA wal_checkpoint(TRUNCATE|PASSIVE) across all databases.
 
-    Flushes the SQLite write-ahead log to disk and truncates the .db-wal file to
-    0 bytes, preventing disk bloat on low-flash Android TV devices.
+    Flushes the SQLite write-ahead log to disk and (when truncate=True) truncates
+    the .db-wal file to 0 bytes and runs PRAGMA optimize. When truncate=False
+    (shutdown or periodic passive checkpoint), skips PRAGMA optimize and caps
+    busy_timeout to 250ms so service.py teardown never exceeds CPythonInvoker's 5s limit.
     """
     db_paths = [
         getattr(control, 'cacheFile', None),
@@ -986,8 +988,11 @@ def checkpoint_databases(truncate=True):
         if path and os.path.exists(path):
             try:
                 with SQL(path) as cur:
+                    if not truncate:
+                        cur.execute("PRAGMA busy_timeout = 250")
                     cur.execute(f"PRAGMA wal_checkpoint({mode})")
-                    cur.execute("PRAGMA optimize")
+                    if truncate:
+                        cur.execute("PRAGMA optimize")
             except Exception as e:
                 control.log(f"Failed to checkpoint {path}: {e}", 'warning')
 

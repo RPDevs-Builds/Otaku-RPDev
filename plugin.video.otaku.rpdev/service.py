@@ -927,6 +927,9 @@ class MultipageWorker(threading.Thread):
                 except TypeError:
                     fetch_func(page_params)
 
+                if self.monitor.abortRequested() or self._stop_event.is_set():
+                    return
+
                 database.update_multipage_job_progress(job_id, page_num)
             except Exception as e:
                 control.log(f"MultipageWorker page {page_num} fetch error: {e}", 'warning')
@@ -937,6 +940,9 @@ class MultipageWorker(threading.Thread):
             if page_num < target_page:
                 if self._sleep(pacing):
                     return
+
+        if self.monitor.abortRequested() or self._stop_event.is_set():
+            return
 
         if success:
             database.mark_multipage_job_done(job_id)

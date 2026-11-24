@@ -457,12 +457,17 @@ class MenuOrderDialog(xbmcgui.WindowXMLDialog):
             self._populate_list(selected_idx=0)
 
     def save_and_close(self):
+        if self._win_closed:
+            return
+        self._win_closed = True
+        self.modified = False
         save_menu_order(self.ordered_ids, self.enabled_set, self.menu_key)
         control.notify(control.ADDON_NAME, control.lang(30684))
-        self._win_closed = True
         self.close()
 
     def cancel_and_close(self):
+        if self._win_closed:
+            return
         if self.modified:
             dialog_title = self.menu_config.get('title', control.lang(30404))
             if control.yesno_dialog(dialog_title, control.lang(30688)):
