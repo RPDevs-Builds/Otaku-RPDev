@@ -275,6 +275,37 @@ class TestV642Hardening(unittest.TestCase):
             self.assertEqual(player.resolve_trakt_season_episode(21, episode=10), (2, 2))
             self.assertEqual(player.resolve_trakt_season_episode(21, episode=31), (3, 13))
 
+    def test_v27_metadata_db_aliases_trakt_slug_and_fallback_url(self):
+        import sqlite3
+        import tempfile
+        import service
+        from resources.lib.ui import database, player
+        self.assertIn('RPDevs-Builds/Otaku-Mapping-DB', service.MAPPINGS_FALLBACK_URL)
+
+        with patch.object(player.database, 'get_mappings', return_value={'trakt_id': 30857, 'trakt_slug': 'cowboy-bebop', 'imdb_id': 'tt0213338'}), \
+             patch.object(player.database, 'get_unique_ids', return_value={}):
+            ids = player.build_trakt_ids(1, fetch_remote=False)
+        self.assertEqual(ids['trakt'], 30857)
+        self.assertEqual(ids['slug'], 'cowboy-bebop')
+
+        with tempfile.TemporaryDirectory() as tmp:
+            meta_db = os.path.join(tmp, 'anime_metadata.db')
+            conn = sqlite3.connect(meta_db)
+            conn.execute('CREATE TABLE anime_metadata (mal_id INTEGER PRIMARY KEY, mal_title TEXT, title_english TEXT)')
+            conn.execute('CREATE TABLE anime_aliases (mal_id INTEGER NOT NULL, alias TEXT NOT NULL, alias_norm TEXT NOT NULL, source_type TEXT NOT NULL)')
+            conn.execute('INSERT INTO anime_metadata VALUES (1, "Cowboy Bebop", "Cowboy Bebop")')
+            conn.execute('INSERT INTO anime_aliases VALUES (1, "Kauboi Bibappu", "kauboi bibappu", "romaji")')
+            conn.commit()
+            conn.close()
+            try:
+                with patch.object(database.control, 'metadataDB', meta_db), \
+                     patch.object(database.control, 'mappingDB', os.path.join(tmp, 'missing_mappings.db')):
+                    aliases = database.get_mapping_aliases(1, limit=5)
+                self.assertIn('Cowboy Bebop', aliases)
+                self.assertIn('Kauboi Bibappu', aliases)
+            finally:
+                database.close_all_connections(meta_db)
+
 
 if __name__ == '__main__':
     unittest.main()

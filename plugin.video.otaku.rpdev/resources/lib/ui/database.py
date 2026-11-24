@@ -1384,9 +1384,11 @@ def _mapping_anime_columns(cur):
 
 
 def get_mapping_aliases(mal_id, limit=12):
-    """Return deduplicated alternate titles for *mal_id* from mappings.db (mal_title + anime_aliases)."""
+    """Return deduplicated alternate titles for *mal_id* from metadataDB / mappings.db."""
     mid = _coerce_pos_int(mal_id)
-    if not mid or not getattr(control, 'mappingDB', None) or not os.path.exists(control.mappingDB):
+    has_map = bool(getattr(control, 'mappingDB', None) and os.path.exists(control.mappingDB))
+    has_meta = bool(getattr(control, 'metadataDB', None) and os.path.exists(control.metadataDB))
+    if not mid or (not has_map and not has_meta):
         return []
     aliases = []
     seen = set()
@@ -1398,6 +1400,28 @@ def get_mapping_aliases(mal_id, limit=12):
             aliases.append(s)
 
     try:
+        meta_path = getattr(control, 'metadataDB', None)
+        if meta_path and os.path.exists(meta_path):
+            with SQL(meta_path, is_readonly=True) as mcur:
+                mtables = {
+                    r.get('name')
+                    for r in (mcur.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall() or [])
+                    if r.get('name')
+                }
+                if 'anime_metadata' in mtables:
+                    mrow = mcur.execute('SELECT mal_title, title_english FROM anime_metadata WHERE mal_id=?', (mid,)).fetchone()
+                    if mrow:
+                        _add(mrow.get('title_english'))
+                        _add(mrow.get('mal_title'))
+                if 'anime_aliases' in mtables:
+                    mrows = mcur.execute(
+                        'SELECT alias FROM anime_aliases WHERE mal_id=? ORDER BY LENGTH(alias), alias LIMIT ?',
+                        (mid, int(limit)),
+                    ).fetchall() or []
+                    for r in mrows:
+                        _add(r.get('alias'))
+        if len(aliases) >= limit or not has_map:
+            return aliases[:limit]
         with SQL(control.mappingDB, is_readonly=True) as cur:
             tables = _mapping_tables(cur)
             if 'anime' in tables:
@@ -1918,7 +1942,7 @@ def get_episode_offset_from_mappings(mal_id, episode=1):
             local_end = None if r_end is None else ep_start_i + max(0, int(r_end) - r_start_i)
             if ep_num >= ep_start_i and (local_end is None or ep_num <= local_end):
                 off = r_start_i - ep_start_i
-                if off > 0:
+                if off != 0:
                     return off
         if abs_start is not None:
             abs_start_i = int(abs_start)

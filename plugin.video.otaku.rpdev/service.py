@@ -68,21 +68,83 @@ def _decompress_mappings_payload(raw_bytes, url=''):
 
 MAPPINGS_XZ_URL = 'https://github.com/RPDevs-Builds/Otaku-Mapping-DB/releases/download/latest/anime_mappings.db.xz'
 MAPPINGS_MANIFEST_URL = 'https://github.com/RPDevs-Builds/Otaku-Mapping-DB/releases/download/latest/manifest.json'
-MAPPINGS_FALLBACK_URL = 'https://github.com/Goldenfreddy0703/Otaku-Mappings/raw/refs/heads/main/anime_mappings.db'
+MAPPINGS_FALLBACK_URL = 'https://github.com/RPDevs-Builds/Otaku-Mapping-DB/releases/download/latest/anime_mappings.db'
+METADATA_XZ_URL = 'https://github.com/RPDevs-Builds/Otaku-Mapping-DB/releases/download/latest/anime_metadata.db.xz'
 
 
-def _fetch_mappings_manifest_sha256():
+def _fetch_mappings_manifest_sha256(file_key='raw'):
     """Fetch expected raw SHA-256 checksum from Otaku-Mapping-DB manifest.json if reachable."""
     try:
         resp = client.get(MAPPINGS_MANIFEST_URL, timeout=6)
         if resp and resp.status_code == 200:
             data = control.safe_json(resp, default={})
-            raw_sha = ((data.get('files') or {}).get('raw') or {}).get('sha256')
+            raw_sha = ((data.get('files') or {}).get(file_key) or {}).get('sha256')
             if raw_sha and len(str(raw_sha).strip()) == 64:
                 return str(raw_sha).strip().lower()
     except Exception:
         pass
     return None
+
+
+def update_metadata_db(url=None, expected_sha256=None):
+    """Download and verify optional correlated anime_metadata.db.xz into control.metadataDB."""
+    target_url = url or METADATA_XZ_URL
+    dest_path = getattr(control, 'metadataDB', None) or os.path.join(control.dataPath, 'anime_metadata.db')
+    tmp_path = f"{dest_path}.candidate.tmp"
+    etag_path = f"{dest_path}.etag"
+    manifest_sha = expected_sha256 if url is not None else _fetch_mappings_manifest_sha256('metadata_raw')
+    try:
+        headers = {}
+        if os.path.exists(dest_path) and os.path.exists(etag_path):
+            try:
+                with open(etag_path, 'r', encoding='utf-8') as ef:
+                    saved_etag = ef.read().strip()
+                if saved_etag:
+                    headers['If-None-Match'] = saved_etag
+            except OSError:
+                pass
+        response = client.get(target_url, headers=headers, timeout=25)
+        if response and response.status_code == 304:
+            return True
+        if response and response.status_code == 200 and response.content:
+            import hashlib
+            from resources.lib.ui import database
+            raw_payload = _decompress_mappings_payload(response.content, target_url)
+            if manifest_sha:
+                actual_sha = hashlib.sha256(raw_payload).hexdigest().lower()
+                if actual_sha != str(manifest_sha).strip().lower():
+                    control.log(f"### Metadata DB SHA-256 mismatch: expected {manifest_sha}, got {actual_sha}", 'error')
+                    return False
+            os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+            with open(tmp_path, 'wb') as tf:
+                tf.write(raw_payload)
+            ok_check, reason = database.verify_sqlite_integrity(tmp_path, required_tables=('anime_metadata',))
+            if not ok_check:
+                control.log(f"### Candidate anime_metadata.db failed quick_check ({reason})", 'warning')
+                try:
+                    os.remove(tmp_path)
+                except OSError:
+                    pass
+                return False
+            database.close_all_connections(dest_path)
+            os.replace(tmp_path, dest_path)
+            new_etag = response.headers.get('Etag') or response.headers.get('ETag', '') if hasattr(response, 'headers') and response.headers else ''
+            if new_etag:
+                try:
+                    with open(etag_path, 'w', encoding='utf-8') as ef:
+                        ef.write(str(new_etag).strip())
+                except OSError:
+                    pass
+            control.log("### Metadata DB updated successfully")
+            return True
+    except Exception as e:
+        control.log(f"### Failed to update Metadata DB: {e}", 'warning')
+        try:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+        except OSError:
+            pass
+    return False
 
 
 def update_mappings_db(url=None, expected_sha256=None):

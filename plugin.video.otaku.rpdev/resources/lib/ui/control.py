@@ -477,6 +477,7 @@ cacheFile = os.path.join(dataPath, 'cache.db')
 searchHistoryDB = os.path.join(dataPath, 'search.db')
 malSyncDB = os.path.join(dataPath, 'malSync.db')
 mappingDB = os.path.join(dataPath, 'mappings.db')
+metadataDB = os.path.join(dataPath, 'anime_metadata.db')
 
 # — JSON data files —
 maldubFile = os.path.join(dataPath, 'mal_dub.json')
