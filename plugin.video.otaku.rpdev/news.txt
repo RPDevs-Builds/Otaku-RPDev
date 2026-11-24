@@ -1,7 +1,24 @@
 ========================
+[B]OTAKU RPDEV v6.4.3[/B]
+Otaku-Mapping-DB v2.8, Correlated Metadata DB & Multi-Tier Fallback
+========================
+
+v6.4.3 Highlights:
+  * Integrate anime_metadata.db dual-DB sync with ETag/SHA-256 verification
+    and System Health diagnostics
+  * add multi-tier mappings.db -> anime_metadata.db -> cache.db ->
+    AniZip/Simkl fallback across database, scrapers, filters, and Inspect ID
+    Mappings
+  * align OtakuBrowser, MalBrowser, AniListBrowser, and MetaBrowser with
+    Metadata Customization settings (titlelanguage, browser.api,
+    override.meta.api, meta.api, and all 6 Meta Episode APIs)
+  * support multi-season canonical tvdb_rules offsets (ep_start >
+    range_start).
+
+--------------------------------
 [B]OTAKU RPDEV v6.4.2[/B]
 Review #24 & UX Polish
-========================
+--------------------------------
 
 v6.4.2 Highlights:
   * Startup failover when Zero-Wait Pre-Resolved HLS manifests fail to open
