@@ -364,7 +364,12 @@ class MalBrowser(BrowserBase):
     def get_anime(self, mal_id):
         res = database.get(self.get_base_res, 24, f"{self._BASE_URL}/anime/{mal_id}")
         if not res or 'data' not in res:
-            return None
+            offline = database.get_offline_anime_metadata(mal_id)
+            if not offline:
+                return None
+            kodi_meta = self._merge_offline_metadata_into_kodi_meta(mal_id, {})
+            database.update_show(mal_id, database.dumps(kodi_meta))
+            return database.get_show(mal_id)
         return self.process_res(res['data'])
 
     def get_recommendations(self, mal_id, page):
@@ -826,6 +831,7 @@ class MalBrowser(BrowserBase):
         if res.get('trailer') and res['trailer'].get('youtube_id'):
             kodi_meta['trailer'] = f"plugin://plugin.video.youtube/play/?video_id={res['trailer']['youtube_id']}"
 
+        kodi_meta = self._merge_offline_metadata_into_kodi_meta(mal_id, kodi_meta)
         database.update_show(mal_id, database.dumps(kodi_meta))
 
     def update_genre_settings(self):

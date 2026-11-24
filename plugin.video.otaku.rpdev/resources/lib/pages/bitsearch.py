@@ -55,7 +55,9 @@ class Sources(BrowserBase):
                     episodes = 0
             if not episodes:
                 try:
-                    m_row = database.get_mappings(mal_id, 'mal_id')
+                    m_row = database.resolve_mappings_with_fallback(
+                        mal_id, required_keys=('episodes',), fetch_remote=False
+                    )
                     if isinstance(m_row, dict) and m_row.get('episodes'):
                         episodes = int(m_row['episodes'])
                 except Exception:

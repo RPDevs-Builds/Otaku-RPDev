@@ -270,7 +270,9 @@ def get_source_context(mal_id, kodi_meta, stored_season, episode):
 
     offset = database.get_episode_offset_from_mappings(mal_id, episode or 1)
     if not offset:
-        mp = database.get_mappings(mal_id, 'mal_id')
+        mp = database.resolve_mappings_with_fallback(
+            mal_id, required_keys=('thetvdb_id', 'global_media_episodes'), require_all=False, fetch_remote=False
+        )
         has_offline_season_scope = isinstance(mp, dict) and bool(mp) and (
             mp.get('thetvdb_id') is not None
             or mp.get('global_media_episodes')
@@ -297,12 +299,14 @@ def allocate_offline_mapping_items(rows, show_relation=False):
             rows = database.enrich_rows_from_metadata_db(list(rows))
         except Exception:
             pass
+    prefer_en = control.getInt('titlelanguage') == 1
     out = []
     for row in rows or ():
         mid = row.get('mal_id')
         if not mid:
             continue
-        title = (row.get('title_english') or row.get('mal_title') or f"Anime {mid}").strip()
+        title_cand = (row.get('title_english') or row.get('mal_title')) if prefer_en else (row.get('mal_title') or row.get('title_english'))
+        title = (title_cand or f"Anime {mid}").strip()
         rel = str(row.get('relation_type') or '').replace('_', ' ').title()
         display_name = f"{title} [{rel}]" if (show_relation and rel) else title
         pic = str(row.get('mal_picture') or '').strip()

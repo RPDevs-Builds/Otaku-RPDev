@@ -170,7 +170,9 @@ class Sources(BrowserBase):
         show = database.get_show(mal_id)
         if not show:
             return []
-        database_meta = database.get_mappings(mal_id, 'mal_id')
+        database_meta = database.resolve_mappings_with_fallback(
+            mal_id, required_keys=('anime_media_episodes', 'global_media_episodes'), require_all=False, fetch_remote=False
+        )
         if not isinstance(database_meta, dict):
             database_meta = {}
         kodi_meta = database.loads(show.get('kodi_meta') or '{}')

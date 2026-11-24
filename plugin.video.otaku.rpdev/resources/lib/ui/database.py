@@ -1228,17 +1228,46 @@ def update_episode_batch(episode_batch):
 def get_mappings(anime_id, send_id):
     if not anime_id or not send_id:
         return {}
-    if not getattr(control, 'mappingDB', None) or not os.path.exists(control.mappingDB):
-        return {}
     try:
         _validate_identifier(send_id)
-        with SQL(control.mappingDB, is_readonly=True) as cur:
-            cur.execute(
-                f'SELECT * FROM anime WHERE {send_id}=?', (anime_id,))
-            rows = cur.fetchall()
-            return rows[0] if rows else {}
     except Exception:
-        pass
+        return {}
+    if getattr(control, 'mappingDB', None) and os.path.exists(control.mappingDB):
+        try:
+            with SQL(control.mappingDB, is_readonly=True) as cur:
+                cur.execute(f'SELECT * FROM anime WHERE {send_id}=?', (anime_id,))
+                rows = cur.fetchall()
+                if rows:
+                    return rows[0]
+        except Exception:
+            pass
+    meta_path = getattr(control, 'metadataDB', None)
+    if meta_path and os.path.exists(meta_path):
+        try:
+            with SQL(meta_path, is_readonly=True) as mcur:
+                tables = _mapping_tables(mcur)
+                if 'external_ids' in tables:
+                    ecols = {
+                        r.get('name')
+                        for r in (mcur.execute("PRAGMA table_info(external_ids)").fetchall() or [])
+                        if r.get('name')
+                    }
+                    if send_id in ecols:
+                        erow = mcur.execute(f'SELECT * FROM external_ids WHERE {send_id}=?', (anime_id,)).fetchone()
+                        if erow:
+                            out = dict(erow)
+                            if 'anime_metadata' in tables and out.get('mal_id'):
+                                mrow = mcur.execute(
+                                    'SELECT * FROM anime_metadata WHERE mal_id=?', (out['mal_id'],)
+                                ).fetchone()
+                                if mrow:
+                                    for k, v in mrow.items():
+                                        if k not in out and v is not None:
+                                            out[k] = v
+                            out.setdefault('_mapping_source', 'anime_metadata.db')
+                            return out
+        except Exception:
+            pass
     return {}
 
 
@@ -2027,49 +2056,70 @@ def get_sequel_mal_id(mal_id):
 
 
 def get_schedule_ids(mal_id):
-    """Return {'syobocal_tid': ..., 'annict_id': ...} from schedule_ids if present, else {}."""
+    """Return schedule & external encyclopedia IDs from mappings.db schedule_ids or metadataDB."""
     mid = _coerce_pos_int(mal_id)
-    if not mid or not getattr(control, 'mappingDB', None) or not os.path.exists(control.mappingDB):
+    if not mid:
         return {}
-    try:
-        with SQL(control.mappingDB, is_readonly=True) as cur:
-            if 'schedule_ids' not in _mapping_tables(cur):
-                return {}
-            row = cur.execute(
-                'SELECT syobocal_tid, annict_id FROM schedule_ids WHERE mal_id=?', (mid,)
-            ).fetchone()
-            return dict(row) if row else {}
-    except Exception:
-        return {}
+    if getattr(control, 'mappingDB', None) and os.path.exists(control.mappingDB):
+        try:
+            with SQL(control.mappingDB, is_readonly=True) as cur:
+                if 'schedule_ids' in _mapping_tables(cur):
+                    row = cur.execute('SELECT * FROM schedule_ids WHERE mal_id=?', (mid,)).fetchone()
+                    if row:
+                        return {k: v for k, v in row.items() if k != 'mal_id' and v is not None}
+        except Exception:
+            pass
+    meta_path = getattr(control, 'metadataDB', None)
+    if meta_path and os.path.exists(meta_path):
+        try:
+            with SQL(meta_path, is_readonly=True) as mcur:
+                if 'external_ids' in _mapping_tables(mcur):
+                    erow = mcur.execute('SELECT * FROM external_ids WHERE mal_id=?', (mid,)).fetchone()
+                    if erow:
+                        keys = (
+                            'syobocal_tid', 'annict_id', 'livechart_id',
+                            'anisearch_id', 'anime_planet_id', 'animenewsnetwork_id', 'animecountdown_id',
+                        )
+                        return {k: erow[k] for k in keys if k in erow and erow[k] is not None}
+        except Exception:
+            pass
+    return {}
 
 
 def get_mapping_filler_map(mal_id):
-    """Return {ep_num: filler_type} for *mal_id* from mappings.db filler_ranges table, else {}."""
+    """Return {ep_num: filler_type} for *mal_id* from mappings.db or metadataDB filler_ranges."""
     mid = _coerce_pos_int(mal_id)
-    if not mid or not getattr(control, 'mappingDB', None) or not os.path.exists(control.mappingDB):
+    if not mid:
         return {}
-    try:
-        with SQL(control.mappingDB, is_readonly=True) as cur:
-            if 'filler_ranges' not in _mapping_tables(cur):
-                return {}
-            rows = cur.execute(
-                'SELECT ep_start, ep_end, filler_type FROM filler_ranges WHERE mal_id=?',
-                (mid,),
-            ).fetchall() or []
-        out = {}
-        for row in rows:
-            try:
-                ep_s = int(row.get('ep_start') or 0)
-                ep_e = int(row.get('ep_end') or 0)
-            except (TypeError, ValueError):
-                continue
-            ftype = str(row.get('filler_type') or '').strip()
-            if ep_s >= 1 and ep_e >= ep_s and ftype and (ep_e - ep_s) <= 5000:
-                for ep in range(ep_s, ep_e + 1):
-                    out[ep] = ftype
-        return out
-    except Exception:
+    rows = []
+    for db_path in (getattr(control, 'mappingDB', None), getattr(control, 'metadataDB', None)):
+        if not db_path or not os.path.exists(db_path):
+            continue
+        try:
+            with SQL(db_path, is_readonly=True) as cur:
+                if 'filler_ranges' in _mapping_tables(cur):
+                    rows = cur.execute(
+                        'SELECT ep_start, ep_end, filler_type FROM filler_ranges WHERE mal_id=?',
+                        (mid,),
+                    ).fetchall() or []
+                    if rows:
+                        break
+        except Exception:
+            continue
+    if not rows:
         return {}
+    out = {}
+    for row in rows:
+        try:
+            ep_s = int(row.get('ep_start') or 0)
+            ep_e = int(row.get('ep_end') or 0)
+        except (TypeError, ValueError):
+            continue
+        ftype = str(row.get('filler_type') or '').strip()
+        if ep_s >= 1 and ep_e >= ep_s and ftype and (ep_e - ep_s) <= 5000:
+            for ep in range(ep_s, ep_e + 1):
+                out[ep] = ftype
+    return out
 
 
 def get_episode_offset_from_mappings(mal_id, episode=1):
@@ -2130,11 +2180,16 @@ def resolve_mappings_with_fallback(
     require_all=True,
     fetch_remote=True,
 ):
-    """Return mappings row for *mal_id*, healing missing IDs via cache.db -> AniZip -> Simkl."""
+    """Return mappings row for *mal_id*, healing missing IDs via metadataDB -> cache.db -> AniZip -> Simkl."""
     mid = _coerce_pos_int(mal_id)
     if not mid:
         return {}
     base = dict(get_mappings(mid, 'mal_id') or {})
+    meta_extra = get_offline_anime_metadata(mid) if getattr(control, 'metadataDB', None) and os.path.exists(control.metadataDB) else {}
+    if meta_extra:
+        for mk, mv in meta_extra.items():
+            if mv not in (None, '', 0) and base.get(mk) in (None, '', 0):
+                base[mk] = mv
     if required_keys:
         satisfied = (
             all(base.get(k) not in (None, '', 0) for k in required_keys)

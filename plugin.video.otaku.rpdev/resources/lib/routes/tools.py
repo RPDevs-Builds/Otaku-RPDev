@@ -1499,8 +1499,9 @@ def INSPECT_MAPPINGS(payload, params):
         return control.exit_code()
 
     mapping_row = database.resolve_mappings_with_fallback(mal_id) or {}
+    offline_meta = database.get_offline_anime_metadata(mal_id) or {}
     unique_ids = database.get_unique_ids(mal_id, 'mal_id') or {}
-    src_label = mapping_row.get('_mapping_source') or 'mappings.db'
+    src_label = mapping_row.get('_mapping_source') or offline_meta.get('_mapping_source') or 'mappings.db'
     show_row = database.get_show(mal_id) or {}
     show_meta = database.loads(show_row.get('kodi_meta')) if show_row.get('kodi_meta') else {}
     title = (
@@ -1508,6 +1509,7 @@ def INSPECT_MAPPINGS(payload, params):
         or show_meta.get('ename')
         or show_meta.get('name')
         or mapping_row.get('mal_title')
+        or offline_meta.get('mal_title')
         or f"Anime {mal_id}"
     )
 
@@ -1521,10 +1523,11 @@ def INSPECT_MAPPINGS(payload, params):
 
     lines = [
         f"[B]Title:[/B] {title}",
+        f"[B]Native Title:[/B] {_fmt(offline_meta.get('title_native'))}",
         "",
         f"[B]Resolved Cross-Tracker IDs ({src_label} read-only URI):[/B]",
         f"  • MyAnimeList (MAL): {_fmt(unique_ids.get('mal_id') or mapping_row.get('mal_id') or mal_id)}",
-        f"  • MAL Dub ID:        {_fmt(unique_ids.get('mal_dub_id') or mapping_row.get('mal_dub_id'))}",
+        f"  • MAL Dub ID / Stat: {_fmt(unique_ids.get('mal_dub_id') or mapping_row.get('mal_dub_id'))} ({_fmt(offline_meta.get('dub_status'))})",
         f"  • AniList ID:        {_fmt(unique_ids.get('anilist_id') or mapping_row.get('anilist_id'))}",
         f"  • Kitsu ID:          {_fmt(unique_ids.get('kitsu_id') or mapping_row.get('kitsu_id'))}",
         f"  • Simkl ID:          {_fmt(unique_ids.get('simkl') or mapping_row.get('simkl_id'))}",
@@ -1532,11 +1535,14 @@ def INSPECT_MAPPINGS(payload, params):
         f"  • TheTVDB (TVDB):    {_fmt(unique_ids.get('tvdb') or mapping_row.get('thetvdb_id'))}",
         f"  • TMDb ID:           {_fmt(unique_ids.get('tmdb') or mapping_row.get('themoviedb_id'))}",
         f"  • IMDb ID:           {_fmt(unique_ids.get('imdb') or mapping_row.get('imdb_id'))}",
-        f"  • Trakt ID:          {_fmt(unique_ids.get('trakt') or mapping_row.get('trakt_id'))}",
+        f"  • Trakt ID / Slug:   {_fmt(unique_ids.get('trakt') or mapping_row.get('trakt_id'))} / {_fmt(unique_ids.get('trakt_slug') or offline_meta.get('trakt_slug'))}",
         f"  • Syobocal / Annict: {_fmt(sched_ids.get('syobocal_tid'))} / {_fmt(sched_ids.get('annict_id'))}",
+        f"  • LiveChart / ANN:   {_fmt(sched_ids.get('livechart_id') or offline_meta.get('livechart_id'))} / {_fmt(sched_ids.get('animenewsnetwork_id') or offline_meta.get('animenewsnetwork_id'))}",
+        f"  • AniSearch / A-P:   {_fmt(sched_ids.get('anisearch_id') or offline_meta.get('anisearch_id'))} / {_fmt(sched_ids.get('anime_planet_id') or offline_meta.get('anime_planet_id'))}",
         "",
-        f"  • Type / Season / Part: {_fmt(mapping_row.get('anime_media_type'))} / S{_fmt(mapping_row.get('thetvdb_season'))} / P{_fmt(mapping_row.get('thetvdb_part'))}",
-        f"  • Release Year / Cour:  {_fmt(mapping_row.get('year'))} / {_fmt(mapping_row.get('anime_season'))}",
+        f"  • Type / Season / Part: {_fmt(mapping_row.get('anime_media_type') or offline_meta.get('anime_media_type'))} / S{_fmt(mapping_row.get('thetvdb_season'))} / P{_fmt(mapping_row.get('thetvdb_part'))}",
+        f"  • Release Year / Cour:  {_fmt(mapping_row.get('year') or offline_meta.get('year'))} / {_fmt(mapping_row.get('anime_season') or offline_meta.get('anime_season'))}",
+        f"  • Age Rating / Origin:  {_fmt(offline_meta.get('age_rating'))} / {_fmt(offline_meta.get('country_of_origin'))}",
         f"  • Offline Filler Tags:  {len(filler_map)} episode(s)" if filler_map else "  • Offline Filler Tags:  —",
     ]
     if aliases:

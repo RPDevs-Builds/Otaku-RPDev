@@ -649,6 +649,13 @@ class AniListBrowser(BrowserBase):
             'type': "ANIME"
         }
         anilist_res = database.get(self.get_anilist_res, 24, variables)
+        if not anilist_res:
+            offline = database.get_offline_anime_metadata(mal_id)
+            if not offline:
+                return None
+            kodi_meta = self._merge_offline_metadata_into_kodi_meta(mal_id, {})
+            database.update_show(mal_id, database.dumps(kodi_meta))
+            return database.get_show(mal_id)
         return self.process_res(anilist_res)
 
     def get_base_res(self, variables):
@@ -1607,6 +1614,7 @@ class AniListBrowser(BrowserBase):
         except (KeyError, TypeError):
             pass
 
+        kodi_meta = self._merge_offline_metadata_into_kodi_meta(mal_id, kodi_meta)
         database.update_show(mal_id, database.dumps(kodi_meta))
 
     def get_genres(self, page, format):

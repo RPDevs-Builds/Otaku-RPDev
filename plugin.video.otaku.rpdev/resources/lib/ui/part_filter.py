@@ -153,7 +153,12 @@ def _get_mappings_info(mal_id):
 
     try:
         from resources.lib.ui import database
-        mapping = database.get_mappings(int(mal_id), 'mal_id')
+        mapping = database.resolve_mappings_with_fallback(
+            int(mal_id),
+            required_keys=('thetvdb_season', 'thetvdb_part', 'anime_media_episodes'),
+            require_all=False,
+            fetch_remote=False,
+        )
         if not mapping:
             return None
 

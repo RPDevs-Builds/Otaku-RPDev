@@ -151,12 +151,75 @@ class BrowserBase(object):
         if mal_id:
             try:
                 from resources.lib.ui import database
-                mp = database.get_mappings(mal_id, 'mal_id')
-                if isinstance(mp, dict) and mp.get('year'):
-                    return str(mp['year'])
+                mp = database.resolve_mappings_with_fallback(
+                    mal_id, required_keys=('year', 'start_date'), require_all=False, fetch_remote=False
+                )
+                if isinstance(mp, dict):
+                    if mp.get('year'):
+                        return str(mp['year'])
+                    sd = str(mp.get('start_date') or '')
+                    if len(sd) >= 4 and sd[:4].isdigit():
+                        return sd[:4]
             except Exception:
                 pass
         return None
+
+    @staticmethod
+    def _merge_offline_metadata_into_kodi_meta(mal_id, kodi_meta):
+        """Fill missing kodi_meta fields from anime_metadata.db / mappings.db respecting titlelanguage."""
+        out = dict(kodi_meta or {})
+        if not mal_id:
+            return out
+        try:
+            from resources.lib.ui import database
+            offline = database.get_offline_anime_metadata(mal_id) or {}
+        except Exception:
+            offline = {}
+        if not offline:
+            return out
+
+        name = out.get('name') or offline.get('mal_title')
+        ename = out.get('ename') or offline.get('title_english')
+        prefer_en = control.getInt('titlelanguage') == 1
+        pref_title = (ename or name) if prefer_en else (name or ename)
+
+        out['name'] = name
+        out['ename'] = ename
+        out['title_userPreferred'] = out.get('title_userPreferred') or pref_title
+        if not out.get('query'):
+            out['query'] = f"({name})|({ename})" if (name and ename) else (f"({name})" if name else (f"({ename})" if ename else ''))
+        out['start_date'] = out.get('start_date') or offline.get('start_date')
+        if out.get('episodes') is None and offline.get('episodes') is not None:
+            out['episodes'] = offline.get('episodes')
+        out['poster'] = out.get('poster') or offline.get('mal_picture')
+        out['status'] = out.get('status') or offline.get('status')
+        out['format'] = out.get('format') or offline.get('anime_media_type') or ''
+        out['plot'] = out.get('plot') or offline.get('synopsis')
+        out['duration'] = out.get('duration') or offline.get('duration')
+        if not out.get('genre') and offline.get('genres'):
+            out['genre'] = [g.strip() for g in str(offline['genres']).split(',') if g.strip()]
+        if not out.get('studio') and offline.get('studios'):
+            out['studio'] = [s.strip() for s in str(offline['studios']).split(',') if s.strip()]
+        out['mpaa'] = out.get('mpaa') or offline.get('age_rating')
+        if not out.get('country') and offline.get('country_of_origin'):
+            out['country'] = [str(offline['country_of_origin']).strip()]
+        if not out.get('banner') and offline.get('banner_image'):
+            out['banner'] = offline['banner_image']
+        if not out.get('premiered') and offline.get('start_date'):
+            out['premiered'] = str(offline['start_date'])[:10]
+        if not out.get('year') and offline.get('year'):
+            try:
+                out['year'] = int(offline['year'])
+            except (TypeError, ValueError):
+                pass
+        if not out.get('rating') and offline.get('score'):
+            try:
+                out['rating'] = {'score': float(offline['score'])}
+            except (TypeError, ValueError):
+                pass
+        if not out.get('trailer') and offline.get('trailer_yt_id'):
+            out['trailer'] = f"plugin://plugin.video.youtube/play/?video_id={offline['trailer_yt_id']}"
+        return out
 
     def _to_url(self, url=''):
         assert self._BASE_URL is not None, "Must be set on inherentance"

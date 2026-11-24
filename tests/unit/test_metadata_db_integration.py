@@ -145,3 +145,60 @@ class TestMetadataDBIntegration(unittest.TestCase):
             self.assertTrue(ok)
             mock_map.assert_called_once()
             mock_meta.assert_called_once()
+
+    def test_multi_tier_fallback_and_metadata_customization_settings(self):
+        from resources.lib.ui import control, database
+        from resources.lib.ui.BrowserBase import BrowserBase
+        from resources.lib.MalBrowser import MalBrowser
+        from resources.lib.AniListBrowser import AniListBrowser
+        from resources.lib import MetaBrowser
+
+        # 1. get_mappings & get_schedule_ids fall back to metadataDB when mappingDB is absent
+        with patch.object(control, 'mappingDB', os.path.join(self.tmpdir.name, 'absent.db')), \
+             patch.object(control, 'metadataDB', self.meta_db):
+            mp = database.get_mappings(1, 'mal_id')
+            self.assertEqual(mp['thetvdb_id'], 76885)
+            self.assertEqual(mp['trakt_slug'], 'cowboy-bebop')
+            sids = database.get_schedule_ids(1)
+            self.assertEqual(sids['livechart_id'], 300)
+            self.assertEqual(sids['animenewsnetwork_id'], 13)
+
+            resolved = database.resolve_mappings_with_fallback(
+                1, required_keys=('anidb_id', 'thetvdb_id', 'themoviedb_id'), fetch_remote=False
+            )
+            self.assertEqual(resolved['anidb_id'], 23)
+            self.assertEqual(resolved['thetvdb_id'], 76885)
+
+        # 2. BrowserBase._merge_offline_metadata_into_kodi_meta respects titlelanguage
+        with patch.object(control, 'metadataDB', self.meta_db), \
+             patch.object(control, 'getInt', return_value=0):
+            km_rom = BrowserBase._merge_offline_metadata_into_kodi_meta(1, {})
+            self.assertEqual(km_rom['title_userPreferred'], 'Cowboy Bebop')
+            self.assertEqual(km_rom['mpaa'], 'R - 17+')
+            self.assertEqual(km_rom['banner'], 'https://img/cb_banner.jpg')
+
+        # 3. MalBrowser & AniListBrowser offline fallback when APIs return None
+        with patch.object(control, 'metadataDB', self.meta_db), \
+             patch.object(database, 'get', return_value=None), \
+             patch.object(database, 'update_show') as mock_upd, \
+             patch.object(database, 'get_show', return_value={'mal_id': 1, 'kodi_meta': b'{}'}):
+            self.assertIsNotNone(MalBrowser().get_anime(1))
+            self.assertIsNotNone(AniListBrowser().get_anime(1))
+            self.assertEqual(mock_upd.call_count, 2)
+
+        # 4. MetaBrowser.get_anime_init honors override.meta.api=True & falls back through all 6 episode providers
+        with patch.object(control, 'mappingDB', self.map_db), \
+             patch.object(control, 'metadataDB', self.meta_db), \
+             patch.object(database, 'get_show_meta', side_effect=[None, None, {'mal_id': 1, 'meta_ids': b'{}', 'art': b'{}'}]), \
+             patch.object(database, 'get_show', side_effect=[None, None, {'mal_id': 1, 'kodi_meta': b'{}'}]), \
+             patch.object(database, 'update_show'), \
+             patch.object(database, 'update_show_meta'), \
+             patch.object(MetaBrowser.BROWSER, 'get_anime', return_value=None), \
+             patch.object(control, 'getBool', return_value=True), \
+             patch.object(control, 'getSetting', return_value='otaku'), \
+             patch.object(MetaBrowser, '_fetch_episodes_for_provider', side_effect=[None, ['ep1']]) as mock_ep:
+            eps, ctype = MetaBrowser.get_anime_init(1)
+            self.assertEqual(ctype, 'episodes')
+            self.assertEqual(eps, ['ep1'])
+            self.assertEqual(mock_ep.call_args_list[0][0][0], 'otaku')
+            self.assertEqual(mock_ep.call_args_list[1][0][0], 'simkl')

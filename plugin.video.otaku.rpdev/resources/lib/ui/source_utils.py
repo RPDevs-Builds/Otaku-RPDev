@@ -1168,7 +1168,9 @@ def filter_sources(provider, torrent_list, mal_id, season=None, episode=None, pa
     """
     # Check for Large Animes or Tvdb Animes with season 0
     if season == 1:
-        mal_mapping = database.get_mappings(mal_id, 'mal_id')
+        mal_mapping = database.resolve_mappings_with_fallback(
+            mal_id, required_keys=('thetvdb_season',), fetch_remote=False
+        )
         if mal_mapping and 'thetvdb_season' in mal_mapping:
             thetvdb_season = mal_mapping['thetvdb_season']
             if thetvdb_season == 'a' or thetvdb_season == 0:
