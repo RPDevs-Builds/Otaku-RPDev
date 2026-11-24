@@ -246,3 +246,5 @@ Located under: `Maintenance -> Data Recovery & Factory Reset`
 ---
 
 *Otaku-RPDev Configuration Guide — Documented and maintained for the RPDevs-Builds Project Workspace.*
+
+- **Dual Database Sync**: *Tools -> Sync Mappings* updates both `mappings.db` and `anime_metadata.db`; System Health shows a `Correlated Metadata` row (rows, aliases, synopses, external IDs). If `anime_metadata.db` is unavailable, the add-on gracefully falls back to `mappings.db`.

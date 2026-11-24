@@ -219,3 +219,5 @@ python3 scripts/release_addon.py --bump patch --title "Short Banner Title" -m "-
 This project is licensed under the **GNU General Public License v3.0 (GPL-3.0)**. See the [LICENSE](LICENSE) file for details.
 
 Otaku was originally created by **Goldenfreddy0703** and the Otaku development team ([Goldenfreddy0703/Otaku](https://github.com/Goldenfreddy0703/Otaku)); this sovereign hardened distribution is independently maintained by **RPDevs**.
+
+> **Offline metadata (Otaku-Mapping-DB v2.8)**: 15 active sources correlated into `mappings.db` (IDs, `tvdb_rules`, schedule IDs) and `anime_metadata.db` (102,754 aliases, 20,003 synopses, native titles, age ratings, trailers, FTS5 search), synced together and used for offline browse/search/show-page fallback.
