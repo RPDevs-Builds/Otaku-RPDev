@@ -1,7 +1,20 @@
 ========================
+[B]OTAKU RPDEV v6.4.4[/B]
+Subtitle Title Relevance & Watchlist Drift Guard
+========================
+
+v6.4.4 Highlights:
+  * Enforce title relevance scoring in native subtitle search (score_result)
+    and SubSource show lookup to prevent unrelated season packs (e.g. The
+    Four Seasons S02) from outranking target anime
+  * prioritize Exact Ep over Season Pack and rank full-dialogue .srt tracks
+    ahead of signs/forced tracks inside subtitle archives
+  * guard empty mal_id values in compute_watchlist_drift().
+
+--------------------------------
 [B]OTAKU RPDEV v6.4.3[/B]
 Otaku-Mapping-DB v2.8, Correlated Metadata DB & Multi-Tier Fallback
-========================
+--------------------------------
 
 v6.4.3 Highlights:
   * Integrate anime_metadata.db dual-DB sync with ETag/SHA-256 verification
