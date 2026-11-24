@@ -1250,9 +1250,11 @@ def get_unique_ids(anime_id, send_id):
     try:
         _validate_identifier(send_id)
         with SQL(control.mappingDB, is_readonly=True) as cur:
+            acols = _mapping_anime_columns(cur)
+            slug_col = ', trakt_slug' if 'trakt_slug' in acols else ''
             cur.execute(
                 f'SELECT mal_id, mal_dub_id, anilist_id, kitsu_id, anidb_id, '
-                f'simkl_id, thetvdb_id, themoviedb_id, imdb_id, trakt_id '
+                f'simkl_id, thetvdb_id, themoviedb_id, imdb_id, trakt_id{slug_col} '
                 f'FROM anime WHERE {send_id}=?', (anime_id,))
             row = cur.fetchone()
             if not row:
@@ -1269,7 +1271,19 @@ def get_unique_ids(anime_id, send_id):
                 'tmdb':       row.get('themoviedb_id'),
                 'imdb':       row.get('imdb_id'),
                 'trakt':      row.get('trakt_id'),
+                'trakt_slug': row.get('trakt_slug'),
             }
+            if 'schedule_ids' in _mapping_tables(cur) and row.get('mal_id'):
+                srow = cur.execute('SELECT * FROM schedule_ids WHERE mal_id=?', (row['mal_id'],)).fetchone()
+                if srow:
+                    for sk, uk in (
+                        ('livechart_id', 'livechart'),
+                        ('anisearch_id', 'anisearch'),
+                        ('anime_planet_id', 'anime_planet'),
+                        ('animenewsnetwork_id', 'ann'),
+                    ):
+                        if srow.get(sk) is not None:
+                            raw_uids[uk] = srow[sk]
             return {
                 k: v for k, v in raw_uids.items()
                 if v is not None and str(v).strip() not in ('', 'None', 'null')
@@ -1365,6 +1379,120 @@ def get_mappings_metadata():
     except Exception:
         pass
     return info
+
+
+def get_metadata_db_info():
+    """Return row_count, alias_count, external_id_count, synopsis_count, and build_meta for anime_metadata.db."""
+    info = {
+        'row_count': 0,
+        'alias_count': 0,
+        'external_id_count': 0,
+        'synopsis_count': 0,
+        'schema_version': '',
+        'built_at_utc': '',
+    }
+    meta_path = getattr(control, 'metadataDB', None)
+    if not meta_path or not os.path.exists(meta_path):
+        return info
+    try:
+        with SQL(meta_path, is_readonly=True) as cur:
+            tables = _mapping_tables(cur)
+            for tbl, out_key in (
+                ('anime_metadata', 'row_count'),
+                ('anime_aliases', 'alias_count'),
+                ('external_ids', 'external_id_count'),
+            ):
+                if tbl in tables:
+                    row = cur.execute(f'SELECT COUNT(*) AS cnt FROM {tbl}').fetchone()
+                    if row:
+                        info[out_key] = int(row.get('cnt') or 0)
+            if 'build_meta' in tables:
+                for mrow in cur.execute('SELECT key, value FROM build_meta').fetchall() or []:
+                    k = mrow.get('key')
+                    if k == 'synopsis_count':
+                        info['synopsis_count'] = int(mrow.get('value') or 0)
+                    elif k in ('schema_version', 'built_at_utc'):
+                        info[k] = str(mrow.get('value') or '')
+    except Exception:
+        pass
+    return info
+
+
+def get_offline_anime_metadata(mal_id):
+    """Fetch rich correlated metadata + external IDs for *mal_id* from anime_metadata.db (with mappings.db fallback)."""
+    mid = _coerce_pos_int(mal_id)
+    if not mid:
+        return {}
+    meta_path = getattr(control, 'metadataDB', None)
+    if meta_path and os.path.exists(meta_path):
+        try:
+            with SQL(meta_path, is_readonly=True) as cur:
+                tables = _mapping_tables(cur)
+                if 'anime_metadata' in tables:
+                    row = cur.execute('SELECT * FROM anime_metadata WHERE mal_id=?', (mid,)).fetchone()
+                    if row:
+                        out = dict(row)
+                        if 'external_ids' in tables:
+                            erow = cur.execute('SELECT * FROM external_ids WHERE mal_id=?', (mid,)).fetchone()
+                            if erow:
+                                for k, v in erow.items():
+                                    if k not in out and v is not None:
+                                        out[k] = v
+                        return out
+        except Exception:
+            pass
+    return get_mappings(mid, 'mal_id') or {}
+
+
+def enrich_rows_from_metadata_db(rows):
+    """Batch-enrich mappings.db anime rows with synopsis, age_rating, banner, trailer, native title, dub_status."""
+    if not rows:
+        return rows
+    meta_path = getattr(control, 'metadataDB', None)
+    if not meta_path or not os.path.exists(meta_path):
+        return rows
+    mids = sorted({_coerce_pos_int(r.get('mal_id')) for r in rows if _coerce_pos_int(r.get('mal_id'))})
+    if not mids:
+        return rows
+    try:
+        with SQL(meta_path, is_readonly=True) as cur:
+            tables = _mapping_tables(cur)
+            if 'anime_metadata' not in tables:
+                return rows
+            acols = {
+                r.get('name')
+                for r in (cur.execute("PRAGMA table_info(anime_metadata)").fetchall() or [])
+                if r.get('name')
+            }
+            want_cols = [
+                c for c in (
+                    'title_native', 'end_date', 'synopsis', 'age_rating',
+                    'banner_image', 'trailer_yt_id', 'country_of_origin', 'dub_status',
+                )
+                if c in acols
+            ]
+            if not want_cols:
+                return rows
+            sel_sql = ', '.join(want_cols)
+            by_mid = {}
+            for i in range(0, len(mids), 200):
+                chunk = mids[i:i + 200]
+                ph = ','.join('?' for _ in chunk)
+                for mrow in cur.execute(
+                    f'SELECT mal_id, {sel_sql} FROM anime_metadata WHERE mal_id IN ({ph})',
+                    tuple(chunk),
+                ).fetchall() or []:
+                    by_mid[int(mrow['mal_id'])] = mrow
+            for r in rows:
+                mid = _coerce_pos_int(r.get('mal_id'))
+                extra = by_mid.get(mid)
+                if extra:
+                    for c in want_cols:
+                        if extra.get(c) is not None and not r.get(c):
+                            r[c] = extra[c]
+    except Exception:
+        pass
+    return rows
 
 
 def _mapping_tables(cur):
@@ -1606,7 +1734,7 @@ def browse_mappings_by_year_season(year, anime_season='', media_format='', page=
             ).fetchall() or []
             out = [dict(r) for r in rows]
             has_next = len(out) > limit_n
-            return out[:limit_n], has_next
+            return enrich_rows_from_metadata_db(out[:limit_n]), has_next
     except Exception:
         return [], False
 
@@ -1698,6 +1826,32 @@ def search_mappings_by_title(query, limit=25, media_format=''):
     except Exception:
         return []
 
+    if len(candidates) < limit:
+        meta_path = getattr(control, 'metadataDB', None)
+        if meta_path and os.path.exists(meta_path):
+            try:
+                fts_tokens = [tok.replace('"', '') for tok in re.findall(r'[\w]+', q) if tok]
+                if fts_tokens:
+                    fts_expr = ' '.join(f'"{tok}"*' for tok in fts_tokens[:8])
+                    with SQL(meta_path, is_readonly=True) as mcur:
+                        mtables = _mapping_tables(mcur)
+                        if 'metadata_fts' in mtables and 'anime_metadata' in mtables:
+                            m_fmt_sql = " AND a.anime_media_type = ?" if target_fmt else ""
+                            m_params = (fts_expr, target_fmt, int(limit)) if target_fmt else (fts_expr, int(limit))
+                            for row in (mcur.execute(
+                                f"SELECT a.* FROM metadata_fts "
+                                f"JOIN anime_metadata a ON a.mal_id = metadata_fts.rowid "
+                                f"WHERE metadata_fts MATCH ?{m_fmt_sql} "
+                                f"ORDER BY COALESCE(a.score, 0) DESC LIMIT ?",
+                                m_params,
+                            ).fetchall() or []):
+                                mid = row.get('mal_id')
+                                if mid and mid not in seen_ids:
+                                    seen_ids.add(mid)
+                                    candidates.append(dict(row))
+            except Exception:
+                pass
+
     def _rank(r):
         title_l = str(r.get('mal_title') or '').lower()
         eng_l = str(r.get('title_english') or '').lower()
@@ -1710,7 +1864,7 @@ def search_mappings_by_title(query, limit=25, media_format=''):
         return (exact, -(float(r.get('score') or 0.0)), int(r.get('mal_id') or 0))
 
     candidates.sort(key=_rank)
-    return candidates[:limit]
+    return enrich_rows_from_metadata_db(candidates[:limit])
 
 
 _FRANCHISE_ORDER = {
@@ -1775,7 +1929,7 @@ def get_franchise_entries(mal_id):
             int(r.get('mal_id') or 0),
         )
     )
-    return entries
+    return enrich_rows_from_metadata_db(entries)
 
 
 def get_franchise_watch_order(mal_id, max_hops=12):

@@ -67,12 +67,16 @@ class OtakuBrowser(MalBrowser):
 
     def get_anime(self, mal_id):
         """
-        Fetch full anime data from Jikan API by MAL ID.
+        Fetch full anime data from Jikan API by MAL ID, with anime_metadata.db offline fallback.
         Returns the parsed JSON response or None on error.
         """
         mal_res = database.get(self.get_mal_base_res, 24, f"{self._BASE_URL}/anime/{mal_id}")
         if not mal_res or not mal_res.get('data'):
-            return None
+            offline_meta = database.get_offline_anime_metadata(mal_id)
+            if not offline_meta:
+                return None
+            self.database_update_show(mal_res={'mal_id': int(mal_id)}, anilist_res=None)
+            return database.get_show(mal_id)
         data = mal_res['data']
         mal_id = data['mal_id']
         anilist_res = self.get_anilist_base_res([mal_id])
@@ -513,6 +517,28 @@ class OtakuBrowser(MalBrowser):
         mpaa = mal_res.get('rating') if mal_res and 'rating' in mal_res else None
         country = [anilist_res.get('countryOfOrigin', '')] if anilist_res and 'countryOfOrigin' in anilist_res else None
 
+        offline_meta = database.get_offline_anime_metadata(mal_id) or {}
+        if offline_meta:
+            name = name or offline_meta.get('mal_title')
+            ename = ename or offline_meta.get('title_english')
+            title_userPreferred = title_userPreferred or ename or name
+            if not titles:
+                titles = f"({name})|({ename})" if (name and ename) else (f"({name})" if name else (f"({ename})" if ename else ''))
+            start_date = start_date or offline_meta.get('start_date')
+            episodes = episodes if episodes is not None else offline_meta.get('episodes')
+            poster = poster or offline_meta.get('mal_picture')
+            status = status or offline_meta.get('status')
+            format_ = format_ or offline_meta.get('anime_media_type') or ''
+            plot = plot or offline_meta.get('synopsis')
+            duration = duration or offline_meta.get('duration')
+            if not genre and offline_meta.get('genres'):
+                genre = [g.strip() for g in str(offline_meta['genres']).split(',') if g.strip()]
+            if not studio and offline_meta.get('studios'):
+                studio = [s.strip() for s in str(offline_meta['studios']).split(',') if s.strip()]
+            mpaa = mpaa or offline_meta.get('age_rating')
+            if not country and offline_meta.get('country_of_origin'):
+                country = [str(offline_meta['country_of_origin']).strip()]
+
         kodi_meta = {
             'name': name,
             'ename': ename,
@@ -530,6 +556,8 @@ class OtakuBrowser(MalBrowser):
             'mpaa': mpaa,
             'country': country,
         }
+        if offline_meta.get('banner_image'):
+            kodi_meta['banner'] = offline_meta['banner_image']
 
         try:
             if mal_res and mal_res.get('aired') and mal_res['aired'].get('from'):
@@ -540,6 +568,11 @@ class OtakuBrowser(MalBrowser):
                 sd = anilist_res['startDate']
                 kodi_meta['premiered'] = '{}-{:02}-{:02}'.format(sd['year'], sd['month'], sd['day'])
                 kodi_meta['year'] = sd['year']
+            elif offline_meta.get('start_date') or offline_meta.get('year'):
+                if offline_meta.get('start_date'):
+                    kodi_meta['premiered'] = str(offline_meta['start_date'])[:10]
+                if offline_meta.get('year'):
+                    kodi_meta['year'] = int(offline_meta['year'])
         except Exception:
             pass
 
@@ -565,6 +598,8 @@ class OtakuBrowser(MalBrowser):
                 if anilist_res.get('stats') and anilist_res['stats'].get('scoreDistribution'):
                     total_votes = sum([score['amount'] for score in anilist_res['stats']['scoreDistribution']])
                     kodi_meta['rating']['votes'] = total_votes
+            elif offline_meta.get('score'):
+                kodi_meta['rating'] = {'score': float(offline_meta['score'])}
         except Exception:
             pass
 
@@ -576,6 +611,8 @@ class OtakuBrowser(MalBrowser):
                     kodi_meta['trailer'] = f"plugin://plugin.video.youtube/play/?video_id={anilist_res['trailer']['id']}"
                 else:
                     kodi_meta['trailer'] = f"plugin://plugin.video.dailymotion_com/?url={anilist_res['trailer']['id']}&mode=playVideo"
+            elif offline_meta.get('trailer_yt_id'):
+                kodi_meta['trailer'] = f"plugin://plugin.video.youtube/play/?video_id={offline_meta['trailer_yt_id']}"
         except Exception:
             pass
 

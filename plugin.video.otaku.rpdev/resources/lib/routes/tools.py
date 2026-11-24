@@ -399,6 +399,7 @@ def generate_diagnostics_report():
         ('Sync Database', getattr(control, 'malSyncDB', None)),
         ('Search History', getattr(control, 'searchHistoryDB', None)),
         ('ID Mappings', getattr(control, 'mappingDB', None)),
+        ('Correlated Metadata', getattr(control, 'metadataDB', None)),
     ]
     for db_label, db_file in dbs:
         if not db_file or not os.path.exists(db_file):
@@ -427,7 +428,15 @@ def generate_diagnostics_report():
                     if mmeta.get('franchise_link_count'):
                         extra_info += f", Franchise: {mmeta['franchise_link_count']:,}"
                     extra_info += age_tag
-            lines.append(f"  • {db_label:<16}: {status} | Size: {size_mb:.2f} MB (WAL: {wal_mb:.2f} MB){extra_info}")
+            elif db_label == 'Correlated Metadata':
+                cmeta = database.get_metadata_db_info()
+                if cmeta.get('row_count'):
+                    extra_info = f" | Rows: {cmeta['row_count']:,}, Aliases: {cmeta.get('alias_count', 0):,}"
+                    if cmeta.get('synopsis_count'):
+                        extra_info += f", Synopses: {cmeta['synopsis_count']:,}"
+                    if cmeta.get('external_id_count'):
+                        extra_info += f", ExtIDs: {cmeta['external_id_count']:,}"
+            lines.append(f"  • {db_label:<20}: {status} | Size: {size_mb:.2f} MB (WAL: {wal_mb:.2f} MB){extra_info}")
         except Exception as e:
             lines.append(f"  • {db_label:<16}: ERROR ({e})")
     lines.append("")
@@ -536,10 +545,18 @@ def SYSTEM_HEALTH_DIAGNOSTICS(payload, params):
 @Route('sync_mappings')
 def SYNC_MAPPINGS(payload, params):
     import service
-    service.update_mappings_db()
+    ok_map = service.update_mappings_db()
+    ok_meta = service.update_metadata_db()
+    mmeta = database.get_mappings_metadata()
+    cmeta = database.get_metadata_db_info()
+    msg = (
+        f"ID Mappings ({mmeta.get('row_count', 0):,}) & Metadata ({cmeta.get('row_count', 0):,}) updated"
+        if (ok_map or ok_meta) else
+        "Anime ID Mappings & Metadata sync failed"
+    )
     control.notify(
         f'{control.ADDON_NAME}: Mappings',
-        'Anime ID Mappings successfully updated',
+        msg,
         time=5000, sound=False)
 
 

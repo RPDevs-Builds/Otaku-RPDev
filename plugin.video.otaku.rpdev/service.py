@@ -267,7 +267,7 @@ _MAPPINGS_SYNC_LOCK = threading.Lock()
 
 
 def _maybe_sync_daily_mappings(interval_s=86_400):
-    """Run daily ETag-checked mappings.db sync while idle (non-playing, non-standby)."""
+    """Run daily ETag-checked mappings.db + anime_metadata.db sync while idle."""
     if control.abort_requested() or control.is_device_in_standby():
         return False
     try:
@@ -281,10 +281,11 @@ def _maybe_sync_daily_mappings(interval_s=86_400):
     if not _MAPPINGS_SYNC_LOCK.acquire(blocking=False):
         return False
     try:
-        if update_mappings_db():
+        ok_map = update_mappings_db()
+        ok_meta = update_metadata_db()
+        if ok_map:
             control.setInt('update.time.30', int(time.time()))
-            return True
-        return False
+        return bool(ok_map or ok_meta)
     finally:
         _MAPPINGS_SYNC_LOCK.release()
 

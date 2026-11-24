@@ -291,6 +291,12 @@ def get_source_context(mal_id, kodi_meta, stored_season, episode):
 
 def allocate_offline_mapping_items(rows, show_relation=False):
     """Build standard Kodi directory items from offline mappings.db anime/franchise rows."""
+    if rows:
+        try:
+            from resources.lib.ui import database
+            rows = database.enrich_rows_from_metadata_db(list(rows))
+        except Exception:
+            pass
     out = []
     for row in rows or ():
         mid = row.get('mal_id')
@@ -310,7 +316,7 @@ def allocate_offline_mapping_items(rows, show_relation=False):
         year_val = row.get('year')
         seas_val = str(row.get('anime_season') or '').strip()
         year_part = f" • {seas_val.title()} {year_val}" if (year_val and seas_val) else (f" • {year_val}" if year_val else "")
-        dub_tag = " • Dub" if row.get('mal_dub_id') else ""
+        dub_tag = " • Dub" if (row.get('mal_dub_id') or row.get('dub_status')) else ""
         uids = {'mal_id': str(mid), 'mal': str(mid)}
         for col_k, uid_k in (
             ('anilist_id', 'anilist_id'),
@@ -320,12 +326,15 @@ def allocate_offline_mapping_items(rows, show_relation=False):
             v = row.get(col_k)
             if v is not None and str(v).strip() not in ('', 'None', 'null', '0'):
                 uids[uid_k] = str(v)
+        summary_line = f"{mtype_raw}{year_part}{dub_tag} • Episodes: {row.get('anime_media_episodes') or row.get('episodes') or '?'} • Status: {row.get('status') or 'Unknown'}"
+        synopsis = str(row.get('synopsis') or '').strip()
+        plot_text = f"{summary_line}\n\n{synopsis}" if synopsis else summary_line
         info = {
             'UniqueIDs': uids,
             'title': display_name,
             'mediatype': kodi_mtype,
             'status': row.get('status') or '',
-            'plot': f"{mtype_raw}{year_part}{dub_tag} • Episodes: {row.get('anime_media_episodes') or '?'} • Status: {row.get('status') or 'Unknown'}",
+            'plot': plot_text,
         }
         if row.get('mal_title') and row.get('title_english') and row.get('mal_title') != row.get('title_english'):
             info['originaltitle'] = str(row['mal_title']).strip()
@@ -337,6 +346,12 @@ def allocate_offline_mapping_items(rows, show_relation=False):
             info['studio'] = [s.strip() for s in raw_s.split(',') if s.strip()] if ',' in raw_s else raw_s
         if row.get('start_date'):
             info['premiered'] = str(row['start_date']).strip()
+        if row.get('age_rating'):
+            info['mpaa'] = str(row['age_rating']).strip()
+        if row.get('country_of_origin'):
+            info['country'] = [str(row['country_of_origin']).strip()]
+        if row.get('trailer_yt_id'):
+            info['trailer'] = f"plugin://plugin.video.youtube/play/?video_id={row['trailer_yt_id']}"
         if year_val:
             try:
                 yr_int = int(year_val)
@@ -348,7 +363,8 @@ def allocate_offline_mapping_items(rows, show_relation=False):
             info['rating'] = {'score': float(row['score'])}
         if row.get('duration'):
             info['duration'] = int(row['duration'])
-        out.append(allocate_item(display_name, url, isfolder, isplayable, [], image=pic, poster=pic, info=info))
+        banner_art = row.get('banner_image')
+        out.append(allocate_item(display_name, url, isfolder, isplayable, [], image=pic, poster=pic, fanart=banner_art, banner=banner_art, info=info))
     return out
 
 
