@@ -85,13 +85,18 @@ class WatchlistFlavor:
             with database.SQL(control.malSyncDB) as cur:
                 cur.execute(
                     'SELECT service, status, mal_id, data, last_updated '
-                    'FROM watchlist_cache WHERE mal_id IS NOT NULL AND mal_id > 0'
+                    'FROM watchlist_cache WHERE mal_id IS NOT NULL AND CAST(mal_id AS INTEGER) > 0'
                 )
                 for row in cur.fetchall() or []:
                     svc = row.get('service')
                     if svc not in enabled:
                         continue
-                    mid = int(row['mal_id'])
+                    raw_mid = str(row.get('mal_id') or '').strip()
+                    if not raw_mid.isdigit():
+                        continue
+                    mid = int(raw_mid)
+                    if mid <= 0:
+                        continue
                     payload = database.loads(row.get('data'))
                     if not isinstance(payload, dict):
                         payload = {}
