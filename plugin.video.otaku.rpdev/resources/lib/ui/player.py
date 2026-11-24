@@ -2011,11 +2011,10 @@ def resolve_trakt_season_episode(mal_id, episode=1, is_movie=False):
             continue
         if s_val is None or s_val < 0 or rs is None:
             continue
-        if rs > ep_s:
-            max_mal_ep = (ep_s + re_val - rs) if re_val is not None else None
-            if ep_num >= ep_s and (max_mal_ep is None or ep_num <= max_mal_ep):
-                return s_val, rs + ep_num - ep_s
-        elif rs <= ep_num <= (re_val if re_val is not None else ep_num):
+        max_mal_ep = (ep_s + max(0, re_val - rs)) if re_val is not None else None
+        if ep_num >= ep_s and (max_mal_ep is None or ep_num <= max_mal_ep):
+            return s_val, rs + ep_num - ep_s
+        if rs == ep_s and rs <= ep_num <= (re_val if re_val is not None else ep_num):
             return s_val, ep_num
 
     tvdb_s = mp.get('thetvdb_season')

@@ -262,6 +262,19 @@ class TestV642Hardening(unittest.TestCase):
             slug = ak._search_anime('The Iceblade Sorcerer Shall Rule the World', {}, mal_id=51711)
         self.assertIsNone(slug)
 
+    def test_resolve_trakt_season_episode_handles_multi_season_and_split_cour_tvdb_rules(self):
+        from resources.lib.ui import player
+        rules = [
+            {'season': 1, 'range_start': 1, 'range_end': 8, 'ep_start': 1},
+            {'season': 2, 'range_start': 1, 'range_end': 22, 'ep_start': 9},
+            {'season': 3, 'range_start': 13, 'range_end': 24, 'ep_start': 31},
+        ]
+        with patch.object(player.database, 'get_mappings', return_value={'thetvdb_season': 'a'}), \
+             patch.object(player.database, 'get_tvdb_rules', return_value=rules):
+            self.assertEqual(player.resolve_trakt_season_episode(21, episode=5), (1, 5))
+            self.assertEqual(player.resolve_trakt_season_episode(21, episode=10), (2, 2))
+            self.assertEqual(player.resolve_trakt_season_episode(21, episode=31), (3, 13))
+
 
 if __name__ == '__main__':
     unittest.main()
