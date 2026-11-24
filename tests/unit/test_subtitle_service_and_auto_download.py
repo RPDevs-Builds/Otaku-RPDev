@@ -709,6 +709,84 @@ class TestSubtitleServiceAndAutoDownload(unittest.TestCase):
             self.assertEqual(vfs_writes[0][0], info['path'])
             self.assertEqual(vfs_writes[0][1], 'w')
 
+    def test_title_mismatch_demotes_unrelated_season_pack_and_subsource_filters_wrong_show(self):
+        from resources.lib.subtitles import search as sub_search
+        from resources.lib.subtitles.archive import find_file_in_archive_namelist
+        from resources.lib.subtitles.services.subsource import SubSourceService
+
+        meta = VideoMeta(
+            title='Kaiju No. 8 Season 2 Episode 1',
+            tvshow='Kaiju No. 8 Season 2',
+            season='2',
+            episode='1',
+            is_tvshow=True,
+            preferred_lang='en',
+            languages=['English'],
+        )
+        wrong_pack = SubtitleResult(
+            service_name='subsource',
+            display_name='SubSource',
+            name='The.Four.Seasons.2025.S02.WEB-DL.x264',
+            lang='English',
+            lang_code='en',
+            download_url='https://example/1',
+            season=2,
+            rating=9.0,
+        )
+        right_pack = SubtitleResult(
+            service_name='subsource',
+            display_name='SubSource',
+            name='Kaiju.No.8.S02.1080p.CR.WEB-DL',
+            lang='English',
+            lang_code='en',
+            download_url='https://example/2',
+            season=2,
+            rating=5.0,
+        )
+        settings = {'subtitles.prefer_sdh': False, 'subtitles.prefer_forced': False}
+        s_wrong = sub_search.score_result(wrong_pack, meta, settings)
+        s_right = sub_search.score_result(right_pack, meta, settings)
+        self.assertGreater(s_right, s_wrong)
+        self.assertFalse(wrong_pack.auto_identified)
+        self.assertEqual(wrong_pack.match_reason, 'Title Mismatch')
+        self.assertTrue(right_pack.auto_identified)
+
+        # SubSourceService.search skips 'The Four Seasons' and picks 'Kaiju No. 8'
+        class _FakeResp:
+            def __init__(self, status_code, payload):
+                self.status_code = status_code
+                self._payload = payload
+
+            def json(self, default=None):
+                return self._payload
+
+        def _fake_get(url, params=None, headers=None, timeout=15):
+            if '/movies/search' in url:
+                return _FakeResp(200, {
+                    'data': [
+                        {'movieId': 111, 'title': 'The Four Seasons', 'season': 2},
+                        {'movieId': 222, 'title': 'Kaiju No. 8', 'season': 2},
+                    ]
+                })
+            self.assertEqual(params.get('movieId'), 222)
+            return _FakeResp(200, {
+                'success': True,
+                'data': [{'releaseInfo': ['Kaiju.No.8.S02.1080p'], 'language': 'english', 'link': '/sub/99'}],
+            })
+
+        with patch('resources.lib.subtitles.services.subsource.client.get', side_effect=_fake_get):
+            res = SubSourceService.search(meta, {'subtitles.subsource.apikey': 'k', 'subtitles.timeout': 10})
+        self.assertEqual(len(res), 1)
+        self.assertEqual(res[0].name, 'Kaiju.No.8.S02.1080p')
+
+        # Archive namelist prefers full dialogue .srt over signs/forced track
+        picked = find_file_in_archive_namelist(
+            ['Kaiju.No.8.S02E01.Signs.Songs.ass', 'Kaiju.No.8.S02E01.English.srt'],
+            episode_number='1',
+            season_number='2',
+        )
+        self.assertEqual(picked, 'Kaiju.No.8.S02E01.English.srt')
+
 
 if __name__ == '__main__':
     unittest.main()

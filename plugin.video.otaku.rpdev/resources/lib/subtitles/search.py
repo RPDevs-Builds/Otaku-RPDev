@@ -14,6 +14,30 @@ from resources.lib.subtitles.services import ALL_SERVICES
 from resources.lib.subtitles import languages
 
 
+_TITLE_NOISE_RE = re.compile(
+    r'\b(?:season\s*\d+|s\d{1,2}(?:e\d{1,4})?|part\s*\d+|cour\s*\d+|'
+    r'1080p|720p|480p|2160p|4k|web[\-.]?dl|webrip|bluray|bdrip|x264|x265|hevc|aac|flac|'
+    r'the|a|an|of|and|in|on|to)\b',
+    re.IGNORECASE,
+)
+
+
+def title_overlap_ratio(target_title: str, candidate_name: str) -> float:
+    """Return fraction [0.0..1.0] of significant target title tokens present in candidate_name."""
+    if not target_title or not candidate_name:
+        return 0.0
+    t_clean = _TITLE_NOISE_RE.sub(' ', re.sub(r'[^\w\s]', ' ', target_title.lower()))
+    c_clean = re.sub(r'[^\w\s]', ' ', candidate_name.lower())
+    t_tokens = [tok for tok in t_clean.split() if len(tok) >= 2 or tok.isdigit()]
+    if not t_tokens:
+        t_tokens = [tok for tok in re.sub(r'[^\w\s]', ' ', target_title.lower()).split() if tok]
+    if not t_tokens:
+        return 0.0
+    c_tokens = set(c_clean.split())
+    matched = sum(1 for tok in t_tokens if tok in c_tokens)
+    return matched / float(len(t_tokens))
+
+
 @functools.lru_cache(maxsize=128)
 def _get_episode_patterns(target_s: int, target_e: int):
     s_e_pattern = re.compile(rf'(?:^|[._\s\-\[])s0*{target_s}e0*{target_e}(?:[._\s\-\]]|$)', re.IGNORECASE)
@@ -43,11 +67,23 @@ def score_result(sub: SubtitleResult, meta: VideoMeta, settings: Dict[str, Any])
         or (meta.filename_without_ext and meta.filename_without_ext.lower() in name_lower)
     )
 
-    # 1. Language Preference
+    # 1. Language Preference & Title Relevance
     if lang_matched:
         score += 1.0
     elif sub_lang:
         score -= 1.0
+
+    target_title = (meta.tvshow or meta.title or '').strip()
+    title_mismatch = False
+    if target_title and not hash_match:
+        overlap = title_overlap_ratio(target_title, sub.name)
+        if overlap >= 0.5:
+            score += 0.8
+        elif overlap > 0.0:
+            score += 0.2
+        elif not release_match:
+            score -= 2.5
+            title_mismatch = True
 
     # 2. Episode & Season Matching Heuristics
     if meta.is_tvshow and meta.season and meta.episode:
@@ -61,7 +97,7 @@ def score_result(sub: SubtitleResult, meta: VideoMeta, settings: Dict[str, Any])
         if target_s is not None and target_e is not None:
             # Check parsed season & episode on the result object
             if sub.season == target_s and sub.episode == target_e:
-                score += 0.8
+                score += 1.2
                 exact_ep_match = True
             elif sub.season == target_s and sub.episode is None:
                 # Season pack
@@ -141,7 +177,11 @@ def score_result(sub: SubtitleResult, meta: VideoMeta, settings: Dict[str, Any])
         score += (sub.rating / 10.0)
 
     # 7. Auto-Identification Classification & Reason Badge
-    if ep_mismatch:
+    if title_mismatch:
+        sub.auto_identified = False
+        sub.match_confidence = 'low'
+        sub.match_reason = 'Title Mismatch'
+    elif ep_mismatch:
         sub.auto_identified = False
         sub.match_confidence = 'low'
         sub.match_reason = 'Mismatch'

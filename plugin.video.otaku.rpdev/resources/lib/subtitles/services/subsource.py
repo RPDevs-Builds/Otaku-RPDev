@@ -44,23 +44,36 @@ class SubSourceService:
             search_params['year'] = str(meta.year)
 
         try:
+            from resources.lib.subtitles.search import title_overlap_ratio
+
             search_url = f"{API_BASE}/movies/search"
             res = client.get(search_url, params=search_params, headers=headers, timeout=timeout)
             search_data = res.json(default={}) if (res and res.status_code == 200) else {}
             found = search_data.get('data', []) if isinstance(search_data, dict) else []
-            if not found and meta.imdb_id:
+
+            def _is_relevant_show(item, is_imdb_lookup=False):
+                if meta.imdb_id and item.get('imdbId'):
+                    return str(item['imdbId']).strip() == str(meta.imdb_id).strip()
+                item_title = str(item.get('title') or '').strip()
+                if not item_title:
+                    return bool(is_imdb_lookup)
+                return title_overlap_ratio(target_name, item_title) >= 0.4
+
+            relevant = [it for it in found if isinstance(it, dict) and _is_relevant_show(it, is_imdb_lookup=False)]
+            if not relevant and meta.imdb_id:
                 imdb_params = {'searchType': 'imdb', 'imdb': meta.imdb_id}
                 res = client.get(search_url, params=imdb_params, headers=headers, timeout=timeout)
                 search_data = res.json(default={}) if (res and res.status_code == 200) else {}
                 found = search_data.get('data', []) if isinstance(search_data, dict) else []
+                relevant = [it for it in found if isinstance(it, dict) and _is_relevant_show(it, is_imdb_lookup=True)]
 
-            if not found:
+            if not relevant:
                 return []
 
             movie_id = None
             matched_season = None
             first_season_id = None
-            for item in found:
+            for item in relevant:
                 if meta.is_movie and meta.imdb_id and item.get('imdbId') and item['imdbId'] != meta.imdb_id:
                     continue
                 if item.get('season') == 1:

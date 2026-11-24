@@ -51,6 +51,12 @@ def find_file_in_archive_namelist(namelist: List[str], episode_number: str = '',
         re.compile(rf'#0*{ep_int}\b', re.IGNORECASE),
     ]
 
+    def _rank_archive_match(filepath):
+        low = filepath.lower()
+        is_signs = 1 if any(k in low for k in ('signs', 'forced', 'songs', 'sign')) else 0
+        ext_prio = 0 if low.endswith('.srt') else (1 if low.endswith(('.ass', '.ssa')) else 2)
+        return (is_signs, ext_prio, len(filepath))
+
     # Try strict season + episode matching first if season is known
     if season_number:
         try:
@@ -59,20 +65,28 @@ def find_file_in_archive_namelist(namelist: List[str], episode_number: str = '',
                 re.compile(rf'[._\s\-\[]s0*{s_int}e0*{ep_int}[._\s\-\]]', re.IGNORECASE),
                 re.compile(rf'[._\s\-\[]0*{s_int}x0*{ep_int}[._\s\-\]]', re.IGNORECASE),
             ]
+            strict_matches = []
             for pat in strict_se_patterns:
                 for f in sub_files:
                     basename = f.split('/')[-1]
                     if pat.search(basename):
-                        return f
+                        strict_matches.append(f)
+            if strict_matches:
+                strict_matches.sort(key=_rank_archive_match)
+                return strict_matches[0]
         except (ValueError, TypeError):
             pass
 
     # Try general episode patterns
+    ep_matches = []
     for pat in ep_patterns:
         for f in sub_files:
             basename = f.split('/')[-1]
-            if pat.search(basename):
-                return f
+            if pat.search(basename) and f not in ep_matches:
+                ep_matches.append(f)
+    if ep_matches:
+        ep_matches.sort(key=_rank_archive_match)
+        return ep_matches[0]
 
     # If episode was specified but no pattern matched, DO NOT fall back to arbitrary first file
     return None
