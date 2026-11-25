@@ -203,6 +203,12 @@ def auto_download_subtitles(meta: Optional[VideoMeta] = None, settings: Optional
             if player.isPlaying():
                 player.setSubtitles(local_path)
                 player.showSubtitles(True)
+                try:
+                    cur_t = float(player.getTime() or 0.0)
+                    if cur_t > 5.0:
+                        player.seekTime(max(0.0, cur_t - 0.25))
+                except Exception:
+                    pass
                 reason = candidate.match_reason or ('Auto' if candidate.auto_identified else 'Match')
                 auto_tag = f"Auto • {reason}" if candidate.auto_identified else reason
                 label_text = f"[{auto_tag}] {candidate.name[:32]} ({candidate.display_name})"
@@ -287,6 +293,12 @@ def manual_select_dialog(
             if player.isPlaying():
                 player.setSubtitles(local_path)
                 player.showSubtitles(True)
+                try:
+                    cur_t = float(player.getTime() or 0.0)
+                    if cur_t > 5.0:
+                        player.seekTime(max(0.0, cur_t - 0.25))
+                except Exception:
+                    pass
                 reason = chosen.match_reason or ('Auto' if chosen.auto_identified else 'Manual')
                 control.setGlobalProp('otaku.subtitle.auto_loaded', 'true' if chosen.auto_identified else 'false')
                 control.setGlobalProp('otaku.subtitle.auto_label', f"[{reason}] {chosen.name[:32]} ({chosen.display_name})")

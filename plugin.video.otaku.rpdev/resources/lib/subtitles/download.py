@@ -8,6 +8,7 @@ import os
 import re
 import time
 from typing import Optional, Dict, Any
+import xbmc
 import xbmcvfs
 from resources.lib.ui import control, embed_extractor
 from resources.lib.subtitles.models import SubtitleResult, VideoMeta
@@ -68,6 +69,71 @@ def purge_temp_subtitles(target_dir: Optional[str] = None):
                     pass
     except Exception as e:
         control.log(f"Failed to purge temp subtitles: {e}", 'warning')
+
+
+_SRT_VTT_TS_RE = re.compile(r'(\d{1,2}):(\d{2}):(\d{2})([,\.])(\d{3})')
+_ASS_TS_RE = re.compile(r'(\d+):(\d{2}):(\d{2})\.(\d{2})')
+
+
+def _fmt_srt_vtt(sec: float, sep: str) -> str:
+    ms_total = max(0, int(round(sec * 1000.0)))
+    hh, rem = divmod(ms_total, 3600000)
+    mm, rem = divmod(rem, 60000)
+    ss, ms = divmod(rem, 1000)
+    return f"{hh:02d}:{mm:02d}:{ss:02d}{sep}{ms:03d}"
+
+
+def _fmt_ass(sec: float) -> str:
+    cs_total = max(0, int(round(sec * 100.0)))
+    hh, rem = divmod(cs_total, 360000)
+    mm, rem = divmod(rem, 6000)
+    ss, cs = divmod(rem, 100)
+    return f"{hh}:{mm:02d}:{ss:02d}.{cs:02d}"
+
+
+def _max_subtitle_timestamp_seconds(sub_text: str, ext: str) -> float:
+    max_s = 0.0
+    if ext in ('.ass', '.ssa'):
+        for m in _ASS_TS_RE.finditer(sub_text):
+            s = int(m.group(1)) * 3600 + int(m.group(2)) * 60 + int(m.group(3)) + int(m.group(4)) / 100.0
+            if s > max_s:
+                max_s = s
+    else:
+        for m in _SRT_VTT_TS_RE.finditer(sub_text):
+            s = int(m.group(1)) * 3600 + int(m.group(2)) * 60 + int(m.group(3)) + int(m.group(5)) / 1000.0
+            if s > max_s:
+                max_s = s
+    return max_s
+
+
+def rescale_subtitle_timestamps(sub_text: str, ext: str, ratio: float) -> str:
+    """Rescale subtitle cue timestamps by *ratio* (e.g., 23.976 / 25.000) for FPS-matched sync."""
+    if not sub_text or abs(ratio - 1.0) < 1e-5:
+        return sub_text
+    if ext in ('.ass', '.ssa'):
+        def _rep_ass(m):
+            s = int(m.group(1)) * 3600 + int(m.group(2)) * 60 + int(m.group(3)) + int(m.group(4)) / 100.0
+            return _fmt_ass(s * ratio)
+        return _ASS_TS_RE.sub(_rep_ass, sub_text)
+
+    def _rep_srt(m):
+        s = int(m.group(1)) * 3600 + int(m.group(2)) * 60 + int(m.group(3)) + int(m.group(5)) / 1000.0
+        return _fmt_srt_vtt(s * ratio, m.group(4))
+    return _SRT_VTT_TS_RE.sub(_rep_srt, sub_text)
+
+
+def _get_player_fps_and_duration():
+    """Return (video_fps, total_seconds) for the active Kodi player, or (0.0, 0.0)."""
+    try:
+        player = xbmc.Player()
+        if not player.isPlaying():
+            return 0.0, 0.0
+        total_s = float(player.getTotalTime() or 0.0)
+        fps_str = str(xbmc.getInfoLabel('Player.Process(VideoFps)') or '').strip()
+        fps = float(fps_str) if fps_str else 0.0
+        return fps, total_s
+    except Exception:
+        return 0.0, 0.0
 
 
 def download_and_prepare_subtitle(
@@ -136,6 +202,20 @@ def download_and_prepare_subtitle(
         ext = detected_ext or '.srt'
         if not ext.startswith('.'):
             ext = f'.{ext}'
+
+        # Prevent PAL 25fps speed-up drift when playing 25fps streams with 23.976fps external subs
+        video_fps, total_time = _get_player_fps_and_duration()
+        src_label_low = f"{inner_filename or ''} {result.name or ''}".lower()
+        if 24.8 <= video_fps <= 25.2 and not any(tag in src_label_low for tag in ('25fps', '25.000', 'pal')):
+            max_sub_s = _max_subtitle_timestamp_seconds(normalized_text, ext)
+            if max_sub_s > 60.0 and (total_time <= 0.0 or max_sub_s > total_time * 0.99):
+                ratio = 23.976 / video_fps
+                normalized_text = rescale_subtitle_timestamps(normalized_text, ext, ratio)
+                control.log(
+                    f"Native Subtitles: Rescaled 23.976fps -> {video_fps:.3f}fps "
+                    f"(ratio={ratio:.5f}, max_sub={max_sub_s:.1f}s, video={total_time:.1f}s)",
+                    'info',
+                )
 
         # Construct sanitized filename with unique per-download sub_tag nonce
         # to avoid Kodi 22 special://temp/ g_directoryCache stale-file collisions

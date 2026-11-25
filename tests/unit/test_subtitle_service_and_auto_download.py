@@ -787,6 +787,27 @@ class TestSubtitleServiceAndAutoDownload(unittest.TestCase):
         )
         self.assertEqual(picked, 'Kaiju.No.8.S02E01.English.srt')
 
+    def test_25fps_subtitle_rescaling_prevents_pal_drift(self):
+        from resources.lib.subtitles.download import (
+            rescale_subtitle_timestamps,
+            _max_subtitle_timestamp_seconds,
+        )
+
+        srt = (
+            "1\n00:12:00,000 --> 00:12:05,000\nLine at 12m\n\n"
+            "2\n00:23:40,000 --> 00:23:45,000\nEnd line\n"
+        )
+        max_s = _max_subtitle_timestamp_seconds(srt, '.srt')
+        self.assertAlmostEqual(max_s, 1425.0, places=2)
+        ratio = 23.976 / 25.0
+        rescaled = rescale_subtitle_timestamps(srt, '.srt', ratio)
+        # 720s * 0.95904 = 690.509s -> 00:11:30,509
+        self.assertIn("00:11:30,509 --> 00:11:35,304", rescaled)
+        # ASS rescaling
+        ass = "Dialogue: 0,0:23:40.00,0:23:45.00,Default,,0,0,0,,Test"
+        rescaled_ass = rescale_subtitle_timestamps(ass, '.ass', ratio)
+        self.assertIn("0:22:41.84,0:22:46.63", rescaled_ass)
+
 
 if __name__ == '__main__':
     unittest.main()
