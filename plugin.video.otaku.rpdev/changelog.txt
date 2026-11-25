@@ -1,3 +1,7 @@
+Changelog v6.4.7 (2026-11-25):
+- Source Select/Rescrape Parity, Widget Refresh & Subtitle Hardening:
+  - Subtitle & Log Hardening: Skip mismatched/title-mismatched auto-download candidates, abort auto-download on playback stop, skip sparse Signs-only sidecars in Full Dialogue mode (C-11), downgrade vtt_missing_cues noise to info, and add Kitsu retry and buffer-stall breadcrumbs.
+
 Changelog v6.4.6 (2026-11-24):
 - Tighten 25fps Subtitle Rescale Duration Guard:
   - Require max subtitle cue timestamp to exceed 1.03x video duration before applying 23.976->25fps rescaling, preventing false-positive rescaling on 25fps-tagged containers with normal 23.976fps duration.
