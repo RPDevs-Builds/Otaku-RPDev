@@ -1,6 +1,7 @@
 import base64
 import json
 import re
+import time
 import urllib.parse
 
 from bs4 import BeautifulSoup
@@ -8,6 +9,9 @@ from resources.lib.endpoints import malsync
 from resources.lib.ui import client, control, database, domains, utils, source_utils
 from resources.lib.ui.BrowserBase import BrowserBase
 from resources.lib.ui.megaplay_extractor import extract_megaplay_sources
+
+_ANIME_ID_CACHE = {}
+_ANIME_ID_TTL_SECS = 24 * 3600
 
 
 class Sources(BrowserBase):
@@ -119,7 +123,16 @@ class Sources(BrowserBase):
     def _scrape_mirror(self, mirror, title, kodi_meta, mal_id, ep_num, langs, enabled, failed_embed_urls=None):
         self._last_mirror_resolved = False
         headers = {'Referer': mirror, 'User-Agent': client.randomagent()}
-        anime_id = self._resolve_anime_id(mirror, title, kodi_meta, mal_id, headers)
+        cache_key = (mirror, str(mal_id)) if mal_id is not None else None
+        anime_id = None
+        if cache_key is not None:
+            cached = _ANIME_ID_CACHE.get(cache_key)
+            if cached and cached[0] > time.monotonic():
+                anime_id = cached[1]
+        if not anime_id:
+            anime_id = self._resolve_anime_id(mirror, title, kodi_meta, mal_id, headers)
+            if anime_id and cache_key is not None:
+                _ANIME_ID_CACHE[cache_key] = (time.monotonic() + _ANIME_ID_TTL_SECS, anime_id)
         if not anime_id:
             # _resolve_anime_id raises ConnectionError on unreachable mirrors;
             # returning None means the mirror answered cleanly with no catalog match.
@@ -312,17 +325,6 @@ class Sources(BrowserBase):
         return max(0, score)
 
     def _resolve_anime_id(self, mirror, title, kodi_meta, mal_id, headers):
-        self._resolve_ctx = (title, kodi_meta, headers)
-        return database.get(
-            self._resolve_anime_id_uncached,
-            24,
-            mirror,
-            mal_id,
-            key=f'hianime_aid:{mirror}:{mal_id}',
-        )
-
-    def _resolve_anime_id_uncached(self, mirror, mal_id):
-        title, kodi_meta, headers = getattr(self, '_resolve_ctx', ('', {}, {}))
         keywords = self._search_keywords(title, mal_id, kodi_meta)
         candidates = {}
         had_response = False

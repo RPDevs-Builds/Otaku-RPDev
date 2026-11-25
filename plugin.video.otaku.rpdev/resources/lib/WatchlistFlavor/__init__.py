@@ -212,7 +212,7 @@ class WatchlistFlavor:
             ep = int(row.get('episode') or 0)
             status = row.get('status') or ''
             score = int(row.get('score') or 0)
-            if svc not in enabled_services:
+            if enabled_services and svc not in enabled_services:
                 database.remove_scrobble_retry(svc, action, mid)
                 control.log(f"{svc} retry dropped (service disabled) for mal_id={mid} action={action} ep={ep}", 'info')
                 continue

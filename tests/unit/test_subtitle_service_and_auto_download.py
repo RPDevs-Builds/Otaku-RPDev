@@ -951,16 +951,16 @@ class TestSubtitleServiceAndAutoDownload(unittest.TestCase):
         mock_clr_mirrors.assert_called_once()
 
     def test_hianime_resolve_anime_id_caches_by_mirror_and_mal_id(self):
-        from resources.lib.pages.hianime import Sources as HiAnimeSources
+        from resources.lib.pages import hianime as hianime_mod
 
-        ha = HiAnimeSources()
-        with patch.object(ha, '_resolve_anime_id_uncached', return_value='1936') as mock_uncached:
-            aid1 = ha._resolve_anime_id('https://hianime.at/', 'Delicious in Dungeon', {}, '52701', {'User-Agent': 'ua1'})
-            aid2 = ha._resolve_anime_id('https://hianime.at/', 'Delicious in Dungeon', {}, '52701', {'User-Agent': 'ua2'})
+        hianime_mod._ANIME_ID_CACHE.clear()
+        ha = hianime_mod.Sources()
+        with patch.object(ha, '_resolve_anime_id', return_value='1936') as mock_res, \
+             patch.object(ha, '_resolve_episode_id', return_value=None):
+            ha._scrape_mirror('https://hianime.at/', 'Delicious in Dungeon', {}, '52701', 18, ['dub'], ['ryu'])
+            ha._scrape_mirror('https://hianime.at/', 'Delicious in Dungeon', {}, '52701', 19, ['dub'], ['ryu'])
 
-        self.assertEqual(aid1, '1936')
-        self.assertEqual(aid2, '1936')
-        mock_uncached.assert_called_once_with('https://hianime.at/', '52701')
+        mock_res.assert_called_once()
 
 
 if __name__ == '__main__':
