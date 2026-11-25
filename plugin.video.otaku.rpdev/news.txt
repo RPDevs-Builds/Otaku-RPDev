@@ -1,7 +1,16 @@
 ========================
+[B]OTAKU RPDEV v6.4.8[/B]
+Scrobble Retry Hygiene & HiAnime Binge Cache
+========================
+
+v6.4.8 Highlights:
+  * HiAnime Binge Cache: Cache resolved (mirror, mal_id) -> anime_id for 24h
+    in _scrape_mirror to skip ~18s search round-trips on Ep 2+.
+
+--------------------------------
 [B]OTAKU RPDEV v6.4.7[/B]
 Source Select/Rescrape Parity, Widget Refresh & Subtitle Hardening
-========================
+--------------------------------
 
 v6.4.7 Highlights:
   * Subtitle & Log Hardening: Skip mismatched/title-mismatched auto-download
