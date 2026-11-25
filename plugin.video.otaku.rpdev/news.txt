@@ -1,7 +1,20 @@
 ========================
+[B]OTAKU RPDEV v6.4.5[/B]
+Automatic 25fps Subtitle Rescaling & Resume Seek Resync
+========================
+
+v6.4.5 Highlights:
+  * Automatically rescale 23.976fps external subtitles (.srt, .vtt,
+    .ass/.ssa) when playing 25fps streams (unless tagged 25fps/PAL) to
+    prevent PAL speed-up drift
+  * nudge seekTime on mid-playback auto-attached subtitles so
+    inputstream.adaptive and CDVDSubtitlesLibass stay in sync after
+    resuming.
+
+--------------------------------
 [B]OTAKU RPDEV v6.4.4[/B]
 Subtitle Title Relevance & Watchlist Drift Guard
-========================
+--------------------------------
 
 v6.4.4 Highlights:
   * Enforce title relevance scoring in native subtitle search (score_result)

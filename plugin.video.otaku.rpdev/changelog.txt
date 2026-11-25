@@ -1,3 +1,8 @@
+Changelog v6.4.5 (2026-11-24):
+- Automatic 25fps Subtitle Rescaling & Resume Seek Resync:
+  - Automatically rescale 23.976fps external subtitles (.srt, .vtt, .ass/.ssa) when playing 25fps streams (unless tagged 25fps/PAL) to prevent PAL speed-up drift
+  - nudge seekTime on mid-playback auto-attached subtitles so inputstream.adaptive and CDVDSubtitlesLibass stay in sync after resuming.
+
 Changelog v6.4.4 (2026-11-24):
 - Subtitle Title Relevance & Watchlist Drift Guard:
   - Enforce title relevance scoring in native subtitle search (score_result) and SubSource show lookup to prevent unrelated season packs (e.g. The Four Seasons S02) from outranking target anime
