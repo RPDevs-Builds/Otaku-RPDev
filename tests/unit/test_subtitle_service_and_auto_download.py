@@ -808,6 +808,11 @@ class TestSubtitleServiceAndAutoDownload(unittest.TestCase):
         rescaled_ass = rescale_subtitle_timestamps(ass, '.ass', ratio)
         self.assertIn("0:22:41.84,0:22:46.63", rescaled_ass)
 
+        # Threshold check: 1425s sub on 1420s 25fps-tagged container must NOT rescale (1.0035 < 1.03)
+        self.assertFalse(1425.0 > 1420.0 * 1.03)
+        # 1425s sub on genuinely PAL-sped-up 1365s video MUST rescale (1.044 > 1.03)
+        self.assertTrue(1425.0 > 1365.0 * 1.03)
+
 
 if __name__ == '__main__':
     unittest.main()

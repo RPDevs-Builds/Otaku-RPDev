@@ -208,7 +208,7 @@ def download_and_prepare_subtitle(
         src_label_low = f"{inner_filename or ''} {result.name or ''}".lower()
         if 24.8 <= video_fps <= 25.2 and not any(tag in src_label_low for tag in ('25fps', '25.000', 'pal')):
             max_sub_s = _max_subtitle_timestamp_seconds(normalized_text, ext)
-            if max_sub_s > 60.0 and (total_time <= 0.0 or max_sub_s > total_time * 0.99):
+            if max_sub_s > 60.0 and total_time > 300.0 and max_sub_s > total_time * 1.03:
                 ratio = 23.976 / video_fps
                 normalized_text = rescale_subtitle_timestamps(normalized_text, ext, ratio)
                 control.log(
