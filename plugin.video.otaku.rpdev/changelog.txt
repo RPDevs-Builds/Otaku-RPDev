@@ -1,3 +1,7 @@
+Changelog v6.4.6 (2026-11-24):
+- Tighten 25fps Subtitle Rescale Duration Guard:
+  - Require max subtitle cue timestamp to exceed 1.03x video duration before applying 23.976->25fps rescaling, preventing false-positive rescaling on 25fps-tagged containers with normal 23.976fps duration.
+
 Changelog v6.4.5 (2026-11-24):
 - Automatic 25fps Subtitle Rescaling & Resume Seek Resync:
   - Automatically rescale 23.976fps external subtitles (.srt, .vtt, .ass/.ssa) when playing 25fps streams (unless tagged 25fps/PAL) to prevent PAL speed-up drift
