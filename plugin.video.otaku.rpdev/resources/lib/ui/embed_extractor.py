@@ -650,10 +650,12 @@ def get_sub(sub_url, sub_lang, headers=None, sub_index=0, display_name=None, sou
             ext = detected_ext
             break
         last_reason = reason
-        control.log(f"get_sub: rejected subtitle from {cand_url} ({reason})", level='warning')
+        log_lvl = 'info' if reason == 'vtt_missing_cues' else 'warning'
+        control.log(f"get_sub: rejected subtitle from {cand_url} ({reason})", level=log_lvl)
 
     if normalized_content is None or ext is None:
-        control.log(f"get_sub: failed to fetch valid subtitle for {sub_url} ({last_reason})", level='warning')
+        fail_lvl = 'info' if last_reason == 'vtt_missing_cues' else 'warning'
+        control.log(f"get_sub: failed to fetch valid subtitle for {sub_url} ({last_reason})", level=fail_lvl)
         return None
 
     if sub_tag:

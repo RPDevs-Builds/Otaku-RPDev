@@ -160,6 +160,8 @@ def get_sources(mal_id, episode, media_type, rescrape=False, source_select=False
         database.clear_episode_sources(mal_id, cache_ep_key)
         if str(cache_ep_key) != str(episode):
             database.clear_episode_sources(mal_id, episode)
+        if media_type != 'movie':
+            database.clear_season_pack(mal_id, season)
 
     part = None
     mal_mapping = database.get_mappings(mal_id, 'mal_id')

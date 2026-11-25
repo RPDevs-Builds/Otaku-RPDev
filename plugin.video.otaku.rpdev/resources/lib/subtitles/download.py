@@ -246,7 +246,7 @@ def download_and_prepare_subtitle(
         return dest_path
 
     except ArchiveEpisodeMismatchError as e:
-        control.log(f"Native Subtitles: Skipped {result.name} - {e}", 'warning')
+        control.log(f"Native Subtitles: Skipped {result.name} - {e}", 'debug')
         return None
     except Exception as e:
         control.log(f"Native Subtitles: Download/preparation error for {result.name}: {e}", 'error')

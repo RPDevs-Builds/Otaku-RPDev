@@ -813,6 +813,138 @@ class TestSubtitleServiceAndAutoDownload(unittest.TestCase):
         # 1425s sub on genuinely PAL-sped-up 1365s video MUST rescale (1.044 > 1.03)
         self.assertTrue(1425.0 > 1365.0 * 1.03)
 
+    def test_auto_download_skips_mismatch_and_aborts_when_playback_stops(self):
+        from resources.lib import subtitles
+        from resources.lib.subtitles.models import SubtitleResult, VideoMeta
+
+        meta = VideoMeta(title='Kaiju No. 8', tvshow='Kaiju No. 8', season=2, episode=5, preferred_lang='eng', is_tvshow=True)
+        settings = {'subtitles.enabled': True, 'subtitles.auto_search': True, 'subtitles.auto_download': True}
+
+        mismatches = [
+            SubtitleResult(
+                service_name='opensubtitles',
+                name=f'Kaiju.No.8.S02E{ep:02d}.DSNP.WEB.srt',
+                lang='English',
+                lang_code='en',
+                display_name='English',
+                download_url=f'https://example.invalid/{ep}.zip',
+                match_reason='Mismatch',
+            )
+            for ep in (1, 2, 3, 4, 6, 7)
+        ]
+        mismatches.append(SubtitleResult(
+            service_name='subsource',
+            name='Wrong.Show.S02E05.srt',
+            lang='English',
+            lang_code='en',
+            display_name='English',
+            download_url='https://example.invalid/wrong.srt',
+            match_reason='Title Mismatch',
+        ))
+
+        dl_calls = []
+        with patch('resources.lib.subtitles.search_subtitles', return_value=mismatches), \
+             patch('resources.lib.subtitles.download_subtitle', side_effect=lambda c, m, s: dl_calls.append(c.name) or '/tmp/x.srt'), \
+             patch('xbmc.Player') as mock_player_cls:
+            mock_player_cls.return_value.isPlaying.return_value = True
+            ok = subtitles.auto_download_subtitles(meta=meta, settings=settings)
+
+        self.assertFalse(ok)
+        self.assertEqual(dl_calls, [])
+
+        # O-2: When playback stops mid-loop, auto_download aborts before downloading
+        valid_candidates = [
+            SubtitleResult(
+                service_name='opensubtitles',
+                name=f'Kaiju.No.8.S02E05.v{i}.srt',
+                lang='English',
+                lang_code='en',
+                display_name='English',
+                download_url=f'https://example.invalid/v{i}.srt',
+                match_reason='Exact Ep',
+            )
+            for i in range(1, 10)
+        ]
+        play_states = [True, False]
+        dl_calls_2 = []
+        with patch('resources.lib.subtitles.search_subtitles', return_value=valid_candidates), \
+             patch('resources.lib.subtitles.download_subtitle', side_effect=lambda c, m, s: dl_calls_2.append(c.name) or None), \
+             patch('xbmc.Player') as mock_player_cls:
+            mock_player = mock_player_cls.return_value
+            mock_player.isPlaying.side_effect = lambda: play_states.pop(0) if play_states else False
+            ok2 = subtitles.auto_download_subtitles(meta=meta, settings=settings)
+
+        self.assertFalse(ok2)
+        self.assertEqual(len(dl_calls_2), 1)
+
+    def test_kitsu_retry_logging_and_player_stop_refreshes_widgets(self):
+        from resources.lib.WatchlistFlavor import WatchlistFlavor
+        from resources.lib.ui import player as player_mod
+
+        rows = [
+            {'service': 'kitsu', 'action': 'update_episode', 'mal_id': '52701', 'episode': 17, 'attempts': 1},
+            {'service': 'kitsu', 'action': 'update_episode', 'mal_id': '52588', 'episode': 2, 'attempts': 5},
+        ]
+        log_msgs = []
+        with patch('resources.lib.ui.database.get_due_scrobble_retries', return_value=rows), \
+             patch('resources.lib.ui.database.remove_scrobble_retry'), \
+             patch.object(WatchlistFlavor, 'watchlist_update_episode_for_flavor', side_effect=[True, False]), \
+             patch('resources.lib.ui.control.log', side_effect=lambda m, *a, **kw: log_msgs.append(str(m))):
+            succeeded = WatchlistFlavor.process_scrobble_retry_queue()
+
+        self.assertEqual(succeeded, 1)
+        self.assertTrue(any('kitsu retry succeeded' in m for m in log_msgs))
+        self.assertTrue(any('kitsu retry exhausted' in m for m in log_msgs))
+
+        # O-9: onPlayBackStopped clears settings cache and triggers Container.Refresh
+        wp = player_mod.WatchlistPlayer()
+        wp._failover_triggered = False
+        wp.total_time = 0
+        with patch.object(wp, 'isPlaying', return_value=False), \
+             patch('resources.lib.ui.control.clearSettingsCache') as mock_clear, \
+             patch('resources.lib.ui.control.execute') as mock_exec:
+            wp.onPlayBackStopped()
+
+        mock_clear.assert_called_once()
+        mock_exec.assert_any_call('Container.Refresh')
+
+    def test_rescrape_clears_mirror_cooldowns_and_source_select_shares_timeout(self):
+        from resources.lib import pages, MetaBrowser
+
+        # O-8: MetaBrowser.get_sources(rescrape=True) clears both episode_sources and season_pack
+        with patch('resources.lib.ui.database.get_show', return_value={'kodi_meta': b'{"name": "Delicious in Dungeon", "episodes": 24}'}), \
+             patch('resources.lib.ui.database.loads', return_value={'name': 'Delicious in Dungeon', 'episodes': 24}), \
+             patch('resources.lib.ui.database.get_episode', return_value={'season': 1}), \
+             patch('resources.lib.ui.utils.get_source_context', return_value=(1, {})), \
+             patch('resources.lib.ui.database.get_series_override', return_value=None), \
+             patch('resources.lib.ui.database.get_mappings', return_value=None), \
+             patch('resources.lib.ui.database.clear_episode_sources') as mock_clr_ep, \
+             patch('resources.lib.ui.database.clear_season_pack') as mock_clr_pack, \
+             patch('resources.lib.pages.getSourcesHelper', return_value=[]):
+            MetaBrowser.get_sources('52701', '18', 'show', rescrape=True, source_select=False)
+
+        mock_clr_ep.assert_called()
+        mock_clr_pack.assert_called_once_with('52701', 1)
+
+        # O-8: Sources.getSources clears mirror failures on rescrape and does not early-exit on source_select
+        src_win = pages.Sources('get_sources.xml', pages.control.ADDON_PATH, actionArgs={
+            'query': 'Delicious in Dungeon', 'mal_id': '52701', 'episode': '18',
+            'status': 'FINISHED', 'media_type': 'show', 'duration': 24,
+            'rescrape': True, 'source_select': True,
+        })
+        src_win.silent = True
+        with patch.object(src_win, '_start_worker', side_effect=lambda fn: None), \
+             patch.object(src_win, 'close'), \
+             patch('resources.lib.ui.domains.clear_mirror_failures') as mock_clr_mirrors, \
+             patch('resources.lib.ui.control.getBool', return_value=False):
+            src_win.remainingProviders = []
+            src_win.getSources({
+                'query': 'Delicious in Dungeon', 'mal_id': '52701', 'episode': '18',
+                'status': 'FINISHED', 'media_type': 'show', 'duration': 24,
+                'rescrape': True, 'source_select': True,
+            })
+        mock_clr_mirrors.assert_called_once()
+
 
 if __name__ == '__main__':
     unittest.main()

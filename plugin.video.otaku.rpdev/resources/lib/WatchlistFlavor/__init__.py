@@ -226,8 +226,10 @@ class WatchlistFlavor:
             if ok:
                 database.remove_scrobble_retry(svc, action, mid)
                 succeeded += 1
+                control.log(f"{svc} retry succeeded for mal_id={mid} action={action} ep={ep}", 'info')
             elif int(row.get('attempts') or 0) >= 5:
                 database.remove_scrobble_retry(svc, action, mid)
+                control.log(f"{svc} retry exhausted after {row.get('attempts')} attempts for mal_id={mid} action={action} ep={ep}", 'warning')
             else:
                 database.enqueue_scrobble_retry(
                     svc,

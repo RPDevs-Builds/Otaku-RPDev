@@ -166,7 +166,10 @@ def _try_preresolved_handoff(mal_id, episode, params, resume, media_type='episod
                     sub_tag=f"{mal_id}_{episode}_{int(time.time() * 1000)}",
                 )
                 if entry:
-                    sub_entries.append(entry)
+                    if entry.get('is_signs_only') and control.getInt('subtitles.keywords') == 1 and not control.getBool('subtitles.prefer_forced'):
+                        control.log(f"Playback: Skipping sparse Signs-only sidecar '{entry.get('path')}' in Full Dialogue mode", 'info')
+                    else:
+                        sub_entries.append(entry)
         if sub_entries:
             item.setSubtitles([e['path'] for e in sub_entries])
 

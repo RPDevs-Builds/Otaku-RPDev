@@ -623,6 +623,18 @@ class WatchlistPlayer(player):
         except Exception:
             pass
         control.clean_memory()
+        self._refresh_widgets_on_stop()
+
+    def _refresh_widgets_on_stop(self):
+        if control.abort_requested():
+            return
+        try:
+            if self.isPlaying():
+                return
+        except Exception:
+            pass
+        control.clearSettingsCache()
+        control.execute('Container.Refresh')
 
     def onPlayBackEnded(self):
         if (
@@ -671,6 +683,8 @@ class WatchlistPlayer(player):
             }
             control.jsonrpc(query)
         control.clean_memory()
+        if not has_next_item:
+            self._refresh_widgets_on_stop()
 
     def onPlayBackError(self):
         if (
@@ -702,6 +716,7 @@ class WatchlistPlayer(player):
         except Exception:
             pass
         control.clean_memory()
+        self._refresh_widgets_on_stop()
 
     # ── Playlist Building ─────────────────────────────────────────────────
 
@@ -1014,6 +1029,7 @@ class WatchlistPlayer(player):
             if not paused and (self.total_time or 0) > 120 and abs(cur_pos - last_pos) < 1:
                 stagnant_cycles += 1
                 if stagnant_cycles >= 4:
+                    control.log(f"Player: Mid-stream buffer stall detected at {cur_pos}s (stagnant_cycles={stagnant_cycles}); attempting failover", 'info')
                     if self._attempt_midstream_failover('buffer_stall'):
                         break
                     stagnant_cycles = 0

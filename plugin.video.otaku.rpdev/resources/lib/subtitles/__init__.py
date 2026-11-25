@@ -187,7 +187,23 @@ def auto_download_subtitles(meta: Optional[VideoMeta] = None, settings: Optional
 
     # Attempt download on highest ranking candidates matching preferred language
     # (results are already sorted with auto_identified=True first)
+    MAX_AUTO_ATTEMPTS = 6
+    attempts = 0
     for candidate in results:
+        if getattr(candidate, 'match_reason', '') in ('Mismatch', 'Title Mismatch'):
+            control.log(
+                f"Native Subtitles: Skipping {candidate.name} ({candidate.match_reason})",
+                'debug',
+            )
+            continue
+        if attempts >= MAX_AUTO_ATTEMPTS:
+            break
+
+        player = xbmc.Player()
+        if not player.isPlaying():
+            control.log("Native Subtitles: Playback stopped; aborting auto-download", 'info')
+            return False
+
         cand_code = candidate.lang_code or languages.to_iso639_1(candidate.lang)
         if not languages.is_language_match(cand_code, meta.preferred_lang):
             control.log(
@@ -197,9 +213,9 @@ def auto_download_subtitles(meta: Optional[VideoMeta] = None, settings: Optional
             )
             continue
 
+        attempts += 1
         local_path = download_subtitle(candidate, meta, settings)
         if local_path:
-            player = xbmc.Player()
             if player.isPlaying():
                 player.setSubtitles(local_path)
                 player.showSubtitles(True)

@@ -407,7 +407,10 @@ class Resolver(BaseWindow):
                         sub_tag=f"{getattr(self, 'mal_id', None) or '0'}_{getattr(self, 'episode', None) or '0'}_{int(time.time() * 1000)}",
                     )
                     if entry:
-                        subtitle_entries.append(entry)
+                        if entry.get('is_signs_only') and control.getInt('subtitles.keywords') == 1 and not control.getBool('subtitles.prefer_forced'):
+                            control.log(f"Resolver: Skipping sparse Signs-only sidecar '{entry.get('path')}' in Full Dialogue mode", 'info')
+                        else:
+                            subtitle_entries.append(entry)
             if subtitle_entries:
                 item.setSubtitles([entry['path'] for entry in subtitle_entries])
 

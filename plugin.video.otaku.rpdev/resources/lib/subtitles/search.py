@@ -332,6 +332,11 @@ def search_all_services(meta: VideoMeta, settings: Dict[str, Any]) -> List[Subti
     for sub in all_results:
         score_result(sub, meta, settings)
 
+    # Drop explicit episode-mismatched results when at least one non-mismatched result exists
+    non_mismatched = [s for s in all_results if getattr(s, 'match_reason', '') not in ('Mismatch', 'Title Mismatch')]
+    if non_mismatched:
+        all_results = non_mismatched
+
     # Sort descending: auto-identified matches first, then highest score
     all_results.sort(key=lambda x: (-int(x.auto_identified), -x.score))
 

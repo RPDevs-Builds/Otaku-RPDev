@@ -152,6 +152,7 @@ class Sources(GetSources):
         media_type = args['media_type']
         duration = args['duration']
         rescrape = args['rescrape']
+        source_select = bool(args.get('source_select'))
         season = args.get('season')
         part = args.get('part')
         hints = args.get('hints')
@@ -174,6 +175,7 @@ class Sources(GetSources):
 
         if rescrape:
             circuit_breaker.reset()
+            domains.clear_mirror_failures()
 
         for provider in self.torrentProviders:
             if debrid_on and control.getBool(f'provider.{provider}'):
@@ -236,7 +238,7 @@ class Sources(GetSources):
                     if pid in self.remainingProviders:
                         self.remainingProviders.remove(pid)
 
-        timeout = 30 if rescrape else min(30, max(5, control.getInt('general.timeout') or 20))
+        timeout = 30 if (rescrape or source_select) else min(30, max(5, control.getInt('general.timeout') or 20))
         start_time = time.perf_counter()
         runtime = 0
 
@@ -259,13 +261,19 @@ class Sources(GetSources):
                     has_local = len(self.local_files) > 0
                     has_torrent = len(self.torrentSources) > 0
 
+                early_terminate = (
+                    not (rescrape or source_select)
+                    and (
+                        (control.getBool('general.terminate.oncloud') and has_cloud)
+                        or (control.getBool('general.terminate.onlocal') and has_local)
+                        or (control.getBool('general.terminate.ontorrent') and has_torrent)
+                    )
+                )
                 if (
                     self.canceled
                     or control.abort_requested()
                     or no_remaining
-                    or (control.getBool('general.terminate.oncloud') and has_cloud)
-                    or (control.getBool('general.terminate.onlocal') and has_local)
-                    or (control.getBool('general.terminate.ontorrent') and has_torrent)
+                    or early_terminate
                 ):
                     break
 
