@@ -312,6 +312,17 @@ class Sources(BrowserBase):
         return max(0, score)
 
     def _resolve_anime_id(self, mirror, title, kodi_meta, mal_id, headers):
+        self._resolve_ctx = (title, kodi_meta, headers)
+        return database.get(
+            self._resolve_anime_id_uncached,
+            24,
+            mirror,
+            mal_id,
+            key=f'hianime_aid:{mirror}:{mal_id}',
+        )
+
+    def _resolve_anime_id_uncached(self, mirror, mal_id):
+        title, kodi_meta, headers = getattr(self, '_resolve_ctx', ('', {}, {}))
         keywords = self._search_keywords(title, mal_id, kodi_meta)
         candidates = {}
         had_response = False

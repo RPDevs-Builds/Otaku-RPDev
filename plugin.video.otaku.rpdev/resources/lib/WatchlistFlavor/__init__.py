@@ -201,6 +201,7 @@ class WatchlistFlavor:
         """Drain due items from scrobble_retry_queue and return count of succeeded retries."""
         from resources.lib.ui import database
         due = database.get_due_scrobble_retries(limit=limit)
+        enabled_services = set(control.enabled_watchlists() or [])
         succeeded = 0
         for row in due:
             if control.abort_requested():
@@ -211,6 +212,10 @@ class WatchlistFlavor:
             ep = int(row.get('episode') or 0)
             status = row.get('status') or ''
             score = int(row.get('score') or 0)
+            if svc not in enabled_services:
+                database.remove_scrobble_retry(svc, action, mid)
+                control.log(f"{svc} retry dropped (service disabled) for mal_id={mid} action={action} ep={ep}", 'info')
+                continue
             ok = False
             exc_err = None
             try:
@@ -229,7 +234,8 @@ class WatchlistFlavor:
                 control.log(f"{svc} retry succeeded for mal_id={mid} action={action} ep={ep}", 'info')
             elif int(row.get('attempts') or 0) >= 5:
                 database.remove_scrobble_retry(svc, action, mid)
-                control.log(f"{svc} retry exhausted after {row.get('attempts')} attempts for mal_id={mid} action={action} ep={ep}", 'warning')
+                err_detail = exc_err or row.get('last_error') or 'unknown'
+                control.log(f"{svc} retry exhausted after {row.get('attempts')} attempts for mal_id={mid} action={action} ep={ep} (last_error={err_detail})", 'warning')
             else:
                 database.enqueue_scrobble_retry(
                     svc,

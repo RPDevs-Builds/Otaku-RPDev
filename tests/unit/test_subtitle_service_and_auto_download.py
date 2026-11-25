@@ -882,19 +882,24 @@ class TestSubtitleServiceAndAutoDownload(unittest.TestCase):
         from resources.lib.ui import player as player_mod
 
         rows = [
-            {'service': 'kitsu', 'action': 'update_episode', 'mal_id': '52701', 'episode': 17, 'attempts': 1},
-            {'service': 'kitsu', 'action': 'update_episode', 'mal_id': '52588', 'episode': 2, 'attempts': 5},
+            {'service': 'kitsu', 'action': 'update_episode', 'mal_id': '52701', 'episode': 17, 'attempts': 1, 'last_error': ''},
+            {'service': 'kitsu', 'action': 'update_episode', 'mal_id': '52588', 'episode': 2, 'attempts': 5, 'last_error': 'update_returned_false'},
+            {'service': 'simkl', 'action': 'update_episode', 'mal_id': '999', 'episode': 1, 'attempts': 1, 'last_error': ''},
         ]
         log_msgs = []
-        with patch('resources.lib.ui.database.get_due_scrobble_retries', return_value=rows), \
-             patch('resources.lib.ui.database.remove_scrobble_retry'), \
-             patch.object(WatchlistFlavor, 'watchlist_update_episode_for_flavor', side_effect=[True, False]), \
+        with patch('resources.lib.ui.control.enabled_watchlists', return_value=['kitsu']), \
+             patch('resources.lib.ui.database.get_due_scrobble_retries', return_value=rows), \
+             patch('resources.lib.ui.database.remove_scrobble_retry') as mock_rm, \
+             patch.object(WatchlistFlavor, 'watchlist_update_episode_for_flavor', side_effect=[True, False]) as mock_upd, \
              patch('resources.lib.ui.control.log', side_effect=lambda m, *a, **kw: log_msgs.append(str(m))):
             succeeded = WatchlistFlavor.process_scrobble_retry_queue()
 
         self.assertEqual(succeeded, 1)
+        self.assertEqual(mock_upd.call_count, 2)
+        self.assertEqual(mock_rm.call_count, 3)
         self.assertTrue(any('kitsu retry succeeded' in m for m in log_msgs))
-        self.assertTrue(any('kitsu retry exhausted' in m for m in log_msgs))
+        self.assertTrue(any('kitsu retry exhausted' in m and 'last_error=update_returned_false' in m for m in log_msgs))
+        self.assertTrue(any('simkl retry dropped (service disabled)' in m for m in log_msgs))
 
         # O-9: onPlayBackStopped clears settings cache and triggers Container.Refresh
         wp = player_mod.WatchlistPlayer()
@@ -944,6 +949,18 @@ class TestSubtitleServiceAndAutoDownload(unittest.TestCase):
                 'rescrape': True, 'source_select': True,
             })
         mock_clr_mirrors.assert_called_once()
+
+    def test_hianime_resolve_anime_id_caches_by_mirror_and_mal_id(self):
+        from resources.lib.pages.hianime import Sources as HiAnimeSources
+
+        ha = HiAnimeSources()
+        with patch.object(ha, '_resolve_anime_id_uncached', return_value='1936') as mock_uncached:
+            aid1 = ha._resolve_anime_id('https://hianime.at/', 'Delicious in Dungeon', {}, '52701', {'User-Agent': 'ua1'})
+            aid2 = ha._resolve_anime_id('https://hianime.at/', 'Delicious in Dungeon', {}, '52701', {'User-Agent': 'ua2'})
+
+        self.assertEqual(aid1, '1936')
+        self.assertEqual(aid2, '1936')
+        mock_uncached.assert_called_once_with('https://hianime.at/', '52701')
 
 
 if __name__ == '__main__':
