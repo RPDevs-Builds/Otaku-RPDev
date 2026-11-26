@@ -404,12 +404,10 @@ class SeriesProfileDialog(BaseWindow):
             database.clear_episode_sources(self.mal_id)
             database.clear_season_pack(self.mal_id)
         self._pending_reset = False
-        self._win_closed = True
         self.close()
 
     def cancel_and_close(self):
         self._pending_reset = False
-        self._win_closed = True
         self.close()
 
     def onClick(self, control_id):

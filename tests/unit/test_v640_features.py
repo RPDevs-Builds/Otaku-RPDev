@@ -193,8 +193,11 @@ class TestV640Features(unittest.TestCase):
             self.assertEqual(dlg.values['intro_offset_s'], -1)
             self.assertIn('OP Example', dlg.getProperty('skip_preview'))
 
-            # Save profile via Save button (3005)
-            dlg.onClick(3005)
+            # Save profile via Save button (3005) — must actually invoke WindowXMLDialog.close()
+            import xbmcgui
+            with patch.object(xbmcgui.WindowXMLDialog, 'close', autospec=True) as mock_super_close:
+                dlg.onClick(3005)
+            mock_super_close.assert_called_once_with(dlg)
             self.assertTrue(dlg._win_closed)
             saved = database.get_series_override(52991)
             self.assertIsNotNone(saved)
@@ -202,11 +205,22 @@ class TestV640Features(unittest.TestCase):
             self.assertEqual(saved['intro_offset_s'], -1)
 
             # Reset via button 3004 stages defaults in UI; Cancel keeps existing DB row, Save deletes DB row
-            dlg.reset_defaults()
-            self.assertEqual(dlg.values['episode_offset'], 0)
+            dlg_cancel = SeriesProfileDialog('series_profile.xml', control.ADDON_PATH, mal_id=52991)
+            dlg_cancel.onInit()
+            dlg_cancel.reset_defaults()
+            self.assertEqual(dlg_cancel.values['episode_offset'], 0)
             self.assertIsNotNone(database.get_series_override(52991))
-            dlg.onClick(3006)  # Cancel leaves DB override intact
+            with patch.object(xbmcgui.WindowXMLDialog, 'close', autospec=True) as mock_cancel_close:
+                dlg_cancel.onClick(3006)  # Cancel leaves DB override intact
+            mock_cancel_close.assert_called_once_with(dlg_cancel)
             self.assertIsNotNone(database.get_series_override(52991))
+
+            # Back action (92) must also invoke WindowXMLDialog.close()
+            dlg_back = SeriesProfileDialog('series_profile.xml', control.ADDON_PATH, mal_id=52991)
+            dlg_back.onInit()
+            with patch.object(xbmcgui.WindowXMLDialog, 'close', autospec=True) as mock_back_close:
+                dlg_back.onAction(92)
+            mock_back_close.assert_called_once_with(dlg_back)
 
             dlg_save_reset = SeriesProfileDialog('series_profile.xml', control.ADDON_PATH, mal_id=52991)
             dlg_save_reset.onInit()
