@@ -99,7 +99,6 @@ class TestDocsAndCustomizations(unittest.TestCase):
             os.path.join(_REPO_ROOT, 'README.md'),
             os.path.join(_REPO_ROOT, 'AGENTS.md'),
             os.path.join(_REPO_ROOT, 'CHANGEREPORT.md'),
-            os.path.join(_REPO_ROOT, 'PROJECT_REVIEW_REPORT.md'),
         ]
         md_files += sorted(glob.glob(os.path.join(_REPO_ROOT, 'docs', '*.md')))
         md_files += sorted(glob.glob(os.path.join(_REPO_ROOT, 'docs', 'teamwork', '**', '*.md'), recursive=True))

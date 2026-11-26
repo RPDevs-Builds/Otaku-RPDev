@@ -15,7 +15,7 @@ python3 scripts/qa_fast.py
 # Standard developer / CI run (Silos 1–4, --fail-below 65, strict project warnings-as-errors)
 python3 scripts/verify_all.py --fail-below 65
 
-# Dedicated v6.3.0 Opaque-Box E2E Suite (126 tests across suite_sp, suite_cr, suite_nf)
+# Dedicated Opaque-Box E2E Suite (145 tests across suite_sp, suite_cr, suite_nf)
 python3 scripts/e2e_v630_suite.py
 
 # Strictly read-only ONN 4K Pro production telemetry auditor
@@ -27,13 +27,13 @@ python3 scripts/audit_onn_logs.py --concerns docs/CONCERNS.md --json <scratch>/o
 {
   "overall_status": "pass",
   "python_version": "3.12.3",
-  "total_duration_s": 146.36,
+  "total_duration_s": 88.20,
   "strict_project_warnings": true,
   "silos": [
     {"name": "ruff", "status": "pass", "exit_code": 0, "duration_s": 0.13, "command": "..."},
     {"name": "compileall", "status": "pass", "exit_code": 0, "duration_s": 0.34, "command": "..."},
-    {"name": "unittest", "status": "pass", "exit_code": 0, "duration_s": 70.45, "tests_run": 1070, "unittest_duration_s": 69.1},
-    {"name": "coverage", "status": "pass", "exit_code": 0, "duration_s": 75.44, "function_coverage_pct": 66.01, "public_function_coverage_pct": 64.9, "module_coverage_pct": 100.0}
+    {"name": "unittest", "status": "pass", "exit_code": 0, "duration_s": 87.70, "tests_run": 1119, "unittest_duration_s": 86.4},
+    {"name": "coverage", "status": "pass", "exit_code": 0, "duration_s": 0.05, "function_coverage_pct": 68.59, "public_function_coverage_pct": 67.4, "module_coverage_pct": 100.0}
   ]
 }
 ```
@@ -42,7 +42,7 @@ On failure, each failed silo object includes:
 - `remediation`: actionable next command/fix hint
 - `tail`: last 30 lines of captured output
 
-For step-by-step LLM triage and test authoring recipes, see [otaku-testing-and-qa](../.agents/skills/otaku-testing-and-qa/SKILL.md).
+For step-by-step LLM triage, test authoring recipes, and the full 1,232-test inventory, see [TESTING.md](TESTING.md), [TESTS.md](TESTS.md), and [otaku-testing-and-qa](../.agents/skills/otaku-testing-and-qa/SKILL.md).
 
 ---
 
@@ -52,7 +52,7 @@ For step-by-step LLM triage and test authoring recipes, see [otaku-testing-and-q
 |---|---|
 | `tests/lint/test_ast_integrity.py` | Bare `except:`, BS4 `.select()`/`.select_one()`, direct `json.loads()`, `super(Cls, self)`, mutable default args, raw `print()`, unchecked `waitForAbort()`, deprecated `ssl.PROTOCOL_TLS*`, deprecated `ListItem.setInfo()`, `int(timeout)` in `client.py`, invalid 1080i skin XML / `<defaultcontrol>` / BBCode, circular tri-addon `<requires>` dependencies, case-insensitive asset filename collisions, `>600 KB` PNGs, read-only `audit_onn_logs.py` AST safety, and repo-root VFS/mock leaks. |
 | `tests/lint/test_suite_quality.py` | Zero-assertion tests, tautological `assertTrue(True)`, broad `except Exception: pass` inside tests, unexecuted `module_from_spec`, and `assertIsNotNone`-only placeholder tests. |
-| `tests/lint/test_docs_and_customizations.py` | `AGENTS.md >= 22 KB` (preventing silent 24 KB truncation), invalid `.agents/skills/*/SKILL.md` YAML frontmatter, broken relative Markdown links across `README.md`/`AGENTS.md`/`CHANGEREPORT.md`/`PROJECT_REVIEW_REPORT.md`/`docs/**/*.md`/`skills`, `--fail-below 65` threshold parity across CI/scripts/docs, `CONCERN_PATTERNS` alignment with `docs/CONCERNS.md`, sequential `docs/PLANS.md` sections, `news.txt` dividers `> 32` chars, and malformed `docs/CONCERNS.md` cursor. |
+| `tests/lint/test_docs_and_customizations.py` | `AGENTS.md >= 22 KB` (preventing silent 24 KB truncation), invalid `.agents/skills/*/SKILL.md` YAML frontmatter, broken relative Markdown links across `README.md`/`AGENTS.md`/`CHANGEREPORT.md`/`docs/**/*.md`/`skills`, `--fail-below 65` threshold parity across CI/scripts/docs, `CONCERN_PATTERNS` alignment with `docs/CONCERNS.md`, sequential `docs/PLANS.md` sections, `news.txt` dividers `> 32` chars, companion `addon.xml` ↔ `changelog.txt` version parity, and malformed `docs/CONCERNS.md` cursor. |
 | `tests/lint/test_function_coverage.py` | Dynamic discovery of 100% of `plugin.video.otaku.rpdev`, `context.otaku.rpdev`, and `service.subtitles.otaku.rpdev` `.py` modules with zero unreferenced/failing imports. |
 
 ---

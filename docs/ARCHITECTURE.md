@@ -1,6 +1,12 @@
 # Otaku-RPDev Architecture & Subsystem Guide
 
-Detailed reference for developers and contributors working on `plugin.video.otaku.rpdev`, `context.otaku.rpdev`, and `service.subtitles.otaku.rpdev`. For strict engineering invariants and guardrails, see [AGENTS.md](../AGENTS.md). For the full feature catalog, integration contracts, and test inventory, see [FEATURES.md](FEATURES.md), [INTEGRATIONS.md](INTEGRATIONS.md), and [TESTS.md](TESTS.md).
+Detailed reference for developers and contributors working on `plugin.video.otaku.rpdev`, `context.otaku.rpdev`, and `service.subtitles.otaku.rpdev`. For strict engineering invariants and guardrails, see [AGENTS.md](../AGENTS.md). For deep-dive specifications, see:
+- **Features & Integrations**: [FEATURES.md](FEATURES.md) & [INTEGRATIONS.md](INTEGRATIONS.md)
+- **Schemas & State**: [DATA_MODELS_AND_STATE.md](DATA_MODELS_AND_STATE.md)
+- **Routes & WindowXML UI**: [ROUTING_AND_UI_MAP.md](ROUTING_AND_UI_MAP.md)
+- **Scoring Math & State Machines**: [ALGORITHMS_AND_LOGIC.md](ALGORITHMS_AND_LOGIC.md)
+- **Scrapers, Extractors & Debrid**: [SCRAPERS_AND_EXTRACTORS.md](SCRAPERS_AND_EXTRACTORS.md)
+- **Testing & Inventory**: [TESTING.md](TESTING.md) & [TESTS.md](TESTS.md)
 
 ---
 
