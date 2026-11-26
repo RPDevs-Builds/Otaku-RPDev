@@ -501,10 +501,30 @@ def generate_markdown_report(report):
     return "\n".join(lines)
 
 
+class _PytestResultTracker:
+    """In-process pytest plugin to track test counts and failure nodeids under PEP 669 tracer."""
+
+    def __init__(self):
+        self.tests_run = 0
+        self.failures = []
+        self.errors = []
+
+    def pytest_runtest_logreport(self, report):
+        if report.when == 'call':
+            self.tests_run += 1
+            if report.failed:
+                self.failures.append((report.nodeid, str(report.longrepr)))
+        elif report.when in ('setup', 'teardown') and report.failed:
+            self.errors.append((report.nodeid, str(report.longrepr)))
+
+    def wasSuccessful(self):
+        return len(self.failures) == 0 and len(self.errors) == 0
+
+
 # ---------------------------------------------------------------------------
 # Runner Execution
 # ---------------------------------------------------------------------------
-def run_audit(tests_dir=TESTS_DIR, test_target=None, fail_below=None, output_json=None, output_md=None, verbose=False, strict_warnings=False):
+def run_audit(tests_dir=TESTS_DIR, test_target=None, fail_below=None, output_json=None, output_md=None, verbose=False, strict_warnings=False, runner='pytest'):
     """
     Run test discovery under tracer, compute coverage metrics, and enforce invariants.
     Returns (success_boolean, report_dict).
@@ -514,7 +534,7 @@ def run_audit(tests_dir=TESTS_DIR, test_target=None, fail_below=None, output_jso
         warnings.filterwarnings('error', category=DeprecationWarning, module=r'resources(\.|$)')
         warnings.filterwarnings('error', category=ResourceWarning, module=r'resources(\.|$)')
 
-    # 1. Parse AST of all 139 source files
+    # 1. Parse AST of all source files
     catalog = parse_source_tree(REPO_ROOT)
 
     # 2. Setup hermetic execution tracer
@@ -527,20 +547,52 @@ def run_audit(tests_dir=TESTS_DIR, test_target=None, fail_below=None, output_jso
     except Exception as e:
         sys.stderr.write(f"Warning importing conftest: {e}\n")
 
-    # 4. Discover and execute unittest suite
-    test_loader = unittest.defaultTestLoader
-    if test_target:
-        if os.path.isfile(test_target):
-            # Load specific test file
-            rel_test = os.path.relpath(test_target, REPO_ROOT)
-            suite = test_loader.loadTestsFromName(rel_test.replace(os.sep, '.').rstrip('.py'))
-        else:
-            suite = test_loader.loadTestsFromName(test_target)
-    else:
-        suite = test_loader.discover(tests_dir)
+    # 4. Discover and execute test suite via pytest (default) or unittest (fallback)
+    use_pytest = (runner == 'pytest')
+    if use_pytest:
+        try:
+            import pytest
+        except ImportError:
+            use_pytest = False
 
-    test_runner = unittest.TextTestRunner(verbosity=1 if verbose else 0, stream=sys.stderr)
-    test_result = test_runner.run(suite)
+    t_suite_start = time.perf_counter()
+    if use_pytest:
+        tracker = _PytestResultTracker()
+        pytest_args = ['-q' if not verbose else '-v', '--tb=short', '-p', 'no:cacheprovider', '-p', 'no:cov']
+        if strict_warnings:
+            pytest_args.extend([
+                '-W', 'default',
+                '-W', 'error::DeprecationWarning:resources.*',
+                '-W', 'error::ResourceWarning:resources.*',
+            ])
+        if test_target:
+            if os.path.exists(test_target):
+                pytest_args.append(test_target)
+            else:
+                pytest_args.append(test_target.replace('.', os.sep) + '.py')
+        else:
+            pytest_args.extend(['-o', 'python_files=test_*.py', tests_dir])
+        pytest.main(pytest_args, plugins=[tracker])
+        suite_elapsed = time.perf_counter() - t_suite_start
+        sys.stderr.write(f"\nRan {tracker.tests_run} tests in {suite_elapsed:.3f}s\n")
+        for nodeid, _ in tracker.failures:
+            sys.stderr.write(f"FAIL: {nodeid} ({nodeid})\n")
+        for nodeid, _ in tracker.errors:
+            sys.stderr.write(f"ERROR: {nodeid} ({nodeid})\n")
+        test_result = tracker
+    else:
+        test_loader = unittest.defaultTestLoader
+        if test_target:
+            if os.path.isfile(test_target):
+                rel_test = os.path.relpath(test_target, REPO_ROOT)
+                suite = test_loader.loadTestsFromName(rel_test.replace(os.sep, '.').rstrip('.py'))
+            else:
+                suite = test_loader.loadTestsFromName(test_target)
+        else:
+            suite = test_loader.discover(tests_dir)
+
+        test_runner = unittest.TextTestRunner(verbosity=1 if verbose else 0, stream=sys.stderr)
+        test_result = test_runner.run(suite)
 
     # 5. Stop tracer
     tracer.stop()
@@ -591,6 +643,7 @@ def main():
     parser.add_argument('--test-target', default=None, help="Specific test module or path to run instead of entire discover suite.")
     parser.add_argument('--tests-dir', default=TESTS_DIR, help="Tests directory to discover from.")
     parser.add_argument('--strict-warnings', action='store_true', help="Treat DeprecationWarning/ResourceWarning from resources.* as errors.")
+    parser.add_argument('--runner', choices=['pytest', 'unittest'], default='pytest', help="Test runner engine (default: pytest with unittest fallback).")
     parser.add_argument('-v', '--verbose', action='store_true', help="Verbose per-file breakdown.")
 
     args = parser.parse_args()
@@ -602,6 +655,7 @@ def main():
         output_md=args.output_md,
         verbose=args.verbose,
         strict_warnings=args.strict_warnings,
+        runner=args.runner,
     )
     sys.exit(0 if success else 1)
 

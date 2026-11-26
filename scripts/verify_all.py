@@ -73,7 +73,14 @@ def _extract_unittest_metrics(output):
     if m:
         metrics['tests_run'] = int(m.group(1))
         metrics['unittest_duration_s'] = float(m.group(2))
+    else:
+        mp = re.search(r'(\d+) passed(?:,\s*\d+\s*\w+)*\s+in\s+([\d.]+)s', output)
+        if mp:
+            metrics['tests_run'] = int(mp.group(1))
+            metrics['unittest_duration_s'] = float(mp.group(2))
     failed_ids = re.findall(r'^(?:FAIL|ERROR): (\S+ \([^)]+\))', output, flags=re.MULTILINE)
+    if not failed_ids:
+        failed_ids = re.findall(r'^FAILED (\S+)', output, flags=re.MULTILINE)
     if failed_ids:
         metrics['failed_tests'] = failed_ids
     return metrics
@@ -101,6 +108,7 @@ def main():
     parser.add_argument('--tests', nargs='*', default=None, help='Specific unittest target files/modules to execute')
     parser.add_argument('--e2e', action='store_true', help='Also run headless Flatpak Kodi 22 hermetic E2E suite')
     parser.add_argument('--no-strict-warnings', action='store_true', help='Use -W default instead of project warnings-as-errors')
+    parser.add_argument('--runner', choices=['pytest', 'unittest'], default='pytest', help='Test runner engine (default: pytest with unittest fallback)')
     parser.add_argument('--json', dest='json_path', default=None, help='Write machine-readable JSON report to path')
     parser.add_argument('-v', '--verbose', action='store_true', help='Show verbose output for all silos')
     args = parser.parse_args()
@@ -155,6 +163,8 @@ def main():
             'scripts/audit_function_coverage.py',
             '--fail-below',
             str(args.fail_below),
+            '--runner',
+            args.runner,
         ]
         if not args.no_strict_warnings:
             cov_cmd.append('--strict-warnings')
@@ -168,38 +178,51 @@ def main():
         entry.update(_extract_coverage_metrics(cov_out))
         if ok:
             if entry.get('tests_run'):
-                print(f"    ↳ {entry['tests_run']} tests passed (single-pass PEP 669 coverage, strict project warnings)")
+                print(f"    ↳ {entry['tests_run']} tests passed (single-pass PEP 669 coverage [{args.runner}], strict project warnings)")
             if 'function_coverage_pct' in entry:
                 print(f"    ↳ Function coverage: {entry['function_coverage_pct']}% (threshold >= {args.fail_below}%)")
         silos.append(entry)
         all_ok = all_ok and ok
     else:
+        import importlib.util
+        use_pytest = (args.runner == 'pytest') and (importlib.util.find_spec('pytest') is not None)
         lint_targets = [
             'tests/lint/test_ast_integrity.py',
             'tests/lint/test_suite_quality.py',
             'tests/lint/test_docs_and_customizations.py',
         ]
-        if args.tests:
-            targets = [*lint_targets, *args.tests] if args.fast else list(args.tests)
-            # Preserve order while deduplicating
-            dedup_targets = list(dict.fromkeys(targets))
-            unittest_cmd = [sys.executable, *warn_flags, '-m', 'unittest', *dedup_targets]
-        elif args.fast:
-            unittest_cmd = [sys.executable, *warn_flags, '-m', 'unittest', 'discover', '-s', 'tests/lint']
+        if use_pytest:
+            pt_base = [sys.executable, *warn_flags, '-m', 'pytest', '-q' if not args.verbose else '-v', '--tb=short', '-p', 'no:cov']
+            if args.tests:
+                targets = [*lint_targets, *args.tests] if args.fast else list(args.tests)
+                dedup_targets = [t.replace('.', os.sep) + '.py' if (not os.path.exists(t) and not t.endswith('.py')) else t for t in dict.fromkeys(targets)]
+                unittest_cmd = [*pt_base, *dedup_targets]
+            elif args.fast:
+                unittest_cmd = [*pt_base, 'tests/lint']
+            else:
+                unittest_cmd = [*pt_base, '-o', 'python_files=test_*.py', 'tests']
         else:
-            unittest_cmd = [sys.executable, *warn_flags, '-m', 'unittest', 'discover', '-s', 'tests']
-        if args.verbose:
-            unittest_cmd.append('-v')
+            if args.tests:
+                targets = [*lint_targets, *args.tests] if args.fast else list(args.tests)
+                dedup_targets = list(dict.fromkeys(targets))
+                unittest_cmd = [sys.executable, *warn_flags, '-m', 'unittest', *dedup_targets]
+            elif args.fast:
+                unittest_cmd = [sys.executable, *warn_flags, '-m', 'unittest', 'discover', '-s', 'tests/lint']
+            else:
+                unittest_cmd = [sys.executable, *warn_flags, '-m', 'unittest', 'discover', '-s', 'tests']
+            if args.verbose:
+                unittest_cmd.append('-v')
         ok, entry, ut_out = _run_silo(
             'unittest',
             unittest_cmd,
             verbose=args.verbose,
-            remediation='Inspect failed_tests or project Deprecation/ResourceWarning and re-run targeted unittest.',
+            remediation='Inspect failed_tests or project Deprecation/ResourceWarning and re-run targeted test.',
         )
         entry.update(_extract_unittest_metrics(ut_out))
         if ok and entry.get('tests_run'):
             scope_label = 'fast lint/targeted' if args.fast else 'targeted' if args.tests else 'lint + unit + integration'
-            print(f"    ↳ {entry['tests_run']} tests passed ({scope_label}, strict project warnings)")
+            runner_lbl = 'pytest' if use_pytest else 'unittest'
+            print(f"    ↳ {entry['tests_run']} tests passed ({scope_label} [{runner_lbl}], strict project warnings)")
         silos.append(entry)
         all_ok = all_ok and ok
 
@@ -207,7 +230,7 @@ def main():
         if not args.skip_coverage and not args.fast:
             ok, entry, cov_out = _run_silo(
                 'coverage',
-                [sys.executable, *warn_flags, 'scripts/audit_function_coverage.py', '--fail-below', str(args.fail_below)],
+                [sys.executable, *warn_flags, 'scripts/audit_function_coverage.py', '--fail-below', str(args.fail_below), '--runner', args.runner],
                 verbose=args.verbose,
                 remediation='Add behavioral unit/integration tests for uncovered public functions or fix unimported modules.',
             )

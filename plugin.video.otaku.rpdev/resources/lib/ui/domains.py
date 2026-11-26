@@ -138,12 +138,16 @@ def join_url(base_url, path='', params=None):
     """Safely join a path and optional query params onto a base URL, preserving any base query params (e.g. translate.goog)."""
     parsed = urllib.parse.urlparse(base_url or '')
     base_path = parsed.path or '/'
+    path_query = ''
     if path:
-        rel_path = str(path).lstrip('/')
-        new_path = base_path.rstrip('/') + '/' + rel_path
+        raw_path, _, path_query = str(path).partition('?')
+        rel_path = raw_path.lstrip('/')
+        new_path = (base_path.rstrip('/') + '/' + rel_path) if rel_path else base_path
     else:
         new_path = base_path
     query_pairs = urllib.parse.parse_qsl(parsed.query, keep_blank_values=True)
+    if path_query:
+        query_pairs.extend(urllib.parse.parse_qsl(path_query, keep_blank_values=True))
     if params:
         if isinstance(params, dict):
             query_pairs.extend((str(k), str(v)) for k, v in params.items() if v is not None)

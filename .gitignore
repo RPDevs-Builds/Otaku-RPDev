@@ -17,6 +17,12 @@ dist/
 *credentials*
 *test_config*.json
 .staging/
+.venv/
+.pytest_cache/
+.hypothesis/
+.coverage
+htmlcov/
+.benchmarks/
 
 # Prevent accidental Kodi VFS / mock path leaks in repo root
 special:/

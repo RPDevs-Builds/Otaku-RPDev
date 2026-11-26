@@ -1254,3 +1254,59 @@ except ImportError:
 this_mod = sys.modules[__name__]
 sys.modules['conftest'] = this_mod
 sys.modules['tests.conftest'] = this_mod
+
+# ---------------------------------------------------------------------------
+# First-Class Pytest Hooks & Reusable Hermetic Fixtures
+# ---------------------------------------------------------------------------
+try:
+    import pytest
+except ImportError:
+    pytest = None
+
+if pytest is not None:
+    def pytest_collection_modifyitems(config, items):
+        """Automatically tag tests with lint/unit/integration/e2e markers by directory."""
+        for item in items:
+            fspath = str(getattr(item, 'fspath', '') or getattr(item, 'path', '')).replace('\\', '/')
+            if '/tests/lint/' in fspath:
+                item.add_marker(pytest.mark.lint)
+            elif '/tests/integration/' in fspath:
+                item.add_marker(pytest.mark.integration)
+            elif '/tests/e2e_v630/' in fspath:
+                item.add_marker(pytest.mark.e2e)
+            elif '/tests/unit/' in fspath:
+                item.add_marker(pytest.mark.unit)
+
+    @pytest.fixture(params=['21', '22'])
+    def kodi_profile(request):
+        """Parametrized dual Kodi 21 (Omega) & Kodi 22 (Piers) strict profile fixture."""
+        from tests.kodi_profile import KodiProfile
+        with KodiProfile(request.param, strict_skin_controls=True) as prof:
+            yield prof
+
+    @pytest.fixture
+    def kodi22_strict():
+        """Strict Kodi 22 (Piers) profile fixture with 1080i skin control enforcement."""
+        from tests.kodi_profile import KodiProfile
+        with KodiProfile('22', strict_skin_controls=True) as prof:
+            yield prof
+
+    @pytest.fixture
+    def isolated_window_props():
+        """Snapshot and restore Window(10000) properties around a test."""
+        snapshot = dict(_window_props)
+        try:
+            yield _window_props
+        finally:
+            _window_props.clear()
+            _window_props.update(snapshot)
+
+    @pytest.fixture
+    def reset_kodi_settings():
+        """Reset addon settings to defaults before the test and restore fixtures after."""
+        reset_settings_to_defaults(include_test_fixtures=True)
+        try:
+            yield _settings_store
+        finally:
+            restore_fixture_settings()
+

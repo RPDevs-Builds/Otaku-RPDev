@@ -10,16 +10,18 @@ Complete audit and reference map of the **Otaku-RPDev** test suite (**1,232 `tes
 
 | Gate / Runner | Command | Scope & What It Executes | Runtime / Threshold |
 |---|---|---|---|
-| **Fast QA Gate** | `python3 scripts/qa_fast.py` | Ruff (`E9,F63,F7,F82,F811,F405,F541`), `compileall`, `tests/lint/` (`46` tests) | ~22s; zero warnings/errors |
-| **Unified Full Gate** | `python3 scripts/verify_all.py --fail-below 65` | Ruff, `compileall`, all `tests/lint/` + `tests/unit/` + `tests/integration/` (`1,119` tests) + single-pass PEP 669 function coverage | ~95–115s; `>= 65.0%` (`68.59%` live) |
-| **Opaque E2E Suite** | `python3 scripts/e2e_v630_suite.py` | `tests/e2e_v630/` (`suite_sp.py`, `suite_cr.py`, `suite_nf.py` — `145` executed tests across `v6.3.0+` stories) | ~70–90s; strict offline harness |
+| **Fast QA Gate** | `python3 scripts/qa_fast.py` (or `pytest -m lint`) | Ruff (`E9,F63,F7,F82,F811,F405,F541`), `compileall`, `tests/lint/` (`46` tests) | ~22s; zero warnings/errors |
+| **Unified Full Gate** | `python3 scripts/verify_all.py --fail-below 65` | Ruff, `compileall`, all `tests/lint/` + `tests/unit/` + `tests/integration/` (`1,135` tests via `pytest` default / `unittest` fallback) + single-pass PEP 669 function coverage | ~95–115s; `>= 65.0%` (`68.59%` live) |
+| **Pytest Direct & Parallel** | `pytest -q` / `pytest -n auto --dist loadfile` | All `test_*.py` + `suite_*.py` (`1,270` collected items; filterable by `-m "lint\|unit\|integration\|e2e\|property\|benchmark"`) | Multi-core via `pytest-xdist` |
+| **Opaque E2E Suite** | `python3 scripts/e2e_v630_suite.py` (or `pytest -m e2e`) | `tests/e2e_v630/` (`suite_sp.py`, `suite_cr.py`, `suite_nf.py` — `145` executed tests across `v6.3.0+` stories) | ~70–90s; strict offline harness |
 | **Coverage Audit** | `python3 scripts/audit_function_coverage.py --fail-below 65` | Live-traced function & module coverage across `145` source files | `100.0%` files (`145/145`), `68.59%` functions (`1524/2222`) |
 | **Headless Real Kodi** | `python3 scripts/test_kodi_installs.py` | Flatpak Kodi 21.3 & 22.0 under `xvfb-run` + `scripts/kodi_e2e_mock_server.py` | Manual / local E2E verification |
 | **ONN Log Audit** | `python3 scripts/audit_onn_logs.py --concerns docs/CONCERNS.md` | Read-only `10.13.0.16` Kodi log pattern & concern regression check | Read-only HTTP `/tail` |
 
 ### Offline Mock & Harness Layer (`tests/`)
 
-- **`tests/conftest.py`**: Blocks live network sockets, stubs `xbmc`, `xbmcaddon`, `xbmcgui` (`MockWindowXMLDialog` with `onInit`/`onAction`/`onClick`/`onFocus` lifecycle), `xbmcplugin`, and `xbmcvfs`.
+- **`tests/conftest.py`**: Blocks live network sockets, stubs `xbmc`, `xbmcaddon`, `xbmcgui` (`MockWindowXMLDialog` with `onInit`/`onAction`/`onClick`/`onFocus` lifecycle), `xbmcplugin`, and `xbmcvfs`, auto-tags `pytest` items with `lint`/`unit`/`integration`/`e2e` markers, and provides reusable `@pytest.fixture` helpers (`kodi_profile`, `kodi22_strict`, `isolated_window_props`, `reset_kodi_settings`).
+- **`tests/unit/test_pytest_property_and_time_invariants.py`**: Property-based fuzzing (`hypothesis` / `@pytest.mark.parametrize` for `isolate_show_title`, `score_title_candidate`, `domains.join_url`, 64KB UTF-8 window property ceiling, and `1.03` PAL subtitle rescaling monotonicity), deterministic time-travel tests (`freezegun` across `AdaptiveCircuitBreaker` `300s -> 900s -> 3600s -> HALF_OPEN -> CLOSED`), and hot-path micro-benchmarks (`pytest-benchmark`).
 - **`tests/kodi_profile.py`**: Dual-version `KodiProfile('21'|'22', strict_skin_controls=True)` simulating Kodi 21 (`MockInfoTagVideo21`, ISO 639-2 `jpn`/`eng`, empty chapters) and Kodi 22 (`MockInfoTagVideo22`, strict SWIG non-null contracts, BCP 47 `ja`/`en`, `Player.GetChapters`), plus real `settings.xml` and 1080i skin XML control validation.
 - **`tests/e2e_v630/e2e_helpers.py`**: `E2EHermeticEnv` (isolated temp `userdata`, SQLite DBs, `KodiProfile`) and `E2EMockServer` (local HTTP server for scraper/debrid/subtitle/mappings E2E journeys).
 

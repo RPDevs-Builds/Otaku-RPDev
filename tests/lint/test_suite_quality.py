@@ -37,7 +37,7 @@ ASSERT_CALL_NAMES = {
     'assertRegex', 'assertNotRegex', 'assertCountEqual',
     'assert_called', 'assert_called_once', 'assert_called_with',
     'assert_called_once_with', 'assert_any_call', 'assert_not_called',
-    'assert_has_calls', 'fail',
+    'assert_has_calls', 'fail', 'raises', 'warns', 'approx', 'benchmark',
 }
 
 

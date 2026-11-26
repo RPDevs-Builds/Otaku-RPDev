@@ -27,7 +27,7 @@ jobs:
 
       - name: Install Test Dependencies & Lint Tools
         run: |
-          pip install --disable-pip-version-check beautifulsoup4 pyqrcode ruff
+          pip install --disable-pip-version-check -r requirements-dev.txt
 
       - name: Run Unified Multi-Silo Verification Gate & E2E Suite (parallel)
         run: |
