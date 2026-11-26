@@ -1,3 +1,7 @@
+Changelog v6.4.10 (2026-11-25):
+- Canon Episode Badges & Filler Auto-Skip Modes:
+  - Filler Auto-Skip Modes: Verified Skip Filler & Recap replays Canon and Mixed while skipping Filler & Recap, and Skip All Including Mixed skips Recap, Mixed, and Filler to play only Canon.
+
 Changelog v6.4.9 (2026-11-25):
 - Fix Series Playback Profile Window Close:
   - Fixed SeriesProfileDialog setting _win_closed=True before calling BaseWindow.close(), which caused Save & Apply Profile, Cancel, and Back to return early without closing the dialog.

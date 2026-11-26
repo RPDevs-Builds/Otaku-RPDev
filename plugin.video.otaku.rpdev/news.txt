@@ -1,7 +1,17 @@
 ========================
+[B]OTAKU RPDEV v6.4.10[/B]
+Canon Episode Badges & Filler Auto-Skip Modes
+========================
+
+v6.4.10 Highlights:
+  * Filler Auto-Skip Modes: Verified Skip Filler & Recap replays Canon and
+    Mixed while skipping Filler & Recap, and Skip All Including Mixed skips
+    Recap, Mixed, and Filler to play only Canon.
+
+--------------------------------
 [B]OTAKU RPDEV v6.4.9[/B]
 Fix Series Playback Profile Window Close
-========================
+--------------------------------
 
 v6.4.9 Highlights:
   * Fixed SeriesProfileDialog setting _win_closed=True before calling
