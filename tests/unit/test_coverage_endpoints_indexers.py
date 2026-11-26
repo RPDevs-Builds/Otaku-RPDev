@@ -577,15 +577,16 @@ class TestEndpointsFanart(unittest.TestCase):
         mock_resp = mock.MagicMock()
         mock_resp.ok = True
         mock_resp.json.return_value = {
-            'showbackground': [{'url': 'http://fanart/bg.jpg', 'lang': 'en'}],
+            'showbackground': [{'url': 'https://assets.fanart.tv/fanart/B_74796 (0).jpg', 'lang': 'en'}],
             'tvthumb': [{'url': 'http://fanart/thumb.jpg', 'lang': 'en'}],
             'clearart': [{'url': 'http://fanart/clear.png', 'lang': 'en'}],
             'clearlogo': [{'url': 'http://fanart/logo.png', 'lang': 'en', 'id': '1'}]
         }
 
         with mock.patch('resources.lib.ui.client.get', return_value=mock_resp):
-            art = fanart.getArt({'thetvdb_id': 123}, 'shows')
+            art = fanart.getArt({'thetvdb_id': 74796}, 'shows')
             self.assertIn('fanart', art)
+            self.assertEqual(art['fanart'][0], 'https://assets.fanart.tv/fanart/B_74796%20(0).jpg')
             self.assertIn('thumb', art)
             self.assertIn('clearart', art)
             self.assertIn('clearlogo', art)
