@@ -422,7 +422,7 @@ class TestMappingDbIntegration(unittest.TestCase):
             self.assertEqual(processed[1]['name'], 'Ep 2 [COLOR red][FILLER][/COLOR]')
             self.assertEqual(processed[3]['name'], 'Ep 4 [COLOR yellow][MIXED][/COLOR]')
             self.assertEqual(processed[4]['name'], 'Ep 5 [COLOR orange][RECAP][/COLOR]')
-            self.assertEqual(processed[5]['name'], 'Ep 6')
+            self.assertEqual(processed[5]['name'], 'Ep 6 [COLOR limegreen][CANON][/COLOR]')
 
             # 3. Player binge auto-skip separates Filler/Recap vs Mixed Canon/Filler + per-series overrides
             for skip_mixed, ov_mode, expected in (

@@ -7,16 +7,19 @@ url = "https://www.animefillerlist.com/shows"
 
 
 def classify_filler_tag(raw_tag):
-    """Normalize raw AnimeFillerList span text into 'Filler', 'Recap', 'Mixed Canon/Filler', or ''."""
+    """Normalize raw AnimeFillerList span text into 'Filler', 'Recap', 'Mixed Canon/Filler', 'Manga/Anime Canon', or ''."""
     if not raw_tag:
         return ''
-    low = str(raw_tag).strip().lower()
+    stripped = str(raw_tag).strip()
+    low = stripped.lower()
     if 'recap' in low:
         return 'Recap'
-    if 'mostly filler' in low or low == 'filler':
-        return 'Filler'
     if 'mixed' in low or 'canon/filler' in low:
         return 'Mixed Canon/Filler'
+    if 'mostly filler' in low or low == 'filler':
+        return 'Filler'
+    if 'canon' in low:
+        return stripped if ('manga' in low or 'anime' in low) else 'Canon'
     return ''
 
 

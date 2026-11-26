@@ -10,6 +10,7 @@ PlayerDialogs    - Skip intro / skip outro / playing-next dialog display
 Monitor          - Playback error detection with grace period
 """
 
+import re
 import time
 import threading
 import xbmc
@@ -769,12 +770,14 @@ class WatchlistPlayer(player):
                 tag = str(ep_row.get('filler') or '').strip()
                 if not tag and offline_filler:
                     tag = str(offline_filler.get(_ep_num(ep_row)) or '').strip()
-                low = tag.lower()
+                low = re.sub(r'\[/?COLOR[^\]]*\]|\[/?B\]', '', tag).strip().lower()
                 if not low:
                     return False
                 if 'mixed' in low or 'canon/filler' in low:
                     return should_skip_mixed
-                return ('filler' in low) or ('recap' in low)
+                if 'recap' in low or 'filler' in low:
+                    return True
+                return False
 
             non_filler = [ep for ep in upcoming_episodes if not _is_skipped_filler(ep)]
             if non_filler:

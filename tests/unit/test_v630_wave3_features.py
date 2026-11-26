@@ -328,9 +328,22 @@ class TestWave3FeaturesNF01ToNF08(unittest.TestCase):
             self.assertEqual(anime_filler.classify_filler_tag('Filler'), 'Filler')
             self.assertEqual(anime_filler.classify_filler_tag('Recap'), 'Recap')
             self.assertEqual(anime_filler.classify_filler_tag('Mostly Filler'), 'Filler')
-            self.assertEqual(anime_filler.classify_filler_tag('Manga Canon'), '')
+            self.assertEqual(anime_filler.classify_filler_tag('Mixed Canon/Filler'), 'Mixed Canon/Filler')
+            self.assertEqual(anime_filler.classify_filler_tag('Manga Canon'), 'Manga Canon')
+            self.assertEqual(anime_filler.classify_filler_tag('Anime Canon'), 'Anime Canon')
+            self.assertEqual(anime_filler.classify_filler_tag('Canon'), 'Canon')
 
             control.setBool('interface.filler.badges', True)
+            ep_canon = {
+                'number': 1,
+                'filler': 'Canon',
+                'kodi_meta': database.dumps(utils.allocate_item('Ep 1', 'play/52991/1', False, True, [], '', {'title': 'Ep 1', 'episode': 1})),
+            }
+            ep_mixed = {
+                'number': 2,
+                'filler': 'Mixed Canon/Filler',
+                'kodi_meta': database.dumps(utils.allocate_item('Ep 2', 'play/52991/2', False, True, [], '', {'title': 'Ep 2', 'episode': 2})),
+            }
             ep_filler = {
                 'number': 5,
                 'filler': 'Filler',
@@ -341,31 +354,57 @@ class TestWave3FeaturesNF01ToNF08(unittest.TestCase):
                 'filler': 'Recap',
                 'kodi_meta': database.dumps(utils.allocate_item('Ep 6', 'play/52991/6', False, True, [], '', {'title': 'Ep 6', 'episode': 6})),
             }
+            parsed_c = indexers.parse_episodes(ep_canon, 0)
+            parsed_m = indexers.parse_episodes(ep_mixed, 0)
             parsed_f = indexers.parse_episodes(ep_filler, 0)
             parsed_r = indexers.parse_episodes(ep_recap, 0)
+            self.assertIn('[CANON]', parsed_c['name'])
+            self.assertIn('[MIXED]', parsed_m['name'])
             self.assertIn('[FILLER]', parsed_f['name'])
             self.assertIn('[RECAP]', parsed_r['name'])
 
-            # Binge playlist filler auto-skip
+            # Sparse filler-mapped show (e.g. Bleach) defaults untagged episodes to [CANON]
+            ep_untagged_in_filler_show = {
+                'number': 3,
+                'filler': '',
+                'kodi_meta': database.dumps(utils.allocate_item('Ep 3', 'play/52991/3', False, True, [], '', {'title': 'Ep 3', 'episode': 3})),
+            }
+            processed = indexers.process_episodes([ep_untagged_in_filler_show, ep_filler], 0)
+            self.assertIn('[CANON]', processed[0]['name'])
+            self.assertIn('[FILLER]', processed[1]['name'])
+
+            # Binge playlist filler auto-skip: Skip Filler & Recap keeps Canon + Mixed, skips Filler + Recap
             control.setBool('smartplay.skip_filler', True)
+            control.setBool('smartplay.skip_mixed_filler', False)
             control.playList.clear()
             wp = player.WatchlistPlayer()
             wp.mal_id = 52991
-            wp.episode = 4
-            wp.episodes = [
-                ep_filler,
-                {
-                    'number': 6,
-                    'filler': '',
-                    'kodi_meta': database.dumps(utils.allocate_item('Ep 6 Canon', 'play/52991/6', False, True, [], '', {'title': 'Ep 6 Canon', 'episode': 6})),
-                },
+            wp.episode = 1
+            ep_canon_next = {
+                'number': 7,
+                'filler': 'Canon',
+                'kodi_meta': database.dumps(utils.allocate_item('Ep 7 Canon', 'play/52991/7', False, True, [], '', {'title': 'Ep 7 Canon', 'episode': 7})),
+            }
+            wp.episodes = [ep_mixed, ep_filler, ep_recap, ep_canon_next]
+            with patch('resources.lib.AnimeSchedule.get_anime_schedule', return_value=None):
+                wp.build_playlist()
+            urls_skip = [
+                (control.playList[i][0] if isinstance(control.playList[i], tuple) else control.playList[i].getPath())
+                for i in range(control.playList.size())
             ]
+            self.assertEqual(len(urls_skip), 2)
+            self.assertTrue(any('52991/2' in u for u in urls_skip))
+            self.assertTrue(any('52991/7' in u for u in urls_skip))
+
+            # Skip All Including Mixed: skips Recap, Mixed, Filler; only plays Canon
+            control.setBool('smartplay.skip_mixed_filler', True)
+            control.playList.clear()
             with patch('resources.lib.AnimeSchedule.get_anime_schedule', return_value=None):
                 wp.build_playlist()
             self.assertEqual(control.playList.size(), 1)
             item_entry = control.playList[0]
             item_url = item_entry[0] if isinstance(item_entry, tuple) else item_entry.getPath()
-            self.assertIn('52991/6', item_url)
+            self.assertIn('52991/7', item_url)
 
     # ── NF-07: Subtitle Intelligence v2 (SDH Stripping & Fallback) ─────────
 

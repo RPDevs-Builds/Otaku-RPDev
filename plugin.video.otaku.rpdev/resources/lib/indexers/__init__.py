@@ -33,7 +33,7 @@ def _apply_spoiler_shield(parsed):
 
 
 def _apply_filler_badge(parsed, filler_val):
-    """Append colored [FILLER], [RECAP], or [MIXED] badge to episode title when interface.filler.badges is enabled."""
+    """Append colored [FILLER], [RECAP], [MIXED], or [CANON] badge to episode title when interface.filler.badges is enabled."""
     if not filler_val or not control.getBool('interface.filler.badges', default=False):
         return
     clean_f = re.sub(r'\[/?COLOR[^\]]*\]|\[/?B\]', '', str(filler_val)).strip().lower()
@@ -44,6 +44,8 @@ def _apply_filler_badge(parsed, filler_val):
         badge = '[COLOR yellow][MIXED][/COLOR]'
     elif 'filler' in clean_f:
         badge = '[COLOR red][FILLER][/COLOR]'
+    elif 'canon' in clean_f:
+        badge = '[COLOR limegreen][CANON][/COLOR]'
     if badge and badge not in str(parsed.get('name', '')):
         parsed['name'] = f"{parsed['name']} {badge}".strip()
         if isinstance(parsed.get('info'), dict):
@@ -79,7 +81,7 @@ def lookup_filler_tag(filler_data, episode):
     return ''
 
 
-def parse_episodes(res, eps_watched, dub_data=None, offline_filler=None):
+def parse_episodes(res, eps_watched, dub_data=None, offline_filler=None, has_filler_map=False):
     parsed = database.loads(res['kodi_meta'])
     if eps_watched and int(eps_watched) >= res['number']:
         parsed['info']['playcount'] = 1
@@ -92,6 +94,8 @@ def parse_episodes(res, eps_watched, dub_data=None, offline_filler=None):
     filler_val = res.get('filler') or ''
     if not filler_val and offline_filler:
         filler_val = lookup_filler_tag(offline_filler, res.get('number'))
+    if not filler_val and (offline_filler or has_filler_map):
+        filler_val = 'Canon'
     code = endpoints.get_second_label(parsed['info'], dub_data, filler_val)
     parsed['info']['code'] = code
     _apply_filler_badge(parsed, filler_val)
@@ -119,11 +123,15 @@ def parse_episodes(res, eps_watched, dub_data=None, offline_filler=None):
 
 def process_episodes(episodes, eps_watched, dub_data=None, mal_id=None):
     offline_filler = None
+    has_filler_map = False
     if episodes:
         mid = mal_id or episodes[0].get('mal_id')
+        has_filler_map = any(bool(ep.get('filler')) for ep in episodes)
         if mid and any(not ep.get('filler') for ep in episodes):
             offline_filler = database.get_mapping_filler_map(mid) or None
-    mapfunc = partial(parse_episodes, eps_watched=eps_watched, dub_data=dub_data, offline_filler=offline_filler)
+            if offline_filler:
+                has_filler_map = True
+    mapfunc = partial(parse_episodes, eps_watched=eps_watched, dub_data=dub_data, offline_filler=offline_filler, has_filler_map=has_filler_map)
     # Parallelize episode parsing for faster processing
     all_results = utils.parallel_process(episodes, mapfunc)
     return all_results
