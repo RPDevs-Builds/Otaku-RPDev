@@ -40,10 +40,13 @@ Run all commands from `/mnt/sharedroot/projects/RPDevs-Builds/Otaku-RPDev`. Neve
   - **Mappings `.bak` Rollback (`NF-05`)**: Test corrupted live `mappings.db` recovery from `.bak` on failed sync download, plus SHA-256 mismatch rejection.
   - **Scraper-Only `episode_offset` & Migration Idempotency (`NF-06`)**: Test `episode_offset` altering `actionArgs['episode']` while leaving `canonical_episode` / scrobble callbacks untouched, `SettingsBackup` round-trip, and `SyncDatabase()` adding missing columns via `_ensure_column_migrations()` even when `SCHEMA_VERSION` matches.
   - **SDH Tag Preservation & Drift Confirmation (`NF-07`/`NF-08`)**: Test ASS `{\an8}` override preservation during SDH tag stripping and `watchlist_drift_auditor` dry-run mutation counts + cancelled `yesno_dialog` (`MockDialog.yesno_response = False`) preventing bulk writes.
-- **Settings & WindowXML Tests**: Assert real consumer outcomes (`test_all_settings_outcomes.py`, never `set`→`get` echoes), wrap WindowXML tests in `KodiProfile('22', strict_skin_controls=True)`, and keep all `strings.po` IDs inside `#30000`–`#30999`.
+- **Settings & WindowXML Tests**: Assert real consumer outcomes (`test_all_settings_outcomes.py`, never `set`→`get` echoes), wrap WindowXML tests in `KodiProfile('22', strict_skin_controls=True)`, keep all `strings.po` IDs inside `#30000`–`#30999`, and assert `xbmcgui.WindowXMLDialog.close` is called when testing modal close buttons/Back actions (subclasses calling `BaseWindow.close()` must never set `_win_closed = True` beforehand).
+- **Scraper Hermetic `database.get` Caching**: When adding binge/episode caches to scrapers whose search helpers are tested by mocking `database.get` (e.g., `HiAnime._resolve_anime_id`), apply the cache in the outer orchestrator (`_scrape_mirror`) so `_resolve_anime_id` remains directly testable.
 - **Non-vacuous linters (`tests/lint/*.py`)**: Always compute `_REPO_ROOT = os.path.dirname(os.path.dirname(_TEST_DIR))` and assert a minimum scanned-item floor.
 
 ## 3. References
 - Architecture & 6-silo specification: [docs/TESTING.md](../../../docs/TESTING.md)
+- Complete test inventory & expansion roadmap: [docs/TESTS.md](../../../docs/TESTS.md)
+- Complete tri-addon feature catalog & integrations: [docs/FEATURES.md](../../../docs/FEATURES.md) & [docs/INTEGRATIONS.md](../../../docs/INTEGRATIONS.md)
 - Unified gate JSON schema & CI/Release parity: [docs/AUTOMATION.md](../../../docs/AUTOMATION.md)
 - Multi-agent 4-tier QA workflow: [docs/teamwork/TESTING_PROCESS.md](../../../docs/teamwork/TESTING_PROCESS.md)

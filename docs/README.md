@@ -6,6 +6,7 @@ Central index of user guides, engineering references, testing standards, automat
 |---|---|---|
 | [README.md](../README.md) | Everyone | Project overview, installation, release highlights, and quickstart. |
 | [FEATURES.md](FEATURES.md) | Everyone & LLMs | Complete feature catalog across `plugin.video.otaku.rpdev`, `service.subtitles.otaku.rpdev`, and `context.otaku.rpdev` with routes, UI, and extension seams. |
+| [INTEGRATIONS.md](INTEGRATIONS.md) | Developers & LLMs | Tri-addon IPC contracts, Kodi skin/widget refresh & overlay themes, TMDb Helper & Trakt bridges, `Otaku-Mapping-DB` dual-DB sync, and external API contracts. |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Developers & LLMs | Module map, scraping/filtering/relevance pipeline, Zero-Wait playback, Kodi 22 subtitles, SQLite WAL vs. read-only URI split. |
 | [TESTING.md](TESTING.md) | Developers & LLMs | 6-silo testing architecture, dual Kodi 21/22 mock harness, anti-placeholder quality standards, and UI/Settings behavioral testing guide. |
 | [TESTS.md](TESTS.md) | Everyone & LLMs | Complete test suite inventory (1,232 `test_*` defs), per-addon breakdown, live function coverage snapshot, and expansion roadmap. |

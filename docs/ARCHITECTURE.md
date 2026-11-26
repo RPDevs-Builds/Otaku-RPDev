@@ -1,6 +1,6 @@
 # Otaku-RPDev Architecture & Subsystem Guide
 
-Detailed reference for developers and contributors working on `plugin.video.otaku.rpdev`, `context.otaku.rpdev`, and `service.subtitles.otaku.rpdev`. For strict engineering invariants and guardrails, see [AGENTS.md](../AGENTS.md).
+Detailed reference for developers and contributors working on `plugin.video.otaku.rpdev`, `context.otaku.rpdev`, and `service.subtitles.otaku.rpdev`. For strict engineering invariants and guardrails, see [AGENTS.md](../AGENTS.md). For the full feature catalog, integration contracts, and test inventory, see [FEATURES.md](FEATURES.md), [INTEGRATIONS.md](INTEGRATIONS.md), and [TESTS.md](TESTS.md).
 
 ---
 
@@ -8,7 +8,7 @@ Detailed reference for developers and contributors working on `plugin.video.otak
 
 ```text
 Otaku-RPDev/
-├── plugin.video.otaku.rpdev/           # v6.3.2 primary video add-on
+├── plugin.video.otaku.rpdev/           # v6.4.11 primary video add-on
 │   ├── default.py                      # Plugin router dispatch (async changelog offload)
 │   ├── service.py                      # Background service (clean_settings, 15m OAuth & retry drain, .xz/.gz mappings sync, WAL checkpoint)
 │   └── resources/
@@ -24,11 +24,11 @@ Otaku-RPDev/
 │           ├── endpoints/              # AniList, MAL, TMDb, TVDB, AniZip, AnimeFiller, AniSkip, IntroDB
 │           ├── WatchlistFlavor/        # AniList, MyAnimeList, Kitsu, Simkl sync, Conflict Engine & Drift Auditor
 │           └── windows/                # Custom WindowXML controllers (resolver, source_select, get_sources, filter_select, stats_window, anichart, etc.)
-├── context.otaku.rpdev/                # v1.0.47 standalone widget-aware context menu add-on + 494 deduplicated PNGs per style (coloured/white)
+├── context.otaku.rpdev/                # v1.0.48 standalone widget-aware context menu add-on + 494 deduplicated PNGs per style (coloured/white)
 ├── service.subtitles.otaku.rpdev/      # v1.0.3 native Kodi xbmc.subtitle.module companion add-on (OSD search & auto-download)
 ├── scripts/                            # verify_all.py, qa_fast.py, e2e_v630_suite.py, audit_onn_logs.py, release_addon.py, audit_function_coverage.py, test_kodi_installs.py
-├── tests/                              # 1,080+ discover tests + 130+ E2E suite tests (dual Kodi 21/22 mocks, AST/quality/doc lints, 576-title dataset)
-└── docs/                               # README.md, ARCHITECTURE.md, PLANS.md, TESTING.md, AUTOMATION.md, CONCERNS.md, CONFIGURATION_GUIDE.md, teamwork/
+├── tests/                              # 1,119 discover tests + 145 E2E suite tests (dual Kodi 21/22 mocks, AST/quality/doc lints, 576-title dataset)
+└── docs/                               # README.md, FEATURES.md, INTEGRATIONS.md, ARCHITECTURE.md, PLANS.md, TESTING.md, TESTS.md, AUTOMATION.md, CONCERNS.md, CONFIGURATION_GUIDE.md, teamwork/
 ```
 
 ---
@@ -65,7 +65,7 @@ Key design principles:
 ## 3. Playback, Zero-Wait Binge & Subtitle Intelligence v2
 
 - **Zero-Wait Pre-Resolved Playback**: During active playback, `WatchlistPlayer` pre-scrapes and pre-resolves the next episode (pruning failing lead candidates in `resolve_silent()` and saving the remaining list via `database.set_episode_sources()`), bypassing scraping entirely when a cached season pack covers `ep + 1`.
-- **Filler Badges & Binge Auto-Skip**: `endpoints/anime_filler.py:classify_filler_tag()` and `indexers/__init__.py` append colorized `[FILLER]` / `[RECAP]` badges (`interface.filler.badges`), while `WatchlistPlayer.build_playlist()` excludes filler episodes during binge playback (`smartplay.skip_filler` or per-series `skip_filler_mode`), preserving the list if all remaining episodes are filler.
+- **Filler/Canon Badges & Binge Auto-Skip**: `endpoints/anime_filler.py:classify_filler_tag()` and `indexers/__init__.py` append colorized `[CANON]` / `[MIXED]` / `[FILLER]` / `[RECAP]` badges (`interface.filler.badges`, defaulting untagged episodes in sparse filler-mapped shows like *Bleach* to `Canon`), while `WatchlistPlayer.build_playlist()` excludes filler/recap (`Skip Filler & Recap`, replaying Canon+Mixed) or all non-canon (`Skip All Including Mixed`, playing only Canon), preserving the list if all remaining episodes would be skipped. On playback stop/end, `WatchlistPlayer._refresh_widgets_on_stop()` calls `control.clearSettingsCache()` and `control.execute('Container.Refresh')` to refresh Kodi Home Screen widgets.
 - **Chapter & Auto-Skip Priority**:
   1. Native Kodi 22 demuxer chapters (`Player.GetChapters` JSON-RPC) — queried first, decoupled from `ffprobe`.
   2. Pre-probed container chapters (`ffprobe_chapters.attach_to_linkinfo`).
