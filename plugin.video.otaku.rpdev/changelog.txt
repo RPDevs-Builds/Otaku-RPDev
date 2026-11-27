@@ -1,3 +1,9 @@
+Changelog v6.7.0 (2026-11-27):
+- Companion Background Service Extraction (service.otaku.rpdev v1.0.0):
+  - Extracted xbmc.service background daemon (startup maintenance, 15-min OAuth/scrobble retry loop, NF-16 standby/CEC throttling, daily mappings.db/anime_metadata.db sync, MultipageWorker, C-37 memory watermark guard, <2s WAL checkpoint teardown) into service.otaku.rpdev (v1.0.0).
+  - Moved Cache & Database, Service & Maintenance, and Solvers/Network/Debug settings (61 settings) into service.otaku.rpdev with self-contained pre-prune raw-XML migration, transparent dual-proxy routing in control.py, bidirectional otaku.service_settings_epoch invalidation, and unified v2 backup/restore.
+  - Relocated InputStream Adaptive into Playback (Cat 5) and Language Invoker into General (Cat 1), added 1-click Background Service & Maintenance Settings shortcuts in Tools & General, and reclaimed 97+ #30000-#30999 string slots in plugin.video.otaku.rpdev.
+
 Changelog v6.6.4 (2026-11-27):
 - Stop Prioritizing Subtitle Season Packs & Long-Running Auto-Download Fix:
   - Subtitle Ranking & Auto-Download: Demoted generic Season Packs (`score -= 0.5`), sorted non-pack `auto_identified` results strictly ahead of Season Packs, and updated `auto_download_subtitles()` to try all non-pack candidates before any Season Pack (capped at 3 pack attempts).

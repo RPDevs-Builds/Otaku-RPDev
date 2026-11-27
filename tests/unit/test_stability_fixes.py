@@ -130,10 +130,13 @@ class TestStabilityFixes(unittest.TestCase):
         import os
         import re
 
-        settings_xml_path = os.path.join(control.ADDON_PATH, 'resources', 'settings.xml')
-        tree = ET.parse(settings_xml_path)
-        root = tree.getroot()
-        declared_settings = {elem.get('id') for elem in root.iter('setting') if elem.get('id')}
+        declared_settings = set()
+        for base_path in (control.ADDON_PATH, control.SERVICE_ADDON_PATH):
+            s_path = os.path.join(base_path, 'resources', 'settings.xml')
+            if os.path.isfile(s_path):
+                tree = ET.parse(s_path)
+                root = tree.getroot()
+                declared_settings.update(elem.get('id') for elem in root.iter('setting') if elem.get('id'))
 
         # Essential etag settings must be present
         self.assertIn('dub.etag', declared_settings)

@@ -36,32 +36,34 @@ class TestSettingsRoutesAudit(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        addon_dir = os.path.abspath(
-            os.path.join(os.path.dirname(__file__), "..", "..", "plugin.video.otaku.rpdev")
-        )
-        cls.settings_xml_path = os.path.join(addon_dir, "resources", "settings.xml")
+        repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+        cls.settings_xml_path = os.path.join(repo_root, "plugin.video.otaku.rpdev", "resources", "settings.xml")
+        cls.service_settings_xml_path = os.path.join(repo_root, "service.otaku.rpdev", "resources", "settings.xml")
 
     def test_settings_xml_exists(self):
         self.assertTrue(os.path.isfile(self.settings_xml_path), f"settings.xml not found at {self.settings_xml_path}")
+        self.assertTrue(
+            os.path.isfile(self.service_settings_xml_path),
+            f"service settings.xml not found at {self.service_settings_xml_path}",
+        )
 
     def test_all_settings_action_routes_registered_and_executable(self):
         """
-        Extract every plugin URL from settings.xml and verify it resolves to a registered handler.
-        Then safely execute it to guarantee no AttributeError or syntax failure.
+        Extract every plugin URL from both plugin and service settings.xml and verify it resolves
+        to a registered handler. Then safely execute it to guarantee no AttributeError or syntax failure.
         """
-        tree = ET.parse(self.settings_xml_path)
-        root = tree.getroot()
-
         action_pattern = re.compile(r'plugin://plugin\.video\.otaku\.rpdev/([^"\'\)\s]+)')
         routes_found = set()
 
-        for elem in root.iter():
-            text = elem.text or ""
-            for m in action_pattern.findall(text):
-                routes_found.add(m)
-            for attr_val in elem.attrib.values():
-                for m in action_pattern.findall(attr_val):
+        for xml_path in (self.settings_xml_path, self.service_settings_xml_path):
+            root = ET.parse(xml_path).getroot()
+            for elem in root.iter():
+                text = elem.text or ""
+                for m in action_pattern.findall(text):
                     routes_found.add(m)
+                for attr_val in elem.attrib.values():
+                    for m in action_pattern.findall(attr_val):
+                        routes_found.add(m)
 
         self.assertGreater(len(routes_found), 0, "No plugin routes found in settings.xml")
 

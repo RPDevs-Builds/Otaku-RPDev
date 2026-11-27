@@ -471,8 +471,8 @@ class TestSubtitleServiceAndAutoDownload(unittest.TestCase):
         control_src_path = os.path.join(_REPO_ROOT, 'plugin.video.otaku.rpdev', 'resources', 'lib', 'ui', 'control.py')
         with open(control_src_path, 'r', encoding='utf-8') as f:
             src = f.read()
-        self.assertIn("('service.subtitles.otaku.rpdev', 'context.otaku.rpdev')", src)
-        self.assertIn("settings.getBool(key, default)", src)
+        self.assertIn("('service.subtitles.otaku.rpdev', 'context.otaku.rpdev', 'service.otaku.rpdev')", src)
+        self.assertIn("proxy.getBool(key, default)", src)
 
     def test_atomic_write_text_uses_xbmcvfs_rename_for_kodi_directory_cache(self):
         """C-30: control.atomic_write_text must prefer xbmcvfs.rename() so Kodi C++ g_directoryCache.AddFile() runs."""

@@ -1,0 +1,5 @@
+Changelog v1.0.0 (2026-11-27):
+- Initial release of Otaku RPDev Background Service companion add-on:
+  - Extracted persistent xbmc.service background daemon (startup maintenance, 15-minute OAuth/scrobble retry drain, NF-16 standby/CEC throttling, daily mappings.db + anime_metadata.db sync, MultipageWorker, C-37 memory watermark guard, and <2s deterministic WAL checkpoint teardown).
+  - Added dedicated settings.xml & #30000-#30999 localization table for Cache & Database, Service & Maintenance, and Solvers/Network/Debug categories.
+  - Added self-contained pre-prune XML migration from plugin.video.otaku.rpdev/settings.xml with zero data loss on upgrade.

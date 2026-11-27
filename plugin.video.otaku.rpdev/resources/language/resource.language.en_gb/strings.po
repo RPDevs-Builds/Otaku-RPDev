@@ -440,7 +440,7 @@ msgid "Smart Episode Scrolling"
 msgstr ""
 
 msgctxt "#30102"
-msgid "Download Location"
+msgid "Background Service & Maintenance Settings..."
 msgstr ""
 
 msgctxt "#30103"
@@ -532,15 +532,7 @@ msgid "Re-Use Language Invoker Status: "
 msgstr ""
 
 msgctxt "#30125"
-msgid "Import/Export"
-msgstr ""
-
-msgctxt "#30126"
-msgid "Import Settings"
-msgstr ""
-
-msgctxt "#30127"
-msgid "Export Settings"
+msgid "Open Otaku RPDev Background Service settings to configure Cache TTLs, SQLite PRAGMAs, Maintenance diagnostics, Solvers, Network, and Web-PDB."
 msgstr ""
 
 msgctxt "#30128"
@@ -737,10 +729,6 @@ msgstr ""
 
 msgctxt "#30176"
 msgid "Open a multi-select picker to choose preferred fansub/encode release groups to sort to the top (defaults to none)."
-msgstr ""
-
-msgctxt "#30177"
-msgid "Maintenance"
 msgstr ""
 
 msgctxt "#30178"
@@ -1135,10 +1123,6 @@ msgctxt "#30275"
 msgid "Media Playback"
 msgstr ""
 
-msgctxt "#30276"
-msgid "Standby & CEC Background Throttling"
-msgstr ""
-
 msgctxt "#30277"
 msgid "Inline AniChart Trailer Previews (Kodi 22+)"
 msgstr ""
@@ -1205,10 +1189,6 @@ msgstr ""
 
 msgctxt "#30293"
 msgid "Min Resolution"
-msgstr ""
-
-msgctxt "#30294"
-msgid "Suspend background syncs, precaching, and WAL checkpoints while the TV/device is in standby or CEC sleep (Kodi 22+ with DPMS/screensaver fallback)."
 msgstr ""
 
 msgctxt "#30295"
@@ -1415,26 +1395,6 @@ msgctxt "#30345"
 msgid "Install InputStream Adaptive"
 msgstr ""
 
-msgctxt "#30346"
-msgid "Cloudflare & DDoS-GUARD Solver"
-msgstr ""
-
-msgctxt "#30347"
-msgid "Enable FlareSolverr"
-msgstr ""
-
-msgctxt "#30348"
-msgid "FlareSolverr Url"
-msgstr ""
-
-msgctxt "#30349"
-msgid "FlareSolverr Timeout"
-msgstr ""
-
-msgctxt "#30350"
-msgid "Hosting Instructions"
-msgstr ""
-
 msgctxt "#30351"
 msgid "Get Watch Order"
 msgstr ""
@@ -1533,18 +1493,6 @@ msgstr ""
 
 msgctxt "#30375"
 msgid "Custom Keyword"
-msgstr ""
-
-msgctxt "#30376"
-msgid "Megacloud Solver"
-msgstr ""
-
-msgctxt "#30377"
-msgid "Use Custom External Solver (Default: Built-in Native)"
-msgstr ""
-
-msgctxt "#30378"
-msgid "Megacloud Solver url"
 msgstr ""
 
 msgctxt "#30379"
@@ -1743,34 +1691,6 @@ msgctxt "#30427"
 msgid "Pause duration between consecutive home screen widget loads to prevent API rate limiting. Range: 0-3000ms (Default: 500ms)."
 msgstr ""
 
-msgctxt "#30428"
-msgid "Network Settings"
-msgstr ""
-
-msgctxt "#30429"
-msgid "Toggle IPv6"
-msgstr ""
-
-msgctxt "#30430"
-msgid "Enable/disable IPv6 connections. Kodi restart required for changes to take effect."
-msgstr ""
-
-msgctxt "#30431"
-msgid "Toggle HTTP/2"
-msgstr ""
-
-msgctxt "#30432"
-msgid "Toggle HTTP/2 transport protocol support for network requests. Requires Kodi restart to take effect (Default: Disabled)."
-msgstr ""
-
-msgctxt "#30433"
-msgid "IPv6 Status"
-msgstr ""
-
-msgctxt "#30434"
-msgid "HTTP/2 Status"
-msgstr ""
-
 msgctxt "#30435"
 msgid "Mid-Stream Debrid & CDN Failover"
 msgstr ""
@@ -1865,10 +1785,6 @@ msgstr ""
 
 msgctxt "#30458"
 msgid "AnimeKAI"
-msgstr ""
-
-msgctxt "#30459"
-msgid "Enable Kodi Cache"
 msgstr ""
 
 msgctxt "#30460"
@@ -1979,56 +1895,12 @@ msgctxt "#30486"
 msgid "AnimePahe Alt"
 msgstr ""
 
-msgctxt "#30487"
-msgid "Scrapers Cache TTL (Hours)"
-msgstr ""
-
-msgctxt "#30488"
-msgid "Torrents Cache TTL (Hours)"
-msgstr ""
-
 msgctxt "#30489"
 msgid "Excluded Release Groups (CSV)"
 msgstr ""
 
-msgctxt "#30490"
-msgid "Clear All Cache"
-msgstr ""
-
-msgctxt "#30491"
-msgid "Clear Scrapers Cache Only"
-msgstr ""
-
-msgctxt "#30492"
-msgid "Clear Debrid Cache Only"
-msgstr ""
-
-msgctxt "#30493"
-msgid "Metadata Cache TTL (Hours)"
-msgstr ""
-
-msgctxt "#30494"
-msgid "Airing Calendar Cache TTL (Hours)"
-msgstr ""
-
-msgctxt "#30495"
-msgid "Clear Metadata Cache Only"
-msgstr ""
-
-msgctxt "#30496"
-msgid "Cache Actions"
-msgstr ""
-
-msgctxt "#30497"
-msgid "Cache Duration (TTL)"
-msgstr ""
-
 msgctxt "#30498"
 msgid "Comma-separated global release groups to avoid when alternatives exist (leave blank for no global exclusions)."
-msgstr ""
-
-msgctxt "#30499"
-msgid "Advanced SQLite Engine PRAGMAs"
 msgstr ""
 
 msgctxt "#30500"
@@ -2047,22 +1919,6 @@ msgctxt "#30503"
 msgid "Re-Sync Anime ID Mappings"
 msgstr ""
 
-msgctxt "#30504"
-msgid "SQLite Memory Cache Size (MB)"
-msgstr ""
-
-msgctxt "#30505"
-msgid "SQLite MMAP Memory Limit (MB)"
-msgstr ""
-
-msgctxt "#30506"
-msgid "SQLite Synchronous Mode"
-msgstr ""
-
-msgctxt "#30507"
-msgid "Store Temporary Tables in RAM"
-msgstr ""
-
 msgctxt "#30508"
 msgid "Scraper Concurrency Workers"
 msgstr ""
@@ -2075,44 +1931,12 @@ msgctxt "#30510"
 msgid "Configure low-level SQLite database engine parameters for memory caching, I/O speed, and crash resilience."
 msgstr ""
 
-msgctxt "#30511"
-msgid "Amount of RAM allocated for SQLite page caching. Higher values accelerate queries on large databases (Default: 16 MB)."
-msgstr ""
-
-msgctxt "#30512"
-msgid "Maximum memory-mapped I/O size. Lower limits (16-32 MB) prevent memory pressure and crashes on low-RAM devices (Default: 32 MB)."
-msgstr ""
-
-msgctxt "#30513"
-msgid "Disk synchronization mode. NORMAL provides full crash-resilience in WAL mode with maximum write speed (Default: NORMAL)."
-msgstr ""
-
-msgctxt "#30514"
-msgid "Keeps SQLite temporary sorting tables and indices in RAM instead of writing temporary files to disk storage (Default: Enabled)."
-msgstr ""
-
 msgctxt "#30515"
 msgid "Maximum concurrent background worker threads for scraping sources and building directory listings (Default: 8)."
 msgstr ""
 
 msgctxt "#30516"
 msgid "Display color-coded quality, debrid provider, audio, and codec badges on sources in the selection dialog (Default: Enabled)."
-msgstr ""
-
-msgctxt "#30517"
-msgid "Inspect database sizes, cached item counts, indexed records, and SQLite engine parameters."
-msgstr ""
-
-msgctxt "#30518"
-msgid "Defragments database files, rebuilds internal indexes, and reclaims freed storage space."
-msgstr ""
-
-msgctxt "#30519"
-msgid "Scans all SQLite database files for corruption, missing pages, or indexing errors."
-msgstr ""
-
-msgctxt "#30520"
-msgid "Download and install the latest anime cross-platform ID mappings database from GitHub for AniList, MAL, and Kitsu."
 msgstr ""
 
 msgctxt "#30521"
@@ -2203,10 +2027,6 @@ msgctxt "#30542"
 msgid "Scraper Health & Latency Dashboard"
 msgstr ""
 
-msgctxt "#30543"
-msgid "Open the scraper metrics window displaying average latency, response times, and success rates across all providers."
-msgstr ""
-
 msgctxt "#30544"
 msgid "Hide Spoiler Thumbnails"
 msgstr ""
@@ -2233,14 +2053,6 @@ msgstr ""
 
 msgctxt "#30550"
 msgid "Add 'Mark Episodes Up To Here as Watched' action to episode context menu for batch watch progress updates (Default: Enabled)."
-msgstr ""
-
-msgctxt "#30551"
-msgid "Clear Scraper Telemetry"
-msgstr ""
-
-msgctxt "#30552"
-msgid "Purge all recorded scraper latency timings and success/failure statistics from the internal SQLite metrics database."
 msgstr ""
 
 msgctxt "#30553"
@@ -2299,14 +2111,6 @@ msgctxt "#30566"
 msgid "Pre-warm scraper cache in the background at 70% playback progress for seamless next-episode playback (Default: Enabled)."
 msgstr ""
 
-msgctxt "#30567"
-msgid "Update HiAnime Domains (hianime.pw)"
-msgstr ""
-
-msgctxt "#30568"
-msgid "Fetch latest active mirror domains from https://hianime.pw/ and update cached HiAnime scraper endpoints immediately."
-msgstr ""
-
 msgctxt "#30569"
 msgid "Still Watching? Safeguard"
 msgstr ""
@@ -2321,14 +2125,6 @@ msgstr ""
 
 msgctxt "#30572"
 msgid "'Still Watching' Timeout (Seconds)"
-msgstr ""
-
-msgctxt "#30573"
-msgid "Clean Orphaned Settings"
-msgstr ""
-
-msgctxt "#30574"
-msgid "Scan settings.xml against active schema and safely purge orphaned or obsolete legacy setting values from settings.xml."
 msgstr ""
 
 msgctxt "#30575"
@@ -2357,6 +2153,78 @@ msgstr ""
 
 msgctxt "#30581"
 msgid "5 Episodes"
+msgstr ""
+
+msgctxt "#30582"
+msgid "Display Filler, Recap & Mixed Episode Badges"
+msgstr ""
+
+msgctxt "#30583"
+msgid "Append [FILLER], [RECAP], and [MIXED] indicator badges to episode titles using offline mappings and AnimeFillerList data (Default: Disabled)."
+msgstr ""
+
+msgctxt "#30584"
+msgid "Auto-Skip Filler Episodes During Binge Playback"
+msgstr ""
+
+msgctxt "#30585"
+msgid "Automatically exclude episodes tagged as Filler or Recap when building the upcoming binge playlist (Default: Disabled)."
+msgstr ""
+
+msgctxt "#30586"
+msgid "Strip SDH Hearing-Impaired Bracket Tags"
+msgstr ""
+
+msgctxt "#30587"
+msgid "Remove bracketed sound-effect annotations ([sighs], (applause)) and speaker prefixes from downloaded external subtitles (Default: Disabled)."
+msgstr ""
+
+msgctxt "#30588"
+msgid "Multi-Tracker Watchlist Conflict Policy"
+msgstr ""
+
+msgctxt "#30589"
+msgid "Choose how episode progress differences across multiple enabled watchlists (AniList, MAL, Kitsu, Simkl) are resolved."
+msgstr ""
+
+msgctxt "#30590"
+msgid "Inspect ID Mappings"
+msgstr ""
+
+msgctxt "#30591"
+msgid "Show the Inspect ID Mappings context menu option to display cross-tracker MAL, AniList, Kitsu, Simkl, AniDB, TVDB, and TMDB IDs (Default: Enabled)."
+msgstr ""
+
+msgctxt "#30592"
+msgid "Continue to Sequel Season at Finale"
+msgstr ""
+
+msgctxt "#30593"
+msgid "Automatically queue Episode 1 of the direct Sequel (via mappings.db franchise links) when playing the final episode of a finished season (Default: Enabled)."
+msgstr ""
+
+msgctxt "#30594"
+msgid "Filler Episodes"
+msgstr ""
+
+msgctxt "#30595"
+msgid "Also Skip Mixed Canon/Filler Episodes"
+msgstr ""
+
+msgctxt "#30596"
+msgid "When Filler Auto-Skip is active, exclude episodes marked 'Mixed Canon/Filler' in addition to pure 'Filler' and 'Recap' episodes (Default: Disabled)."
+msgstr ""
+
+msgctxt "#30597"
+msgid "Browse by Year & Season (Offline)"
+msgstr ""
+
+msgctxt "#30598"
+msgid "Set as Kodi Default Subtitle Service"
+msgstr ""
+
+msgctxt "#30599"
+msgid "Configure Kodi's OSD Subtitle Settings > Download Subtitle service for TV shows and movies to use Otaku RPDev Subtitles."
 msgstr ""
 
 msgctxt "#30600"
@@ -2479,14 +2347,6 @@ msgctxt "#30629"
 msgid "Keep Python interpreter in memory across runs for instant menu loading. Disable if encountering memory pressure or state leaks."
 msgstr ""
 
-msgctxt "#30630"
-msgid "Downloads & Local Storage"
-msgstr ""
-
-msgctxt "#30631"
-msgid "Local directory path where downloaded video files and subtitle tracks will be saved."
-msgstr ""
-
 msgctxt "#30632"
 msgid "Content Catalog Filters"
 msgstr ""
@@ -2567,24 +2427,8 @@ msgctxt "#30651"
 msgid "Automatically enable embedded subtitle tracks even when playing English dubbed audio releases (Default: Disabled)."
 msgstr ""
 
-msgctxt "#30652"
-msgid "Database & Storage Diagnostics"
-msgstr ""
-
 msgctxt "#30653"
 msgid "General Watchlist & Synchronization"
-msgstr ""
-
-msgctxt "#30654"
-msgid "Data Recovery & Factory Reset"
-msgstr ""
-
-msgctxt "#30655"
-msgid "WARNING: Irreversibly deletes all settings, databases, watch history, and account credentials, returning Otaku to factory state."
-msgstr ""
-
-msgctxt "#30656"
-msgid "Rebuilds SQLite database schema and resyncs anime watchlists from online accounts without losing settings."
 msgstr ""
 
 msgctxt "#30657"
@@ -3073,42 +2917,6 @@ msgstr ""
 
 msgctxt "#30778"
 msgid "File system directory path where local anime media files are stored for local provider scraping."
-msgstr ""
-
-msgctxt "#30779"
-msgid "Enable Kodi native VFS HTTP stream read-ahead caching to smooth playback over fluctuating networks."
-msgstr ""
-
-msgctxt "#30780"
-msgid "Cache duration in hours for provider scraping results. Higher values speed up repeated lookups."
-msgstr ""
-
-msgctxt "#30781"
-msgid "Cache duration in hours for debrid torrent hash instant-availability checks in SQLite cache.db."
-msgstr ""
-
-msgctxt "#30782"
-msgid "Cache duration in days for anime synopsis, episode titles, cast, and artwork details."
-msgstr ""
-
-msgctxt "#30783"
-msgid "Cache duration in hours for airing calendar schedule data fetched from AniList or Jikan."
-msgstr ""
-
-msgctxt "#30784"
-msgid "Purge all SQLite cache tables and in-memory dictionaries across scrapers, torrents, and metadata."
-msgstr ""
-
-msgctxt "#30785"
-msgid "Delete cached provider stream search results to force fresh scraping on next episode selection."
-msgstr ""
-
-msgctxt "#30786"
-msgid "Purge cached debrid instant availability responses, re-checking torrent hashes on next scrape."
-msgstr ""
-
-msgctxt "#30787"
-msgid "Remove cached show descriptions, artwork links, and episode listings to refresh from API sources."
 msgstr ""
 
 msgctxt "#30788"
@@ -3707,34 +3515,6 @@ msgctxt "#30936"
 msgid "Show 'Clear Cache' action in tools context menu for single-click maintenance access."
 msgstr ""
 
-msgctxt "#30937"
-msgid "Open an interactive text dialog displaying the complete version release notes and update history."
-msgstr ""
-
-msgctxt "#30938"
-msgid "Open the clear cache menu to selectively purge scrapers, debrid, metadata, or image databases."
-msgstr ""
-
-msgctxt "#30939"
-msgid "Purge all saved search query terms from local search history storage."
-msgstr ""
-
-msgctxt "#30940"
-msgid "Clear local record of recently watched episode items without altering online tracking services."
-msgstr ""
-
-msgctxt "#30941"
-msgid "Reset all user-selected custom poster and fanart overrides back to default online artwork."
-msgstr ""
-
-msgctxt "#30942"
-msgid "Force immediate full synchronization between local SQLite watch progress and linked online watchlists."
-msgstr ""
-
-msgctxt "#30943"
-msgid "Open the download manager dialog to inspect, pause, or cancel active media file downloads."
-msgstr ""
-
 msgctxt "#30944"
 msgid "Use InputStream Adaptive addon for playing dynamic multi-bitrate HLS, MPD, and DASH streams."
 msgstr ""
@@ -3751,50 +3531,6 @@ msgctxt "#30947"
 msgid "Shows whether Python language invoker reuse is active. Reusing invokers dramatically speeds up navigation."
 msgstr ""
 
-msgctxt "#30948"
-msgid "Route Cloudflare-protected web requests through a local or remote FlareSolverr service instance."
-msgstr ""
-
-msgctxt "#30949"
-msgid "View setup instructions and command guidelines for deploying a Docker FlareSolverr instance."
-msgstr ""
-
-msgctxt "#30950"
-msgid "Base HTTP URL and port of your active FlareSolverr server (e.g. http://127.0.0.1:8191)."
-msgstr ""
-
-msgctxt "#30951"
-msgid "Maximum time in seconds to wait for FlareSolverr to solve anti-bot challenges before failing."
-msgstr ""
-
-msgctxt "#30952"
-msgid "Enable external API decryption solver for extracting video streams from MegaCloud direct embeds."
-msgstr ""
-
-msgctxt "#30953"
-msgid "View setup and hosting guidelines for running the MegaCloud decryption microservice."
-msgstr ""
-
-msgctxt "#30954"
-msgid "HTTP endpoint URL of your self-hosted or remote MegaCloud extraction solver server."
-msgstr ""
-
-msgctxt "#30955"
-msgid "Display network IPv6 connectivity test results. Disabling IPv6 may resolve connection hangs on some ISPs."
-msgstr ""
-
-msgctxt "#30956"
-msgid "Display HTTP/2 transport protocol support status across external metadata and scraper connections."
-msgstr ""
-
-msgctxt "#30957"
-msgid "Restore addon configuration and credentials from a previously exported settings backup file."
-msgstr ""
-
-msgctxt "#30958"
-msgid "Backup current addon settings, credentials, and custom menu configurations to a JSON file."
-msgstr ""
-
 msgctxt "#30959"
 msgid "Configure core add-on behavior, title languages, metadata providers, UI artwork, dialog styling, and home screen widget loading."
 msgstr ""
@@ -3805,10 +3541,6 @@ msgstr ""
 
 msgctxt "#30961"
 msgid "Adjust source scraping timeouts, concurrency worker threads, debrid cloud cache inspection, and source resolution behavior."
-msgstr ""
-
-msgctxt "#30962"
-msgid "Manage SQLite database caching, memory limits, cache expiration timers, and manual cache purge operations."
 msgstr ""
 
 msgctxt "#30963"
@@ -3839,10 +3571,6 @@ msgctxt "#30969"
 msgid "Choose which shortcuts and tools appear in Kodi's context menu when right-clicking or long-pressing anime items."
 msgstr ""
 
-msgctxt "#30970"
-msgid "Access diagnostics, clear caches, purge history, configure helper solvers, test network protocols, and backup settings."
-msgstr ""
-
 msgctxt "#30971"
 msgid "Seconds to wait for confirmation on the 'Still Watching?' prompt before pausing playback. Range: 5-60 (Default: 30s)."
 msgstr ""
@@ -3853,50 +3581,6 @@ msgstr ""
 
 msgctxt "#30973"
 msgid "Open the menu editor to reorder and toggle visibility of individual anime genre category shortcuts."
-msgstr ""
-
-msgctxt "#30974"
-msgid "Web-PDB"
-msgstr ""
-
-msgctxt "#30975"
-msgid "Enable Web-PDB"
-msgstr ""
-
-msgctxt "#30976"
-msgid "Enable remote Python debugging via the Web-PDB Kodi add-on (script.module.web-pdb)."
-msgstr ""
-
-msgctxt "#30977"
-msgid "Web-PDB Port"
-msgstr ""
-
-msgctxt "#30978"
-msgid "TCP port for the Web-PDB browser interface. Defaults to 5566 to avoid conflicting with Android ADB on port 5555."
-msgstr ""
-
-msgctxt "#30979"
-msgid "Web-PDB Trigger Mode"
-msgstr ""
-
-msgctxt "#30980"
-msgid "Choose whether Web-PDB attaches only on unhandled exceptions (catch_post_mortem) or pauses immediately on every route entry (set_trace)."
-msgstr ""
-
-msgctxt "#30981"
-msgid "Start Web-PDB Trace Now..."
-msgstr ""
-
-msgctxt "#30982"
-msgid "Immediately invoke web_pdb.set_trace(port=...) so you can attach a browser to http://<kodi-ip>:<port> and inspect live addon state."
-msgstr ""
-
-msgctxt "#30983"
-msgid "Reset Settings to Defaults"
-msgstr ""
-
-msgctxt "#30984"
-msgid "Resets all configuration settings to add-on defaults while preserving all account logins and credentials."
 msgstr ""
 
 msgctxt "#30985"
@@ -3955,82 +3639,7 @@ msgctxt "#30998"
 msgid "Query Anime-Skip for intro timestamps when AniSkip has no data (Default: Enabled)."
 msgstr ""
 
-msgctxt "#30598"
-msgid "Set as Kodi Default Subtitle Service"
-msgstr ""
-
-msgctxt "#30599"
-msgid "Configure Kodi's OSD Subtitle Settings > Download Subtitle service for TV shows and movies to use Otaku RPDev Subtitles."
-msgstr ""
-
-msgctxt "#30582"
-msgid "Display Filler, Recap & Mixed Episode Badges"
-msgstr ""
-
-msgctxt "#30583"
-msgid "Append [FILLER], [RECAP], and [MIXED] indicator badges to episode titles using offline mappings and AnimeFillerList data (Default: Disabled)."
-msgstr ""
-
-msgctxt "#30584"
-msgid "Auto-Skip Filler Episodes During Binge Playback"
-msgstr ""
-
-msgctxt "#30585"
-msgid "Automatically exclude episodes tagged as Filler or Recap when building the upcoming binge playlist (Default: Disabled)."
-msgstr ""
-
-msgctxt "#30586"
-msgid "Strip SDH Hearing-Impaired Bracket Tags"
-msgstr ""
-
-msgctxt "#30587"
-msgid "Remove bracketed sound-effect annotations ([sighs], (applause)) and speaker prefixes from downloaded external subtitles (Default: Disabled)."
-msgstr ""
-
-msgctxt "#30588"
-msgid "Multi-Tracker Watchlist Conflict Policy"
-msgstr ""
-
-msgctxt "#30589"
-msgid "Choose how episode progress differences across multiple enabled watchlists (AniList, MAL, Kitsu, Simkl) are resolved."
-msgstr ""
-
-msgctxt "#30590"
-msgid "Inspect ID Mappings"
-msgstr ""
-
-msgctxt "#30591"
-msgid "Show the Inspect ID Mappings context menu option to display cross-tracker MAL, AniList, Kitsu, Simkl, AniDB, TVDB, and TMDB IDs (Default: Enabled)."
-msgstr ""
-
-msgctxt "#30592"
-msgid "Continue to Sequel Season at Finale"
-msgstr ""
-
-msgctxt "#30593"
-msgid "Automatically queue Episode 1 of the direct Sequel (via mappings.db franchise links) when playing the final episode of a finished season (Default: Enabled)."
-msgstr ""
-
-msgctxt "#30594"
-msgid "Filler Episodes"
-msgstr ""
-
-msgctxt "#30595"
-msgid "Also Skip Mixed Canon/Filler Episodes"
-msgstr ""
-
-msgctxt "#30596"
-msgid "When Filler Auto-Skip is active, exclude episodes marked 'Mixed Canon/Filler' in addition to pure 'Filler' and 'Recap' episodes (Default: Disabled)."
-msgstr ""
-
-msgctxt "#30597"
-msgid "Browse by Year & Season (Offline)"
-msgstr ""
-
 msgctxt "#30999"
 msgid "32-Bit Memory Watermark (MB)"
 msgstr ""
-
-
-
 

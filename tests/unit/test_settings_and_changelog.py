@@ -49,7 +49,7 @@ class TestSettingsSchemaAndActions(unittest.TestCase):
     def test_settings_xml_well_formed(self):
         self.assertIsNotNone(self.root)
         categories = self.root.findall('.//category')
-        self.assertGreaterEqual(len(categories), 12)
+        self.assertGreaterEqual(len(categories), 10)
         settings = self.root.findall('.//setting')
         self.assertGreaterEqual(len(settings), 400)
 

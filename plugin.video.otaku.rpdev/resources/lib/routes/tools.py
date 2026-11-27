@@ -198,6 +198,15 @@ def FANART(payload: str, params: dict):
 def SETTINGS(payload, params):
     control.ADDON.openSettings()
     control.clearSettingsCache()
+    control.process_context()
+
+
+@Route('open_service_settings')
+def OPEN_SERVICE_SETTINGS(payload, params):
+    """Open companion service.otaku.rpdev settings (Cache, Maintenance, Solvers, Network, Debug)."""
+    svc_id = getattr(control, 'SERVICE_ADDON_ID', 'service.otaku.rpdev')
+    control.xbmc.executebuiltin(f'Addon.OpenSettings({svc_id})')
+    return control.exit_code()
 
 
 @Route('change_log')
@@ -1134,7 +1143,7 @@ def CLEAN_SETTINGS(payload, params):
     """Scan and prune obsolete/orphaned settings from userdata settings.xml."""
     try:
         from resources.lib.ui import clean_settings
-        count, removed = clean_settings.clean_settings()
+        count, removed = clean_settings.clean_all_settings()
         if count > 0:
             control.notify(
                 title=control.ADDON_NAME,
@@ -1221,42 +1230,51 @@ def PROBE_SETTINGS(payload, params):
         import xbmcaddon
         import xbmcplugin
 
-        addon_dir = control.ADDON_PATH
-        settings_xml = os.path.join(addon_dir, 'resources', 'settings.xml')
-        tree = ET.parse(settings_xml)
-        settings_elements = [(e.attrib.get('id'), e.attrib.get('type')) for e in tree.findall('.//setting') if e.attrib.get('id')]
-        settings = [s[0] for s in settings_elements]
+        addon_pairs = [(control.ADDON_ID, control.ADDON_PATH)]
+        if control.SERVICE_ADDON_PATH and os.path.isdir(control.SERVICE_ADDON_PATH):
+            addon_pairs.append((control.SERVICE_ADDON_ID, control.SERVICE_ADDON_PATH))
 
-        addon = xbmcaddon.Addon(control.ADDON_ID)
+        settings = []
         errors = []
         success_count = 0
-        kodi_settings = None
-        if hasattr(addon, 'getSettings'):
-            try:
-                kodi_settings = addon.getSettings()
-            except Exception as e:
-                errors.append(f"getSettings() exception: {e}")
+        for target_aid, target_path in addon_pairs:
+            settings_xml = os.path.join(target_path, 'resources', 'settings.xml')
+            if not os.path.isfile(settings_xml):
+                continue
+            tree = ET.parse(settings_xml)
+            settings_elements = [(e.attrib.get('id'), e.attrib.get('type')) for e in tree.findall('.//setting') if e.attrib.get('id')]
+            settings.extend(s[0] for s in settings_elements)
 
-        for sid, stype in settings_elements:
-            try:
-                if stype == 'action':
-                    val = True
-                elif stype == 'boolean':
-                    val = addon.getSettingBool(sid) if hasattr(addon, 'getSettingBool') else control.getBool(sid)
-                elif stype == 'integer':
-                    val = addon.getSettingInt(sid) if hasattr(addon, 'getSettingInt') else control.getInt(sid)
-                elif stype == 'number':
-                    val = addon.getSettingNumber(sid) if hasattr(addon, 'getSettingNumber') else control.getStr(sid)
-                elif stype in ('list[string]', 'list[String]'):
-                    if kodi_settings and hasattr(kodi_settings, 'getStringList'):
-                        val = kodi_settings.getStringList(sid)
+            target_addon = xbmcaddon.Addon(target_aid)
+            kodi_settings = None
+            if hasattr(target_addon, 'getSettings'):
+                try:
+                    kodi_settings = target_addon.getSettings()
+                except Exception as e:
+                    errors.append(f"{target_aid}.getSettings() exception: {e}")
+
+            for sid, stype in settings_elements:
+                try:
+                    if stype == 'action':
+                        val = True
+                    elif stype == 'boolean':
+                        val = target_addon.getSettingBool(sid) if hasattr(target_addon, 'getSettingBool') else control.getBool(sid)
+                    elif stype == 'integer':
+                        val = target_addon.getSettingInt(sid) if hasattr(target_addon, 'getSettingInt') else control.getInt(sid)
+                    elif stype == 'number':
+                        val = target_addon.getSettingNumber(sid) if hasattr(target_addon, 'getSettingNumber') else control.getStr(sid)
+                    elif stype in ('list[string]', 'list[String]'):
+                        if kodi_settings and hasattr(kodi_settings, 'getStringList'):
+                            val = kodi_settings.getStringList(sid)
+                        else:
+                            val = control.getStringList(sid)
                     else:
-                        val = control.getStringList(sid)
-                else:
-                    val = addon.getSettingString(sid) if hasattr(addon, 'getSettingString') else control.getStr(sid)
-                success_count += 1
-            except Exception as e:
-                errors.append(f"getSetting({sid}, type={stype}): {e}")
+                        val = target_addon.getSettingString(sid) if hasattr(target_addon, 'getSettingString') else control.getStr(sid)
+                    success_count += 1
+                except Exception as e:
+                    errors.append(f"getSetting({target_aid}:{sid}, type={stype}): {e}")
+
+        addon = xbmcaddon.Addon(control.ADDON_ID)
 
         # Sample localized strings across #30000-#30999
         strings_verified = 0

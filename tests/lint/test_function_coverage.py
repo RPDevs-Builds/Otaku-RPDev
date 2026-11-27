@@ -27,15 +27,20 @@ class TestFunctionCoverage(unittest.TestCase):
         cls.catalog = parse_source_tree(cls.repo_root)
 
     def test_all_source_modules_discovered(self):
-        """Assert source module discovery finds plugin, context, and subtitle service add-on modules dynamically."""
+        """Assert source module discovery finds all 4 Otaku add-ons dynamically."""
         plugin_files = [rel for rel, _ in self.source_files if rel.startswith('plugin.video.otaku.rpdev/')]
+        service_files = [rel for rel, _ in self.source_files if rel.startswith('service.otaku.rpdev/')]
         context_files = [rel for rel, _ in self.source_files if rel.startswith('context.otaku.rpdev/')]
         subtitle_files = [rel for rel, _ in self.source_files if rel.startswith('service.subtitles.otaku.rpdev/')]
 
         self.assertGreaterEqual(len(plugin_files), 135, f"Expected >=135 modules in plugin.video.otaku.rpdev, got {len(plugin_files)}")
+        self.assertGreaterEqual(len(service_files), 4, f"Expected >=4 modules in service.otaku.rpdev, got {len(service_files)}")
         self.assertGreaterEqual(len(context_files), 1, f"Expected >=1 module in context.otaku.rpdev, got {len(context_files)}")
         self.assertGreaterEqual(len(subtitle_files), 1, f"Expected >=1 module in service.subtitles.otaku.rpdev, got {len(subtitle_files)}")
-        self.assertEqual(len(self.source_files), len(plugin_files) + len(context_files) + len(subtitle_files))
+        self.assertEqual(
+            len(self.source_files),
+            len(plugin_files) + len(service_files) + len(context_files) + len(subtitle_files),
+        )
 
     def test_ast_symbol_discovery_fidelity(self):
         """Assert AST symbol visitor discovers classes, functions, and non-dunder methods."""
@@ -65,6 +70,18 @@ class TestFunctionCoverage(unittest.TestCase):
                             mod_name = 'plugin_default'
                         elif sub == 'service.py':
                             mod_name = 'service'
+                        else:
+                            mod_name = sub[:-3].replace('/', '.')
+                    elif rel_path.startswith('service.otaku.rpdev/'):
+                        sub = rel_path[len('service.otaku.rpdev/'):]
+                        if sub == 'service.py':
+                            mod_name = 'otaku_service_main'
+                        elif sub.startswith('resources/lib/'):
+                            inner = sub[len('resources/lib/'):]
+                            if inner.endswith('/__init__.py'):
+                                mod_name = inner[:-len('/__init__.py')].replace('/', '.')
+                            else:
+                                mod_name = inner[:-3].replace('/', '.')
                         else:
                             mod_name = sub[:-3].replace('/', '.')
                     elif rel_path.startswith('service.subtitles.otaku.rpdev/'):

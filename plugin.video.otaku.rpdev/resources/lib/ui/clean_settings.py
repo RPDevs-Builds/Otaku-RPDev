@@ -67,10 +67,23 @@ def clean_settings(profile_settings_path=None, canonical_settings_path=None, sil
         return 0, []
 
     removed_ids = []
+    # Protect unmigrated SERVICE_SETTING_IDS from being pruned out of plugin settings.xml
+    is_plugin_profile = (
+        not canonical_settings_path
+        or os.path.normpath(canonical_settings_path) == os.path.normpath(os.path.join(control.ADDON_PATH, 'resources', 'settings.xml'))
+    )
+    service_migrated = True
+    if is_plugin_profile:
+        try:
+            service_migrated = bool(control.getBool('service.migrated_from_plugin_v1', False))
+        except Exception:
+            service_migrated = False
+    protected_service_ids = set() if service_migrated else set(getattr(control, 'SERVICE_SETTING_IDS', ()))
+
     # Identify and remove dangling settings
     for setting in list(root):
         sid = setting.get('id')
-        if sid and sid not in active_ids:
+        if sid and sid not in active_ids and sid not in protected_service_ids:
             removed_ids.append(sid)
             root.remove(setting)
 
@@ -89,3 +102,33 @@ def clean_settings(profile_settings_path=None, canonical_settings_path=None, sil
         control.log("clean_settings: Settings file clean — no orphaned settings found", 'info')
 
     return len(removed_ids), removed_ids
+
+
+def clean_all_settings(silent=False):
+    """Prune orphaned settings across both plugin.video.otaku.rpdev and service.otaku.rpdev."""
+    total_count = 0
+    all_removed = []
+
+    p_count, p_removed = clean_settings(silent=silent)
+    total_count += p_count
+    all_removed.extend(p_removed)
+
+    svc_id = getattr(control, 'SERVICE_ADDON_ID', 'service.otaku.rpdev')
+    svc_addon_path = getattr(control, 'SERVICE_ADDON_PATH', '')
+    svc_canonical = os.path.join(svc_addon_path, 'resources', 'settings.xml') if svc_addon_path else ''
+    if svc_canonical and os.path.exists(svc_canonical):
+        try:
+            svc_profile_dir = control.xbmcvfs.translatePath(f'special://profile/addon_data/{svc_id}/')
+            svc_profile = os.path.join(svc_profile_dir, 'settings.xml')
+            if os.path.exists(svc_profile):
+                s_count, s_removed = clean_settings(
+                    profile_settings_path=svc_profile,
+                    canonical_settings_path=svc_canonical,
+                    silent=silent,
+                )
+                total_count += s_count
+                all_removed.extend(s_removed)
+        except Exception as e:
+            control.log(f"clean_all_settings: service.otaku.rpdev prune notice: {e}", 'warning')
+
+    return total_count, all_removed

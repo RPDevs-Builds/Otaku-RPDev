@@ -134,9 +134,10 @@ class TestMappingDbIntegration(unittest.TestCase):
             srv._custom_handler = _handler
             base = srv.get_base_url()
 
-            with patch.object(service, 'MAPPINGS_MANIFEST_URL', f'{base}/manifest.json'), \
-                 patch.object(service, 'MAPPINGS_XZ_URL', f'{base}/anime_mappings.db.xz'), \
-                 patch.object(service, 'MAPPINGS_FALLBACK_URL', f'{base}/fallback.db'):
+            from otaku_service import sync as svc_sync
+            with patch.object(svc_sync, 'MAPPINGS_MANIFEST_URL', f'{base}/manifest.json'), \
+                 patch.object(svc_sync, 'MAPPINGS_XZ_URL', f'{base}/anime_mappings.db.xz'), \
+                 patch.object(svc_sync, 'MAPPINGS_FALLBACK_URL', f'{base}/fallback.db'):
                 # 1. Valid manifest SHA-256 + .xz succeeds
                 self.assertTrue(service.update_mappings_db())
                 meta = database.get_mappings_metadata()
@@ -843,24 +844,26 @@ class TestMappingDbIntegration(unittest.TestCase):
     def test_idle_loop_daily_mappings_sync_guards(self):
         with E2EHermeticEnv('22'):
             import service
+            from otaku_service import sync as svc_sync
             from resources.lib.ui import control
 
             # 1. Skips cleanly when playing video or inside 24h interval
             control.setInt('update.time.30', int(time.time()))
-            with patch.object(service, 'update_mappings_db', return_value=True) as mock_upd:
+            with patch.object(svc_sync, 'update_mappings_db', return_value=True) as mock_upd:
                 self.assertFalse(service._maybe_sync_daily_mappings())
                 mock_upd.assert_not_called()
 
             control.setInt('update.time.30', 100)
-            with patch.object(service.xbmc.Player, 'isPlayingVideo', return_value=True), \
-                 patch.object(service, 'update_mappings_db', return_value=True) as mock_upd:
+            with patch.object(svc_sync.xbmc.Player, 'isPlayingVideo', return_value=True), \
+                 patch.object(svc_sync, 'update_mappings_db', return_value=True) as mock_upd:
                 self.assertFalse(service._maybe_sync_daily_mappings())
                 mock_upd.assert_not_called()
 
             # 2. Triggers update_mappings_db() and refreshes update.time.30 when idle & overdue
-            with patch.object(service.xbmc.Player, 'isPlayingVideo', return_value=False), \
+            with patch.object(svc_sync.xbmc.Player, 'isPlayingVideo', return_value=False), \
                  patch('resources.lib.ui.control.is_device_in_standby', return_value=False), \
-                 patch.object(service, 'update_mappings_db', return_value=True) as mock_upd:
+                 patch.object(svc_sync, 'update_mappings_db', return_value=True) as mock_upd, \
+                 patch.object(svc_sync, 'update_metadata_db', return_value=True):
                 self.assertTrue(service._maybe_sync_daily_mappings())
                 mock_upd.assert_called_once()
                 self.assertGreater(control.getInt('update.time.30'), 100)

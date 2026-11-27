@@ -105,6 +105,21 @@ class TestSetupWizard(unittest.TestCase):
             self.assertTrue(control.getBool('divflavors.showdub'))
             mock_sort.assert_called_with(1)
 
+    def test_hardware_presets_strict_kodi22_cross_addon_settings(self):
+        """Hardware presets write service settings to service.otaku.rpdev under strict Kodi 22 schema validation."""
+        from tests.kodi_profile import KodiProfile
+        with KodiProfile('22', strict_settings=True):
+            tools.apply_hardware_preset(0)
+            self.assertEqual(control.getInt('db.sqlite.cache_size_mb'), 32)
+            self.assertEqual(control.getInt('db.sqlite.mmap_size_mb'), 64)
+            self.assertTrue(control.getBool('general.kodi.cache'))
+
+            tools.apply_hardware_preset(2)
+            self.assertEqual(control.getInt('db.sqlite.cache_size_mb'), 8)
+            self.assertEqual(control.getInt('db.sqlite.mmap_size_mb'), 4)
+            self.assertFalse(control.getBool('general.kodi.cache'))
+            self.assertTrue(control.getBool('clean.memory'))
+
 
 if __name__ == '__main__':
     unittest.main()

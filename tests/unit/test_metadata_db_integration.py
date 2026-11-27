@@ -133,14 +133,15 @@ class TestMetadataDBIntegration(unittest.TestCase):
 
     def test_service_sync_calls_both_mappings_and_metadata(self):
         import service
+        from otaku_service import sync as svc_sync
         from resources.lib.ui import control
 
         with patch.object(control, 'getInt', return_value=0), \
              patch.object(control, 'setInt'), \
              patch.object(control, 'abort_requested', return_value=False), \
              patch.object(control, 'is_device_in_standby', return_value=False), \
-             patch.object(service, 'update_mappings_db', return_value=True) as mock_map, \
-             patch.object(service, 'update_metadata_db', return_value=True) as mock_meta:
+             patch.object(svc_sync, 'update_mappings_db', return_value=True) as mock_map, \
+             patch.object(svc_sync, 'update_metadata_db', return_value=True) as mock_meta:
             ok = service._maybe_sync_daily_mappings(interval_s=86400)
             self.assertTrue(ok)
             mock_map.assert_called_once()

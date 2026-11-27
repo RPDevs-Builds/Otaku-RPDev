@@ -43,17 +43,22 @@ _SKIN_XML_CACHE = {}
 _PROFILE_LOCK = threading.RLock()
 
 
-def load_settings_schema():
-    """Parse plugin.video.otaku.rpdev/resources/settings.xml once and cache schema."""
-    global _SETTINGS_SCHEMA_CACHE, _SETTINGS_DEFAULTS_CACHE
-    if _SETTINGS_SCHEMA_CACHE is not None:
-        return _SETTINGS_SCHEMA_CACHE, _SETTINGS_DEFAULTS_CACHE
+_SETTINGS_SCHEMA_BY_ADDON = {}
 
+
+def load_settings_schema(addon_id='plugin.video.otaku.rpdev'):
+    """Parse <addon_id>/resources/settings.xml once and cache schema per add-on."""
+    global _SETTINGS_SCHEMA_CACHE, _SETTINGS_DEFAULTS_CACHE
+    aid = addon_id or 'plugin.video.otaku.rpdev'
+    if aid in _SETTINGS_SCHEMA_BY_ADDON:
+        return _SETTINGS_SCHEMA_BY_ADDON[aid]
+
+    xml_path = SETTINGS_XML_PATH if aid == 'plugin.video.otaku.rpdev' else os.path.join(REPO_ROOT, aid, 'resources', 'settings.xml')
     schema = {}
     defaults = {}
-    if os.path.exists(SETTINGS_XML_PATH):
+    if os.path.exists(xml_path):
         try:
-            tree = ET.parse(SETTINGS_XML_PATH)
+            tree = ET.parse(xml_path)
             root = tree.getroot()
             for s in root.iter('setting'):
                 sid = s.get('id')
@@ -69,8 +74,10 @@ def load_settings_schema():
         except Exception:
             pass
 
-    _SETTINGS_SCHEMA_CACHE = schema
-    _SETTINGS_DEFAULTS_CACHE = defaults
+    _SETTINGS_SCHEMA_BY_ADDON[aid] = (schema, defaults)
+    if aid == 'plugin.video.otaku.rpdev':
+        _SETTINGS_SCHEMA_CACHE = schema
+        _SETTINGS_DEFAULTS_CACHE = defaults
     return schema, defaults
 
 
@@ -113,10 +120,12 @@ def parse_skin_xml(xml_file):
 
 
 def reset_settings_to_defaults(include_test_fixtures=True):
-    """Reset conftest._settings_store to XML defaults plus required test fixture tokens."""
-    _, defaults = load_settings_schema()
+    """Reset conftest._settings_store to plugin + service XML defaults plus required test fixture tokens."""
+    _, plugin_defaults = load_settings_schema('plugin.video.otaku.rpdev')
+    _, service_defaults = load_settings_schema('service.otaku.rpdev')
     conftest._settings_store.clear()
-    conftest._settings_store.update(defaults)
+    conftest._settings_store.update(plugin_defaults)
+    conftest._settings_store.update(service_defaults)
     if include_test_fixtures:
         conftest._settings_store.update({
             'menu.mainmenu.config': 'airing_calendar,airing_last_season,airing_this_season,airing_next_season,trending,popular,voted,favourites,top_100,genres,search,tools',

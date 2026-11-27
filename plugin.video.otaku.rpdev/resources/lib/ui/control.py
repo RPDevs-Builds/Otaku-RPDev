@@ -106,10 +106,23 @@ class _SettingsProxy:
         self._addon_id = addon_id
         self._addon = None
         self._cached = None
+        self._unavailable_warned = False
 
     def _get_addon(self):
         if self._addon is None:
-            self._addon = xbmcaddon.Addon(self._addon_id) if self._addon_id else xbmcaddon.Addon()
+            try:
+                self._addon = xbmcaddon.Addon(self._addon_id) if self._addon_id else xbmcaddon.Addon()
+            except Exception as e:
+                if self._addon_id and not self._unavailable_warned:
+                    self._unavailable_warned = True
+                    try:
+                        xbmc.log(
+                            f'OTAKU RPDEV (0): Companion add-on {self._addon_id} unavailable ({e}); falling back to defaults',
+                            xbmc.LOGWARNING,
+                        )
+                    except Exception:
+                        pass
+                raise
         return self._addon
 
     def _get_settings(self):
@@ -120,6 +133,7 @@ class _SettingsProxy:
     def cleanup(self):
         self._cached = None
         self._addon = None
+        self._unavailable_warned = False
 
     def getBool(self, key, default=False):
         try:
@@ -404,10 +418,10 @@ class _MonitorProxy:
 try:
     _init_addon = xbmcaddon.Addon()
     _detected_id = _init_addon.getAddonInfo('id')
-    # When imported by companion add-ons (service.subtitles.otaku.rpdev, context.otaku.rpdev),
+    # When imported by companion add-ons (service.subtitles.otaku.rpdev, context.otaku.rpdev, service.otaku.rpdev),
     # always bind settings, dataPath, and identity to plugin.video.otaku.rpdev so Kodi 22
-    # resolves Settings - Otaku RPDev > Subtitles cleanly without Invalid setting type errors.
-    if _detected_id in ('service.subtitles.otaku.rpdev', 'context.otaku.rpdev'):
+    # resolves paths and main settings cleanly without Invalid setting type errors.
+    if _detected_id in ('service.subtitles.otaku.rpdev', 'context.otaku.rpdev', 'service.otaku.rpdev'):
         ADDON_ID = 'plugin.video.otaku.rpdev'
     else:
         ADDON_ID = _detected_id
@@ -452,9 +466,58 @@ infoDB = os.path.join(CONTEXT_ADDON_PATH, 'info.db')
 if not pathExists(infoDB):
     infoDB = os.path.join(ADDON_PATH, 'info.db')
 
+SERVICE_ADDON_ID = 'service.otaku.rpdev'
+try:
+    _temp_service = xbmcaddon.Addon(SERVICE_ADDON_ID)
+    SERVICE_ADDON_PATH = _temp_service.getAddonInfo('path')
+    del _temp_service
+except Exception:
+    SERVICE_ADDON_PATH = xbmcvfs.translatePath(f'special://home/addons/{SERVICE_ADDON_ID}/')
+
+SERVICE_SETTING_IDS = frozenset({
+    # Category 1: Cache & Database
+    'general.kodi.cache',
+    'cache.scrapers.ttl',
+    'cache.torrents.ttl',
+    'cache.metadata.ttl',
+    'cache.calendar.ttl',
+    'db.sqlite.cache_size_mb',
+    'db.sqlite.mmap_size_mb',
+    'db.sqlite.synchronous',
+    'db.sqlite.temp_store_ram',
+    # Category 2: Service, Storage & Maintenance
+    'general.memory_watermark_mb',
+    'general.standby_throttling',
+    'download.location',
+    'dub.etag',
+    'mappings.etag',
+    'mappings.last_modified',
+    'update.time.1',
+    'update.time.7',
+    'update.time.30',
+    'clean.memory',
+    'service.migrated_from_plugin_v1',
+    # Category 3: Solvers, Network & Debug
+    'fs_enable',
+    'fs_url',
+    'fs_timeout',
+    'ms_enable',
+    'ms_url',
+    'ipv6.status',
+    'http2.status',
+    'webpdb.enabled',
+    'webpdb.port',
+    'webpdb.mode',
+})
+
+_SERVICE_SETTINGS_EPOCH_PROP = 'otaku.service_settings_epoch'
+_last_service_settings_epoch = ''
+
 ADDON = _AddonProxy(ADDON_ID)
 CONTEXT_ADDON = _AddonProxy(CONTEXT_ADDON_ID)
+SERVICE_ADDON = _AddonProxy(SERVICE_ADDON_ID)
 settings = _SettingsProxy(ADDON_ID)
+service_settings = _SettingsProxy(SERVICE_ADDON_ID)
 monitor = _MonitorProxy()
 
 
@@ -728,18 +791,60 @@ def refresh():
 #  Settings - Cached Getters & Setters
 # ═══════════════════════════════════════════════════════════════════════════
 
+def _settings_target(key):
+    """Return (settings_proxy, addon_id) for key, routing SERVICE_SETTING_IDS to service.otaku.rpdev."""
+    if key in SERVICE_SETTING_IDS:
+        return service_settings, SERVICE_ADDON_ID
+    return settings, ADDON_ID
+
+
+def bump_service_settings_epoch():
+    """Increment shared Window(10000) epoch so plugin & service immediately observe cross-addon writes."""
+    global _last_service_settings_epoch
+    try:
+        cur = homeWindow.getProperty(_SERVICE_SETTINGS_EPOCH_PROP) or '0'
+        next_epoch = str(int(cur) + 1)
+    except (ValueError, TypeError):
+        next_epoch = '1'
+    _last_service_settings_epoch = next_epoch
+    try:
+        homeWindow.setProperty(_SERVICE_SETTINGS_EPOCH_PROP, next_epoch)
+    except Exception:
+        pass
+    return next_epoch
+
+
+def _sync_service_settings_epoch():
+    """Evict cached SERVICE_SETTING_IDS entries if another invoker/addon bumped otaku.service_settings_epoch."""
+    global _last_service_settings_epoch
+    try:
+        cur = homeWindow.getProperty(_SERVICE_SETTINGS_EPOCH_PROP) or ''
+    except Exception:
+        cur = ''
+    if cur and cur != _last_service_settings_epoch:
+        _last_service_settings_epoch = cur
+        for sid in SERVICE_SETTING_IDS:
+            for prefix in ('s_', 'gs_', 'b_', 'i_', 'n_', 'sl_', 'bl_', 'il_', 'nl_'):
+                _settings_cache.pop(f'{prefix}{sid}', None)
+        service_settings.cleanup()
+
+
 def getSetting(key):
     """Get setting as string - checks in-memory cache, then Kodi API, then window property fallback"""
+    is_svc = key in SERVICE_SETTING_IDS
+    if is_svc:
+        _sync_service_settings_epoch()
     ck = f's_{key}'
     if ck in _settings_cache:
         return _settings_cache[ck]
+    proxy, aid = _settings_target(key)
     try:
-        val = settings.getString(key)
+        val = proxy.getString(key)
         _settings_cache[ck] = val
         return val
     except Exception:
         pass
-    cache = homeWindow.getProperty(f'{ADDON_ID}_{key}')
+    cache = homeWindow.getProperty(f'{aid}_{key}')
     if cache:
         _settings_cache[ck] = cache
         return cache
@@ -752,16 +857,19 @@ getString = getSetting
 
 def getBool(key, default=False):
     """Get setting as boolean - checks in-memory cache, then Kodi API, then window property fallback"""
+    if key in SERVICE_SETTING_IDS:
+        _sync_service_settings_epoch()
     ck = f'b_{key}'
     if ck in _settings_cache:
         return _settings_cache[ck]
+    proxy, aid = _settings_target(key)
     try:
-        val = settings.getBool(key, default)
+        val = proxy.getBool(key, default)
         _settings_cache[ck] = val
         return val
     except Exception:
         pass
-    cache = homeWindow.getProperty(f'{ADDON_ID}_{key}')
+    cache = homeWindow.getProperty(f'{aid}_{key}')
     if cache:
         val = (cache == 'true')
         _settings_cache[ck] = val
@@ -772,16 +880,19 @@ def getBool(key, default=False):
 
 def getInt(key, default=0):
     """Get setting as integer - checks in-memory cache, then Kodi API, then window property fallback"""
+    if key in SERVICE_SETTING_IDS:
+        _sync_service_settings_epoch()
     ck = f'i_{key}'
     if ck in _settings_cache:
         return _settings_cache[ck]
+    proxy, aid = _settings_target(key)
     try:
-        val = settings.getInt(key)
+        val = proxy.getInt(key, default)
         _settings_cache[ck] = val
         return val
     except Exception:
         pass
-    cache = homeWindow.getProperty(f'{ADDON_ID}_{key}')
+    cache = homeWindow.getProperty(f'{aid}_{key}')
     if cache:
         try:
             val = int(cache)
@@ -800,16 +911,19 @@ def getStr(key):
 
 def getNumber(key, default=0.0):
     """Get setting as float/number - checks in-memory cache, then Kodi API, then window property fallback"""
+    if key in SERVICE_SETTING_IDS:
+        _sync_service_settings_epoch()
     ck = f'n_{key}'
     if ck in _settings_cache:
         return _settings_cache[ck]
+    proxy, aid = _settings_target(key)
     try:
-        val = settings.getNumber(key)
+        val = proxy.getNumber(key, default)
         _settings_cache[ck] = val
         return val
     except Exception:
         pass
-    cache = homeWindow.getProperty(f'{ADDON_ID}_{key}')
+    cache = homeWindow.getProperty(f'{aid}_{key}')
     if cache:
         try:
             val = float(cache)
@@ -823,16 +937,19 @@ def getNumber(key, default=0.0):
 
 def getStringList(settingid):
     """Get setting as list of strings - checks in-memory cache, then Kodi API, then window property fallback"""
+    if settingid in SERVICE_SETTING_IDS:
+        _sync_service_settings_epoch()
     ck = f'sl_{settingid}'
     if ck in _settings_cache:
         return _settings_cache[ck]
+    proxy, aid = _settings_target(settingid)
     try:
-        val = settings.getStringList(settingid)
+        val = proxy.getStringList(settingid)
         _settings_cache[ck] = val
         return val
     except Exception:
         pass
-    cache = homeWindow.getProperty(f'{ADDON_ID}_{settingid}')
+    cache = homeWindow.getProperty(f'{aid}_{settingid}')
     if cache:
         try:
             val = json.loads(cache)
@@ -846,16 +963,19 @@ def getStringList(settingid):
 
 def getBoolList(settingid):
     """Get setting as list of booleans - checks in-memory cache, then Kodi API, then window property fallback"""
+    if settingid in SERVICE_SETTING_IDS:
+        _sync_service_settings_epoch()
     ck = f'bl_{settingid}'
     if ck in _settings_cache:
         return _settings_cache[ck]
+    proxy, aid = _settings_target(settingid)
     try:
-        val = settings.getBoolList(settingid)
+        val = proxy.getBoolList(settingid)
         _settings_cache[ck] = val
         return val
     except Exception:
         pass
-    cache = homeWindow.getProperty(f'{ADDON_ID}_{settingid}')
+    cache = homeWindow.getProperty(f'{aid}_{settingid}')
     if cache:
         try:
             val = json.loads(cache)
@@ -869,16 +989,19 @@ def getBoolList(settingid):
 
 def getIntList(settingid):
     """Get setting as list of integers - checks in-memory cache, then Kodi API, then window property fallback"""
+    if settingid in SERVICE_SETTING_IDS:
+        _sync_service_settings_epoch()
     ck = f'il_{settingid}'
     if ck in _settings_cache:
         return _settings_cache[ck]
+    proxy, aid = _settings_target(settingid)
     try:
-        val = settings.getIntList(settingid)
+        val = proxy.getIntList(settingid)
         _settings_cache[ck] = val
         return val
     except Exception:
         pass
-    cache = homeWindow.getProperty(f'{ADDON_ID}_{settingid}')
+    cache = homeWindow.getProperty(f'{aid}_{settingid}')
     if cache:
         try:
             val = json.loads(cache)
@@ -892,16 +1015,19 @@ def getIntList(settingid):
 
 def getNumberList(settingid):
     """Get setting as list of numbers - checks in-memory cache, then Kodi API, then window property fallback"""
+    if settingid in SERVICE_SETTING_IDS:
+        _sync_service_settings_epoch()
     ck = f'nl_{settingid}'
     if ck in _settings_cache:
         return _settings_cache[ck]
+    proxy, aid = _settings_target(settingid)
     try:
-        val = settings.getNumberList(settingid)
+        val = proxy.getNumberList(settingid)
         _settings_cache[ck] = val
         return val
     except Exception:
         pass
-    cache = homeWindow.getProperty(f'{ADDON_ID}_{settingid}')
+    cache = homeWindow.getProperty(f'{aid}_{settingid}')
     if cache:
         try:
             val = json.loads(cache)
@@ -917,33 +1043,40 @@ def _evict_setting(settingid):
     """Evict all cached variants of a setting key."""
     for prefix in ('s_', 'gs_', 'b_', 'i_', 'n_', 'sl_', 'bl_', 'il_', 'nl_'):
         _settings_cache.pop(f'{prefix}{settingid}', None)
-    homeWindow.clearProperty(f'{ADDON_ID}_{settingid}')
+    _, aid = _settings_target(settingid)
+    homeWindow.clearProperty(f'{aid}_{settingid}')
 
 
 def setSetting(settingid, value):
     """Set setting as string - kept for backward compatibility"""
     val_str = str(value if value is not None else '')
     sid_str = str(settingid or '')
+    proxy, aid = _settings_target(sid_str)
     try:
-        settings.setString(sid_str, val_str)
+        proxy.setString(sid_str, val_str)
     except Exception:
         pass
     _evict_setting(sid_str)
     _settings_cache[f's_{sid_str}'] = val_str
-    homeWindow.setProperty(f'{ADDON_ID}_{sid_str}', val_str)
+    homeWindow.setProperty(f'{aid}_{sid_str}', val_str)
+    if aid == SERVICE_ADDON_ID:
+        bump_service_settings_epoch()
 
 
 def setBool(settingid, value):
     """Set setting as boolean"""
     sid_str = str(settingid or '')
     val_bool = bool(value)
+    proxy, aid = _settings_target(sid_str)
     try:
-        settings.setBool(sid_str, val_bool)
+        proxy.setBool(sid_str, val_bool)
     except Exception:
         pass
     _evict_setting(sid_str)
     _settings_cache[f'b_{sid_str}'] = val_bool
-    homeWindow.setProperty(f'{ADDON_ID}_{sid_str}', 'true' if val_bool else 'false')
+    homeWindow.setProperty(f'{aid}_{sid_str}', 'true' if val_bool else 'false')
+    if aid == SERVICE_ADDON_ID:
+        bump_service_settings_epoch()
 
 
 def setInt(settingid, value):
@@ -953,26 +1086,32 @@ def setInt(settingid, value):
         val_int = int(value)
     except (ValueError, TypeError):
         val_int = 0
+    proxy, aid = _settings_target(sid_str)
     try:
-        settings.setInt(sid_str, val_int)
+        proxy.setInt(sid_str, val_int)
     except Exception:
         pass
     _evict_setting(sid_str)
     _settings_cache[f'i_{sid_str}'] = val_int
-    homeWindow.setProperty(f'{ADDON_ID}_{sid_str}', str(val_int))
+    homeWindow.setProperty(f'{aid}_{sid_str}', str(val_int))
+    if aid == SERVICE_ADDON_ID:
+        bump_service_settings_epoch()
 
 
 def setStr(settingid, value):
     """Set setting as string"""
     sid_str = str(settingid or '')
     val_str = str(value if value is not None else '')
+    proxy, aid = _settings_target(sid_str)
     try:
-        settings.setString(sid_str, val_str)
+        proxy.setString(sid_str, val_str)
     except Exception:
         pass
     _evict_setting(sid_str)
     _settings_cache[f's_{sid_str}'] = val_str
-    homeWindow.setProperty(f'{ADDON_ID}_{sid_str}', val_str)
+    homeWindow.setProperty(f'{aid}_{sid_str}', val_str)
+    if aid == SERVICE_ADDON_ID:
+        bump_service_settings_epoch()
 
 
 setString = setSetting
@@ -985,45 +1124,54 @@ def setNumber(settingid, value):
         val_num = float(value)
     except (ValueError, TypeError):
         val_num = 0.0
+    proxy, aid = _settings_target(sid_str)
     try:
-        settings.setNumber(sid_str, val_num)
+        proxy.setNumber(sid_str, val_num)
     except Exception:
         pass
     _evict_setting(sid_str)
     _settings_cache[f'n_{sid_str}'] = val_num
-    homeWindow.setProperty(f'{ADDON_ID}_{sid_str}', str(val_num))
+    homeWindow.setProperty(f'{aid}_{sid_str}', str(val_num))
+    if aid == SERVICE_ADDON_ID:
+        bump_service_settings_epoch()
 
 
 def setStringList(settingid, value):
     """Set setting as list of strings"""
     sid_str = str(settingid or '')
     val_list = [str(x) for x in value] if isinstance(value, (list, tuple)) else []
+    proxy, aid = _settings_target(sid_str)
     try:
-        settings.setStringList(sid_str, val_list)
+        proxy.setStringList(sid_str, val_list)
     except Exception:
         pass
     _evict_setting(sid_str)
     _settings_cache[f'sl_{sid_str}'] = val_list
     try:
-        homeWindow.setProperty(f'{ADDON_ID}_{sid_str}', json.dumps(val_list))
+        homeWindow.setProperty(f'{aid}_{sid_str}', json.dumps(val_list))
     except Exception:
         pass
+    if aid == SERVICE_ADDON_ID:
+        bump_service_settings_epoch()
 
 
 def setBoolList(settingid, value):
     """Set setting as list of booleans"""
     sid_str = str(settingid or '')
     val_list = [bool(x) for x in value] if isinstance(value, (list, tuple)) else []
+    proxy, aid = _settings_target(sid_str)
     try:
-        settings.setBoolList(sid_str, val_list)
+        proxy.setBoolList(sid_str, val_list)
     except Exception:
         pass
     _evict_setting(sid_str)
     _settings_cache[f'bl_{sid_str}'] = val_list
     try:
-        homeWindow.setProperty(f'{ADDON_ID}_{sid_str}', json.dumps(val_list))
+        homeWindow.setProperty(f'{aid}_{sid_str}', json.dumps(val_list))
     except Exception:
         pass
+    if aid == SERVICE_ADDON_ID:
+        bump_service_settings_epoch()
 
 
 def setIntList(settingid, value):
@@ -1036,16 +1184,19 @@ def setIntList(settingid, value):
                 val_list.append(int(x))
             except (ValueError, TypeError):
                 val_list.append(0)
+    proxy, aid = _settings_target(sid_str)
     try:
-        settings.setIntList(sid_str, val_list)
+        proxy.setIntList(sid_str, val_list)
     except Exception:
         pass
     _evict_setting(sid_str)
     _settings_cache[f'il_{sid_str}'] = val_list
     try:
-        homeWindow.setProperty(f'{ADDON_ID}_{sid_str}', json.dumps(val_list))
+        homeWindow.setProperty(f'{aid}_{sid_str}', json.dumps(val_list))
     except Exception:
         pass
+    if aid == SERVICE_ADDON_ID:
+        bump_service_settings_epoch()
 
 
 def setNumberList(settingid, value):
@@ -1058,16 +1209,19 @@ def setNumberList(settingid, value):
                 val_list.append(float(x))
             except (ValueError, TypeError):
                 val_list.append(0.0)
+    proxy, aid = _settings_target(sid_str)
     try:
-        settings.setNumberList(sid_str, val_list)
+        proxy.setNumberList(sid_str, val_list)
     except Exception:
         pass
     _evict_setting(sid_str)
     _settings_cache[f'nl_{sid_str}'] = val_list
     try:
-        homeWindow.setProperty(f'{ADDON_ID}_{sid_str}', json.dumps(val_list))
+        homeWindow.setProperty(f'{aid}_{sid_str}', json.dumps(val_list))
     except Exception:
         pass
+    if aid == SERVICE_ADDON_ID:
+        bump_service_settings_epoch()
 
 
 def clearSettingsCache():
@@ -1075,6 +1229,7 @@ def clearSettingsCache():
     _settings_cache.clear()
     _artwork_cache.clear()
     settings.cleanup()
+    service_settings.cleanup()
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1404,9 +1559,10 @@ def clean_memory(trim_fn=None):
 
 
 def init_session():
-    """Refresh session state (HANDLE, _directory_ended) on script entry for clean LanguageInvoker reuse."""
+    """Refresh session state (HANDLE, _directory_ended, service_settings_epoch) on script entry."""
     global HANDLE, _directory_ended
     _directory_ended = False
+    _sync_service_settings_epoch()
     try:
         HANDLE = int(sys.argv[1])
     except (IndexError, ValueError):
@@ -1567,7 +1723,7 @@ def cleanup():
         database.close_all_connections()
     except Exception:
         pass
-    for proxy in (progressDialog, homeWindow, playerWindow, playList, ADDON, CONTEXT_ADDON, settings, monitor):
+    for proxy in (progressDialog, homeWindow, playerWindow, playList, ADDON, CONTEXT_ADDON, SERVICE_ADDON, settings, service_settings, monitor):
         try:
             proxy.cleanup()
         except Exception:

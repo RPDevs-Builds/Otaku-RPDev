@@ -1,6 +1,6 @@
 # Otaku-RPDev Data Models, SQLite Schemas & State Contracts
 
-This reference documents every persistent SQLite database schema, in-memory `Window(10000)` / `Window(home)` property contract, JSON file format, and standardized internal Python dictionary schema across the tri-addon ecosystem (`plugin.video.otaku.rpdev`, `service.subtitles.otaku.rpdev`, `context.otaku.rpdev`).
+This reference documents every persistent SQLite database schema, in-memory `Window(10000)` / `Window(home)` property contract, JSON file format, and standardized internal Python dictionary schema across the quad-addon ecosystem (`plugin.video.otaku.rpdev`, `service.otaku.rpdev`, `service.subtitles.otaku.rpdev`, `context.otaku.rpdev`).
 
 > [!IMPORTANT]
 > **SQLite Concurrency & Connection Pool Invariant**:
@@ -88,6 +88,7 @@ All window property reads and writes route through [`ui/control.py`](../plugin.v
 | `otaku.preResolved_data` | `WatchlistPlayer` | `routes/playback.py:_try_preresolved_handoff` | JSON object: `{"url": str, "subs": list[str], "headers": dict, "source": dict, "candidates": list[dict], "ts": float}` | Full pre-resolved bundle including backup failover candidates and external subtitle paths. Expires after 20 minutes (`1200s`). |
 | `otaku.consecutive_autoplay` | `WatchlistPlayer` | `StillWatchingXML` (`still_watching.py`) | String integer (`"0"`..`"N"`) | Increments on automatic UpNext episode transitions; triggers "Are You Still Watching?" prompt at threshold (default 3). |
 | `otaku.scene_markers` | `WatchlistPlayer` | `routes/playback.py` (`STEP_SCENE_MARKER`, `SCENE_MARKERS`) | JSON array: `[{"type": "intro"\|"outro"\|"recap"\|"canon", "label": str, "start": float, "end": float}]` | Active episode chapter/OP/ED/scene markers for instant jump navigation. |
+| `otaku.service_settings_epoch` | `service.otaku.rpdev` (`Monitor.onSettingsChanged`), `control.set*()` | `control.py` (`_sync_service_settings_epoch`) | Monotonic string integer (`"1"`, `"2"`, ...) | Cross-addon settings cache invalidation counter for `SERVICE_SETTING_IDS`; checked on every cached getter path so plugin and service immediately see each other's writes. |
 | `otaku.current_scene_marker` | `WatchlistPlayer` | `SkipIntro` (`skip_intro.py`) | JSON object: `{"type": str, "label": str, "start": float, "end": float}` | Currently active skippable segment while inside an OP/ED window. |
 | `otaku.skipintro.label` | `WatchlistPlayer` | `skip_intro_*.xml`, `skip_outro_*.xml` | Localized button label (`"Skip Intro"`, `"Skip Outro"`, `"Skip Recap"`) | Bound to button label in Skip Intro/Outro overlay XMLs. |
 | `script.trakt.ids` | `WatchlistPlayer.onPlayBackStarted` | `script.trakt` Kodi service | JSON object: `{"tmdb": int, "tvdb": int, "imdb": str, "mal": int, "slug": str}` | Standard Trakt scrobbler interoperability contract; cleared on playback stop. |

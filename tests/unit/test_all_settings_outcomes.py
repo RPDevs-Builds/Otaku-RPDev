@@ -98,6 +98,7 @@ GENERAL_SETTING_IDS = {
     "artwork.banner",
     "widget.hide.nextpage",
     "widgets.delay",
+    "open_service_settings",
     "general.reset_category",
 }
 
@@ -600,6 +601,7 @@ MAINTENANCE_SETTING_IDS = {
     "clean.memory",
     "changelog.version",
     "version",
+    "service.migrated_from_plugin_v1",
 }
 
 TESTED_SETTING_IDS = (
@@ -635,17 +637,22 @@ class TestAllSettingsOutcomes(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.settings_xml_path = os.path.join(control.ADDON_PATH, 'resources', 'settings.xml')
-        if not os.path.exists(cls.settings_xml_path):
-            raise FileNotFoundError(f"settings.xml not found at: {cls.settings_xml_path}")
+        cls.service_settings_xml_path = os.path.join(control.SERVICE_ADDON_PATH, 'resources', 'settings.xml')
+        for p in (cls.settings_xml_path, cls.service_settings_xml_path):
+            if not os.path.exists(p):
+                raise FileNotFoundError(f"settings.xml not found at: {p}")
 
         cls.tree = ET.parse(cls.settings_xml_path)
         cls.root = cls.tree.getroot()
+        cls.service_tree = ET.parse(cls.service_settings_xml_path)
+        cls.service_root = cls.service_tree.getroot()
 
         cls.declared_settings = {}
-        for s in cls.root.findall('.//setting'):
-            sid = s.get('id')
-            if sid:
-                cls.declared_settings[sid] = s
+        for root_el in (cls.root, cls.service_root):
+            for s in root_el.findall('.//setting'):
+                sid = s.get('id')
+                if sid:
+                    cls.declared_settings[sid] = s
 
         cls.action_pattern = re.compile(r'plugin://plugin\.video\.otaku\.rpdev/([^"\'\)\s]+)')
 
@@ -766,18 +773,18 @@ class TestAllSettingsOutcomes(unittest.TestCase):
     def test_00_all_467_settings_tested_completeness_registry(self):
         """
         Exhaustive Registry Invariant:
-        Assert that TESTED_SETTING_IDS contains exactly all 471 declared settings
-        from resources/settings.xml, ensuring 0 omitted settings across all categories.
+        Assert that TESTED_SETTING_IDS contains exactly all 516 declared settings
+        across plugin.video.otaku.rpdev and service.otaku.rpdev, ensuring 0 omitted settings.
         """
-        self.assertEqual(len(self.declared_settings), 514, f"Expected 514 declared settings, got {len(self.declared_settings)}")
-        self.assertEqual(len(TESTED_SETTING_IDS), 514, f"Expected 514 tested settings in registry, got {len(TESTED_SETTING_IDS)}")
+        self.assertEqual(len(self.declared_settings), 516, f"Expected 516 declared settings, got {len(self.declared_settings)}")
+        self.assertEqual(len(TESTED_SETTING_IDS), 516, f"Expected 516 tested settings in registry, got {len(TESTED_SETTING_IDS)}")
         self.assertEqual(
             set(self.declared_settings.keys()), TESTED_SETTING_IDS,
-            "TESTED_SETTING_IDS does not match declared_settings in resources/settings.xml"
+            "TESTED_SETTING_IDS does not match declared_settings across plugin + service settings.xml"
         )
 
         # Assert individual category counts match expectations
-        self.assertEqual(len(GENERAL_SETTING_IDS), 46)
+        self.assertEqual(len(GENERAL_SETTING_IDS), 47)
         self.assertEqual(len(PROVIDERS_SETTING_IDS), 20)
         self.assertEqual(len(SCRAPING_SETTING_IDS), 15)
         self.assertEqual(len(CACHE_SETTING_IDS), 16)
@@ -788,7 +795,7 @@ class TestAllSettingsOutcomes(unittest.TestCase):
         self.assertEqual(len(WATCHLIST_SETTING_IDS), 38)
         self.assertEqual(len(MENU_CUSTOMIZATION_SETTING_IDS), 73)
         self.assertEqual(len(CONTEXT_CUSTOMIZATION_SETTING_IDS), 17)
-        self.assertEqual(len(MAINTENANCE_SETTING_IDS), 120)
+        self.assertEqual(len(MAINTENANCE_SETTING_IDS), 121)
 
     # ── Category 1: General (45 settings) ──────────────────────────────────────
 
@@ -1461,7 +1468,7 @@ class TestAllSettingsOutcomes(unittest.TestCase):
             if lvl_elem is not None and lvl_elem.text and lvl_elem.text.strip() == '4':
                 level4_settings.append(sid)
 
-        self.assertEqual(len(level4_settings), 127, f"Expected 127 level 4 settings, found {len(level4_settings)}")
+        self.assertEqual(len(level4_settings), 128, f"Expected 128 level 4 settings, found {len(level4_settings)}")
 
         # Verify all legacy compatibility keys are present in level 4
         for legacy_key in LEGACY_LEVEL_4_KEYS:
@@ -1469,7 +1476,7 @@ class TestAllSettingsOutcomes(unittest.TestCase):
 
         # Verify clean_settings.get_active_setting_ids() keeps all declared settings (including legacy keys)
         active_ids = clean_settings.get_active_setting_ids(self.settings_xml_path)
-        self.assertEqual(len(active_ids), 514)
+        self.assertEqual(len(active_ids), 455)
         for legacy_key in LEGACY_LEVEL_4_KEYS:
             self.assertIn(legacy_key, active_ids)
 

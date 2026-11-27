@@ -1,0 +1,488 @@
+# Kodi Media Center language file
+# Addon Name: Otaku RPDev Background Service
+# Addon id: service.otaku.rpdev
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: en_GB\n"
+
+msgctxt "#30001"
+msgid "Cache & Database"
+msgstr ""
+
+msgctxt "#30002"
+msgid "Manage SQLite database caching, memory limits, cache expiration timers, and manual cache purge operations."
+msgstr ""
+
+msgctxt "#30003"
+msgid "Cache Duration (TTL)"
+msgstr ""
+
+msgctxt "#30004"
+msgid "Enable Kodi Cache"
+msgstr ""
+
+msgctxt "#30005"
+msgid "Enable Kodi native VFS HTTP stream read-ahead caching to smooth playback over fluctuating networks."
+msgstr ""
+
+msgctxt "#30006"
+msgid "Scrapers Cache TTL (Hours)"
+msgstr ""
+
+msgctxt "#30007"
+msgid "Cache duration in hours for provider scraping results. Higher values speed up repeated lookups."
+msgstr ""
+
+msgctxt "#30008"
+msgid "Torrents Cache TTL (Hours)"
+msgstr ""
+
+msgctxt "#30009"
+msgid "Cache duration in hours for debrid torrent hash instant-availability checks in SQLite cache.db."
+msgstr ""
+
+msgctxt "#30010"
+msgid "Metadata Cache TTL (Hours)"
+msgstr ""
+
+msgctxt "#30011"
+msgid "Cache duration in days for anime synopsis, episode titles, cast, and artwork details."
+msgstr ""
+
+msgctxt "#30012"
+msgid "Airing Calendar Cache TTL (Hours)"
+msgstr ""
+
+msgctxt "#30013"
+msgid "Cache duration in hours for airing calendar schedule data fetched from AniList or Jikan."
+msgstr ""
+
+msgctxt "#30014"
+msgid "Advanced SQLite Engine PRAGMAs"
+msgstr ""
+
+msgctxt "#30015"
+msgid "SQLite Memory Cache Size (MB)"
+msgstr ""
+
+msgctxt "#30016"
+msgid "Amount of RAM allocated for SQLite page caching. Higher values accelerate queries on large databases (Default: 16 MB)."
+msgstr ""
+
+msgctxt "#30017"
+msgid "SQLite MMAP Memory Limit (MB)"
+msgstr ""
+
+msgctxt "#30018"
+msgid "Maximum memory-mapped I/O size. Lower limits (16-32 MB) prevent memory pressure and crashes on low-RAM devices (Default: 32 MB)."
+msgstr ""
+
+msgctxt "#30019"
+msgid "SQLite Synchronous Mode"
+msgstr ""
+
+msgctxt "#30020"
+msgid "Disk synchronization mode. NORMAL provides full crash-resilience in WAL mode with maximum write speed (Default: NORMAL)."
+msgstr ""
+
+msgctxt "#30021"
+msgid "Store Temporary Tables in RAM"
+msgstr ""
+
+msgctxt "#30022"
+msgid "Keeps SQLite temporary sorting tables and indices in RAM instead of writing temporary files to disk storage (Default: Enabled)."
+msgstr ""
+
+msgctxt "#30023"
+msgid "Cache Actions"
+msgstr ""
+
+msgctxt "#30024"
+msgid "Clear All Cache"
+msgstr ""
+
+msgctxt "#30025"
+msgid "Purge all SQLite cache tables and in-memory dictionaries across scrapers, torrents, and metadata."
+msgstr ""
+
+msgctxt "#30026"
+msgid "Clear Scrapers Cache Only"
+msgstr ""
+
+msgctxt "#30027"
+msgid "Delete cached provider stream search results to force fresh scraping on next episode selection."
+msgstr ""
+
+msgctxt "#30028"
+msgid "Clear Debrid Cache Only"
+msgstr ""
+
+msgctxt "#30029"
+msgid "Purge cached debrid instant availability responses, re-checking torrent hashes on next scrape."
+msgstr ""
+
+msgctxt "#30030"
+msgid "Clear Metadata Cache Only"
+msgstr ""
+
+msgctxt "#30031"
+msgid "Remove cached show descriptions, artwork links, and episode listings to refresh from API sources."
+msgstr ""
+
+msgctxt "#30032"
+msgid "Update HiAnime Domains (hianime.pw)"
+msgstr ""
+
+msgctxt "#30033"
+msgid "Fetch latest active mirror domains from https://hianime.pw/ and update cached HiAnime scraper endpoints immediately."
+msgstr ""
+
+msgctxt "#30034"
+msgid "Clean Orphaned Settings"
+msgstr ""
+
+msgctxt "#30035"
+msgid "Scan settings.xml against active schema and safely purge orphaned or obsolete legacy setting values from settings.xml."
+msgstr ""
+
+msgctxt "#30036"
+msgid "Reset Category to Defaults"
+msgstr ""
+
+msgctxt "#30037"
+msgid "Resets all settings in this category to add-on defaults."
+msgstr ""
+
+msgctxt "#30038"
+msgid "Maintenance"
+msgstr ""
+
+msgctxt "#30039"
+msgid "Access diagnostics, clear caches, purge history, configure helper solvers, test network protocols, and backup settings."
+msgstr ""
+
+msgctxt "#30040"
+msgid "Database & Storage Diagnostics"
+msgstr ""
+
+msgctxt "#30041"
+msgid "Database & Storage Telemetry"
+msgstr ""
+
+msgctxt "#30042"
+msgid "Inspect database sizes, cached item counts, indexed records, and SQLite engine parameters."
+msgstr ""
+
+msgctxt "#30043"
+msgid "Scraper Health & Latency Dashboard"
+msgstr ""
+
+msgctxt "#30044"
+msgid "Open the scraper metrics window displaying average latency, response times, and success rates across all providers."
+msgstr ""
+
+msgctxt "#30045"
+msgid "Clear Scraper Telemetry"
+msgstr ""
+
+msgctxt "#30046"
+msgid "Purge all recorded scraper latency timings and success/failure statistics from the internal SQLite metrics database."
+msgstr ""
+
+msgctxt "#30047"
+msgid "Verify Database Integrity"
+msgstr ""
+
+msgctxt "#30048"
+msgid "Scans all SQLite database files for corruption, missing pages, or indexing errors."
+msgstr ""
+
+msgctxt "#30049"
+msgid "Vacuum & Optimize All Databases"
+msgstr ""
+
+msgctxt "#30050"
+msgid "Defragments database files, rebuilds internal indexes, and reclaims freed storage space."
+msgstr ""
+
+msgctxt "#30051"
+msgid "Re-Sync Anime ID Mappings"
+msgstr ""
+
+msgctxt "#30052"
+msgid "Download and install the latest anime cross-platform ID mappings database from GitHub for AniList, MAL, and Kitsu."
+msgstr ""
+
+msgctxt "#30053"
+msgid "32-Bit Memory Watermark (MB)"
+msgstr ""
+
+msgctxt "#30054"
+msgid "Target RSS memory watermark on 32-bit Android ARM devices before throttling background pre-caching and trimming native heap (Default: 900 MB)."
+msgstr ""
+
+msgctxt "#30055"
+msgid "Standby & CEC Background Throttling"
+msgstr ""
+
+msgctxt "#30056"
+msgid "Suspend background syncs, precaching, and WAL checkpoints while the TV/device is in standby or CEC sleep (Kodi 22+ with DPMS/screensaver fallback)."
+msgstr ""
+
+msgctxt "#30057"
+msgid "Data Recovery & Factory Reset"
+msgstr ""
+
+msgctxt "#30058"
+msgid "View Changelog"
+msgstr ""
+
+msgctxt "#30059"
+msgid "Open an interactive text dialog displaying the complete version release notes and update history."
+msgstr ""
+
+msgctxt "#30060"
+msgid "Clear Cache"
+msgstr ""
+
+msgctxt "#30061"
+msgid "Open the clear cache menu to selectively purge scrapers, debrid, metadata, or image databases."
+msgstr ""
+
+msgctxt "#30062"
+msgid "Clear Search History"
+msgstr ""
+
+msgctxt "#30063"
+msgid "Purge all saved search query terms from local search history storage."
+msgstr ""
+
+msgctxt "#30064"
+msgid "Clear Watch History"
+msgstr ""
+
+msgctxt "#30065"
+msgid "Clear local record of recently watched episode items without altering online tracking services."
+msgstr ""
+
+msgctxt "#30066"
+msgid "Clear Selected Fanart"
+msgstr ""
+
+msgctxt "#30067"
+msgid "Reset all user-selected custom poster and fanart overrides back to default online artwork."
+msgstr ""
+
+msgctxt "#30068"
+msgid "Sync Completed List"
+msgstr ""
+
+msgctxt "#30069"
+msgid "Force immediate full synchronization between local SQLite watch progress and linked online watchlists."
+msgstr ""
+
+msgctxt "#30070"
+msgid "Rebuild Database"
+msgstr ""
+
+msgctxt "#30071"
+msgid "Rebuilds SQLite database schema and resyncs anime watchlists from online accounts without losing settings."
+msgstr ""
+
+msgctxt "#30072"
+msgid "Reset Settings to Defaults"
+msgstr ""
+
+msgctxt "#30073"
+msgid "Resets all configuration settings to add-on defaults while preserving all account logins and credentials."
+msgstr ""
+
+msgctxt "#30074"
+msgid "Wipe Addon Data"
+msgstr ""
+
+msgctxt "#30075"
+msgid "WARNING: Irreversibly deletes all settings, databases, watch history, and account credentials, returning Otaku to factory state."
+msgstr ""
+
+msgctxt "#30076"
+msgid "Downloads & Local Storage"
+msgstr ""
+
+msgctxt "#30077"
+msgid "Download Manager"
+msgstr ""
+
+msgctxt "#30078"
+msgid "Open the download manager dialog to inspect, pause, or cancel active media file downloads."
+msgstr ""
+
+msgctxt "#30079"
+msgid "Download Location"
+msgstr ""
+
+msgctxt "#30080"
+msgid "Local directory path where downloaded video files and subtitle tracks will be saved."
+msgstr ""
+
+msgctxt "#30081"
+msgid "Import/Export"
+msgstr ""
+
+msgctxt "#30082"
+msgid "Import Settings"
+msgstr ""
+
+msgctxt "#30083"
+msgid "Restore addon configuration and credentials from a previously exported settings backup file."
+msgstr ""
+
+msgctxt "#30084"
+msgid "Export Settings"
+msgstr ""
+
+msgctxt "#30085"
+msgid "Backup current addon settings, credentials, and custom menu configurations to a JSON file."
+msgstr ""
+
+msgctxt "#30086"
+msgid "Solvers, Network & Debug"
+msgstr ""
+
+msgctxt "#30087"
+msgid "Configure external Cloudflare/Megacloud solvers, IPv6/HTTP2 network toggles, and Web-PDB remote debugging."
+msgstr ""
+
+msgctxt "#30088"
+msgid "Cloudflare & DDoS-GUARD Solver"
+msgstr ""
+
+msgctxt "#30089"
+msgid "Enable FlareSolverr"
+msgstr ""
+
+msgctxt "#30090"
+msgid "Route Cloudflare-protected web requests through a local or remote FlareSolverr service instance."
+msgstr ""
+
+msgctxt "#30091"
+msgid "Hosting Instructions"
+msgstr ""
+
+msgctxt "#30092"
+msgid "View setup instructions and command guidelines for deploying a Docker FlareSolverr instance."
+msgstr ""
+
+msgctxt "#30093"
+msgid "FlareSolverr Url"
+msgstr ""
+
+msgctxt "#30094"
+msgid "Base HTTP URL and port of your active FlareSolverr server (e.g. http://127.0.0.1:8191)."
+msgstr ""
+
+msgctxt "#30095"
+msgid "FlareSolverr Timeout"
+msgstr ""
+
+msgctxt "#30096"
+msgid "Maximum time in seconds to wait for FlareSolverr to solve anti-bot challenges before failing."
+msgstr ""
+
+msgctxt "#30097"
+msgid "Megacloud Solver"
+msgstr ""
+
+msgctxt "#30098"
+msgid "Use Custom External Solver (Default: Built-in Native)"
+msgstr ""
+
+msgctxt "#30099"
+msgid "Enable external API decryption solver for extracting video streams from MegaCloud direct embeds."
+msgstr ""
+
+msgctxt "#30100"
+msgid "View setup and hosting guidelines for running the MegaCloud decryption microservice."
+msgstr ""
+
+msgctxt "#30101"
+msgid "Megacloud Solver url"
+msgstr ""
+
+msgctxt "#30102"
+msgid "HTTP endpoint URL of your self-hosted or remote MegaCloud extraction solver server."
+msgstr ""
+
+msgctxt "#30103"
+msgid "Network Settings"
+msgstr ""
+
+msgctxt "#30104"
+msgid "Toggle IPv6"
+msgstr ""
+
+msgctxt "#30105"
+msgid "Enable/disable IPv6 connections. Kodi restart required for changes to take effect."
+msgstr ""
+
+msgctxt "#30106"
+msgid "IPv6 Status"
+msgstr ""
+
+msgctxt "#30107"
+msgid "Display network IPv6 connectivity test results. Disabling IPv6 may resolve connection hangs on some ISPs."
+msgstr ""
+
+msgctxt "#30108"
+msgid "Toggle HTTP/2"
+msgstr ""
+
+msgctxt "#30109"
+msgid "Toggle HTTP/2 transport protocol support for network requests. Requires Kodi restart to take effect (Default: Disabled)."
+msgstr ""
+
+msgctxt "#30110"
+msgid "HTTP/2 Status"
+msgstr ""
+
+msgctxt "#30111"
+msgid "Display HTTP/2 transport protocol support status across external metadata and scraper connections."
+msgstr ""
+
+msgctxt "#30112"
+msgid "Web-PDB"
+msgstr ""
+
+msgctxt "#30113"
+msgid "Enable Web-PDB"
+msgstr ""
+
+msgctxt "#30114"
+msgid "Enable remote Python debugging via the Web-PDB Kodi add-on (script.module.web-pdb)."
+msgstr ""
+
+msgctxt "#30115"
+msgid "Web-PDB Port"
+msgstr ""
+
+msgctxt "#30116"
+msgid "TCP port for the Web-PDB browser interface. Defaults to 5566 to avoid conflicting with Android ADB on port 5555."
+msgstr ""
+
+msgctxt "#30117"
+msgid "Web-PDB Trigger Mode"
+msgstr ""
+
+msgctxt "#30118"
+msgid "Choose whether Web-PDB attaches only on unhandled exceptions (catch_post_mortem) or pauses immediately on every route entry (set_trace)."
+msgstr ""
+
+msgctxt "#30119"
+msgid "Start Web-PDB Trace Now..."
+msgstr ""
+
+msgctxt "#30120"
+msgid "Immediately invoke web_pdb.set_trace(port=...) so you can attach a browser to http://<kodi-ip>:<port> and inspect live addon state."
+msgstr ""
+

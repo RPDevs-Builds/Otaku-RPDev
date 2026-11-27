@@ -30,11 +30,13 @@ from unittest.mock import MagicMock
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 ADDON_ROOT = os.path.join(REPO_ROOT, 'plugin.video.otaku.rpdev')
+SERVICE_ROOT = os.path.join(REPO_ROOT, 'service.otaku.rpdev')
+SERVICE_LIB_ROOT = os.path.join(SERVICE_ROOT, 'resources', 'lib')
 CONTEXT_ROOT = os.path.join(REPO_ROOT, 'context.otaku.rpdev')
 SUBTITLE_ROOT = os.path.join(REPO_ROOT, 'service.subtitles.otaku.rpdev')
 TESTS_ROOT = os.path.join(REPO_ROOT, 'tests')
 
-for _p in (REPO_ROOT, ADDON_ROOT, CONTEXT_ROOT, TESTS_ROOT):
+for _p in (REPO_ROOT, ADDON_ROOT, SERVICE_LIB_ROOT, CONTEXT_ROOT, TESTS_ROOT):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 

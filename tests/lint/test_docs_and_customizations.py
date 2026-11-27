@@ -220,8 +220,8 @@ class TestDocsAndCustomizations(unittest.TestCase):
         self.assertEqual(nums, list(range(1, len(nums) + 1)), f"Non-sequential section numbering in docs/PLANS.md: {nums}")
 
     def test_companion_addon_changelog_version_parity(self):
-        """Ensure context.otaku.rpdev and service.subtitles.otaku.rpdev addon.xml versions match changelog.txt top headers."""
-        companions = ('context.otaku.rpdev', 'service.subtitles.otaku.rpdev')
+        """Ensure service.otaku.rpdev, context.otaku.rpdev, and service.subtitles.otaku.rpdev addon.xml versions match changelog.txt top headers."""
+        companions = ('service.otaku.rpdev', 'context.otaku.rpdev', 'service.subtitles.otaku.rpdev')
         for aid in companions:
             xml_path = os.path.join(_REPO_ROOT, aid, 'addon.xml')
             chg_path = os.path.join(_REPO_ROOT, aid, 'changelog.txt')

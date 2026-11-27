@@ -63,7 +63,7 @@ class TestMenuAutoRefresh(unittest.TestCase):
         self.assertNotEqual(control.getGlobalProp('otaku.menu.needs_refresh'), 'true')
 
     # 3. onSettingsChanged: Triggers refresh ONLY when menu settings change
-    @patch('service._get_menu_settings_snapshot')
+    @patch('otaku_service.daemon._get_menu_settings_snapshot')
     @patch('resources.lib.ui.control.refresh')
     @patch('resources.lib.ui.control.is_addon_visible', return_value=True)
     @patch('resources.lib.ui.control.clearSettingsCache')

@@ -29,7 +29,7 @@ import sys
 import time
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-TARGET_DIRS = ['plugin.video.otaku.rpdev', 'context.otaku.rpdev', 'service.subtitles.otaku.rpdev', 'tests', 'scripts']
+TARGET_DIRS = ['plugin.video.otaku.rpdev', 'context.otaku.rpdev', 'service.subtitles.otaku.rpdev', 'service.otaku.rpdev', 'tests', 'scripts']
 RUFF_RULES = 'E9,F63,F7,F82,F811,F405,F541'
 
 

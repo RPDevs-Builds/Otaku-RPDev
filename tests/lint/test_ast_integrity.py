@@ -24,6 +24,7 @@ import xml.etree.ElementTree as ET
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 ADDON_DIR = os.path.join(REPO_ROOT, 'plugin.video.otaku.rpdev')
+SERVICE_ADDON_DIR = os.path.join(REPO_ROOT, 'service.otaku.rpdev')
 CONTEXT_ADDON_DIR = os.path.join(REPO_ROOT, 'context.otaku.rpdev')
 SUBTITLE_ADDON_DIR = os.path.join(REPO_ROOT, 'service.subtitles.otaku.rpdev')
 SKIN_XML_DIR = os.path.join(ADDON_DIR, 'resources', 'skins', 'Default', '1080i')
@@ -31,8 +32,10 @@ CONTROL_PY_PATH = os.path.normpath(os.path.join(ADDON_DIR, 'resources', 'lib', '
 
 
 def _iter_addon_py_files(include_context=True):
-    """Yield all Python source files across plugin.video.otaku.rpdev, context.otaku.rpdev, and service.subtitles.otaku.rpdev."""
+    """Yield all Python source files across all 4 Otaku add-ons."""
     roots = [ADDON_DIR]
+    if os.path.isdir(SERVICE_ADDON_DIR):
+        roots.append(SERVICE_ADDON_DIR)
     if include_context and os.path.isdir(CONTEXT_ADDON_DIR):
         roots.append(CONTEXT_ADDON_DIR)
     if include_context and os.path.isdir(SUBTITLE_ADDON_DIR):
@@ -601,7 +604,7 @@ class TestASTIntegrity(unittest.TestCase):
     def test_zero_circular_addon_dependencies(self):
         """All repo addon.xml <requires>/<import> graphs must be acyclic (Kodi 22 freezes on circular deps)."""
         addon_xmls = sorted(glob.glob(os.path.join(REPO_ROOT, '*', 'addon.xml')))
-        self.assertGreaterEqual(len(addon_xmls), 3, f"Expected >= 3 addon.xml files, found {len(addon_xmls)}")
+        self.assertGreaterEqual(len(addon_xmls), 4, f"Expected >= 4 addon.xml files, found {len(addon_xmls)}")
 
         graph = {}
         for xml_path in addon_xmls:
@@ -614,6 +617,14 @@ class TestASTIntegrity(unittest.TestCase):
             ]
             if aid:
                 graph[aid] = deps
+
+        # service.otaku.rpdev must remain a leaf with ZERO intra-Otaku reverse dependencies
+        self.assertIn('service.otaku.rpdev', graph)
+        service_intra_deps = [d for d in graph['service.otaku.rpdev'] if d in graph]
+        self.assertEqual(
+            service_intra_deps, [],
+            f"service.otaku.rpdev must have zero intra-Otaku dependencies, found: {service_intra_deps}",
+        )
 
         cycles = []
 
@@ -635,10 +646,10 @@ class TestASTIntegrity(unittest.TestCase):
         )
 
     def test_zero_case_insensitive_asset_collisions_and_oversized_pngs(self):
-        """CR-01: Zero case-insensitive filename collisions across all 3 add-ons and root PNG size limits."""
+        """CR-01: Zero case-insensitive filename collisions across all 4 add-ons and root PNG size limits."""
         png_magic = b'\x89PNG\r\n\x1a\n'
         collisions = []
-        for addon_dir in (ADDON_DIR, CONTEXT_ADDON_DIR, SUBTITLE_ADDON_DIR):
+        for addon_dir in (ADDON_DIR, SERVICE_ADDON_DIR, CONTEXT_ADDON_DIR, SUBTITLE_ADDON_DIR):
             for dirpath, _dirnames, filenames in os.walk(addon_dir):
                 if '__pycache__' in dirpath:
                     continue
@@ -696,13 +707,16 @@ class TestASTIntegrity(unittest.TestCase):
 
     def test_c36_indirect_and_template_setting_keys_resolve_in_settings_xml(self):
         """P32-02 (C-36): Resolve f-string template setting keys (provider/flavor/embed) against settings.xml."""
-        settings_xml = os.path.join(ADDON_DIR, 'resources', 'settings.xml')
-        declared_ids = {
-            e.attrib['id']
-            for e in ET.parse(settings_xml).getroot().findall('.//setting')
-            if e.attrib.get('id')
-        }
-        self.assertGreaterEqual(len(declared_ids), 495)
+        declared_ids = set()
+        for addon_dir in (ADDON_DIR, SERVICE_ADDON_DIR):
+            settings_xml = os.path.join(addon_dir, 'resources', 'settings.xml')
+            if os.path.isfile(settings_xml):
+                declared_ids.update(
+                    e.attrib['id']
+                    for e in ET.parse(settings_xml).getroot().findall('.//setting')
+                    if e.attrib.get('id')
+                )
+        self.assertGreaterEqual(len(declared_ids), 500)
 
         setting_funcs = {'getSetting', 'getBool', 'getInt', 'getStr', 'getNumber', 'getStringList', 'setSetting', 'setBool', 'setInt'}
         template_domains = {

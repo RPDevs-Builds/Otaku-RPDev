@@ -1,0 +1,531 @@
+<?xml version='1.0' encoding='utf-8'?>
+<settings version="1">
+    <section id="service.otaku.rpdev">
+        <category id="Cache" label="30001" help="30002">
+            <group id="1" label="30003">
+                <setting id="general.kodi.cache" type="boolean" label="30004" help="30005">
+                    <level>2</level>
+                    <default>true</default>
+                    <control type="toggle" />
+                </setting>
+                <setting id="cache.scrapers.ttl" type="integer" label="30006" help="30007">
+                    <level>2</level>
+                    <default>8</default>
+                    <constraints>
+                        <minimum>1</minimum>
+                        <step>1</step>
+                        <maximum>72</maximum>
+                    </constraints>
+                    <control type="slider" format="integer">
+                        <popup>false</popup>
+                    </control>
+                </setting>
+                <setting id="cache.torrents.ttl" type="integer" label="30008" help="30009">
+                    <level>2</level>
+                    <default>24</default>
+                    <constraints>
+                        <minimum>1</minimum>
+                        <step>1</step>
+                        <maximum>168</maximum>
+                    </constraints>
+                    <control type="slider" format="integer">
+                        <popup>false</popup>
+                    </control>
+                </setting>
+                <setting id="cache.metadata.ttl" type="integer" label="30010" help="30011">
+                    <level>2</level>
+                    <default>24</default>
+                    <constraints>
+                        <minimum>1</minimum>
+                        <step>1</step>
+                        <maximum>72</maximum>
+                    </constraints>
+                    <control type="slider" format="integer">
+                        <popup>false</popup>
+                    </control>
+                </setting>
+                <setting id="cache.calendar.ttl" type="integer" label="30012" help="30013">
+                    <level>2</level>
+                    <default>24</default>
+                    <constraints>
+                        <minimum>1</minimum>
+                        <step>1</step>
+                        <maximum>48</maximum>
+                    </constraints>
+                    <control type="slider" format="integer">
+                        <popup>false</popup>
+                    </control>
+                </setting>
+            </group>
+            <group id="2" label="30014">
+                <setting id="db.sqlite.cache_size_mb" type="integer" label="30015" help="30016">
+                    <level>3</level>
+                    <default>16</default>
+                    <constraints>
+                        <minimum>2</minimum>
+                        <step>2</step>
+                        <maximum>64</maximum>
+                    </constraints>
+                    <control type="slider" format="integer">
+                        <popup>false</popup>
+                    </control>
+                </setting>
+                <setting id="db.sqlite.mmap_size_mb" type="integer" label="30017" help="30018">
+                    <level>3</level>
+                    <default>32</default>
+                    <constraints>
+                        <minimum>0</minimum>
+                        <step>16</step>
+                        <maximum>256</maximum>
+                    </constraints>
+                    <control type="slider" format="integer">
+                        <popup>false</popup>
+                    </control>
+                </setting>
+                <setting id="db.sqlite.synchronous" type="string" label="30019" help="30020">
+                    <level>3</level>
+                    <default>1</default>
+                    <constraints>
+                        <options>
+                            <option label="OFF">0</option>
+                            <option label="NORMAL">1</option>
+                            <option label="FULL">2</option>
+                        </options>
+                    </constraints>
+                    <control type="spinner" format="string" />
+                </setting>
+                <setting id="db.sqlite.temp_store_ram" type="boolean" label="30021" help="30022">
+                    <level>3</level>
+                    <default>true</default>
+                    <control type="toggle" />
+                </setting>
+            </group>
+            <group id="3" label="30023">
+                <setting id="clear_cache_all" type="action" label="30024" help="30025">
+                    <level>0</level>
+                    <data>RunPlugin(plugin://plugin.video.otaku.rpdev/clear_cache?setting=true)</data>
+                    <control type="button" format="action">
+                        <close>true</close>
+                    </control>
+                </setting>
+                <setting id="clear_cache_scrapers" type="action" label="30026" help="30027">
+                    <level>1</level>
+                    <data>RunPlugin(plugin://plugin.video.otaku.rpdev/clear_scrapers_cache?setting=true)</data>
+                    <control type="button" format="action">
+                        <close>true</close>
+                    </control>
+                </setting>
+                <setting id="clear_cache_debrid" type="action" label="30028" help="30029">
+                    <level>1</level>
+                    <data>RunPlugin(plugin://plugin.video.otaku.rpdev/clear_debrid_cache?setting=true)</data>
+                    <control type="button" format="action">
+                        <close>true</close>
+                    </control>
+                </setting>
+                <setting id="clear_cache_metadata" type="action" label="30030" help="30031">
+                    <level>1</level>
+                    <data>RunPlugin(plugin://plugin.video.otaku.rpdev/clear_metadata_cache?setting=true)</data>
+                    <control type="button" format="action">
+                        <close>true</close>
+                    </control>
+                </setting>
+                <setting id="refresh_hianime_domains" type="action" label="30032" help="30033">
+                    <level>1</level>
+                    <data>RunPlugin(plugin://plugin.video.otaku.rpdev/refresh_hianime_domains?setting=true)</data>
+                    <control type="button" format="action">
+                        <close>true</close>
+                    </control>
+                </setting>
+                <setting id="clean_settings" type="action" label="30034" help="30035">
+                    <level>3</level>
+                    <data>RunPlugin(plugin://plugin.video.otaku.rpdev/clean_settings?setting=true)</data>
+                    <control type="button" format="action">
+                        <close>true</close>
+                    </control>
+                </setting>
+                <setting id="cache.reset_category" type="action" label="30036" help="30037">
+                    <level>1</level>
+                    <data>RunPlugin(plugin://plugin.video.otaku.rpdev/reset_category_settings?category=Cache&amp;setting=true)</data>
+                    <control type="button" format="action">
+                        <close>true</close>
+                    </control>
+                </setting>
+            </group>
+        </category>
+        <category id="Maintenance" label="30038" help="30039">
+            <group id="1" label="30040">
+                <setting id="database_stats" type="action" label="30041" help="30042">
+                    <level>2</level>
+                    <data>RunPlugin(plugin://plugin.video.otaku.rpdev/database_stats?setting=true)</data>
+                    <control type="button" format="action">
+                        <close>false</close>
+                    </control>
+                </setting>
+                <setting id="scraper_stats" type="action" label="30043" help="30044">
+                    <level>2</level>
+                    <data>RunPlugin(plugin://plugin.video.otaku.rpdev/scraper_stats?setting=true)</data>
+                    <control type="button" format="action">
+                        <close>false</close>
+                    </control>
+                </setting>
+                <setting id="clear_scraper_metrics" type="action" label="30045" help="30046">
+                    <level>2</level>
+                    <data>RunPlugin(plugin://plugin.video.otaku.rpdev/clear_scraper_metrics?setting=true)</data>
+                    <control type="button" format="action">
+                        <close>false</close>
+                    </control>
+                </setting>
+                <setting id="check_db_integrity" type="action" label="30047" help="30048">
+                    <level>3</level>
+                    <data>RunPlugin(plugin://plugin.video.otaku.rpdev/check_db_integrity?setting=true)</data>
+                    <control type="button" format="action">
+                        <close>false</close>
+                    </control>
+                </setting>
+                <setting id="vacuum_databases" type="action" label="30049" help="30050">
+                    <level>3</level>
+                    <data>RunPlugin(plugin://plugin.video.otaku.rpdev/vacuum_databases?setting=true)</data>
+                    <control type="button" format="action">
+                        <close>true</close>
+                    </control>
+                </setting>
+                <setting id="sync_mappings" type="action" label="30051" help="30052">
+                    <level>3</level>
+                    <data>RunPlugin(plugin://plugin.video.otaku.rpdev/sync_mappings?setting=true)</data>
+                    <control type="button" format="action">
+                        <close>true</close>
+                    </control>
+                </setting>
+                <setting id="general.memory_watermark_mb" type="integer" label="30053" help="30054">
+                    <level>3</level>
+                    <default>900</default>
+                    <constraints>
+                        <minimum>512</minimum>
+                        <step>64</step>
+                        <maximum>2048</maximum>
+                    </constraints>
+                    <control type="slider" format="integer">
+                        <popup>false</popup>
+                    </control>
+                </setting>
+                <setting id="general.standby_throttling" type="boolean" label="30055" help="30056">
+                    <level>2</level>
+                    <default>true</default>
+                    <control type="toggle" />
+                </setting>
+            </group>
+            <group id="2" label="30057">
+                <setting id="change_log" type="action" label="30058" help="30059">
+                    <level>1</level>
+                    <data>RunPlugin(plugin://plugin.video.otaku.rpdev/change_log?setting=true)</data>
+                    <control type="button" format="action">
+                        <close>true</close>
+                    </control>
+                </setting>
+                <setting id="clear_cache" type="action" label="30060" help="30061">
+                    <level>2</level>
+                    <data>RunPlugin(plugin://plugin.video.otaku.rpdev/clear_cache?setting=true)</data>
+                    <control type="button" format="action">
+                        <close>true</close>
+                    </control>
+                </setting>
+                <setting id="clear_search_history" type="action" label="30062" help="30063">
+                    <level>1</level>
+                    <data>RunPlugin(plugin://plugin.video.otaku.rpdev/clear_search_history?setting=true)</data>
+                    <control type="button" format="action">
+                        <close>true</close>
+                    </control>
+                </setting>
+                <setting id="clear_watch_history" type="action" label="30064" help="30065">
+                    <level>1</level>
+                    <data>RunPlugin(plugin://plugin.video.otaku.rpdev/clear_watch_history?setting=true)</data>
+                    <control type="button" format="action">
+                        <close>true</close>
+                    </control>
+                </setting>
+                <setting id="clear_selected_fanart" type="action" label="30066" help="30067">
+                    <level>2</level>
+                    <data>RunPlugin(plugin://plugin.video.otaku.rpdev/clear_selected_fanart?setting=true)</data>
+                    <control type="button" format="action">
+                        <close>true</close>
+                    </control>
+                </setting>
+                <setting id="completed_sync" type="action" label="30068" help="30069">
+                    <level>2</level>
+                    <data>RunPlugin(plugin://plugin.video.otaku.rpdev/completed_sync?setting=true)</data>
+                    <control type="button" format="action">
+                        <close>true</close>
+                    </control>
+                </setting>
+                <setting id="rebuild_database" type="action" label="30070" help="30071">
+                    <level>1</level>
+                    <data>RunPlugin(plugin://plugin.video.otaku.rpdev/rebuild_database?setting=true)</data>
+                    <control type="button" format="action">
+                        <close>true</close>
+                    </control>
+                </setting>
+                <setting id="maintenance.reset_settings_to_defaults" type="action" label="30072" help="30073">
+                    <level>2</level>
+                    <data>RunPlugin(plugin://plugin.video.otaku.rpdev/reset_settings_to_defaults?setting=true)</data>
+                    <control type="button" format="action">
+                        <close>true</close>
+                    </control>
+                </setting>
+                <setting id="wipe_addon_data" type="action" label="30074" help="30075">
+                    <level>3</level>
+                    <data>RunPlugin(plugin://plugin.video.otaku.rpdev/wipe_addon_data?setting=true)</data>
+                    <control type="button" format="action">
+                        <close>true</close>
+                    </control>
+                </setting>
+            </group>
+            <group id="3" label="30076">
+                <setting id="download_manager" type="action" label="30077" help="30078">
+                    <level>2</level>
+                    <data>RunPlugin(plugin://plugin.video.otaku.rpdev/download_manager?setting=true)</data>
+                    <control type="button" format="action">
+                        <close>true</close>
+                    </control>
+                </setting>
+                <setting id="download.location" type="path" label="30079" help="30080">
+                    <level>2</level>
+                    <default />
+                    <constraints>
+                        <writable>true</writable>
+                        <allowempty>true</allowempty>
+                    </constraints>
+                    <control type="button" format="path">
+                        <heading>30102</heading>
+                    </control>
+                </setting>
+            </group>
+            <group id="4" label="30081">
+                <setting id="import_settings" type="action" label="30082" help="30083">
+                    <level>3</level>
+                    <data>RunPlugin(plugin://plugin.video.otaku.rpdev/import_settings?setting=true)</data>
+                    <control type="button" format="action">
+                        <close>true</close>
+                    </control>
+                </setting>
+                <setting id="export_settings" type="action" label="30084" help="30085">
+                    <level>3</level>
+                    <data>RunPlugin(plugin://plugin.video.otaku.rpdev/export_settings?setting=true)</data>
+                    <control type="button" format="action">
+                        <close>false</close>
+                    </control>
+                </setting>
+            </group>
+            <group id="10" label="">
+                <setting id="dub.etag" type="string" label="" help="">
+                    <level>4</level>
+                    <default />
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
+                </setting>
+                <setting id="mappings.etag" type="string" label="" help="">
+                    <level>4</level>
+                    <default />
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
+                </setting>
+                <setting id="mappings.last_modified" type="string" label="" help="">
+                    <level>4</level>
+                    <default />
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
+                </setting>
+                <setting id="update.time.1" type="integer" label="" help="">
+                    <level>4</level>
+                    <default>0</default>
+                    <control type="edit" format="integer" />
+                </setting>
+                <setting id="update.time.30" type="integer" label="" help="">
+                    <level>4</level>
+                    <default>0</default>
+                    <control type="edit" format="integer" />
+                </setting>
+                <setting id="update.time.7" type="integer" label="" help="">
+                    <level>4</level>
+                    <default>0</default>
+                    <control type="edit" format="integer" />
+                </setting>
+                <setting id="clean.memory" type="boolean" label="" help="">
+                    <level>4</level>
+                    <default>false</default>
+                    <control type="toggle" />
+                </setting>
+                <setting id="service.migrated_from_plugin_v1" type="boolean" label="" help="">
+                    <level>4</level>
+                    <default>false</default>
+                    <control type="toggle" />
+                </setting>
+            </group>
+        </category>
+        <category id="Solvers" label="30086" help="30087">
+            <group id="1" label="30088">
+                <setting id="fs_enable" type="boolean" label="30089" help="30090">
+                    <level>3</level>
+                    <default>false</default>
+                    <control type="toggle" />
+                </setting>
+                <setting id="fs_inst" type="action" label="30091" help="30092" parent="fs_enable">
+                    <level>3</level>
+                    <data>RunPlugin(plugin://plugin.video.otaku.rpdev/solver_inst)</data>
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
+                    <dependencies>
+                        <dependency type="visible">
+                            <condition operator="is" setting="fs_enable">true</condition>
+                        </dependency>
+                    </dependencies>
+                    <control type="button" format="action" />
+                </setting>
+                <setting id="fs_url" type="string" label="30093" help="30094" parent="fs_enable">
+                    <level>3</level>
+                    <default>http://localhost:8191/v1</default>
+                    <dependencies>
+                        <dependency type="visible">
+                            <condition operator="is" setting="fs_enable">true</condition>
+                        </dependency>
+                    </dependencies>
+                    <control type="edit" format="string">
+                        <heading>30348</heading>
+                    </control>
+                </setting>
+                <setting id="fs_timeout" type="integer" label="30095" help="30096" parent="fs_enable">
+                    <level>3</level>
+                    <default>60</default>
+                    <constraints>
+                        <minimum>30</minimum>
+                        <step>30</step>
+                        <maximum>180</maximum>
+                    </constraints>
+                    <dependencies>
+                        <dependency type="visible">
+                            <condition operator="is" setting="fs_enable">true</condition>
+                        </dependency>
+                    </dependencies>
+                    <control type="slider" format="integer">
+                        <popup>false</popup>
+                    </control>
+                </setting>
+            </group>
+            <group id="2" label="30097">
+                <setting id="ms_enable" type="boolean" label="30098" help="30099">
+                    <level>3</level>
+                    <default>false</default>
+                    <control type="toggle" />
+                </setting>
+                <setting id="ms_inst" type="action" label="30091" help="30100" parent="ms_enable">
+                    <level>3</level>
+                    <data>RunPlugin(plugin://plugin.video.otaku.rpdev/solver_inst)</data>
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
+                    <dependencies>
+                        <dependency type="visible">
+                            <condition operator="is" setting="ms_enable">true</condition>
+                        </dependency>
+                    </dependencies>
+                    <control type="button" format="action" />
+                </setting>
+                <setting id="ms_url" type="string" label="30101" help="30102" parent="ms_enable">
+                    <level>3</level>
+                    <default>http://localhost:4000/</default>
+                    <dependencies>
+                        <dependency type="visible">
+                            <condition operator="is" setting="ms_enable">true</condition>
+                        </dependency>
+                    </dependencies>
+                    <control type="edit" format="string">
+                        <heading>30378</heading>
+                    </control>
+                </setting>
+            </group>
+            <group id="3" label="30103">
+                <setting id="update_network_status" type="action" label="" help="">
+                    <level>4</level>
+                    <data>RunPlugin(plugin://plugin.video.otaku.rpdev/update_network_status)</data>
+                    <visible>false</visible>
+                </setting>
+                <setting id="toggle_ipv6" type="action" label="30104" help="30105">
+                    <level>3</level>
+                    <data>RunPlugin(plugin://plugin.video.otaku.rpdev/toggle_ipv6?setting=true)</data>
+                    <control type="button" format="action">
+                        <close>true</close>
+                    </control>
+                </setting>
+                <setting id="ipv6.status" type="string" label="30106" help="30107">
+                    <level>3</level>
+                    <default>Enabled</default>
+                    <enable>false</enable>
+                    <control type="edit" format="string" />
+                </setting>
+                <setting id="toggle_http2" type="action" label="30108" help="30109">
+                    <level>3</level>
+                    <data>RunPlugin(plugin://plugin.video.otaku.rpdev/toggle_http2?setting=true)</data>
+                    <control type="button" format="action">
+                        <close>true</close>
+                    </control>
+                </setting>
+                <setting id="http2.status" type="string" label="30110" help="30111">
+                    <level>3</level>
+                    <default>Enabled</default>
+                    <enable>false</enable>
+                    <control type="edit" format="string" />
+                </setting>
+            </group>
+            <group id="4" label="30112">
+                <setting id="webpdb.enabled" type="boolean" label="30113" help="30114">
+                    <level>3</level>
+                    <default>false</default>
+                    <control type="toggle" />
+                </setting>
+                <setting id="webpdb.port" type="integer" label="30115" help="30116" parent="webpdb.enabled">
+                    <level>3</level>
+                    <default>5566</default>
+                    <dependencies>
+                        <dependency type="visible">
+                            <condition operator="is" setting="webpdb.enabled">true</condition>
+                        </dependency>
+                    </dependencies>
+                    <control type="edit" format="integer">
+                        <heading>30977</heading>
+                    </control>
+                </setting>
+                <setting id="webpdb.mode" type="integer" label="30117" help="30118" parent="webpdb.enabled">
+                    <level>3</level>
+                    <default>0</default>
+                    <constraints>
+                        <options>
+                            <option label="On Unhandled Exception (Post-Mortem)">0</option>
+                            <option label="Break on Route Entry (set_trace)">1</option>
+                        </options>
+                    </constraints>
+                    <dependencies>
+                        <dependency type="visible">
+                            <condition operator="is" setting="webpdb.enabled">true</condition>
+                        </dependency>
+                    </dependencies>
+                    <control type="spinner" format="string" />
+                </setting>
+                <setting id="webpdb.trigger_now" type="action" label="30119" help="30120" parent="webpdb.enabled">
+                    <level>3</level>
+                    <data>RunPlugin(plugin://plugin.video.otaku.rpdev/webpdb_trace?setting=true)</data>
+                    <dependencies>
+                        <dependency type="visible">
+                            <condition operator="is" setting="webpdb.enabled">true</condition>
+                        </dependency>
+                    </dependencies>
+                    <control type="button" format="action">
+                        <close>true</close>
+                    </control>
+                </setting>
+            </group>
+        </category>
+    </section>
+</settings>

@@ -46,6 +46,7 @@ _OTAKU_ADDON_IDS = frozenset({
     'plugin.video.otaku.rpdev',
     'context.otaku.rpdev',
     'service.subtitles.otaku.rpdev',
+    'service.otaku.rpdev',
     'repository.otaku.testing',
 })
 

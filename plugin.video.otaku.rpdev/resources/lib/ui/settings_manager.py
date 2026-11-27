@@ -238,6 +238,11 @@ _CREDENTIAL_KEYWORDS = (
 )
 
 SETTINGS_XML_PATH = os.path.join(control.ADDON_PATH, 'resources', 'settings.xml')
+SERVICE_SETTINGS_XML_PATH = os.path.join(
+    getattr(control, 'SERVICE_ADDON_PATH', ''),
+    'resources',
+    'settings.xml',
+) if getattr(control, 'SERVICE_ADDON_PATH', '') else ''
 
 
 def is_login_setting(setting_id: str) -> bool:
@@ -268,28 +273,15 @@ def is_credential_setting(setting_id: str) -> bool:
     return False
 
 
-def get_canonical_settings() -> dict:
-    """Parse resources/settings.xml and return schema metadata for all stored settings.
-
-    Returns:
-        dict: mapping of setting_id -> dict with keys:
-            'id': str
-            'type': str ('boolean', 'integer', 'number', 'string', 'path', 'list[string]', etc.)
-            'default': str, bool, int, or float
-            'category': str (category id from XML)
-            'label': str (string ID or raw label)
-    """
-    settings_map = {}
-    if not os.path.exists(SETTINGS_XML_PATH):
-        control.log(f"get_canonical_settings: settings.xml not found at {SETTINGS_XML_PATH}", 'error')
-        return settings_map
-
+def _parse_settings_xml_into_map(xml_path: str, addon_id: str, settings_map: dict):
+    if not xml_path or not os.path.exists(xml_path):
+        return
     try:
-        tree = ET.parse(SETTINGS_XML_PATH)
+        tree = ET.parse(xml_path)
         root = tree.getroot()
     except Exception as e:
-        control.log(f"get_canonical_settings: XML parse error: {e}", 'error')
-        return settings_map
+        control.log(f"get_canonical_settings: XML parse error ({xml_path}): {e}", 'error')
+        return
 
     for cat in root.findall('.//category'):
         cat_id = cat.get('id', '')
@@ -306,7 +298,6 @@ def get_canonical_settings() -> dict:
             if raw_default is None:
                 raw_default = ''
 
-            # Coerce default to typed Python object
             if stype == 'boolean':
                 typed_default = str(raw_default).strip().lower() == 'true'
             elif stype == 'integer':
@@ -329,7 +320,25 @@ def get_canonical_settings() -> dict:
                 'raw_default': str(raw_default),
                 'category': cat_id,
                 'label': s.get('label', ''),
+                'addon_id': addon_id,
             }
+
+
+def get_canonical_settings() -> dict:
+    """Parse plugin + service resources/settings.xml and return schema metadata for all stored settings."""
+    settings_map = {}
+    if not os.path.exists(SETTINGS_XML_PATH):
+        control.log(f"get_canonical_settings: settings.xml not found at {SETTINGS_XML_PATH}", 'error')
+        return settings_map
+
+    _parse_settings_xml_into_map(SETTINGS_XML_PATH, control.ADDON_ID, settings_map)
+    svc_xml = SERVICE_SETTINGS_XML_PATH
+    if not svc_xml or not os.path.exists(svc_xml):
+        svc_path = getattr(control, 'SERVICE_ADDON_PATH', '')
+        if svc_path:
+            svc_xml = os.path.join(svc_path, 'resources', 'settings.xml')
+    if svc_xml and os.path.exists(svc_xml):
+        _parse_settings_xml_into_map(svc_xml, getattr(control, 'SERVICE_ADDON_ID', 'service.otaku.rpdev'), settings_map)
 
     return settings_map
 
@@ -446,11 +455,20 @@ def export_settings(scope: str, dest_dir: str) -> tuple[bool, str, int]:
     filename = f"otaku_backup_{scope}_{timestamp_str}.json"
     dest_path = os.path.join(dest_dir, filename)
 
+    try:
+        svc_ver = control.SERVICE_ADDON.getAddonInfo('version')
+    except Exception:
+        svc_ver = '1.0.0'
+
     payload = {
-        'otaku_backup_version': 1,
+        'otaku_backup_version': 2,
         'scope': scope,
         'timestamp': datetime.now().isoformat(),
         'addon_version': control.ADDON_VERSION,
+        'addon_versions': {
+            control.ADDON_ID: control.ADDON_VERSION,
+            getattr(control, 'SERVICE_ADDON_ID', 'service.otaku.rpdev'): svc_ver,
+        },
         'settings_count': len(active_data),
         'settings': active_data,
     }
@@ -788,6 +806,8 @@ def reset_settings_to_defaults(preserve_logins: bool = True) -> int:
     reset_count = 0
 
     for sid, meta in canonical.items():
+        if sid == 'service.migrated_from_plugin_v1':
+            continue
         if preserve_logins and is_login_setting(sid):
             continue
 
@@ -842,20 +862,28 @@ def wipe_addon_data(silent: bool = False) -> bool:
     for sid in CREDENTIAL_SETTING_IDS:
         set_typed_setting(sid, '', 'string')
 
-    # 5. Delete SQLite databases and user JSON caches in dataPath
-    if os.path.exists(control.dataPath):
-        for item in os.listdir(control.dataPath):
-            item_path = os.path.join(control.dataPath, item)
-            try:
-                if os.path.isfile(item_path):
-                    # Delete DBs, WAL files, JSON files, XML files
-                    if item.endswith(('.db', '.db-wal', '.db-shm', '.json', '.xml', '.txt')):
-                        os.remove(item_path)
-                elif os.path.isdir(item_path):
-                    # Delete subdirectories (e.g. temporary caches)
-                    shutil.rmtree(item_path)
-            except Exception as e:
-                control.log(f"wipe_addon_data: Warning removing {item_path}: {e}", 'warning')
+    # 5. Delete SQLite databases and user JSON caches in plugin + service profiles
+    profile_dirs = [control.dataPath]
+    try:
+        svc_id = getattr(control, 'SERVICE_ADDON_ID', 'service.otaku.rpdev')
+        svc_profile_dir = control.xbmcvfs.translatePath(f'special://profile/addon_data/{svc_id}/')
+        if svc_profile_dir and os.path.normpath(svc_profile_dir) != os.path.normpath(control.dataPath):
+            profile_dirs.append(svc_profile_dir)
+    except Exception:
+        pass
+
+    for pdir in profile_dirs:
+        if os.path.exists(pdir):
+            for item in os.listdir(pdir):
+                item_path = os.path.join(pdir, item)
+                try:
+                    if os.path.isfile(item_path):
+                        if item.endswith(('.db', '.db-wal', '.db-shm', '.json', '.xml', '.txt')):
+                            os.remove(item_path)
+                    elif os.path.isdir(item_path):
+                        shutil.rmtree(item_path)
+                except Exception as e:
+                    control.log(f"wipe_addon_data: Warning removing {item_path}: {e}", 'warning')
 
     # 6. Rebuild clean empty SQLite database schemas
     try:
@@ -873,6 +901,7 @@ def wipe_addon_data(silent: bool = False) -> bool:
     control.setString('version', '')
     control.setString('changelog.version', '')
     control.setString('addon.last_watched', '')
+    control.setBool('service.migrated_from_plugin_v1', False)
 
     # 8. Evict and flush in-memory caches
     control.clearSettingsCache()

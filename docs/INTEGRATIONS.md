@@ -1,16 +1,23 @@
-# Otaku-RPDev Tri-Addon & External Integrations Guide
+# Otaku-RPDev Quad-Addon & External Integrations Guide
 
-Technical reference for how **`plugin.video.otaku.rpdev`**, **`context.otaku.rpdev`**, and **`service.subtitles.otaku.rpdev`** integrate with each other, Kodi skins/widgets, third-party Kodi add-ons (`TMDb Helper`, `Trakt`), the offline `Otaku-Mapping-DB` ecosystem, and external API providers.
+Technical reference for how **`plugin.video.otaku.rpdev`**, **`service.otaku.rpdev`**, **`context.otaku.rpdev`**, and **`service.subtitles.otaku.rpdev`** integrate with each other, Kodi skins/widgets, third-party Kodi add-ons (`TMDb Helper`, `Trakt`), the offline `Otaku-Mapping-DB` ecosystem, and external API providers.
 
 > **Related Docs:** [FEATURES.md](FEATURES.md) · [ARCHITECTURE.md](ARCHITECTURE.md) · [TESTS.md](TESTS.md) · [CONFIGURATION_GUIDE.md](CONFIGURATION_GUIDE.md) · [AGENTS.md](../AGENTS.md)
 
 ---
 
-## 1. Tri-Addon Inter-Process Contracts
+## 1. Quad-Addon Inter-Process Contracts
 
 ### 1.1 Acyclic Dependency DAG (`C-27`) & Settings Pinning (`C-28`)
-- Both companion add-ons (`context.otaku.rpdev/addon.xml` and `service.subtitles.otaku.rpdev/addon.xml`) declare **only** `<import addon="xbmc.python" version="3.0.1"/>`. They must **never** declare `<import addon="plugin.video.otaku.rpdev"/>` (preventing circular dependency deadlocks in Kodi 22 `DialogAddonInfo.xml`, enforced by `test_zero_circular_addon_dependencies` in `tests/lint/test_ast_integrity.py`).
-- When `service.subtitles.otaku.rpdev` imports `resources.lib.ui.control` from `plugin.video.otaku.rpdev`, `control.ADDON_ID` remains statically pinned to `'plugin.video.otaku.rpdev'` so all provider credentials and subtitle preferences are read from the main add-on's settings profile.
+- Companion add-ons must **never** declare `<import addon="plugin.video.otaku.rpdev"/>` (preventing circular dependency deadlocks in Kodi 22 `DialogAddonInfo.xml`, enforced by `test_zero_circular_addon_dependencies` in `tests/lint/test_ast_integrity.py`).
+  - `context.otaku.rpdev/addon.xml` and `service.subtitles.otaku.rpdev/addon.xml` declare **only** `<import addon="xbmc.python" version="3.0.1"/>`.
+  - `service.otaku.rpdev/addon.xml` declares `xbmc.python` + third-party `script.module.*` dependencies only, exposing `<extension point="xbmc.service" library="service.py"/>` and `<extension point="xbmc.python.module" library="resources/lib"/>`.
+- `control.ADDON_ID` remains statically pinned to `'plugin.video.otaku.rpdev'` and `control.SERVICE_ADDON_ID` to `'service.otaku.rpdev'`. `control.py` transparently routes all 30 `SERVICE_SETTING_IDS` keys to `service_settings` (with `otaku.service_settings_epoch` cache sync and resilient `RuntimeError` fallback).
+
+### 1.2 `plugin.video.otaku.rpdev` ↔ `service.otaku.rpdev`
+- **Startup Upgrade Safety**: `service.otaku.rpdev/service.py` runs self-contained `otaku_service.migration.migrate_service_settings()` first (zero plugin imports, idempotent via `service.migrated_from_plugin_v1`), then verifies via plain-text disk check that `plugin.video.otaku.rpdev` is v6.7.0+ (no `xbmc.service`, exposes `SERVICE_ADDON_ID`) before mutating `sys.path` or importing `resources.*`.
+- **Bidirectional Settings Sync**: `Monitor.onSettingsChanged()` and `control.set*()` writes to `SERVICE_SETTING_IDS` both bump `Window(10000).Property(otaku.service_settings_epoch)`. `Monitor.check_plugin_settings_changed()` watches plugin `settings.xml` `(st_mtime_ns, st_size)` at `5s` active / `1s` settings-open / `60s` standby intervals.
+- **1-Click Settings Access**: `plugin.video.otaku.rpdev` exposes `open_service_settings` (`Addon.OpenSettings(service.otaku.rpdev)`) in General settings and Tools, while `service.otaku.rpdev` owns Cache & Database, Maintenance, and Solvers/Network/Debug settings.
 
 ### 1.2 `plugin.video.otaku.rpdev` ↔ `context.otaku.rpdev`
 - **Home-Window Visibility Flags**: `control.process_context()` in `plugin.video.otaku.rpdev` publishes boolean flags (`Window(home).Property(context.otaku.rpdev.<action>) = 'true'|'false'`) matching the user's Context Customization toggles.

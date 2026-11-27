@@ -57,6 +57,7 @@ if REPO_ROOT not in sys.path:
 from scripts.kodi_e2e_mock_server import LocalMockServer
 
 ADDON_DIR = os.path.join(REPO_ROOT, "plugin.video.otaku.rpdev")
+SERVICE_ADDON_DIR = os.path.join(REPO_ROOT, "service.otaku.rpdev")
 KODI_ENV_PROFILES = "/mnt/sharedroot/projects/kodi-test-env/profiles"
 
 PROFILES = {
@@ -113,8 +114,8 @@ def enable_webserver_in_guisettings(profile_dir):
     tree.write(gs_path, encoding="utf-8", xml_declaration=True)
 
 
-def write_addon_settings(profile_dir, overrides):
-    s_dir = os.path.join(profile_dir, "userdata", "addon_data", "plugin.video.otaku.rpdev")
+def write_addon_settings(profile_dir, overrides, addon_id="plugin.video.otaku.rpdev"):
+    s_dir = os.path.join(profile_dir, "userdata", "addon_data", addon_id)
     os.makedirs(s_dir, exist_ok=True)
     s_path = os.path.join(s_dir, "settings.xml")
     if os.path.exists(s_path):
@@ -192,19 +193,27 @@ def get_dir(plugin_path, props=None, timeout=45.0):
 
 
 def run_flatpak_settings_probe(branch):
-    """Run an isolated Flatpak python probe verifying settings.xml and strings.po resolution."""
+    """Run an isolated Flatpak python probe verifying plugin + service settings.xml and strings.po resolution."""
     probe_script = (
         "import os, xml.etree.ElementTree as ET\n"
         f"addon_dir = '{ADDON_DIR}'\n"
-        "s_xml = os.path.join(addon_dir, 'resources', 'settings.xml')\n"
-        "tree = ET.parse(s_xml)\n"
-        "settings = [e.attrib.get('id') for e in tree.findall('.//setting') if e.attrib.get('id')]\n"
+        f"service_dir = '{SERVICE_ADDON_DIR}'\n"
+        "p_xml = os.path.join(addon_dir, 'resources', 'settings.xml')\n"
+        "s_xml = os.path.join(service_dir, 'resources', 'settings.xml')\n"
+        "p_settings = [e.attrib.get('id') for e in ET.parse(p_xml).findall('.//setting') if e.attrib.get('id')]\n"
+        "s_settings = [e.attrib.get('id') for e in ET.parse(s_xml).findall('.//setting') if e.attrib.get('id')]\n"
+        "total = len(p_settings) + len(s_settings)\n"
         "po_file = os.path.join(addon_dir, 'resources', 'language', 'resource.language.en_gb', 'strings.po')\n"
         "with open(po_file, 'r', encoding='utf-8') as f:\n"
         "    po_text = f.read()\n"
-        "assert len(settings) >= 467, f'Expected >= 467 settings, got {len(settings)}'\n"
-        "assert 'msgctxt \"#30716\"' in po_text, 'Missing strings in strings.po'\n"
-        "print(f'FLATPAK_PROBE_OK:{len(settings)}')"
+        "svc_po_file = os.path.join(service_dir, 'resources', 'language', 'resource.language.en_gb', 'strings.po')\n"
+        "with open(svc_po_file, 'r', encoding='utf-8') as f:\n"
+        "    svc_po_text = f.read()\n"
+        "assert len(p_settings) >= 450, f'Expected >= 450 plugin settings, got {len(p_settings)}'\n"
+        "assert len(s_settings) >= 60, f'Expected >= 60 service settings, got {len(s_settings)}'\n"
+        "assert 'msgctxt \"#30716\"' in po_text, 'Missing strings in plugin strings.po'\n"
+        "assert 'msgctxt \"#30001\"' in svc_po_text, 'Missing strings in service strings.po'\n"
+        "print(f'FLATPAK_PROBE_OK:{total}')"
     )
     cmd = ["flatpak", "run", f"--branch={branch}", "--command=python3", "tv.kodi.Kodi", "-c", probe_script]
     try:
@@ -897,6 +906,21 @@ def run_kodi_version_suite(ver, mode, fs_url, mock_server_url=None, skip_playbac
     if os.path.exists(kodi_env_bin):
         subprocess.run([kodi_env_bin, "link-addons"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
+    # Ensure service.otaku.rpdev is symlinked into the profile's addons directory
+    svc_link = os.path.join(profile_dir, "addons", "service.otaku.rpdev")
+    os.makedirs(os.path.dirname(svc_link), exist_ok=True)
+    if os.path.islink(svc_link) or os.path.exists(svc_link):
+        try:
+            if os.path.islink(svc_link):
+                os.unlink(svc_link)
+        except OSError:
+            pass
+    if not os.path.exists(svc_link):
+        try:
+            os.symlink(SERVICE_ADDON_DIR, svc_link)
+        except OSError as e:
+            print(f"  Warning: Could not symlink service.otaku.rpdev -> {svc_link}: {e}")
+
     if os.path.islink(SYMLINK_PATH) or os.path.exists(SYMLINK_PATH):
         try:
             os.unlink(SYMLINK_PATH)
@@ -925,8 +949,9 @@ def run_kodi_version_suite(ver, mode, fs_url, mock_server_url=None, skip_playbac
         "menu.mainmenu.config": DEFAULT_MAIN_MENU_ITEMS,
         "update.time.30": str(int(time.time())),
     }
+    service_settings = {}
     if mode in ("hermetic", "all") and mock_server_url:
-        initial_settings.update({
+        service_settings.update({
             "fs_enable": "true",
             "fs_url": f"{mock_server_url}/v1",
             "fs_timeout": "60",
@@ -934,12 +959,13 @@ def run_kodi_version_suite(ver, mode, fs_url, mock_server_url=None, skip_playbac
             "ms_url": f"{mock_server_url}/ms",
         })
     else:
-        initial_settings.update({
+        service_settings.update({
             "fs_enable": "false",
             "fs_url": fs_url,
             "fs_timeout": "60",
         })
-    write_addon_settings(profile_dir, initial_settings)
+    write_addon_settings(profile_dir, initial_settings, addon_id="plugin.video.otaku.rpdev")
+    write_addon_settings(profile_dir, service_settings, addon_id="service.otaku.rpdev")
 
     # Clear stale caches, logs, and probe artifacts prior to launching
     for stale_fn in ("domains.json", "cache.db", "cache.db-wal", "cache.db-shm", "settings_probe.json"):
@@ -978,11 +1004,14 @@ def run_kodi_version_suite(ver, mode, fs_url, mock_server_url=None, skip_playbac
         app_props = jsonrpc("Application.GetProperties", {"properties": ["version", "name"]}).get("result", {})
         print(f"  Connected to {app_props.get('name')} {app_props.get('version')}")
 
-        for aid in ("plugin.video.otaku.rpdev", "context.otaku.rpdev", "service.subtitles.otaku.rpdev"):
+        for aid in ("service.otaku.rpdev", "plugin.video.otaku.rpdev", "context.otaku.rpdev", "service.subtitles.otaku.rpdev"):
             jsonrpc("Addons.SetAddonEnabled", {"addonid": aid, "enabled": True})
         addon_info = jsonrpc("Addons.GetAddonDetails", {"addonid": "plugin.video.otaku.rpdev", "properties": ["version", "enabled", "broken"]}).get("result", {}).get("addon", {})
+        svc_info = jsonrpc("Addons.GetAddonDetails", {"addonid": "service.otaku.rpdev", "properties": ["version", "enabled", "broken"]}).get("result", {}).get("addon", {})
         tests["addon_details"] = addon_info
+        tests["service_addon_details"] = svc_info
         print(f"  Addon: {addon_info.get('addonid')} v{addon_info.get('version')} enabled={addon_info.get('enabled')} broken={addon_info.get('broken')}")
+        print(f"  Service: {svc_info.get('addonid')} v{svc_info.get('version')} enabled={svc_info.get('enabled')} broken={svc_info.get('broken')}")
 
         # Verify companion subtitle service registers cleanly as xbmc.subtitle.module
         sub_addons = jsonrpc(

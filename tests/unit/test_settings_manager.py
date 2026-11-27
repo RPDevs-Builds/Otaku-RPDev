@@ -138,7 +138,8 @@ class TestSettingsManager(unittest.TestCase):
             with open(filepath, 'r', encoding='utf-8') as f:
                 data = json.load(f)
 
-            self.assertEqual(data.get('otaku_backup_version'), 1)
+            self.assertEqual(data.get('otaku_backup_version'), 2)
+            self.assertIn('addon_versions', data)
             self.assertEqual(data.get('scope'), scope)
             self.assertEqual(data.get('settings_count'), count)
             self.assertIn('timestamp', data)

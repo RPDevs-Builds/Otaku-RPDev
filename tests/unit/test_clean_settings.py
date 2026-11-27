@@ -105,6 +105,41 @@ class TestCleanSettings(unittest.TestCase):
         self.assertEqual(count, 0)
         self.assertEqual(removed, [])
 
+    def test_clean_settings_protects_unmigrated_service_keys(self):
+        """Moved SERVICE_SETTING_IDS must not be pruned from plugin profile until service migration completes."""
+        from unittest.mock import patch
+        from resources.lib.ui import control
+
+        profile_with_service = os.path.join(self.temp_dir.name, 'profile_unmigrated.xml')
+        with open(profile_with_service, 'w', encoding='utf-8') as f:
+            f.write(
+                '<?xml version="1.0" encoding="utf-8"?>\n'
+                '<settings version="2">\n'
+                '    <setting id="general.smartplay">true</setting>\n'
+                '    <setting id="fs_url">http://10.0.0.5:8191/v1</setting>\n'
+                '    <setting id="obsolete.old_key">1</setting>\n'
+                '</settings>'
+            )
+
+        with patch.object(control, 'getBool', side_effect=lambda k, default=False: False if k == 'service.migrated_from_plugin_v1' else default):
+            count, removed = clean_settings.clean_settings(
+                profile_settings_path=profile_with_service,
+                silent=True,
+            )
+        self.assertEqual(count, 1)
+        self.assertEqual(removed, ['obsolete.old_key'])
+        remaining = {e.get('id') for e in ET.parse(profile_with_service).getroot()}
+        self.assertIn('fs_url', remaining)
+
+        # Once migrated, fs_url is pruned as expected from plugin profile
+        with patch.object(control, 'getBool', side_effect=lambda k, default=False: True if k == 'service.migrated_from_plugin_v1' else default):
+            count2, removed2 = clean_settings.clean_settings(
+                profile_settings_path=profile_with_service,
+                silent=True,
+            )
+        self.assertEqual(count2, 1)
+        self.assertEqual(removed2, ['fs_url'])
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -861,7 +861,7 @@ class TestCR04CIReleaseAndPackaging(unittest.TestCase):
     @feature('CR-04')
     def test_cr04_t1_tri_addon_manifests_and_acyclic_dependencies(self):
         addons = {}
-        for aid in ('plugin.video.otaku.rpdev', 'context.otaku.rpdev', 'service.subtitles.otaku.rpdev'):
+        for aid in ('plugin.video.otaku.rpdev', 'service.otaku.rpdev', 'context.otaku.rpdev', 'service.subtitles.otaku.rpdev'):
             tree = ET.parse(os.path.join(REPO_ROOT, aid, 'addon.xml'))
             root = tree.getroot()
             self.assertEqual(root.get('id'), aid)
@@ -869,10 +869,18 @@ class TestCR04CIReleaseAndPackaging(unittest.TestCase):
             exts = {ext.get('point') for ext in root.findall('./extension') if ext.get('point')}
             addons[aid] = (imps, exts)
 
+        self.assertIn('service.otaku.rpdev', addons['plugin.video.otaku.rpdev'][0])
         self.assertIn('context.otaku.rpdev', addons['plugin.video.otaku.rpdev'][0])
         self.assertIn('service.subtitles.otaku.rpdev', addons['plugin.video.otaku.rpdev'][0])
         self.assertIn('xbmc.python.pluginsource', addons['plugin.video.otaku.rpdev'][1])
-        self.assertIn('xbmc.service', addons['plugin.video.otaku.rpdev'][1])
+        self.assertNotIn('xbmc.service', addons['plugin.video.otaku.rpdev'][1])
+        # service.otaku.rpdev must have zero intra-Otaku dependencies and declare both service + module extensions
+        self.assertNotIn('plugin.video.otaku.rpdev', addons['service.otaku.rpdev'][0])
+        self.assertNotIn('context.otaku.rpdev', addons['service.otaku.rpdev'][0])
+        self.assertNotIn('service.subtitles.otaku.rpdev', addons['service.otaku.rpdev'][0])
+        self.assertIn('xbmc.python', addons['service.otaku.rpdev'][0])
+        self.assertIn('xbmc.service', addons['service.otaku.rpdev'][1])
+        self.assertIn('xbmc.python.module', addons['service.otaku.rpdev'][1])
         self.assertEqual(addons['context.otaku.rpdev'][0], {'xbmc.python'})
         self.assertIn('kodi.context.item', addons['context.otaku.rpdev'][1])
         self.assertEqual(addons['service.subtitles.otaku.rpdev'][0], {'xbmc.python'})
@@ -893,7 +901,7 @@ class TestCR04CIReleaseAndPackaging(unittest.TestCase):
 
         self.assertIn('scripts/verify_all.py', rel_yml)
         self.assertIn('--fail-below', rel_yml)
-        for aid in ('plugin.video.otaku.rpdev', 'context.otaku.rpdev', 'service.subtitles.otaku.rpdev'):
+        for aid in ('plugin.video.otaku.rpdev', 'service.otaku.rpdev', 'context.otaku.rpdev', 'service.subtitles.otaku.rpdev'):
             self.assertIn(aid, rel_yml)
         self.assertIn('SHA256SUMS.txt', rel_yml)
         self.assertIn('MD5SUMS.txt', rel_yml)
@@ -919,6 +927,7 @@ class TestCR04CIReleaseAndPackaging(unittest.TestCase):
             zip_paths = []
             for aid, entry in (
                 ('plugin.video.otaku.rpdev', 'default.py'),
+                ('service.otaku.rpdev', 'service.py'),
                 ('context.otaku.rpdev', 'default.py'),
                 ('service.subtitles.otaku.rpdev', 'service.py'),
             ):
@@ -962,9 +971,9 @@ class TestCR04CIReleaseAndPackaging(unittest.TestCase):
             with open(md5_file, 'w', encoding='utf-8') as mf:
                 mf.writelines(md5_lines)
             with open(sha_file, encoding='utf-8') as sf_in:
-                self.assertEqual(len(sf_in.readlines()), 3)
+                self.assertEqual(len(sf_in.readlines()), 4)
             with open(md5_file, encoding='utf-8') as mf_in:
-                self.assertEqual(len(mf_in.readlines()), 3)
+                self.assertEqual(len(mf_in.readlines()), 4)
 
     @tier(1)
     @feature('CR-04')
@@ -1812,6 +1821,7 @@ class TestABITriAddonAndKodiParity(unittest.TestCase):
     @feature('ABI')
     def test_abi_t2_tri_addon_version_lockstep_and_python314_clean_imports(self):
         plugin_root = ET.parse(os.path.join(ADDON_ROOT, 'addon.xml')).getroot()
+        svc_root = ET.parse(os.path.join(REPO_ROOT, 'service.otaku.rpdev', 'addon.xml')).getroot()
         ctx_root = ET.parse(os.path.join(CONTEXT_ROOT, 'addon.xml')).getroot()
         sub_root = ET.parse(os.path.join(SUBTITLE_ROOT, 'addon.xml')).getroot()
 
@@ -1819,14 +1829,17 @@ class TestABITriAddonAndKodiParity(unittest.TestCase):
             return tuple(int(p) for p in (v or '').split('.'))
 
         plugin_ver = plugin_root.get('version')
+        svc_ver = svc_root.get('version')
         ctx_ver = ctx_root.get('version')
         sub_ver = sub_root.get('version')
 
         self.assertGreaterEqual(_parse_ver(plugin_ver), (6, 3, 0))
+        self.assertGreaterEqual(_parse_ver(svc_ver), (1, 0, 0))
         self.assertGreaterEqual(_parse_ver(ctx_ver), (1, 0, 46))
         self.assertGreaterEqual(_parse_ver(sub_ver), (1, 0, 3))
 
         imp_versions = {e.get('addon'): e.get('version') for e in plugin_root.findall('./requires/import')}
+        self.assertEqual(imp_versions.get('service.otaku.rpdev'), svc_ver)
         self.assertEqual(imp_versions.get('context.otaku.rpdev'), ctx_ver)
         self.assertEqual(imp_versions.get('service.subtitles.otaku.rpdev'), sub_ver)
 

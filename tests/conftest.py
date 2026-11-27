@@ -23,9 +23,11 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ADDON_ROOT = os.path.join(REPO_ROOT, 'plugin.video.otaku.rpdev')
 CONTEXT_ROOT = os.path.join(REPO_ROOT, 'context.otaku.rpdev')
 SUBTITLE_ROOT = os.path.join(REPO_ROOT, 'service.subtitles.otaku.rpdev')
+SERVICE_ROOT = os.path.join(REPO_ROOT, 'service.otaku.rpdev')
+SERVICE_LIB_ROOT = os.path.join(SERVICE_ROOT, 'resources', 'lib')
 TESTS_ROOT = os.path.join(REPO_ROOT, 'tests')
 
-for p in (REPO_ROOT, ADDON_ROOT, CONTEXT_ROOT, TESTS_ROOT):
+for p in (REPO_ROOT, ADDON_ROOT, CONTEXT_ROOT, SERVICE_LIB_ROOT, TESTS_ROOT):
     if p not in sys.path:
         sys.path.insert(0, p)
 
@@ -1003,6 +1005,7 @@ def _translate_special_path(path):
         ('special://home/addons/plugin.video.otaku.rpdev', ADDON_ROOT),
         ('special://home/addons/context.otaku.rpdev', CONTEXT_ROOT),
         ('special://home/addons/service.subtitles.otaku.rpdev', SUBTITLE_ROOT),
+        ('special://home/addons/service.otaku.rpdev', SERVICE_ROOT),
         ('special://home/addons', os.path.join(TEST_HOME_DIR, 'addons')),
         ('special://home', TEST_HOME_DIR),
         ('special://xbmc', TEST_XBMC_DIR),
@@ -1086,15 +1089,18 @@ def addon_side_effect(addon_id=None):
         addon_paths = {
             'context.otaku.rpdev': CONTEXT_ROOT,
             'service.subtitles.otaku.rpdev': SUBTITLE_ROOT,
+            'service.otaku.rpdev': SERVICE_ROOT,
         }
         addon_profiles = {
             'context.otaku.rpdev': os.path.join(TEST_ADDON_DATA_DIR, 'context.otaku.rpdev'),
             'service.subtitles.otaku.rpdev': os.path.join(TEST_ADDON_DATA_DIR, 'service.subtitles.otaku.rpdev'),
+            'service.otaku.rpdev': os.path.join(TEST_ADDON_DATA_DIR, 'service.otaku.rpdev'),
         }
+        effective_aid = addon_id or 'plugin.video.otaku.rpdev'
         addon_mock.getAddonInfo.side_effect = lambda k: {
-            'id': addon_id or 'plugin.video.otaku.rpdev',
-            'name': 'Otaku RPDev',
-            'version': '5.7.0',
+            'id': effective_aid,
+            'name': 'Otaku RPDev Background Service' if effective_aid == 'service.otaku.rpdev' else 'Otaku RPDev',
+            'version': '1.0.0' if effective_aid == 'service.otaku.rpdev' else '6.7.0',
             'icon': '',
             'fanart': '',
             'path': addon_paths.get(addon_id, ADDON_ROOT),
@@ -1105,9 +1111,9 @@ def addon_side_effect(addon_id=None):
             active_profile = _current_kodi_profile
             if active_profile and getattr(active_profile, 'strict_settings', False):
                 from tests.kodi_profile import load_settings_schema
-                schema, _ = load_settings_schema()
+                schema, _ = load_settings_schema(addon_id=effective_aid)
                 if k not in schema:
-                    raise TypeError(f"Unknown setting ID '{k}' in strict_settings mode")
+                    raise TypeError(f"Unknown setting ID '{k}' in {effective_aid} strict_settings mode")
                 stype = schema[k]
                 if expected_types and stype not in expected_types:
                     raise TypeError(f"Setting '{k}' is of type '{stype}', cannot call {method_name}")

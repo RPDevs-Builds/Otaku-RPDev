@@ -81,11 +81,12 @@ def test_nf16_standby_kodi21_fallback_and_service_resume_catchup(monkeypatch):
     metrics = []
     refreshed = []
     replayed = []
+    from otaku_service import daemon as svc_daemon, sync as svc_sync
     monkeypatch.setattr(control, 'log_metric', lambda name, **kw: metrics.append((name, kw)))
-    monkeypatch.setattr(service, 'refresh_apis', lambda: refreshed.append(1))
+    monkeypatch.setattr(svc_daemon, 'refresh_apis', lambda: refreshed.append(1))
     monkeypatch.setattr(control, 'enforce_memory_watermark', lambda **kw: {'triggered': False})
     monkeypatch.setattr(control, 'clean_memory', lambda: None)
-    monkeypatch.setattr(service, '_maybe_sync_daily_mappings', lambda: None)
+    monkeypatch.setattr(svc_sync, '_maybe_sync_daily_mappings', lambda: None)
     from resources.lib.WatchlistFlavor import WatchlistFlavor
     monkeypatch.setattr(WatchlistFlavor, 'process_scrobble_retry_queue', classmethod(lambda cls: replayed.append(1) or 1))
 

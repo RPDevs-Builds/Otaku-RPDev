@@ -1,7 +1,22 @@
 ========================
+[B]OTAKU RPDEV v6.7.0[/B]
+Background Service Split
+========================
+
+v6.7.0 Highlights:
+  * New Companion Add-on (service.otaku.rpdev v1.0.0): Extracted the
+    background maintenance daemon, Cache & SQLite PRAGMAs, Maintenance
+    tools, and Solvers/Network/Debug into a dedicated Kodi service.
+  * Zero-Data-Loss Migration: Existing Cache, Solver, Download & Debug
+    settings migrate automatically on upgrade; unified Backup/Restore
+    covers both add-ons.
+  * 1-Click Access & String Relief: Open service settings directly from
+    Tools or Settings > General; reclaimed 97+ localization slots.
+
+--------------------------------
 [B]OTAKU RPDEV v6.6.4[/B]
 Auto-Subtitle Ranking Fix
-========================
+--------------------------------
 
 v6.6.4 Highlights:
   * Stop Prioritizing Season Packs: Single-episode subtitles now always

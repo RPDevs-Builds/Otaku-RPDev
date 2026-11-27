@@ -34,9 +34,11 @@ REPO_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, '..'))
 ADDON_DIR = os.path.join(REPO_ROOT, 'plugin.video.otaku.rpdev')
 CONTEXT_DIR = os.path.join(REPO_ROOT, 'context.otaku.rpdev')
 SUBTITLE_SERVICE_DIR = os.path.join(REPO_ROOT, 'service.subtitles.otaku.rpdev')
+SERVICE_ADDON_DIR = os.path.join(REPO_ROOT, 'service.otaku.rpdev')
+SERVICE_LIB_DIR = os.path.join(SERVICE_ADDON_DIR, 'resources', 'lib')
 TESTS_DIR = os.path.join(REPO_ROOT, 'tests')
 
-for p in (REPO_ROOT, ADDON_DIR, CONTEXT_DIR, TESTS_DIR):
+for p in (REPO_ROOT, ADDON_DIR, CONTEXT_DIR, SERVICE_LIB_DIR, TESTS_DIR):
     if p not in sys.path:
         sys.path.insert(0, p)
 
@@ -47,13 +49,14 @@ for p in (REPO_ROOT, ADDON_DIR, CONTEXT_DIR, TESTS_DIR):
 def discover_source_files(repo_root=REPO_ROOT):
     """
     Discover all Python source files across plugin.video.otaku.rpdev,
-    context.otaku.rpdev, and service.subtitles.otaku.rpdev.
+    context.otaku.rpdev, service.subtitles.otaku.rpdev, and service.otaku.rpdev.
     Returns sorted list of (rel_path, abs_path).
     """
     source_dirs = [
         os.path.join(repo_root, 'plugin.video.otaku.rpdev'),
         os.path.join(repo_root, 'context.otaku.rpdev'),
         os.path.join(repo_root, 'service.subtitles.otaku.rpdev'),
+        os.path.join(repo_root, 'service.otaku.rpdev'),
     ]
     files = []
     for s_dir in source_dirs:
@@ -100,6 +103,19 @@ def get_possible_import_names(rel_path):
     elif parts[0] == 'service.subtitles.otaku.rpdev':
         names.add('subtitle_service_main')
         names.add('service.subtitles.otaku.rpdev.service')
+    elif parts[0] == 'service.otaku.rpdev':
+        if rel_path.endswith('service.py'):
+            names.add('otaku_service_main')
+            names.add('service.otaku.rpdev.service')
+        elif 'otaku_service' in parts:
+            idx = parts.index('otaku_service')
+            sub_mod = parts[idx:]
+            if sub_mod[-1] == '__init__.py':
+                sub_mod = sub_mod[:-1]
+            elif sub_mod[-1].endswith('.py'):
+                sub_mod = sub_mod[:-1] + [sub_mod[-1][:-3]]
+            if sub_mod:
+                names.add('.'.join(sub_mod))
     elif parts[0] == 'plugin.video.otaku.rpdev' and rel_path.endswith('default.py'):
         names.add('plugin_default')
         names.add('plugin.video.otaku.rpdev.default')
