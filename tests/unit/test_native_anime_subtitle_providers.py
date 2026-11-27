@@ -519,3 +519,52 @@ def test_manual_search_trailing_episode_and_preserves_anime_ids(monkeypatch):
     assert manual_meta.anidb_id == '2369'
     assert manual_meta.imdb_id == 'tt0434665'
     assert manual_meta.preferred_group == 'Yameii'
+
+
+def test_season_packs_not_prioritized_over_single_episode_subs(monkeypatch):
+    from resources.lib.subtitles import search as sub_search
+
+    meta = VideoMeta(
+        title='Bleach',
+        tvshow='Bleach',
+        season='1',
+        episode='61',
+        is_tvshow=True,
+        preferred_lang='en',
+        languages=['English'],
+    )
+    pack = SubtitleResult(
+        service_name='subsource',
+        display_name='SubSource',
+        name='Bleach.S01.Complete.zip',
+        lang='English',
+        lang_code='en',
+        season=1,
+        episode=None,
+    )
+    ep_sub = SubtitleResult(
+        service_name='opensubtitles',
+        display_name='OpenSubtitles',
+        name='Bleach 61.ass',
+        lang='English',
+        lang_code='en',
+        season=None,
+        episode=None,
+    )
+
+    class _MockSvc:
+        service_name = 'mock_svc'
+        display_name = 'Mock'
+
+        @classmethod
+        def search(cls, m, s):
+            return [pack, ep_sub]
+
+    monkeypatch.setattr(sub_search, 'ALL_SERVICES', {'mock_svc': _MockSvc})
+    ranked = sub_search.search_all_services(meta, {'subtitles.provider.mock_svc': True, 'subtitles.timeout': 5})
+    assert len(ranked) == 2
+    assert ranked[0].name == 'Bleach 61.ass'
+    assert ranked[0].auto_identified is True
+    assert ranked[0].match_reason == 'Exact Ep'
+    assert ranked[1].name == 'Bleach.S01.Complete.zip'
+    assert ranked[1].auto_identified is False

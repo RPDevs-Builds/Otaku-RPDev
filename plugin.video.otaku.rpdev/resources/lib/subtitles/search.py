@@ -103,12 +103,14 @@ def score_result(sub: SubtitleResult, meta: VideoMeta, settings: Dict[str, Any])
                 score += 1.2
                 exact_ep_match = True
             elif sub.season == target_s and sub.episode is None:
-                # Season pack
-                score += 0.4
-                season_pack_match = True
+                # Generic season pack (unknown episode range): demote below single-episode matches.
+                # For long-running S1E21+ anime, IMDb/SubSource Season 1 packs only cover early eps.
+                score -= 0.5
+                if not (target_s == 1 and target_e > 20):
+                    season_pack_match = True
             elif sub.episodes_range and target_e in sub.episodes_range:
-                # Episode range (e.g. 01-12)
-                score += 0.6
+                # Explicit episode range covering target_e (e.g. 01-12)
+                score += 0.4
                 season_pack_match = True
             elif sub.season is not None and sub.episode is not None:
                 if sub.season != target_s or sub.episode != target_e:
@@ -140,6 +142,14 @@ def score_result(sub: SubtitleResult, meta: VideoMeta, settings: Dict[str, Any])
                     exact_ep_match = True
                 elif not explicit_se and anime_dash_ep_pattern.search(name_lower):
                     score += 0.6
+                    exact_ep_match = True
+                elif (
+                    not explicit_se
+                    and target_s == 1
+                    and target_e > 20
+                    and re.search(rf'(?:^|[\s._\[-])0*{target_e}(?:v\d)?(?:[\s._\]\(-]|$)', name_lower)
+                ):
+                    score += 0.5
                     exact_ep_match = True
 
     # 3. Filename / Hash match
@@ -405,8 +415,14 @@ def search_all_services(meta: VideoMeta, settings: Dict[str, Any]) -> List[Subti
     if non_mismatched:
         all_results = non_mismatched
 
-    # Sort descending: auto-identified matches first, then highest score
-    all_results.sort(key=lambda x: (-int(x.auto_identified), -x.score))
+    # Sort descending: non-pack auto-identified matches first, then Season Packs, then highest score
+    all_results.sort(
+        key=lambda x: (
+            -int(bool(x.auto_identified) and getattr(x, 'match_reason', '') != 'Season Pack'),
+            -int(x.auto_identified),
+            -x.score,
+        )
+    )
 
     # Deduplicate results with identical name, language, and provider
     deduped: List[SubtitleResult] = []

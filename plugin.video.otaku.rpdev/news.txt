@@ -1,7 +1,19 @@
 ========================
+[B]OTAKU RPDEV v6.6.4[/B]
+Auto-Subtitle Ranking Fix
+========================
+
+v6.6.4 Highlights:
+  * Stop Prioritizing Season Packs: Single-episode subtitles now always
+    rank and auto-download ahead of unverified Season Packs.
+  * Long-Running Anime (S1E21+) Fix: Added standalone episode matching,
+    prioritized later SubSource seasons over Season 1, and switched
+    OpenSubtitles S1E21+ fallback to global title+episode search.
+
+--------------------------------
 [B]OTAKU RPDEV v6.6.3[/B]
 Multi-Season Sub Fixes
-========================
+--------------------------------
 
 v6.6.3 Highlights:
   * OpenSubtitles & SubSource Multi-Season Fix: Removed restrictive

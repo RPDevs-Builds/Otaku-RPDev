@@ -95,18 +95,19 @@ class SubSourceService:
                 matched_season = 1
 
             # For long-running absolute-numbered anime (e.g. Bleach S1E60), Season 1 on SubSource
-            # only covers early episodes; also query additional season entries in `relevant`.
-            query_targets = [(target_movie_id, matched_season)]
-            if (
+            # only covers early episodes; prioritize later-season entries before Season 1.
+            is_long_running_s1 = (
                 meta.is_tvshow
                 and str(meta.season or '') == '1'
                 and str(meta.episode or '').isdigit()
                 and int(meta.episode) > 20
-            ):
-                seen_mids = {target_movie_id}
+            )
+            if is_long_running_s1:
+                query_targets = []
+                seen_mids = set()
                 for item in relevant:
                     mid = item.get('movieId')
-                    if not mid or mid in seen_mids:
+                    if not mid or mid in seen_mids or mid == target_movie_id:
                         continue
                     seen_mids.add(mid)
                     try:
@@ -114,8 +115,11 @@ class SubSourceService:
                     except (ValueError, TypeError):
                         it_season = None
                     query_targets.append((mid, it_season))
-                    if len(query_targets) >= 5:
+                    if len(query_targets) >= 4:
                         break
+                query_targets.append((target_movie_id, matched_season))
+            else:
+                query_targets = [(target_movie_id, matched_season)]
 
             # 2. Query subtitles for the target movie/season ID(s)
             results = []

@@ -197,11 +197,15 @@ def auto_download_subtitles(meta: Optional[VideoMeta] = None, settings: Optional
         # Auto-download is disabled: prompt user with selection dialog
         return manual_select_dialog(results, meta, settings)
 
-    # Attempt download on highest ranking candidates matching preferred language
-    # (results are already sorted with auto_identified=True first)
+    # Attempt download on highest ranking candidates matching preferred language.
+    # Prioritize non-Season-Pack candidates first so unverified packs cannot exhaust MAX_AUTO_ATTEMPTS.
     MAX_AUTO_ATTEMPTS = 6
+    MAX_PACK_ATTEMPTS = 3
+    non_pack_candidates = [c for c in results if getattr(c, 'match_reason', '') != 'Season Pack']
+    pack_candidates = [c for c in results if getattr(c, 'match_reason', '') == 'Season Pack']
+    ordered_candidates = non_pack_candidates + pack_candidates[:MAX_PACK_ATTEMPTS]
     attempts = 0
-    for candidate in results:
+    for candidate in ordered_candidates:
         if getattr(candidate, 'match_reason', '') in ('Mismatch', 'Title Mismatch'):
             control.log(
                 f"Native Subtitles: Skipping {candidate.name} ({candidate.match_reason})",

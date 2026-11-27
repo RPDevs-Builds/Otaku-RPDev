@@ -147,10 +147,10 @@ class OpenSubtitlesService:
                     'languages': ','.join(lang_codes),
                     'type': 'episode',
                 }
-                if meta.imdb_id_int:
-                    fallback_params['parent_imdb_id'] = meta.imdb_id_int
-                elif query_title:
+                if query_title:
                     fallback_params['query'] = f"{query_title} {ep_int:02d}"
+                elif meta.imdb_id_int:
+                    fallback_params['parent_imdb_id'] = meta.imdb_id_int
                 fb_res = client.get(url, params=fallback_params, headers=headers, timeout=timeout)
                 if fb_res and fb_res.status_code == 200:
                     fb_data = fb_res.json(default={})

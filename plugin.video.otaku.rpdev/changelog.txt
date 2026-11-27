@@ -1,3 +1,8 @@
+Changelog v6.6.4 (2026-11-27):
+- Stop Prioritizing Subtitle Season Packs & Long-Running Auto-Download Fix:
+  - Subtitle Ranking & Auto-Download: Demoted generic Season Packs (`score -= 0.5`), sorted non-pack `auto_identified` results strictly ahead of Season Packs, and updated `auto_download_subtitles()` to try all non-pack candidates before any Season Pack (capped at 3 pack attempts).
+  - Long-Running Anime (`S1E21+`) Matching: Added standalone episode-number matching (`Bleach 61.ass`), stopped classifying `season=1` packs as auto-identified for `S1E21+`, put later SubSource seasons ahead of Season 1, and switched OpenSubtitles `S1E21+` fallback to global `<title> <ep>` query.
+
 Changelog v6.6.3 (2026-11-27):
 - Multi-Season & Long-Running Anime Subtitle Search Fixes:
   - OpenSubtitles S1E21+ Fallback: Removed restrictive text `query` when `parent_imdb_id` is set so multi-season series (e.g. Bleach) return all available episodes and season packs.
