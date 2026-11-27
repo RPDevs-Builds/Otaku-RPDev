@@ -1,3 +1,7 @@
+Changelog v1.0.49 (2026-11-26):
+- Add toggleable Pin Release Group context menu item (pinreleasegroup) visible on Otaku items and external skin widgets carrying UniqueID(mal_id) or Property(mal_id)
+- Route pinreleasegroup cleanly to plugin://plugin.video.otaku.rpdev/pin_release_group/<mal_id> with safe no-op guarding on non-Otaku videodb:// items
+
 Changelog v1.0.48 (2026-11-23):
 - Broaden context menu visibility to skin widgets carrying UniqueID(mal_id) or Property(mal_id) and enable Series Playback Profile on movies
 - Cache context.otaku.markedasunwatched and context.otaku.seriesprofile window properties and preserve URL query parameters on Rescrape / Source Select

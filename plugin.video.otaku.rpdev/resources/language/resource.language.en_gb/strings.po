@@ -648,7 +648,7 @@ msgid "Max Resolution"
 msgstr ""
 
 msgctxt "#30154"
-msgid "Hide HEVC Items"
+msgid "Enable muted inline trailer previews inside AniChart on Kodi 22+ (ControlVideoWindow). Safely ignored on Kodi 20/21."
 msgstr ""
 
 msgctxt "#30155"
@@ -984,11 +984,11 @@ msgid "AnimePahe"
 msgstr ""
 
 msgctxt "#30238"
-msgid "AniMixPlay"
+msgid "Pin Release Group"
 msgstr ""
 
 msgctxt "#30239"
-msgid "AniWave"
+msgid "Jimaku (Japanese Anime Subtitles)"
 msgstr ""
 
 msgctxt "#30240"
@@ -996,7 +996,7 @@ msgid "Scrape Local Files"
 msgstr ""
 
 msgctxt "#30241"
-msgid "H!Anime Proxies (Region Problem)"
+msgid "Jimaku API Key"
 msgstr ""
 
 msgctxt "#30242"
@@ -1004,7 +1004,7 @@ msgid "GogoAnime Alternate Mirror (Anitaku.bz)"
 msgstr ""
 
 msgctxt "#30243"
-msgid "AniMixPlay Proxies (Region Problem)"
+msgid "AnimeTosho (Native .ass/.srt Attachments)"
 msgstr ""
 
 msgctxt "#30244"
@@ -1136,15 +1136,15 @@ msgid "Media Playback"
 msgstr ""
 
 msgctxt "#30276"
-msgid "Dialog Layout"
+msgid "Standby & CEC Background Throttling"
 msgstr ""
 
 msgctxt "#30277"
-msgid "Vertical"
+msgid "Inline AniChart Trailer Previews (Kodi 22+)"
 msgstr ""
 
 msgctxt "#30278"
-msgid "Horizontal"
+msgid "Show the Pin Release Group context menu item to prioritize or exclude fansub/encode groups per anime series."
 msgstr ""
 
 msgctxt "#30279"
@@ -1152,11 +1152,11 @@ msgid "Dialog Theme (Use only if you're on the skin)"
 msgstr ""
 
 msgctxt "#30280"
-msgid "Get Watch Order"
+msgid "Enable Jimaku.cc native Japanese anime subtitles (requires a Jimaku API key; only queried when Japanese subtitles are requested)."
 msgstr ""
 
 msgctxt "#30281"
-msgid "Miscellaneous"
+msgid "Personal API key from jimaku.cc/account (sent via Authorization header; leave blank to skip Jimaku with zero network calls)."
 msgstr ""
 
 msgctxt "#30282"
@@ -1200,7 +1200,7 @@ msgid "Menu Customization"
 msgstr ""
 
 msgctxt "#30292"
-msgid "Search Filter"
+msgid "Enable AnimeTosho standalone .ass/.srt subtitle attachment search (no API key required)."
 msgstr ""
 
 msgctxt "#30293"
@@ -1208,7 +1208,7 @@ msgid "Min Resolution"
 msgstr ""
 
 msgctxt "#30294"
-msgid "Hide BATCH Items"
+msgid "Suspend background syncs, precaching, and WAL checkpoints while the TV/device is in standby or CEC sleep (Kodi 22+ with DPMS/screensaver fallback)."
 msgstr ""
 
 msgctxt "#30295"

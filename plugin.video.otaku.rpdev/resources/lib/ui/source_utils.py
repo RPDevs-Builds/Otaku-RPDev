@@ -1520,14 +1520,87 @@ _EPISODE_RANGE_RE = re.compile(
 )
 
 _RELEASE_GROUP_RE = re.compile(
-    r'^\s*[\[\(]([a-zA-Z0-9_\-\.\s]+?)[\]\)]'
+    r'^\s*\[([^\]]+)\]'
 )
 
 _NON_GROUP_TAGS = frozenset({
-    '1080p', '720p', '4k', '2160p', '480p', 'hevc', 'x264', 'x265', 'batch',
-    'complete', 'dual-audio', 'multi-audio', 'dub', 'sub', 'remux', 'bluray',
-    'bdrip', 'webrip', 'web-dl', 'webdl', 'flac', 'aac'
+    '1080p', '720p', '4k', '2160p', '480p', '576p', '360p', 'uhd', 'fhd', 'hd', 'sd',
+    'hevc', 'avc', 'av1', 'vp9', 'x264', 'x265', 'h264', 'h265', 'h.264', 'h.265',
+    '10bit', '10-bit', '8bit', '8-bit', 'hi10', 'hi10p',
+    'batch', 'complete', 'dual-audio', 'dual audio', 'dual', 'multi-audio', 'multi audio',
+    'multi-sub', 'multi sub', 'multi-subs', 'multi subs', 'multisub', 'multisubs',
+    'eng-sub', 'eng sub', 'dub', 'dubbed', 'sub', 'subs', 'raw', 'raws', 'eng', 'jpn', 'ja', 'en',
+    'remux', 'bd', 'bluray', 'blu-ray', 'bdrip', 'brrip', 'webrip', 'web-dl', 'webdl', 'web',
+    'hdtv', 'dvd', 'dvdrip', 'flac', 'aac', 'aac2.0', 'opus', 'eac3', 'ac3', 'ddp', 'ddp2.0',
+    'ddp5.1', 'dts', 'dts-hd', 'truehd', 'atmos', 'hdr', 'hdr10', 'hdr10+', 'dv', 'dovi', 'hlg',
+    'uncensored', 'repack', 'proper', 'ova', 'oad', 'special', 'specials', 'end', 'final', 'dl',
+    'audio', 'video', 'ncop', 'nced',
 })
+
+_RE_CRC32_TAG = re.compile(r'^[0-9A-Fa-f]{8}$')
+_RE_TECH_TOKEN_ONLY = re.compile(
+    r'^(?:\d{3,4}[pi]|s\d{1,2}(?:e\d{1,4})?|ep?\d{1,4}|v\d|\d{1,2}[- ]?bit|\d+(?:\.\d+)?)$',
+    re.IGNORECASE,
+)
+_RE_STRIP_EXT = re.compile(
+    r'(?:\.(?:mkv|mp4|avi|ts|m4v|webm|ass|ssa|srt|vtt|sub|xz|gz|zip))+$',
+    re.IGNORECASE,
+)
+_RE_TRAILING_SCENE_GROUP = re.compile(
+    r'(?:^|[.\s_\]\)])'
+    r'(?:2160p|1080p|720p|480p|4k|uhd|web-?dl|webrip|blu-?ray|bdrip|bd|hdtv|remux|'
+    r'h\.?264|h\.?265|x264|x265|hevc|avc|av1|10-?bit|8-?bit|'
+    r'aac(?:2\.0)?|flac|opus|eac3|ac3|ddp(?:2\.0|5\.1)?|dts(?:-hd)?|truehd|atmos|'
+    r'hdr10\+?|hdr|dovi|dv|hlg|multisubs?|dual-?audio|repack|proper)'
+    r'-([A-Za-z][A-Za-z0-9._]{1,29})$',
+    re.IGNORECASE,
+)
+
+
+def normalize_release_group(name):
+    """Normalize a release group name for case-insensitive matching."""
+    if not name:
+        return ''
+    cleaned = str(name).strip()
+    cleaned = cleaned.strip('[]() ')
+    cleaned = re.sub(r'\s+', ' ', cleaned).strip().lower()
+    return cleaned
+
+
+def parse_excluded_groups(raw_csv):
+    """Parse a comma/semicolon-separated excluded_groups string into a normalized set."""
+    if not raw_csv:
+        return set()
+    if isinstance(raw_csv, (list, tuple, set, frozenset)):
+        items = raw_csv
+    else:
+        items = str(raw_csv).replace(';', ',').split(',')
+    out = set()
+    for item in items:
+        norm = normalize_release_group(item)
+        if norm:
+            out.add(norm)
+    return out
+
+
+def _is_non_group_token(token):
+    """Return True if *token* is a technical, resolution, codec, CRC32, or metadata tag."""
+    if not token:
+        return True
+    tok = str(token).strip()
+    if len(tok) < 2 or len(tok) > 40:
+        return True
+    low = tok.lower()
+    if low in _NON_GROUP_TAGS:
+        return True
+    if _RE_CRC32_TAG.match(tok):
+        return True
+    if _RE_TECH_TOKEN_ONLY.match(tok):
+        return True
+    parts = [p for p in re.split(r'[\s._+/|]+', low) if p]
+    if parts and all((p in _NON_GROUP_TAGS or bool(_RE_TECH_TOKEN_ONLY.match(p)) or bool(_RE_CRC32_TAG.match(p))) for p in parts):
+        return True
+    return False
 
 
 def extract_episode_range(release_title):
@@ -1648,17 +1721,124 @@ def season_pack_covers_episode(source, episode_num, total_episodes=None):
 
 def extract_release_group(release_title):
     """
-    Extract the release group from an anime release title (e.g., '[SubsPlease]' -> 'subsplease').
-    Returns lowercase group name or empty string.
+    Extract the release group from an anime release title while ignoring
+    technical, resolution, codec, audio, and CRC32 tags.
+
+    Examples:
+      - '[SubsPlease] Sousou no Frieren - 01 (1080p) [A1B2C3D4].mkv' -> 'SubsPlease'
+      - '[BD][Judas] Show - 01 [1080p][HEVC].mkv' -> 'Judas'
+      - 'Show.S01E01.1080p.WEB-DL.H.264-VARYG.mkv' -> 'VARYG'
+      - 'Re:Zero - Starting Life in Another World - 01 [1080p].mkv' -> ''
     """
     if not release_title:
         return ''
-    m = _RELEASE_GROUP_RE.match(release_title)
-    if m:
-        group = m.group(1).strip()
-        if group.lower() not in _NON_GROUP_TAGS:
-            return group.lower()
+    raw = str(release_title).strip()
+    if not raw:
+        return ''
+
+    # 1. Scan consecutive leading [Group] brackets (skipping technical prefix tags like [BD], [1080p])
+    rest = raw
+    while rest:
+        m = _RELEASE_GROUP_RE.match(rest)
+        if not m:
+            break
+        candidate = m.group(1).strip()
+        if candidate and not _is_non_group_token(candidate):
+            return candidate
+        rest = rest[m.end():].lstrip()
+
+    # 2. Fallback: trailing no-space scene hyphen preceded by a technical token (e.g. '.H.264-VARYG')
+    stem = _RE_STRIP_EXT.sub('', raw).strip()
+    # Strip trailing bracketed/parenthesized CRC or metadata tags before checking scene suffix
+    stem = re.sub(r'(?:\s*[\[\(][^\]\)]+[\]\)])+\s*$', '', stem).strip()
+    scene_m = _RE_TRAILING_SCENE_GROUP.search(stem)
+    if scene_m:
+        candidate = scene_m.group(1).strip()
+        if candidate and not _is_non_group_token(candidate):
+            return candidate
+
     return ''
+
+
+_RE_HDR_DV = re.compile(r'(?:^|[^A-Za-z0-9])(?:dolby[\s._-]?vision|dovi|dv)(?:$|[^A-Za-z0-9])', re.IGNORECASE)
+_RE_HDR_10 = re.compile(r'(?:^|[^A-Za-z0-9])(?:hdr10\+|hdr10plus|hdr10|hdr)(?:$|[^A-Za-z0-9])', re.IGNORECASE)
+_RE_HDR_HLG = re.compile(r'(?:^|[^A-Za-z0-9])(?:hlg|hybrid[\s._-]?log[\s._-]?gamma)(?:$|[^A-Za-z0-9])', re.IGNORECASE)
+_HDR_NORMALIZE_MAP = {
+    'dolbyvision': 'dolbyvision',
+    'dolby vision': 'dolbyvision',
+    'dolby_vision': 'dolbyvision',
+    'dovi': 'dolbyvision',
+    'dv': 'dolbyvision',
+    '3': 'dolbyvision',
+    'hdr10': 'hdr10',
+    'hdr10+': 'hdr10',
+    'hdr10plus': 'hdr10',
+    'hdr': 'hdr10',
+    '1': 'hdr10',
+    '4': 'hdr10',
+    'hlg': 'hlg',
+    '2': 'hlg',
+}
+_HDR_BADGE_MAP = {
+    'dolbyvision': 'DV',
+    'hdr10': 'HDR10',
+    'hlg': 'HLG',
+}
+
+
+def detect_hdr_type(release_title='', stream_info=None):
+    """Detect normalized HDR type ('dolbyvision', 'hdr10', 'hlg', or '') from stream metadata or release_title.
+
+    Safely inspects Kodi 22 VideoStreamDetail getters (getHDRDetail/getHdrType), stream dicts,
+    and release filename tags while avoiding false positives on DVD/DVDRip/HDRip/DivX.
+    """
+    if stream_info is not None:
+        raw_hdr = None
+        if isinstance(stream_info, dict):
+            raw_hdr = (
+                stream_info.get('hdrtype')
+                or stream_info.get('hdr_type')
+                or stream_info.get('hdr_detail')
+                or stream_info.get('hdr')
+            )
+        else:
+            for attr in ('getHDRDetail', 'getHdrType'):
+                getter = getattr(stream_info, attr, None)
+                if callable(getter):
+                    try:
+                        val = getter()
+                        if val:
+                            raw_hdr = val
+                            break
+                    except Exception:
+                        pass
+        if raw_hdr is not None:
+            norm = _HDR_NORMALIZE_MAP.get(str(raw_hdr).strip().lower(), '')
+            if norm:
+                return norm
+
+    raw_title = str(release_title or '').strip()
+    if not raw_title:
+        return ''
+    # Direct normalized keyword check (e.g., passed from explicit hdr_type field)
+    direct = _HDR_NORMALIZE_MAP.get(raw_title.lower())
+    if direct:
+        return direct
+    if _RE_HDR_DV.search(raw_title):
+        return 'dolbyvision'
+    if _RE_HDR_10.search(raw_title):
+        return 'hdr10'
+    if _RE_HDR_HLG.search(raw_title):
+        return 'hlg'
+    return ''
+
+
+def format_hdr_badge(hdr_type):
+    """Map normalized HDR type ('dolbyvision'/'hdr10'/'hlg') to concise UI badge text."""
+    if not hdr_type:
+        return ''
+    norm = _HDR_NORMALIZE_MAP.get(str(hdr_type).strip().lower(), '')
+    return _HDR_BADGE_MAP.get(norm, '')
 
 
 def format_video_filename(video_info):

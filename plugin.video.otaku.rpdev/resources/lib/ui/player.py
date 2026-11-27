@@ -584,6 +584,8 @@ class WatchlistPlayer(player):
         control.playerWindow.clearProperty(f"otaku.failover_attempts_{self.mal_id}_{ep_str}")
 
     def onPlayBackStopped(self):
+        if control.getGlobalProp('otaku.preview_mode') == 'true':
+            return
         if getattr(self, '_failover_triggered', False):
             # NF-11 replacement PlayMedia interrupts old stream: preserve preResolved_*, playList, subs, and script.trakt.ids
             self._playback_stopped = True
@@ -659,6 +661,8 @@ class WatchlistPlayer(player):
         control.execute('Container.Refresh')
 
     def onPlayBackEnded(self):
+        if control.getGlobalProp('otaku.preview_mode') == 'true':
+            return
         if (
             not getattr(self, '_user_stopped_or_errored', False)
             and not getattr(self, '_failover_triggered', False)
@@ -709,6 +713,8 @@ class WatchlistPlayer(player):
             self._refresh_widgets_on_stop()
 
     def onPlayBackError(self):
+        if control.getGlobalProp('otaku.preview_mode') == 'true':
+            return
         if (
             not getattr(self, '_user_stopped_or_errored', False)
             and not getattr(self, '_failover_triggered', False)

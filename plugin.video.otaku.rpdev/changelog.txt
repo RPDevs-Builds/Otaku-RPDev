@@ -1,3 +1,9 @@
+Changelog v6.6.0 (2026-11-26):
+- Release-Group Pinning, Native Anime Subtitles & Kodi 22 Piers Integrations:
+  - Per-Series Release-Group Pinning & Exclusion: SQLite schema v1.0.17 (preferred_group, excluded_groups), deterministic fansub/scene group parser, intra-tier +25 sort boost with safe exclusion fallback, 11-row SeriesProfileDialog, 1-click SourceSelect Pin/Exclude, settings backup/restore, and context.otaku.rpdev v1.0.49 Pin Release Group item.
+  - Native Anime Subtitle Providers (Jimaku & AnimeTosho): Added JimakuService (Japanese-only short-circuit, API key auth, AniList->MAL->Kitsu->title lookup, capped 429 retry) and AnimetoshoSubtitleService (eid->aid->q JSON feed, bounded detail fetches, standalone .ass/.srt/.xz attachments with lzma extraction and ASS dialogue-only SDH tag preservation).
+  - Kodi 22 "Piers" Integrations (hasattr-guarded with Kodi 20/21 fallbacks): NF-16 Standby & CEC background throttling (general.standby_throttling) with prompt resume OAuth/retry catch-up, NF-15 muted AniChart ControlVideoWindow inline trailer previews (interface.anichart.inline_trailers), DV/HDR10/HLG badge surfacing, and Android TV deep links (@Route('deeplink/*')) with NTP-safe 10s stale VIEW replay guard.
+
 Changelog v6.5.0 (2026-11-26):
 - NF-17, C-37 Guard & Hardening:
   - 32-bit ARM Memory Watermark Guard (C-37): 900 MB RSS / 2600 MB VmSize guard with native heap trim fallback, <85% hysteresis, and FileCache diagnostics check.

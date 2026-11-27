@@ -535,10 +535,10 @@ class TestWS5SubtitleCalibrationAndProfile(unittest.TestCase):
                 control.ADDON_PATH,
                 mal_id=52991,
             )
-            self.assertEqual(len(_FIELD_SPECS), 9)
-            self.assertEqual(_FIELD_SPECS[-1]['key'], 'sub_offset_ms')
+            self.assertEqual(len(_FIELD_SPECS), 11)
+            self.assertEqual(_FIELD_SPECS[8]['key'], 'sub_offset_ms')
             dlg.values['sub_offset_ms'] = 1500
-            badge, is_ovr = dlg._format_value_badge(_FIELD_SPECS[-1])
+            badge, is_ovr = dlg._format_value_badge(_FIELD_SPECS[8])
             self.assertTrue(is_ovr)
             self.assertIn('+1500ms', badge)
             with patch('resources.lib.ui.control.select_dialog', return_value=4):

@@ -1043,6 +1043,62 @@ def _shutdown_cleanup(multipage_worker=None):
         pass
 
 
+def _run_periodic_maintenance_tick(multipage_worker=None, standby_state=None):
+    """Execute one periodic maintenance tick with NF-16 standby/CEC throttling and resume catch-up."""
+    if standby_state is None:
+        standby_state = {'in_standby': False}
+
+    if control.is_device_in_standby():
+        if not standby_state.get('in_standby'):
+            cec_adapters = control.get_cec_adapter_names()
+            control.log_metric(
+                'standby_throttle',
+                level='info',
+                state='standby_throttled',
+                power_status=control.get_device_power_status(),
+                cec_adapters=len(cec_adapters),
+            )
+            standby_state['in_standby'] = True
+        return 'throttled'
+
+    resumed_from_standby = bool(standby_state.get('in_standby'))
+    if resumed_from_standby:
+        standby_state['in_standby'] = False
+        control.log_metric(
+            'standby_throttle',
+            level='info',
+            state='resumed',
+            power_status=control.get_device_power_status(),
+        )
+
+    loop_mem_state = control.enforce_memory_watermark(context='service_loop', multipage_worker=multipage_worker)
+    if not loop_mem_state.get('triggered'):
+        control.clean_memory()
+    # Promptly refresh OAuth tokens & drain overdue scrobble retries (especially on standby->resumed)
+    try:
+        refresh_apis()
+    except Exception as e:
+        control.log(f"Periodic API token refresh notice: {e}", 'debug')
+    try:
+        from resources.lib.WatchlistFlavor import WatchlistFlavor
+        replayed = WatchlistFlavor.process_scrobble_retry_queue()
+        if replayed:
+            control.log(f"Periodic scrobble retry queue replayed {replayed} item(s)", 'info')
+    except Exception as e:
+        control.log(f"Periodic scrobble retry queue notice: {e}", 'debug')
+    try:
+        threading.Thread(target=_maybe_sync_daily_mappings, daemon=True).start()
+    except Exception as e:
+        control.log(f"Periodic mappings sync notice: {e}", 'debug')
+    try:
+        from resources.lib.ui import database
+        database.close_thread_connections()
+        database.checkpoint_databases(truncate=False)
+    except Exception as e:
+        control.log(f"Periodic WAL checkpoint notice: {e}", 'debug')
+    return 'resumed' if resumed_from_standby else 'ran'
+
+
 if __name__ == "__main__":
     control.log('##################  RUNNING MAINTENANCE  ######################')
     if control.getBool('general.kodi.cache'):
@@ -1099,34 +1155,9 @@ if __name__ == "__main__":
         multipage_worker.set_memory_pressure(True, max_workers=1)
     multipage_worker.start()
     # Periodic background maintenance & memory trimming loop (every 15 minutes)
+    standby_state = {'in_standby': False}
     while not monitor.abortRequested():
         if monitor.waitForAbort(900):
             break
-        if control.is_device_in_standby():
-            control.log('Device display is in standby - pausing periodic memory trim')
-            continue
-        loop_mem_state = control.enforce_memory_watermark(context='service_loop', multipage_worker=multipage_worker)
-        if not loop_mem_state.get('triggered'):
-            control.clean_memory()
-        try:
-            refresh_apis()
-        except Exception as e:
-            control.log(f"Periodic API token refresh notice: {e}", 'debug')
-        try:
-            threading.Thread(target=_maybe_sync_daily_mappings, daemon=True).start()
-        except Exception as e:
-            control.log(f"Periodic mappings sync notice: {e}", 'debug')
-        try:
-            from resources.lib.WatchlistFlavor import WatchlistFlavor
-            replayed = WatchlistFlavor.process_scrobble_retry_queue()
-            if replayed:
-                control.log(f"Periodic scrobble retry queue replayed {replayed} item(s)", 'info')
-        except Exception as e:
-            control.log(f"Periodic scrobble retry queue notice: {e}", 'debug')
-        try:
-            from resources.lib.ui import database
-            database.close_thread_connections()
-            database.checkpoint_databases(truncate=False)
-        except Exception as e:
-            control.log(f"Periodic WAL checkpoint notice: {e}", 'debug')
+        _run_periodic_maintenance_tick(multipage_worker, standby_state)
     _shutdown_cleanup(multipage_worker)

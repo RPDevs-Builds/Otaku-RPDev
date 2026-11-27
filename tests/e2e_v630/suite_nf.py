@@ -180,6 +180,115 @@ class TestSuiteNFWave3Features(TestWave3FeaturesNF01ToNF08):
             control.setBool('debrid.quota_guard', True)
             database.clear_cache() if hasattr(database, 'clear_cache') else None
 
+    @tier(2)
+    @feature('NF-06', 'NF-12')
+    def test_track_a_release_group_pinning_and_exclusion_e2e(self):
+        """E2E Track A: Pinning & excluding release groups in SQLite series_overrides governs sortSources() strictly inside relevance tiers."""
+        from resources.lib.pages import Sources
+        from resources.lib.ui import control, database
+
+        control.setInt('general.minResolution', 0)
+        control.setInt('general.maxResolution', 4)
+        control.setInt('general.fileFilter', 0)
+        control.setInt('general.source', 0)
+        control.setBool('general.release_title_filter.enabled', False)
+        try:
+            self.assertTrue(database.pin_series_release_group(52991, 'Erai-raws'))
+            self.assertTrue(database.exclude_series_release_group(52991, 'Judas'))
+
+            cands = [
+                {'release_title': '[Judas] Frieren - 01 (1080p).mkv', 'hash': 'h1', 'type': 'torrent', 'quality': 3, 'debrid_provider': 'Real-Debrid', 'provider': 'nyaa', 'size': '1.0 GB', 'seeders': 80, 'byte_size': 10**9, 'info': ['1080p'], 'lang': 0, 'cached': True, 'relevance': 160},
+                {'release_title': '[SubsPlease] Frieren - 01 (1080p).mkv', 'hash': 'h2', 'type': 'torrent', 'quality': 3, 'debrid_provider': 'Real-Debrid', 'provider': 'nyaa', 'size': '1.4 GB', 'seeders': 90, 'byte_size': 14 * 10**8, 'info': ['1080p'], 'lang': 0, 'cached': True, 'relevance': 160},
+                {'release_title': '[Erai-raws] Frieren - 01 (1080p).mkv', 'hash': 'h3', 'type': 'torrent', 'quality': 3, 'debrid_provider': 'Real-Debrid', 'provider': 'nyaa', 'size': '1.3 GB', 'seeders': 60, 'byte_size': 13 * 10**8, 'info': ['1080p'], 'lang': 0, 'cached': True, 'relevance': 155},
+                {'release_title': '[Erai-raws] Frieren OVA - 01 (1080p).mkv', 'hash': 'h4', 'type': 'torrent', 'quality': 4, 'debrid_provider': 'Real-Debrid', 'provider': 'nyaa', 'size': '1.8 GB', 'seeders': 70, 'byte_size': 18 * 10**8, 'info': ['1080p'], 'lang': 0, 'cached': True, 'relevance': 110},
+            ]
+            ranked = Sources.__new__(Sources).sortSources(cands, [], [], [], [], 'episode', 24, mal_id='52991')
+            titles = [r['release_title'] for r in ranked]
+            # Judas excluded; Erai-raws Tier 0 promoted #1; SubsPlease Tier 0 kept #2; Erai-raws Tier 1 stays #3
+            self.assertEqual(len(titles), 3)
+            self.assertTrue(titles[0].startswith('[Erai-raws] Frieren - 01'))
+            self.assertTrue(titles[1].startswith('[SubsPlease]'))
+            self.assertTrue(titles[2].startswith('[Erai-raws] Frieren OVA'))
+        finally:
+            database.delete_series_override(52991)
+
+    @tier(2)
+    @feature('NF-07')
+    def test_track_b_jimaku_and_animetosho_native_anime_subtitles_e2e(self):
+        """E2E Track B: AnimeTosho .ass.xz attachment decompression, ASS tag-safe SDH strip, and Jimaku JP short-circuit."""
+        import lzma
+        import tempfile
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        from resources.lib.subtitles import download as sub_dl
+        from resources.lib.subtitles.models import VideoMeta
+        from resources.lib.subtitles.services.animetosho import AnimetoshoSubtitleService
+        from resources.lib.subtitles.services.jimaku import JimakuService
+
+        sample_ass = (
+            "[Script Info]\nScriptType: v4.00+\n[V4+ Styles]\n"
+            "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n"
+            "Style: Default,Arial,48,&H00FFFFFF,&H000000FF,&H00000000,&H64000000,0,0,0,0,100,100,0,0,1,2,1,2,10,10,10,1\n"
+            "[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
+            "Dialogue: 0,0:00:02.00,0:00:05.00,Default,,0,0,0,,{\\an8}[wind] FRIEREN: Let us go.\n"
+        )
+        xz_bytes = lzma.compress(sample_ass.encode('utf-8'))
+
+        def _fake_get(url, **kwargs):
+            if 'feed.animetosho.org/json' in url:
+                payload = [{'id': 910, 'title': '[SubsPlease] Frieren - 01 (1080p).mkv', 'attachments': [
+                    {'filename': 'frieren_01_eng.ass.xz', 'url': 'https://storage.animetosho.org/attach/910/frieren_01_eng.ass.xz', 'language': 'eng'},
+                ]}]
+                return SimpleNamespace(status_code=200, text='', content=b'', headers={}, json=lambda default=None: payload)
+            return SimpleNamespace(status_code=200, text='', content=xz_bytes, headers={}, json=lambda default=None: None)
+
+        meta = VideoMeta(tvshow='Frieren', season='1', episode='1', languages=['English'], preferred_lang='en', anidb_ep_id='271001', release_group='SubsPlease')
+        with patch('resources.lib.ui.client.get', side_effect=_fake_get):
+            # Jimaku short-circuits with 0 calls for English
+            self.assertEqual(JimakuService.search(meta, {'subtitles.jimaku.apikey': 'k'}), [])
+            res = AnimetoshoSubtitleService.search(meta, {'subtitles.timeout': 10})
+            self.assertEqual(len(res), 1)
+            with tempfile.TemporaryDirectory() as tmpdir:
+                local_path = sub_dl.download_and_prepare_subtitle(res[0], meta, {'subtitles.strip_sdh_tags': True}, dest_dir=tmpdir)
+                self.assertIsNotNone(local_path)
+                self.assertTrue(local_path.endswith('.ass'))
+                with open(local_path, 'r', encoding='utf-8') as fp:
+                    body = fp.read()
+                self.assertIn('{\\an8}', body)
+                self.assertNotIn('[wind]', body)
+
+    @tier(2)
+    @feature('NF-15', 'NF-16')
+    def test_track_c_kodi22_piers_standby_trailers_hdr_and_deeplinks_e2e(self):
+        """E2E Track C: Kodi 22 standby throttling, HDR tag surfacing, and Android TV deeplink replay guard."""
+        from unittest.mock import patch
+        import xbmc
+        import xbmcgui
+        from resources.lib.routes import playback as playback_routes
+        from resources.lib.ui import control
+        from tests.kodi_profile import KodiProfile
+
+        control.clearGlobalProp('otaku.last_deeplink_sig')
+        control.clearGlobalProp('otaku.last_deeplink_ts')
+        with KodiProfile('22'):
+            control.setBool('general.standby_throttling', True)
+            with patch.object(xbmc, 'getDevicePowerStatus', return_value='standby'):
+                self.assertTrue(control.is_device_in_standby())
+
+            li = xbmcgui.ListItem(label='HDR Test')
+            control.set_videotags(li, {'title': 'Ep 1', 'release_title': '[EMBER] Show - 01 [2160p][DV].mkv', 'mediatype': 'episode'})
+            self.assertEqual(li.getProperty('hdr_badge'), 'DV')
+            self.assertEqual(li.getVideoInfoTag().getHdrType(), 3)
+
+            execs = []
+            with patch.object(control, 'HANDLE', -1), \
+                 patch.object(control, 'execute', side_effect=lambda c: execs.append(c)), \
+                 patch.object(control, 'exit_code', return_value=None):
+                playback_routes.DEEPLINK('next_up', {})
+                playback_routes.DEEPLINK('next_up', {})  # Stale replay blocked
+            self.assertEqual(len(execs), 1)
+            self.assertIn('ActivateWindow(Videos,', execs[0])
+
 
 if __name__ == '__main__':
     unittest.main()

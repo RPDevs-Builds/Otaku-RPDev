@@ -1099,6 +1099,7 @@ def process_context():
         "context.otaku.fanartselect",
         "context.otaku.clearcache",
         "context.otaku.inspectmappings",
+        "context.otaku.pinreleasegroup",
     ]
     for s_id in context_settings:
         try:
@@ -1852,15 +1853,27 @@ def set_videotags(li, info):
         except (ValueError, TypeError):
             pass
 
-    if hdr_type := info.get('hdr_type') or info.get('hdr'):
-        if hasattr(vinfo, 'setHdrType'):
-            try:
-                hdr_map = {'none': 0, 'hdr10': 1, 'hlg': 2, 'dolbyvision': 3, 'dv': 3, 'hdr10plus': 4, 'hdr': 1}
-                val = hdr_map.get(str(hdr_type).lower(), int(hdr_type) if str(hdr_type).isdigit() else 1)
-                vinfo.setHdrType(val)
-            except Exception:
-                pass
-        li.setProperty('VideoResolution.HDRType', str(hdr_type))
+    # HDR surfacing: detect ONLY from explicit hdrtype/hdr_type/hdr, stream_info, or release_title
+    # (never from generic anime display title info['title'])
+    raw_hdr_hint = info.get('hdrtype') or info.get('hdr_type') or info.get('hdr') or ''
+    stream_info_obj = info.get('stream_info')
+    rel_title_hint = info.get('release_title') or ''
+    if raw_hdr_hint or stream_info_obj is not None or rel_title_hint:
+        from resources.lib.ui import source_utils as _su
+        hdr_type = _su.detect_hdr_type(raw_hdr_hint or rel_title_hint, stream_info=stream_info_obj)
+        hdr_badge = _su.format_hdr_badge(hdr_type)
+        if hdr_type:
+            if hasattr(vinfo, 'setHdrType'):
+                try:
+                    hdr_map = {'none': 0, 'hdr10': 1, 'hlg': 2, 'dolbyvision': 3, 'dv': 3, 'hdr10plus': 4, 'hdr': 1}
+                    raw_low = str(raw_hdr_hint or hdr_type).strip().lower()
+                    val = hdr_map.get(raw_low, hdr_map.get(hdr_type.lower(), int(raw_low) if raw_low.isdigit() else 1))
+                    vinfo.setHdrType(val)
+                except Exception:
+                    pass
+            li.setProperty('hdr_type', hdr_type)
+            li.setProperty('hdr_badge', hdr_badge)
+            li.setProperty('VideoResolution.HDRType', str(raw_hdr_hint or hdr_type))
 
 
 def jsonrpc(json_data):
@@ -1881,30 +1894,79 @@ def kodi_get_setting(setting_id):
 #  Kodi 22 Native Power, CEC & Database Helpers
 # ═══════════════════════════════════════════════════════════════════════════
 
-def get_device_power_status():
-    """Query HDMI/CEC display power state natively via Kodi 22 C++ API."""
-    if hasattr(xbmc, 'getDevicePowerStatus'):
+_CEC_INT_POWER_MAP = {
+    0: 'on',
+    1: 'standby',
+    2: 'in_transition_to_on',
+    3: 'in_transition_to_standby',
+}
+_STANDBY_POWER_STATES = frozenset({
+    'standby', 'suspend', 'sleep', 'off', 'dpms', 'in_standby',
+    'in_transition_to_standby', 'transition_to_standby',
+})
+_ACTIVE_POWER_STATES = frozenset({'on', 'active', 'in_transition_to_on', 'transition_to_on'})
+
+
+def _query_kodi22_power_status():
+    """Return ``(status, is_explicit)`` from Kodi 22 ``xbmc.getDevicePowerStatus()``.
+
+    ``is_explicit`` is True only when the Kodi 22 C++ API exists and returned a
+    recognized active or standby state; otherwise False (Kodi 20/21 or unknown).
+    """
+    getter = getattr(xbmc, 'getDevicePowerStatus', None)
+    if callable(getter):
         try:
-            status = xbmc.getDevicePowerStatus()
+            status = getter()
+            if isinstance(status, int) and not isinstance(status, bool):
+                mapped = _CEC_INT_POWER_MAP.get(status, 'unknown')
+                return mapped, (mapped != 'unknown')
             if isinstance(status, str):
-                return status
+                norm = status.strip().lower()
+                if norm.isdigit():
+                    mapped = _CEC_INT_POWER_MAP.get(int(norm), 'unknown')
+                    return mapped, (mapped != 'unknown')
+                if norm and norm != 'unknown':
+                    return norm, (norm in _STANDBY_POWER_STATES or norm in _ACTIVE_POWER_STATES)
         except Exception:
             pass
-    return 'on'
+    return 'unknown', False
+
+
+def get_device_power_status():
+    """Query HDMI/CEC display power state natively via Kodi 22 C++ API (defaults to 'on' when unavailable)."""
+    status, is_explicit = _query_kodi22_power_status()
+    return status if is_explicit else 'on'
 
 
 def is_device_in_standby():
-    """Return True if connected display/AVR is in standby or suspend mode."""
-    return str(get_device_power_status()).lower() in ('standby', 'suspend', 'off')
+    """Return True if connected display/AVR is in standby/suspend mode (NF-16).
+
+    Gated by ``general.standby_throttling`` (default True). On Kodi 22, trusts an
+    explicit active ('on') response from ``xbmc.getDevicePowerStatus()`` without
+    falling back to screensaver visibility; falls back to DPMS/screensaver only
+    when power status is unavailable or 'unknown' (e.g., Kodi 20/21).
+    """
+    if not getBool('general.standby_throttling', True):
+        return False
+    status, is_explicit = _query_kodi22_power_status()
+    if status in _STANDBY_POWER_STATES:
+        return True
+    if is_explicit and status in _ACTIVE_POWER_STATES:
+        return False
+    try:
+        return bool(xbmc.getCondVisibility('System.DPMSActive | System.ScreenSaverActive'))
+    except Exception:
+        return False
 
 
 def get_cec_adapter_names():
     """Enumerate active HDMI-CEC adapters via Kodi 22 C++ API."""
-    if hasattr(xbmc, 'getCecAdapterNames'):
+    getter = getattr(xbmc, 'getCecAdapterNames', None)
+    if callable(getter):
         try:
-            names = xbmc.getCecAdapterNames()
-            if isinstance(names, list):
-                return names
+            names = getter()
+            if isinstance(names, (list, tuple)):
+                return [str(n) for n in names if n is not None]
         except Exception:
             pass
     return []

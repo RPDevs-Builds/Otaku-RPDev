@@ -86,6 +86,7 @@ GENERAL_SETTING_IDS = {
     "general.malposters",
     "interface.spoilers.hide_thumbs",
     "interface.spoilers.shield_mode",
+    "interface.anichart.inline_trailers",
     "artwork.preference",
     "artwork.titlesearch",
     "artwork.advanced",
@@ -237,6 +238,9 @@ SUBTITLES_SETTING_IDS = {
     "subtitles.provider.podnadpisi",
     "subtitles.provider.bsplayer",
     "subtitles.provider.addic7ed",
+    "subtitles.provider.jimaku",
+    "subtitles.jimaku.apikey",
+    "subtitles.provider.animetosho",
     "subtitles.set_kodi_default",
     "subtitles.manual_search",
     "subtitles.reset_category",
@@ -466,6 +470,7 @@ CONTEXT_CUSTOMIZATION_SETTING_IDS = {
     "context.otaku.fanartselect",
     "context.otaku.clearcache",
     "context.otaku.inspectmappings",
+    "context.otaku.pinreleasegroup",
     "context_customization.reset_category",
 }
 
@@ -476,6 +481,7 @@ MAINTENANCE_SETTING_IDS = {
     "check_db_integrity",
     "vacuum_databases",
     "sync_mappings",
+    "general.standby_throttling",
     "change_log",
     "clear_cache",
     "clear_search_history",
@@ -758,26 +764,26 @@ class TestAllSettingsOutcomes(unittest.TestCase):
         Assert that TESTED_SETTING_IDS contains exactly all 471 declared settings
         from resources/settings.xml, ensuring 0 omitted settings across all categories.
         """
-        self.assertEqual(len(self.declared_settings), 503, f"Expected 503 declared settings, got {len(self.declared_settings)}")
-        self.assertEqual(len(TESTED_SETTING_IDS), 503, f"Expected 503 tested settings in registry, got {len(TESTED_SETTING_IDS)}")
+        self.assertEqual(len(self.declared_settings), 509, f"Expected 509 declared settings, got {len(self.declared_settings)}")
+        self.assertEqual(len(TESTED_SETTING_IDS), 509, f"Expected 509 tested settings in registry, got {len(TESTED_SETTING_IDS)}")
         self.assertEqual(
             set(self.declared_settings.keys()), TESTED_SETTING_IDS,
             "TESTED_SETTING_IDS does not match declared_settings in resources/settings.xml"
         )
 
         # Assert individual category counts match expectations
-        self.assertEqual(len(GENERAL_SETTING_IDS), 45)
+        self.assertEqual(len(GENERAL_SETTING_IDS), 46)
         self.assertEqual(len(PROVIDERS_SETTING_IDS), 20)
         self.assertEqual(len(SCRAPING_SETTING_IDS), 15)
         self.assertEqual(len(CACHE_SETTING_IDS), 16)
         self.assertEqual(len(PLAYBACK_SETTING_IDS), 46)
-        self.assertEqual(len(SUBTITLES_SETTING_IDS), 30)
+        self.assertEqual(len(SUBTITLES_SETTING_IDS), 33)
         self.assertEqual(len(SORT_AND_FILTER_SETTING_IDS), 43)
         self.assertEqual(len(ACCOUNTS_SETTING_IDS), 42)
         self.assertEqual(len(WATCHLIST_SETTING_IDS), 38)
         self.assertEqual(len(MENU_CUSTOMIZATION_SETTING_IDS), 73)
-        self.assertEqual(len(CONTEXT_CUSTOMIZATION_SETTING_IDS), 16)
-        self.assertEqual(len(MAINTENANCE_SETTING_IDS), 119)
+        self.assertEqual(len(CONTEXT_CUSTOMIZATION_SETTING_IDS), 17)
+        self.assertEqual(len(MAINTENANCE_SETTING_IDS), 120)
 
     # ── Category 1: General (45 settings) ──────────────────────────────────────
 
@@ -1377,6 +1383,42 @@ class TestAllSettingsOutcomes(unittest.TestCase):
         self.assertTrue(res_clear['recovered'])
         self.assertEqual(control.homeWindow.getProperty('otaku.memory_pressure'), '')
 
+        # Behavioral outcomes for v6.6 sprint settings (Tracks A, B, C)
+        from resources.lib import subtitles as _subs_mod
+        from resources.lib.windows import anichart as _anichart_mod
+        from tests.kodi_profile import KodiProfile as _KP
+
+        control.setBool('general.standby_throttling', False)
+        with _KP('22'):
+            with unittest.mock.patch('xbmc.getDevicePowerStatus', return_value='standby'):
+                self.assertFalse(control.is_device_in_standby())
+            control.setBool('general.standby_throttling', True)
+            with unittest.mock.patch('xbmc.getDevicePowerStatus', return_value='standby'):
+                self.assertTrue(control.is_device_in_standby())
+
+            control.setBool('interface.anichart.inline_trailers', False)
+            self.assertFalse(_anichart_mod._supports_inline_trailers())
+            control.setBool('interface.anichart.inline_trailers', True)
+            self.assertTrue(_anichart_mod._supports_inline_trailers())
+
+        control.setBool('context.otaku.pinreleasegroup', False)
+        control.process_context()
+        self.assertEqual(control.homeWindow.getProperty('context.otaku.rpdev.pinreleasegroup'), 'false')
+        control.setBool('context.otaku.pinreleasegroup', True)
+        control.process_context()
+        self.assertEqual(control.homeWindow.getProperty('context.otaku.rpdev.pinreleasegroup'), 'true')
+
+        control.setBool('subtitles.provider.jimaku', False)
+        control.setBool('subtitles.provider.animetosho', False)
+        control.setSetting('subtitles.jimaku.apikey', 'test_jk_key')
+        sub_cfg = _subs_mod.get_subtitles_settings()
+        self.assertFalse(sub_cfg['subtitles.provider.jimaku'])
+        self.assertFalse(sub_cfg['subtitles.provider.animetosho'])
+        self.assertEqual(sub_cfg['subtitles.jimaku.apikey'], 'test_jk_key')
+        control.setBool('subtitles.provider.jimaku', True)
+        control.setBool('subtitles.provider.animetosho', True)
+        control.setSetting('subtitles.jimaku.apikey', '')
+
     # ── Internal Level 4 State & Legacy Compatibility ──────────────────────────
 
     def test_internal_level_4_state_and_legacy_compatibility_keys(self):
@@ -1400,7 +1442,7 @@ class TestAllSettingsOutcomes(unittest.TestCase):
 
         # Verify clean_settings.get_active_setting_ids() keeps all declared settings (including legacy keys)
         active_ids = clean_settings.get_active_setting_ids(self.settings_xml_path)
-        self.assertEqual(len(active_ids), 503)
+        self.assertEqual(len(active_ids), 509)
         for legacy_key in LEGACY_LEVEL_4_KEYS:
             self.assertIn(legacy_key, active_ids)
 

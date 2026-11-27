@@ -168,7 +168,12 @@ _FIXTURE_SETTINGS = {
     'provider.hianime': 'true',
     'realdebrid.enabled': 'true',
     'realdebrid.token': 'test_rd_token_123456789',
-    'cache.torrents.ttl': '24'
+    'cache.torrents.ttl': '24',
+    'general.standby_throttling': 'true',
+    'interface.anichart.inline_trailers': 'true',
+    'context.otaku.pinreleasegroup': 'true',
+    'subtitles.provider.jimaku': 'true',
+    'subtitles.provider.animetosho': 'true',
 }
 
 
@@ -481,6 +486,30 @@ class MockPlayer21(conftest.MockPlayer):
         self._available_subtitles = ['eng']
 
 
+_UNSET = object()
+
+
+class MockVideoStreamDetail22:
+    """Kodi 22 (Piers) VideoStreamDetail mock exposing HDR detail getters/setters."""
+    def __init__(self, width=1920, height=1080, codec='hevc', hdr_detail=''):
+        self._width = width
+        self._height = height
+        self._codec = codec
+        self._hdr_detail = str(hdr_detail or '')
+
+    def setHDRDetail(self, hdr_detail):
+        self._hdr_detail = str(hdr_detail or '')
+
+    def getHDRDetail(self):
+        return self._hdr_detail
+
+
+class MockControlVideoWindow22:
+    """Kodi 22 (Piers) ControlVideoWindow mock for NF-15 inline previews."""
+    def __init__(self, x=0, y=0, width=440, height=248):
+        self._rect = (x, y, width, height)
+
+
 class MockPlayer22(conftest.MockPlayer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -559,6 +588,10 @@ class KodiProfile:
                 'Actor': conftest.mock_xbmc.Actor,
                 'ListItem': conftest.mock_xbmcgui.ListItem,
                 'Player': conftest.mock_xbmc.Player,
+                'getDevicePowerStatus': getattr(conftest.mock_xbmc, 'getDevicePowerStatus', _UNSET),
+                'getCecAdapterNames': getattr(conftest.mock_xbmc, 'getCecAdapterNames', _UNSET),
+                'VideoStreamDetail': getattr(conftest.mock_xbmc, 'VideoStreamDetail', _UNSET),
+                'ControlVideoWindow': getattr(conftest.mock_xbmcgui, 'ControlVideoWindow', _UNSET),
                 'kodi_version': saved_control_ver,
                 'active_profile_in_conftest': getattr(conftest, '_current_kodi_profile', None),
             }
@@ -572,6 +605,11 @@ class KodiProfile:
                 conftest.mock_xbmc.Actor = conftest.MockActor
                 conftest.mock_xbmcgui.ListItem = MockListItem21
                 conftest.mock_xbmc.Player = MockPlayer21
+                for attr in ('getDevicePowerStatus', 'getCecAdapterNames', 'VideoStreamDetail'):
+                    if hasattr(conftest.mock_xbmc, attr):
+                        delattr(conftest.mock_xbmc, attr)
+                if hasattr(conftest.mock_xbmcgui, 'ControlVideoWindow'):
+                    delattr(conftest.mock_xbmcgui, 'ControlVideoWindow')
                 if 'resources.lib.ui.control' in sys.modules:
                     sys.modules['resources.lib.ui.control'].kodi_version = 21.3
             else:  # Kodi 22
@@ -579,6 +617,10 @@ class KodiProfile:
                 conftest.mock_xbmc.Actor = MockActor22
                 conftest.mock_xbmcgui.ListItem = MockListItem22
                 conftest.mock_xbmc.Player = MockPlayer22
+                conftest.mock_xbmc.getDevicePowerStatus = lambda: 'on'
+                conftest.mock_xbmc.getCecAdapterNames = lambda: ['HDMI-CEC Adapter 0']
+                conftest.mock_xbmc.VideoStreamDetail = MockVideoStreamDetail22
+                conftest.mock_xbmcgui.ControlVideoWindow = MockControlVideoWindow22
                 if 'resources.lib.ui.control' in sys.modules:
                     sys.modules['resources.lib.ui.control'].kodi_version = 22.0
 
@@ -591,6 +633,19 @@ class KodiProfile:
                 conftest.mock_xbmc.Actor = self._saved_state['Actor']
                 conftest.mock_xbmcgui.ListItem = self._saved_state['ListItem']
                 conftest.mock_xbmc.Player = self._saved_state['Player']
+                for attr in ('getDevicePowerStatus', 'getCecAdapterNames', 'VideoStreamDetail'):
+                    prev = self._saved_state[attr]
+                    if prev is _UNSET:
+                        if hasattr(conftest.mock_xbmc, attr):
+                            delattr(conftest.mock_xbmc, attr)
+                    else:
+                        setattr(conftest.mock_xbmc, attr, prev)
+                prev_cvw = self._saved_state['ControlVideoWindow']
+                if prev_cvw is _UNSET:
+                    if hasattr(conftest.mock_xbmcgui, 'ControlVideoWindow'):
+                        delattr(conftest.mock_xbmcgui, 'ControlVideoWindow')
+                else:
+                    setattr(conftest.mock_xbmcgui, 'ControlVideoWindow', prev_cvw)
                 if 'resources.lib.ui.control' in sys.modules and self._saved_state['kodi_version'] is not None:
                     sys.modules['resources.lib.ui.control'].kodi_version = self._saved_state['kodi_version']
                 conftest._current_kodi_profile = self._saved_state['active_profile_in_conftest']

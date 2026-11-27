@@ -812,6 +812,35 @@ class Sources(GetSources):
         # Sort sources (Seren-style composite keys; fresh sort_options.json)
         sortedList = sort_select.sort_sources_list(sortedList)
 
+        # NF-06 / Track A: Per-Series Overrides (Excluded Release Groups, Preferred Group, Preferred Provider)
+        series_override = database.get_series_override(mal_id) if mal_id else None
+
+        # Safe release-group exclusion: filter excluded groups ONLY when >= 1 playable candidate remains
+        excluded_groups = source_utils.parse_excluded_groups(
+            series_override.get('excluded_groups') if isinstance(series_override, dict) else ''
+        )
+        if excluded_groups and sortedList:
+            kept = [
+                src for src in sortedList
+                if source_utils.normalize_release_group(
+                    source_utils.extract_release_group(src.get('release_title') or src.get('filename') or '')
+                ) not in excluded_groups
+            ]
+            if kept:
+                dropped_cnt = len(sortedList) - len(kept)
+                if dropped_cnt > 0:
+                    control.log(
+                        f"sortSources: excluded {dropped_cnt} candidate(s) matching excluded_groups={sorted(excluded_groups)}",
+                        'info',
+                    )
+                sortedList = kept
+            else:
+                control.log(
+                    f"sortSources: all {len(sortedList)} candidate(s) matched excluded_groups={sorted(excluded_groups)}; "
+                    "falling back to unfiltered pool to preserve playback",
+                    'info',
+                )
+
         # Relevance tier sorting: enforce exact/canonical matches (Tier 0) and high-confidence
         # matches (Tier 1) rank above partial/unrated/derivative matches before quality/size.
         def _get_relevance_tier(item):
@@ -826,12 +855,27 @@ class Sources(GetSources):
                 return 2
             return 3
 
-        sortedList.sort(key=_get_relevance_tier)
+        preferred_group_norm = source_utils.normalize_release_group(
+            series_override.get('preferred_group') if isinstance(series_override, dict) else ''
+        )
 
-        # NF-06: Per-Series Preferred Provider Override
-        series_override = database.get_series_override(mal_id) if mal_id else None
+        # Soft intra-tier +25 priority boost for pinned release group (strictly inside same relevance tier;
+        # never promotes Tier 1/2/3 derivatives over Tier 0 exact match and never hard-drops non-matching groups)
+        if preferred_group_norm and sortedList:
+            def _tier_and_group_key(item):
+                tier = _get_relevance_tier(item)
+                cand_group = source_utils.normalize_release_group(
+                    source_utils.extract_release_group(item.get('release_title') or item.get('filename') or '')
+                )
+                group_pin_bonus = 25 if cand_group == preferred_group_norm else 0
+                return (tier, -group_pin_bonus)
+
+            sortedList.sort(key=_tier_and_group_key)
+        else:
+            sortedList.sort(key=_get_relevance_tier)
+
         override_prov = (series_override.get('preferred_provider') or '').strip().lower() if isinstance(series_override, dict) else ''
-        override_applied = False
+        override_applied = bool(preferred_group_norm)
         if override_prov and override_prov not in ('auto', 'default', 'none'):
             match_idx = -1
             for idx, src in enumerate(sortedList):
@@ -847,7 +891,7 @@ class Sources(GetSources):
                     override_applied = True
 
         # SmartPlay: prioritize preferred embed provider and matching quality/release if enabled
-        # (never override an explicit per-series preferred_provider selection)
+        # (never override an explicit per-series preferred_provider or preferred_group selection)
         if not override_applied and mal_id and control.getBool('general.smartplay', default=True):
             last_played_profile = database.get_last_played_source(mal_id)
             if last_played_profile:
@@ -871,13 +915,17 @@ class Sources(GetSources):
                     last_quality = last_played_profile.get('quality')
                     last_provider = last_played_profile.get('provider')
                     last_release_title = last_played_profile.get('release_title', '')
-                    match = _RELEASE_GROUP_RE.match(last_release_title)
-                    last_group = match.group(1).lower() if match else ''
+                    last_group = source_utils.normalize_release_group(
+                        source_utils.extract_release_group(last_release_title)
+                    )
 
                     match_idx = -1
                     for idx, src in enumerate(sortedList):
                         src_title = src.get('release_title', '')
-                        group_match = bool(last_group and f'[{last_group}]' in src_title.lower())
+                        src_group = source_utils.normalize_release_group(
+                            source_utils.extract_release_group(src_title)
+                        )
+                        group_match = bool(last_group and src_group == last_group)
                         quality_match = (src.get('quality') == last_quality)
                         provider_match = (src.get('provider') == last_provider)
 

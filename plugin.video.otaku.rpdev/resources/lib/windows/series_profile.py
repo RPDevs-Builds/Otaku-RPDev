@@ -156,6 +156,20 @@ _FIELD_SPECS = [
         'unit': 'ms',
         'default': 0,
     },
+    {
+        'key': 'preferred_group',
+        'title': 'Preferred Release Group',
+        'description': 'Prioritize a fansub/encode group within equal relevance tiers (e.g. SubsPlease, Judas)',
+        'kind': 'text',
+        'default': '',
+    },
+    {
+        'key': 'excluded_groups',
+        'title': 'Excluded Release Groups',
+        'description': 'Comma-separated release groups to avoid when alternatives exist (e.g. Judas, EMBER)',
+        'kind': 'text',
+        'default': '',
+    },
 ]
 
 
@@ -212,6 +226,8 @@ class SeriesProfileDialog(BaseWindow):
                     k = spec['key']
                     if spec['kind'] == 'int':
                         vals[k] = int(existing.get(k) or 0)
+                    elif spec['kind'] == 'text':
+                        vals[k] = str(existing.get(k) or '').strip()
                     else:
                         raw_v = existing.get(k)
                         vals[k] = raw_v if raw_v is not None else spec['default']
@@ -250,6 +266,8 @@ class SeriesProfileDialog(BaseWindow):
             ep_line = f"Ep 1 -> Mapped #{ep1_mapped} ({ep_off:+d} ep)"
         intro_demo = f"{max(0, 90 + in_off)}s - {max(1, 180 + in_off)}s"
         outro_demo = f"{max(0, 1290 + out_off)}s - {max(1, 1380 + out_off)}s"
+        pref_grp = str(self.values.get('preferred_group') or '').strip() or 'None'
+        excl_grp = str(self.values.get('excluded_groups') or '').strip() or 'None'
         lines = [
             f"Cour Rules (mappings.db): {len(rules or [])}",
             f"Filler Tagged Episodes: {len(filler or {})}",
@@ -257,6 +275,7 @@ class SeriesProfileDialog(BaseWindow):
             f"OP Example (90-180s): {intro_demo} ({in_off:+d}s)",
             f"ED Example (21:30-23:00): {outro_demo} ({out_off:+d}s)",
             f"Sub Offset: {sub_off:+d}ms",
+            f"Pinned Group: {pref_grp}  |  Excluded: {excl_grp}",
         ]
         return "\n".join(lines)
 
@@ -270,6 +289,9 @@ class SeriesProfileDialog(BaseWindow):
             is_ovr = (ival != 0)
             sign_str = f"{ival:+d}{spec.get('unit', '')}" if is_ovr else "0 (Global Default)"
             return sign_str, is_ovr
+        if spec['kind'] == 'text':
+            sval = str(val or '').strip()
+            return (sval, True) if sval else ("Global Default", False)
         for code, lbl in spec['choices']:
             if code == val:
                 is_ovr = (val != spec['default'])
@@ -343,6 +365,21 @@ class SeriesProfileDialog(BaseWindow):
             if pick >= 0:
                 self.values[spec['key']] = spec['choices'][pick][0]
                 self._refresh_row_in_place(idx)
+        elif spec['kind'] == 'text':
+            cur_s = str(self.values.get(spec['key']) or '').strip()
+            opts = ["Enter Value...", "Clear (Global Default)"] if cur_s else ["Enter Value..."]
+            pick = control.select_dialog(f"{spec['title']} ({cur_s or 'None'})", opts)
+            if pick < 0:
+                return
+            if pick == 1:
+                self.values[spec['key']] = ''
+                self._refresh_row_in_place(idx)
+                return
+            raw = control.input_dialog(spec['title'], cur_s)
+            if raw is None:
+                return
+            self.values[spec['key']] = str(raw).strip()
+            self._refresh_row_in_place(idx)
         else:
             unit = spec.get('unit', '')
             cur_v = int(self.values.get(spec['key']) or 0)
@@ -383,6 +420,9 @@ class SeriesProfileDialog(BaseWindow):
             cur_v = int(self.values.get(key) or 0)
             new_v = max(spec['min'], min(spec['max'], cur_v + (int(delta) * spec.get('step', 1))))
             self.values[key] = new_v
+        elif spec['kind'] == 'text':
+            self.edit_field(idx)
+            return
         else:
             choices = [c[0] for c in spec['choices']]
             cur_v = self.values.get(key)
@@ -418,16 +458,20 @@ class SeriesProfileDialog(BaseWindow):
                     episode_offset=int(self.values.get('episode_offset') or 0),
                     sub_offset_ms=int(self.values.get('sub_offset_ms') or 0),
                     skip_filler_mode=self.values.get('skip_filler_mode') or 'default',
+                    preferred_group=str(self.values.get('preferred_group') or '').strip(),
+                    excluded_groups=str(self.values.get('excluded_groups') or '').strip(),
                 )
                 control.notify(control.ADDON_NAME, f"Saved Series Profile for MAL #{self.mal_id}")
             database.clear_episode_sources(self.mal_id)
             database.clear_season_pack(self.mal_id)
         self._pending_reset = False
         self.close()
+        self._win_closed = True
 
     def cancel_and_close(self):
         self._pending_reset = False
         self.close()
+        self._win_closed = True
 
     def onClick(self, control_id):
         if control_id in (1000, 3001):

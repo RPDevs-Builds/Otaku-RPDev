@@ -34,7 +34,7 @@ if __name__ == "__main__":
             'webpdb_trace', 'set_settings', 'probe_settings', 'setup_wizard', 'menu_order',
             'series_profile', 'manual_subtitles', 'scene_markers', 'watchlist_drift_audit',
             'source_filter', 'wlf_auth', 'play', 'play_movie', 'play_latest',
-            'rescrape_play', 'force_play', 'toggleLanguageInvoker',
+            'rescrape_play', 'force_play', 'toggleLanguageInvoker', 'deeplink',
         )
         if (
             not control.is_addon_visible()

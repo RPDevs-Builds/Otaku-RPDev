@@ -1,11 +1,12 @@
-"""archive.py - Subtitle Archive Extractor (.zip, .gz) with Strict Episode Matching
-================================================================================
+"""archive.py - Subtitle Archive Extractor (.zip, .gz, .xz) with Strict Episode Matching
+====================================================================================
 """
 
 # -*- coding: utf-8 -*-
 
 import io
 import gzip
+import lzma
 import zipfile
 import re
 from typing import Optional, Tuple, List
@@ -124,17 +125,33 @@ def extract_subtitle_from_archive(raw_bytes: bytes, filename: str = '', episode_
     if raw_bytes[:2] == b'\x1f\x8b':
         try:
             decompressed = gzip.decompress(raw_bytes)
-            # Gzip might contain a tar archive or raw subtitle text
-            if decompressed[:4] in (b'PK\x03\x04', b'PK\x05\x06'):
+            # Gzip might contain a nested archive or raw subtitle text
+            if decompressed[:4] in (b'PK\x03\x04', b'PK\x05\x06') or decompressed[:6] == b'\xfd7zXZ\x00':
                 return extract_subtitle_from_archive(decompressed, filename, episode_number, season_number)
             # Raw subtitle text compressed via gzip
             inner_name = filename or 'subtitle.srt'
             if inner_name.lower().endswith('.gz'):
                 inner_name = inner_name[:-3]
             return decompressed, inner_name
-        except Exception:
-            pass
+        except Exception as e:
+            raise ValueError(f"Corrupt gzip subtitle archive: {e}") from e
 
-    # 3. Raw uncompressed subtitle content
+    # 3. Try XZ / LZMA (used by AnimeTosho standalone .ass.xz / .srt.xz attachments)
+    if raw_bytes[:6] == b'\xfd7zXZ\x00':
+        try:
+            decompressed = lzma.decompress(raw_bytes)
+            if decompressed[:4] in (b'PK\x03\x04', b'PK\x05\x06') or decompressed[:2] == b'\x1f\x8b':
+                return extract_subtitle_from_archive(decompressed, filename, episode_number, season_number)
+            inner_name = filename or 'subtitle.ass'
+            if inner_name.lower().endswith('.xz'):
+                inner_name = inner_name[:-3]
+            return decompressed, inner_name
+        except Exception as e:
+            raise ValueError(f"Corrupt xz subtitle archive: {e}") from e
+
+    # 4. Raw uncompressed subtitle content
     inner_name = filename or 'subtitle.srt'
+    for comp_ext in ('.xz', '.gz'):
+        if inner_name.lower().endswith(comp_ext):
+            inner_name = inner_name[:-len(comp_ext)]
     return raw_bytes, inner_name

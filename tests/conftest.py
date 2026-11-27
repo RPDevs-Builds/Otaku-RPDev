@@ -1065,7 +1065,12 @@ _settings_store = {
     'provider.hianime': 'true',
     'realdebrid.enabled': 'true',
     'realdebrid.token': 'test_rd_token_123456789',
-    'cache.torrents.ttl': '24'
+    'cache.torrents.ttl': '24',
+    'general.standby_throttling': 'true',
+    'interface.anichart.inline_trailers': 'true',
+    'context.otaku.pinreleasegroup': 'true',
+    'subtitles.provider.jimaku': 'true',
+    'subtitles.provider.animetosho': 'true',
 }
 
 def addon_side_effect(addon_id=None):

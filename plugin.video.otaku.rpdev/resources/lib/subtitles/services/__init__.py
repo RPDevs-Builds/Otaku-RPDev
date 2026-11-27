@@ -10,6 +10,8 @@ from resources.lib.subtitles.services.subsource import SubSourceService
 from resources.lib.subtitles.services.podnadpisi import PodnadpisiService
 from resources.lib.subtitles.services.bsplayer import BSPlayerService
 from resources.lib.subtitles.services.addic7ed import Addic7edService
+from resources.lib.subtitles.services.jimaku import JimakuService
+from resources.lib.subtitles.services.animetosho import AnimetoshoSubtitleService
 
 ALL_SERVICES = {
     'opensubtitles': OpenSubtitlesService,
@@ -18,4 +20,6 @@ ALL_SERVICES = {
     'podnadpisi': PodnadpisiService,
     'bsplayer': BSPlayerService,
     'addic7ed': Addic7edService,
+    'jimaku': JimakuService,
+    'animetosho': AnimetoshoSubtitleService,
 }

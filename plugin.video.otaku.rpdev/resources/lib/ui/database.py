@@ -3444,6 +3444,8 @@ def _ensure_series_overrides_table():
             'sub_lang TEXT, '
             'sub_mode TEXT, '
             'preferred_provider TEXT, '
+            'preferred_group TEXT DEFAULT "", '
+            'excluded_groups TEXT DEFAULT "", '
             'intro_offset_s INTEGER DEFAULT 0, '
             'outro_offset_s INTEGER DEFAULT 0, '
             'episode_offset INTEGER DEFAULT 0, '
@@ -3463,6 +3465,16 @@ def _ensure_series_overrides_table():
                 cur.execute("ALTER TABLE series_overrides ADD COLUMN sub_offset_ms INTEGER DEFAULT 0")
             except Exception:
                 pass
+        if 'preferred_group' not in cols:
+            try:
+                cur.execute('ALTER TABLE series_overrides ADD COLUMN preferred_group TEXT DEFAULT ""')
+            except Exception:
+                pass
+        if 'excluded_groups' not in cols:
+            try:
+                cur.execute('ALTER TABLE series_overrides ADD COLUMN excluded_groups TEXT DEFAULT ""')
+            except Exception:
+                pass
         cur.connection.commit()
     _tables_ready.add(cache_key)
 
@@ -3476,8 +3488,13 @@ def get_series_override(mal_id):
         with SQL(control.malSyncDB) as cur:
             cur.execute('SELECT * FROM series_overrides WHERE mal_id=?', (int(mal_id),))
             row = cur.fetchone()
-            if isinstance(row, dict) and 'sub_offset_ms' not in row:
-                row['sub_offset_ms'] = 0
+            if isinstance(row, dict):
+                if 'sub_offset_ms' not in row:
+                    row['sub_offset_ms'] = 0
+                if 'preferred_group' not in row or row['preferred_group'] is None:
+                    row['preferred_group'] = ''
+                if 'excluded_groups' not in row or row['excluded_groups'] is None:
+                    row['excluded_groups'] = ''
             return row
     except Exception as e:
         control.log(f"get_series_override error for {mal_id}: {e}", level='warning')
@@ -3495,14 +3512,26 @@ def set_series_override(
     skip_filler_mode='default',
     episode_offset=0,
     sub_offset_ms=None,
+    preferred_group=None,
+    excluded_groups=None,
 ):
     """Create or update per-series playback/scraper overrides for a MAL ID."""
     if not mal_id or not str(mal_id).isdigit():
         return False
     _ensure_series_overrides_table()
-    if sub_offset_ms is None:
+    existing = None
+    if sub_offset_ms is None or preferred_group is None or excluded_groups is None:
         existing = get_series_override(mal_id)
+    if sub_offset_ms is None:
         sub_offset_ms = int(existing.get('sub_offset_ms') or 0) if isinstance(existing, dict) else 0
+    if preferred_group is None:
+        preferred_group = str(existing.get('preferred_group') or '').strip() if isinstance(existing, dict) else ''
+    else:
+        preferred_group = str(preferred_group or '').strip()
+    if excluded_groups is None:
+        excluded_groups = str(existing.get('excluded_groups') or '').strip() if isinstance(existing, dict) else ''
+    else:
+        excluded_groups = str(excluded_groups or '').strip()
     now = int(time.time())
     try:
         with SQL(control.malSyncDB) as cur:
@@ -3510,14 +3539,17 @@ def set_series_override(
                 cur,
                 'INSERT OR REPLACE INTO series_overrides '
                 '(mal_id, audio_lang, sub_lang, sub_mode, preferred_provider, '
+                'preferred_group, excluded_groups, '
                 'intro_offset_s, outro_offset_s, episode_offset, sub_offset_ms, skip_filler_mode, updated_at) '
-                'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
                 (
                     int(mal_id),
                     str(audio_lang or '').strip() or None,
                     str(sub_lang or '').strip() or None,
                     str(sub_mode or '').strip() or None,
                     str(preferred_provider or '').strip() or None,
+                    preferred_group,
+                    excluded_groups,
                     int(intro_offset_s or 0),
                     int(outro_offset_s or 0),
                     int(episode_offset or 0),
@@ -3531,6 +3563,95 @@ def set_series_override(
     except Exception as e:
         control.log(f"set_series_override error for {mal_id}: {e}", level='error')
         return False
+
+
+def pin_series_release_group(mal_id, group_name):
+    """Pin a preferred release group for *mal_id*, preserving all other overrides and clearing from exclusions."""
+    if not mal_id or not str(mal_id).isdigit():
+        return False
+    clean_group = str(group_name or '').strip()
+    if not clean_group:
+        return unpin_series_release_group(mal_id)
+    norm_target = source_utils.normalize_release_group(clean_group)
+    existing = get_series_override(mal_id) or {}
+    excl_raw = str(existing.get('excluded_groups') or '')
+    kept_excl = [
+        g.strip() for g in excl_raw.replace(';', ',').split(',')
+        if g.strip() and source_utils.normalize_release_group(g) != norm_target
+    ]
+    return set_series_override(
+        mal_id,
+        audio_lang=existing.get('audio_lang'),
+        sub_lang=existing.get('sub_lang'),
+        sub_mode=existing.get('sub_mode'),
+        preferred_provider=existing.get('preferred_provider'),
+        intro_offset_s=int(existing.get('intro_offset_s') or 0),
+        outro_offset_s=int(existing.get('outro_offset_s') or 0),
+        skip_filler_mode=existing.get('skip_filler_mode') or 'default',
+        episode_offset=int(existing.get('episode_offset') or 0),
+        sub_offset_ms=int(existing.get('sub_offset_ms') or 0),
+        preferred_group=clean_group,
+        excluded_groups=', '.join(kept_excl),
+    )
+
+
+def unpin_series_release_group(mal_id):
+    """Clear preferred release group for *mal_id*, preserving all other overrides."""
+    if not mal_id or not str(mal_id).isdigit():
+        return False
+    existing = get_series_override(mal_id)
+    if not isinstance(existing, dict):
+        return True
+    return set_series_override(
+        mal_id,
+        audio_lang=existing.get('audio_lang'),
+        sub_lang=existing.get('sub_lang'),
+        sub_mode=existing.get('sub_mode'),
+        preferred_provider=existing.get('preferred_provider'),
+        intro_offset_s=int(existing.get('intro_offset_s') or 0),
+        outro_offset_s=int(existing.get('outro_offset_s') or 0),
+        skip_filler_mode=existing.get('skip_filler_mode') or 'default',
+        episode_offset=int(existing.get('episode_offset') or 0),
+        sub_offset_ms=int(existing.get('sub_offset_ms') or 0),
+        preferred_group='',
+        excluded_groups=existing.get('excluded_groups') or '',
+    )
+
+
+def exclude_series_release_group(mal_id, group_name, remove=False):
+    """Add (or remove) a release group in *mal_id*'s excluded_groups list, preserving other overrides."""
+    if not mal_id or not str(mal_id).isdigit():
+        return False
+    clean_group = str(group_name or '').strip()
+    if not clean_group:
+        return False
+    norm_target = source_utils.normalize_release_group(clean_group)
+    existing = get_series_override(mal_id) or {}
+    excl_raw = str(existing.get('excluded_groups') or '')
+    groups = [g.strip() for g in excl_raw.replace(';', ',').split(',') if g.strip()]
+    if remove:
+        groups = [g for g in groups if source_utils.normalize_release_group(g) != norm_target]
+        pref = str(existing.get('preferred_group') or '').strip()
+    else:
+        if not any(source_utils.normalize_release_group(g) == norm_target for g in groups):
+            groups.append(clean_group)
+        pref = str(existing.get('preferred_group') or '').strip()
+        if pref and source_utils.normalize_release_group(pref) == norm_target:
+            pref = ''
+    return set_series_override(
+        mal_id,
+        audio_lang=existing.get('audio_lang'),
+        sub_lang=existing.get('sub_lang'),
+        sub_mode=existing.get('sub_mode'),
+        preferred_provider=existing.get('preferred_provider'),
+        intro_offset_s=int(existing.get('intro_offset_s') or 0),
+        outro_offset_s=int(existing.get('outro_offset_s') or 0),
+        skip_filler_mode=existing.get('skip_filler_mode') or 'default',
+        episode_offset=int(existing.get('episode_offset') or 0),
+        sub_offset_ms=int(existing.get('sub_offset_ms') or 0),
+        preferred_group=pref,
+        excluded_groups=', '.join(groups),
+    )
 
 
 def delete_series_override(mal_id):

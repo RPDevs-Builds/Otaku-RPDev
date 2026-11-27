@@ -1299,3 +1299,95 @@ def SCENE_MARKERS(payload, params):
     res = player_mod.handle_scene_marker_action('menu')
     control.exit_code()
     return res
+
+
+def _is_stale_deeplink_replay(sig, mal_id='', episode='', window_seconds=10.0):
+    """Guard against duplicate Android TV VIEW intent replays and already-playing targets.
+
+    Clamps replay elapsed time to ``0.0 <= (now - last_ts) < window_seconds`` so
+    backwards NTP clock jumps cannot falsely block fresh launches. Also checks real
+    active playback properties (`otaku.mal_id` and `otaku.active_sub_meta` JSON).
+    """
+    now = time.time()
+    last_sig = str(control.getGlobalProp('otaku.last_deeplink_sig') or '')
+    last_ts_raw = str(control.getGlobalProp('otaku.last_deeplink_ts') or '')
+    try:
+        last_ts = float(last_ts_raw) if last_ts_raw else -1.0
+    except (ValueError, TypeError):
+        last_ts = -1.0
+
+    if last_sig and last_sig == sig and last_ts > 0.0:
+        elapsed = now - last_ts
+        if 0.0 <= elapsed < float(window_seconds):
+            control.log(f"DeepLink: Ignored stale VIEW replay sig={sig} (elapsed={elapsed:.2f}s)", 'info')
+            return True
+
+    if mal_id:
+        try:
+            import xbmc
+            if xbmc.Player().isPlayingVideo():
+                active_mal = str(control.getGlobalProp('otaku.mal_id') or '').strip()
+                active_ep = ''
+                from resources.lib.subtitles import meta as _sub_meta
+                active_meta = _sub_meta.get_active_playback_meta()
+                if isinstance(active_meta, dict):
+                    active_mal = active_mal or str(active_meta.get('mal_id') or '').strip()
+                    active_ep = str(active_meta.get('episode') or '').strip()
+                if active_mal == str(mal_id) and (not episode or not active_ep or active_ep == str(episode)):
+                    control.log(
+                        f"DeepLink: Ignored replay because MAL #{mal_id} ep={episode or '1'} is already playing",
+                        'info',
+                    )
+                    return True
+        except Exception:
+            pass
+
+    control.setGlobalProp('otaku.last_deeplink_sig', str(sig))
+    control.setGlobalProp('otaku.last_deeplink_ts', repr(now))
+    return False
+
+
+@Route('deeplink/*')
+def DEEPLINK(payload, params):
+    """Android TV launcher deep-link router with stale VIEW intent replay guard.
+
+    Supported routes:
+      - ``deeplink/next_up``
+      - ``deeplink/play/<mal_id>/<episode>[?movie=true&source_select=true]``
+    """
+    parts = [seg.strip() for seg in str(payload or '').strip('/').split('/') if seg.strip()]
+    if not parts:
+        control.log("DeepLink: Missing sub-route payload", 'warning')
+        return control.exit_code()
+
+    action = parts[0].lower()
+    if action == 'next_up':
+        sig = 'deeplink:next_up'
+        if _is_stale_deeplink_replay(sig):
+            return control.exit_code()
+        if int(getattr(control, 'HANDLE', -1) or -1) < 0:
+            control.execute(f"ActivateWindow(Videos,plugin://{control.ADDON_ID}/next_up,return)")
+            return control.exit_code()
+        from resources.lib import WatchlistIntegration
+        WatchlistIntegration.NEXT_UP('', params or {})
+        return control.exit_code()
+
+    if action == 'play':
+        mal_id = parts[1] if len(parts) >= 2 else ''
+        is_movie = _param_flag_true(params, 'movie')
+        episode = parts[2] if len(parts) >= 3 else ('1' if is_movie else '')
+        if not mal_id or not mal_id.isdigit() or not episode or not episode.isdigit():
+            control.log(f"DeepLink: Rejected malformed play payload={payload!r}", 'warning')
+            return control.exit_code()
+        sig = f"deeplink:play:{mal_id}:{episode}:{'movie' if is_movie else 'ep'}"
+        if _is_stale_deeplink_replay(sig, mal_id=mal_id, episode=episode):
+            return control.exit_code()
+        fwd_params = dict(params or {})
+        if is_movie:
+            PLAY_MOVIE(f"{mal_id}/", fwd_params)
+        else:
+            PLAY(f"{mal_id}/{episode}", fwd_params)
+        return control.exit_code()
+
+    control.log(f"DeepLink: Unknown sub-route '{action}' (payload={payload!r})", 'warning')
+    return control.exit_code()

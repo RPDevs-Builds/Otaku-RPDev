@@ -148,7 +148,14 @@ class SourceSelect(BaseWindow):
             codec = next((t for t in info_list if t.upper() in ('HEVC', 'AVC', 'AV1', 'VP9', 'XVID', 'DIVX', 'MP4', 'H.264', 'H.265')), '')
             audio_channels = next((t for t in info_list if t in ('7.1', '5.1', '2.0', '1.0')), '')
             audio_codec = next((t for t in info_list if t.upper() in ('AAC', 'DTS', 'DTS-HDMA', 'DTS-X', 'ATMOS', 'TRUEHD', 'DD+', 'DD', 'OPUS', 'FLAC', 'MP3')), '')
-            hdr_badge = next((t for t in info_list if t.upper() in ('DV', 'DOVI', 'HDR', 'HDR10', 'HDR10+', 'HYBRID')), '')
+            raw_rel_title = source.get('release_title', '')
+            hdr_type = source_utils.detect_hdr_type(raw_rel_title, stream_info=source.get('stream_info'))
+            hdr_badge = (
+                next((t for t in info_list if t.upper() in ('DV', 'DOVI', 'HDR', 'HDR10', 'HDR10+', 'HLG', 'HYBRID')), '')
+                or source_utils.format_hdr_badge(hdr_type)
+            )
+            if not hdr_type and hdr_badge:
+                hdr_type = source_utils.detect_hdr_type(hdr_badge)
 
             seeders_raw = source.get('seeders', -1)
             seeders_str = str(seeders_raw) if seeders_raw != -1 else 'na'
@@ -168,7 +175,9 @@ class SourceSelect(BaseWindow):
                 colored_hdr = hdr_badge
                 colored_seeders = seeders_str
 
-            menu_item = xbmcgui.ListItem(source.get('release_title', ''), offscreen=True)
+            release_title = source.get('release_title', '')
+            release_group = source_utils.extract_release_group(release_title or source.get('filename') or '')
+            menu_item = xbmcgui.ListItem(release_title, offscreen=True)
             properties = {
                 'type': source_type,
                 'debrid_provider': debrid_name,
@@ -182,16 +191,59 @@ class SourceSelect(BaseWindow):
                 'codec': codec,
                 'audio_channels': audio_channels,
                 'audio_codec': audio_codec,
+                'hdr_type': hdr_type,
                 'hdr_badge': hdr_badge,
                 'colored_codec': colored_codec,
                 'colored_audio': colored_audio,
                 'colored_hdr': colored_hdr,
                 'seeders': seeders_str,
                 'colored_seeders': colored_seeders,
-                'size': source.get('size', '')
+                'size': source.get('size', ''),
+                'release_group': release_group,
+                'group_pin_status': self._get_group_pin_status(release_group),
             }
             menu_item.setProperties(properties)
             self.display_list.addItem(menu_item)
+
+    def _get_mal_id(self):
+        raw_args = getattr(self, 'actionArgs', None)
+        args = raw_args if isinstance(raw_args, dict) else {}
+        mal_id = str(args.get('mal_id') or '').strip()
+        return mal_id if mal_id.isdigit() else ''
+
+    def _get_group_pin_status(self, release_group):
+        mal_id = self._get_mal_id()
+        if not mal_id or not release_group:
+            return ''
+        override = database.get_series_override(mal_id)
+        if not isinstance(override, dict):
+            return ''
+        norm_grp = source_utils.normalize_release_group(release_group)
+        if norm_grp and norm_grp == source_utils.normalize_release_group(override.get('preferred_group')):
+            return 'pinned'
+        if norm_grp and norm_grp in source_utils.parse_excluded_groups(override.get('excluded_groups')):
+            return 'excluded'
+        return ''
+
+    def _refresh_group_status_in_place(self):
+        """Mutate ListItem group_pin_status properties in place without resetting focus."""
+        if self.display_list is None:
+            return
+        try:
+            count = self.display_list.size()
+        except Exception:
+            return
+        for idx in range(min(count, len(self.displayed_sources))):
+            src = self.displayed_sources[idx]
+            grp = source_utils.extract_release_group(src.get('release_title') or src.get('filename') or '')
+            status = self._get_group_pin_status(grp)
+            try:
+                li = self.display_list.getListItem(idx)
+                if li is not None:
+                    li.setProperty('release_group', grp)
+                    li.setProperty('group_pin_status', status)
+            except Exception:
+                pass
 
     def doModal(self):
         super().doModal()
@@ -231,25 +283,46 @@ class SourceSelect(BaseWindow):
             self.close()
 
         if actionID == 117:
-            context = control.context_menu(
-                [
-                    "Play",
-                    "Download",
-                    "File Select"
-                ]
-            )
-            self.position = self.display_list.getSelectedPosition()
+            # Extract selected item before any dialog/close (prevents stale position reads)
+            self.position = self.display_list.getSelectedPosition() if self.display_list is not None else -1
             if self.position < 0 or not self.displayed_sources or self.position >= len(self.displayed_sources):
                 return
-            if context == 0:  # Play
+            selected_source = self.displayed_sources[self.position]
+            mal_id = self._get_mal_id()
+            release_group = source_utils.extract_release_group(
+                selected_source.get('release_title') or selected_source.get('filename') or ''
+            )
+            pin_status = self._get_group_pin_status(release_group) if (mal_id and release_group) else ''
+
+            menu_options = ["Play", "Download", "File Select"]
+            action_keys = ["play", "download", "file_select"]
+            if mal_id and release_group:
+                if pin_status == 'pinned':
+                    menu_options.append(f"Unpin Release Group: {release_group}")
+                    action_keys.append("unpin_group")
+                else:
+                    menu_options.append(f"Pin Release Group: {release_group}")
+                    action_keys.append("pin_group")
+                if pin_status == 'excluded':
+                    menu_options.append(f"Remove {release_group} from Exclusions")
+                    action_keys.append("unexclude_group")
+                else:
+                    menu_options.append(f"Exclude Release Group: {release_group}")
+                    action_keys.append("exclude_group")
+
+            context = control.context_menu(menu_options)
+            if context < 0 or context >= len(action_keys):
+                return
+            chosen = action_keys[context]
+            if chosen == "play":
                 self.resolve_item()
-            elif context == 1:  # Download
-                if self.displayed_sources[self.position]['debrid_provider'] == 'Local-Debrid' or self.displayed_sources[self.position]['debrid_provider'] == '':
+            elif chosen == "download":
+                if selected_source.get('debrid_provider') in ('Local-Debrid', ''):
                     control.notify(control.ADDON_NAME, "Please Select A Debrid File")
-                elif self.displayed_sources[self.position]['debrid_provider'] == 'EasyDebrid':
+                elif selected_source.get('debrid_provider') == 'EasyDebrid':
                     control.notify(control.ADDON_NAME, "EasyDebrid does not support Downloads")
                 else:
-                    source = [self.displayed_sources[self.position]]
+                    source = [selected_source]
                     self.close()
                     self.actionArgs['play'] = False
                     resolver_dialog = None
@@ -269,11 +342,31 @@ class SourceSelect(BaseWindow):
                     if isinstance(return_data, dict):
                         Manager().download_file(return_data['link'])
 
-            elif context == 2:  # File Selection
-                if not self.displayed_sources[self.position]['debrid_provider']:
+            elif chosen == "file_select":
+                if not selected_source.get('debrid_provider'):
                     control.notify(control.ADDON_NAME, "Please Select A Debrid File")
                 else:
                     self.resolve_item(True)
+            elif chosen == "pin_group":
+                if database.pin_series_release_group(mal_id, release_group):
+                    database.clear_episode_sources(mal_id)
+                    self._refresh_group_status_in_place()
+                    control.notify(control.ADDON_NAME, f"Pinned release group: {release_group}")
+            elif chosen == "unpin_group":
+                if database.unpin_series_release_group(mal_id):
+                    database.clear_episode_sources(mal_id)
+                    self._refresh_group_status_in_place()
+                    control.notify(control.ADDON_NAME, f"Unpinned release group: {release_group}")
+            elif chosen == "exclude_group":
+                if database.exclude_series_release_group(mal_id, release_group, remove=False):
+                    database.clear_episode_sources(mal_id)
+                    self._refresh_group_status_in_place()
+                    control.notify(control.ADDON_NAME, f"Excluded release group: {release_group}")
+            elif chosen == "unexclude_group":
+                if database.exclude_series_release_group(mal_id, release_group, remove=True):
+                    database.clear_episode_sources(mal_id)
+                    self._refresh_group_status_in_place()
+                    control.notify(control.ADDON_NAME, f"Removed {release_group} from exclusions")
 
     def close(self):
         self.displayed_sources = []

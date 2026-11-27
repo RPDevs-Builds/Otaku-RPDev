@@ -8,7 +8,7 @@ import concurrent.futures
 import functools
 import re
 from typing import List, Dict, Any, Optional
-from resources.lib.ui import control, domains
+from resources.lib.ui import control, domains, source_utils
 from resources.lib.subtitles.models import VideoMeta, SubtitleResult
 from resources.lib.subtitles.services import ALL_SERVICES
 from resources.lib.subtitles import languages
@@ -75,7 +75,9 @@ def score_result(sub: SubtitleResult, meta: VideoMeta, settings: Dict[str, Any])
 
     target_title = (meta.tvshow or meta.title or '').strip()
     title_mismatch = False
-    if target_title and not hash_match:
+    is_anime_native = bool(getattr(sub, 'is_anime_native', False) or sub.service_name in ('jimaku', 'animetosho'))
+    native_exact_id = bool(is_anime_native and sub.auto_identified)
+    if target_title and not hash_match and not native_exact_id:
         overlap = title_overlap_ratio(target_title, sub.name)
         if overlap >= 0.5:
             score += 0.8
@@ -160,7 +162,11 @@ def score_result(sub: SubtitleResult, meta: VideoMeta, settings: Dict[str, Any])
 
     # 5. Forced / Signs & Songs Preference
     prefer_forced = settings.get('subtitles.prefer_forced', False)
-    has_forced_marker = sub.forced or any(kw in name_lower for kw in ('forced', 'signs', 'songs'))
+    has_forced_marker = (
+        sub.forced
+        or bool(getattr(sub, 'is_signs_only', False))
+        or any(kw in name_lower for kw in ('forced', 'signs', 'songs'))
+    )
     if prefer_forced:
         if has_forced_marker:
             score += 0.3
@@ -168,9 +174,41 @@ def score_result(sub: SubtitleResult, meta: VideoMeta, settings: Dict[str, Any])
             score -= 0.2
     else:
         if has_forced_marker:
-            score -= 0.3
+            score -= 0.8 if getattr(sub, 'is_signs_only', False) else 0.3
         else:
             score += 0.2
+
+    # 5b. Anime-Native Provider Trust, Styled .ass Preference & Release-Group Match
+    group_matched = False
+    if not title_mismatch and not ep_mismatch:
+        if is_anime_native:
+            score += 0.75
+        sub_fmt = str(getattr(sub, 'subtitle_format', '') or '').lower()
+        if not sub_fmt:
+            low_clean = name_lower
+            for comp in ('.xz', '.gz', '.zip'):
+                if low_clean.endswith(comp):
+                    low_clean = low_clean[:-len(comp)]
+            if low_clean.endswith(('.ass', '.ssa')):
+                sub_fmt = 'ass'
+        if sub_fmt in ('ass', 'ssa') and not has_forced_marker:
+            score += 0.55
+
+        sub_group = source_utils.normalize_release_group(
+            getattr(sub, 'release_group', '') or source_utils.extract_release_group(sub.name)
+        )
+        target_groups = {
+            g for g in (
+                source_utils.normalize_release_group(getattr(meta, 'release_group', '')),
+                source_utils.normalize_release_group(getattr(meta, 'preferred_group', '')),
+                source_utils.normalize_release_group(source_utils.extract_release_group(meta.filename)),
+            )
+            if g
+        }
+        if sub_group and sub_group in target_groups:
+            score += 1.2
+            group_matched = True
+            sub.sync = True
 
     # 6. Provider Quality Rating
     if sub.rating > 0:
@@ -189,10 +227,18 @@ def score_result(sub: SubtitleResult, meta: VideoMeta, settings: Dict[str, Any])
         sub.auto_identified = True
         sub.match_confidence = 'exact'
         sub.match_reason = 'Hash Match'
+    elif group_matched and (not meta.is_tvshow or exact_ep_match or native_exact_id or not meta.episode):
+        sub.auto_identified = True
+        sub.match_confidence = 'exact'
+        sub.match_reason = 'Release Group'
     elif release_match and (not meta.is_tvshow or exact_ep_match or not meta.episode):
         sub.auto_identified = True
         sub.match_confidence = 'exact'
         sub.match_reason = 'Release Match'
+    elif native_exact_id:
+        sub.auto_identified = True
+        sub.match_confidence = 'exact'
+        sub.match_reason = sub.match_reason or sub.display_name
     elif not meta.is_manual_search and exact_ep_match:
         sub.auto_identified = True
         sub.match_confidence = 'exact' if meta.imdb_id else 'high'
@@ -272,6 +318,13 @@ def search_all_services(meta: VideoMeta, settings: Dict[str, Any]) -> List[Subti
                     filehash=meta.filehash,
                     filesize=meta.filesize,
                     is_tvshow=meta.is_tvshow,
+                    mal_id=meta.mal_id,
+                    anilist_id=getattr(meta, 'anilist_id', ''),
+                    anidb_id=getattr(meta, 'anidb_id', ''),
+                    anidb_ep_id=getattr(meta, 'anidb_ep_id', ''),
+                    kitsu_id=getattr(meta, 'kitsu_id', ''),
+                    release_group=getattr(meta, 'release_group', ''),
+                    preferred_group=getattr(meta, 'preferred_group', ''),
                 )
                 res = svc_cls.search(alt_meta, settings)
             domains.adaptive_circuit_breaker.record_success(f"sub_{svc_name}", category="subtitle")

@@ -19,29 +19,66 @@ from resources.lib.subtitles.encoding import fix_subtitle_encoding
 SUBTITLE_TEMP_DIR = os.path.join(control.dataPath, 'temp', 'subtitles')
 
 
-def strip_sdh_hearing_impaired_tags(sub_text: str) -> str:
-    """Strip SDH hearing-impaired bracketed sound effects ([sighs], (applause)) and speaker prefixes."""
-    if not sub_text:
-        return sub_text
-    ass_header = re.compile(r'(?mi)^\[(?:Script Info|V4\+? Styles|Events|Fonts|Graphics|Aegisub[^\]\n]*)\][ \t]*$')
+def _strip_sdh_text_segment(text: str) -> str:
+    """Strip SDH bracketed/parenthesized cues and ALL-CAPS speaker prefixes while protecting ASS {...} tags."""
+    if not text:
+        return text
     placeholders = {}
 
-    def _protect(m):
-        key = f'\x00ASSHDR{len(placeholders)}\x00'
+    def _protect_tag(m):
+        key = f'\x00ASSTAG{len(placeholders)}\x00'
         placeholders[key] = m.group(0)
         return key
 
-    cleaned = ass_header.sub(_protect, sub_text)
+    cleaned = re.sub(r'\{[^}\n]*\}', _protect_tag, text)
     cleaned = re.sub(r'\[[^\]\n]{1,48}\]', '', cleaned)
     cleaned = re.sub(r'\([^\)\n]{1,48}\)', '', cleaned)
     cleaned = re.sub(
-        r'(?m)^((?:Dialogue:[^,\n]*,[^,\n]*,[^,\n]*,[^,\n]*,[^,\n]*,[^,\n]*,[^,\n]*,[^,\n]*,[^,\n]*,)?(?:[ \t]*\{[^}\n]*\})*)[ \t]*[A-Z][A-Z0-9 _\-\.]{1,20}:\s*',
+        r'^((?:[ \t]*\x00ASSTAG\d+\x00)*)[ \t]*[A-Z][A-Z0-9 _\-\.]{1,20}:\s*',
         r'\1',
         cleaned,
     )
-    cleaned = re.sub(r'[ \t]{2,}', ' ', cleaned)
+    cleaned = re.sub(r'[ \t]{2,}', ' ', cleaned).strip()
     for key, val in placeholders.items():
         cleaned = cleaned.replace(key, val)
+    return cleaned
+
+
+def strip_sdh_hearing_impaired_tags(sub_text: str) -> str:
+    """Strip SDH hearing-impaired bracketed sound effects ([sighs], (applause)) and speaker prefixes.
+
+    For ASS/SSA scripts, operates strictly on the dialogue text field (after the 9th comma
+    on ``Dialogue:`` lines) while preserving ``[Section]`` headers, ``Style:`` definitions,
+    and all ``{...}`` override tags intact.
+    """
+    if not sub_text:
+        return sub_text
+
+    # Detect ASS/SSA content: restrict SDH stripping strictly to Dialogue text field (col 10+)
+    if re.search(r'(?mi)^\[(?:Script Info|V4\+? Styles|Events)\][ \t]*$', sub_text) or re.search(r'(?m)^Dialogue:', sub_text):
+        out_lines = []
+        for raw_line in sub_text.splitlines():
+            if raw_line.startswith('Dialogue:'):
+                parts = raw_line.split(',', 9)
+                if len(parts) == 10:
+                    prefix = ','.join(parts[:9])
+                    cleaned_text = _strip_sdh_text_segment(parts[9])
+                    out_lines.append(f"{prefix},{cleaned_text}")
+                    continue
+            out_lines.append(raw_line)
+        result = '\n'.join(out_lines)
+        if sub_text.endswith('\n'):
+            result += '\n'
+        return result
+
+    cleaned = re.sub(r'\[[^\]\n]{1,48}\]', '', sub_text)
+    cleaned = re.sub(r'\([^\)\n]{1,48}\)', '', cleaned)
+    cleaned = re.sub(
+        r'(?m)^[ \t]*[A-Z][A-Z0-9 _\-\.]{1,20}:\s*',
+        '',
+        cleaned,
+    )
+    cleaned = re.sub(r'[ \t]{2,}', ' ', cleaned)
     return cleaned
 
 
@@ -332,10 +369,16 @@ def download_and_prepare_subtitle(
         if settings.get('subtitles.strip_sdh_tags', False) or control.getBool('subtitles.strip_sdh_tags', False):
             utf8_text = strip_sdh_hearing_impaired_tags(utf8_text)
 
+        # Strip archive compression suffixes (.xz / .gz / .zip) before Kodi 22 cue validation
+        validation_name = str(inner_filename or result.name or result.download_url or '')
+        for _comp_ext in ('.xz', '.gz', '.zip'):
+            if validation_name.lower().endswith(_comp_ext):
+                validation_name = validation_name[:-len(_comp_ext)]
+
         # Validate & normalize against Kodi 22 CDVDFactorySubtitle::CreateParser() contract
         normalized_text, detected_ext, reject_reason = embed_extractor._validate_and_normalize_sub_content(
             utf8_text,
-            inner_filename or result.name or result.download_url,
+            validation_name,
             source_url=result.download_url,
         )
         if not normalized_text:

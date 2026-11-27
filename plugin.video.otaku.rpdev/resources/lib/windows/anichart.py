@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 
-import xbmcgui
+import re
 import time
+import xbmc
+import xbmcgui
 
 from resources.lib import Main
 from resources.lib.ui import control
@@ -9,6 +11,44 @@ from resources.lib.windows.anichart_window import BaseWindow
 from resources.lib import MetaBrowser, WatchlistIntegration
 
 BROWSER = MetaBrowser.BROWSER
+_YOUTUBE_ID_RE = re.compile(
+    r'(?:youtube\.com/(?:watch\?.*?v=|embed/|shorts/)|youtu\.be/)([A-Za-z0-9_-]{6,20})',
+    re.IGNORECASE,
+)
+
+
+def _supports_inline_trailers():
+    """Return True only when NF-15 inline trailers are enabled AND Kodi 22 ControlVideoWindow exists."""
+    return bool(
+        control.getBool('interface.anichart.inline_trailers', True)
+        and hasattr(xbmcgui, 'ControlVideoWindow')
+    )
+
+
+def _resolve_preview_trailer_url(item):
+    """Extract a playable trailer URL, gating YouTube links on plugin.video.youtube availability."""
+    if not isinstance(item, dict):
+        return ''
+    raw = str(item.get('trailer_url') or item.get('trailer') or '').strip()
+    if not raw:
+        return ''
+    low = raw.lower()
+    is_yt = ('plugin.video.youtube' in low) or ('youtube.com' in low) or ('youtu.be' in low)
+    if is_yt:
+        try:
+            if not xbmc.getCondVisibility('System.HasAddon(plugin.video.youtube)'):
+                return ''
+        except Exception:
+            return ''
+        if low.startswith('plugin://plugin.video.youtube'):
+            return raw
+        m = _YOUTUBE_ID_RE.search(raw)
+        if m:
+            return f"plugin://plugin.video.youtube/play/?video_id={m.group(1)}"
+        return ''
+    if low.startswith(('http://', 'https://', 'plugin://')):
+        return raw
+    return ''
 
 
 class Anichart(BaseWindow):
@@ -24,6 +64,114 @@ class Anichart(BaseWindow):
         self.touch_count = 0
         self.anime_path = ''
         self.anime_items = calendar if calendar is not None else anime_items
+        self._win_closed = False
+        self._trailer_active = False
+        self._trailer_position = -1
+        self._prev_mute_state = None
+
+    def _start_inline_trailer(self, position=None):
+        """Start muted inline trailer preview in ControlVideoWindow (Kodi 22+, NF-15)."""
+        if not _supports_inline_trailers():
+            return False
+        if not self.anime_items:
+            return False
+        if position is None and self.display_list is not None:
+            try:
+                position = self.display_list.getSelectedPosition()
+            except Exception:
+                position = -1
+        if position is None or not (0 <= position < len(self.anime_items)):
+            return False
+        if self._trailer_active and self._trailer_position == position:
+            return True
+
+        player = xbmc.Player()
+        # Never interrupt active user media playback (unless we started the previous preview)
+        if not self._trailer_active:
+            try:
+                if player.isPlaying():
+                    return False
+            except Exception:
+                return False
+
+        trailer_url = _resolve_preview_trailer_url(self.anime_items[position])
+        if not trailer_url:
+            if self._trailer_active:
+                self._stop_inline_trailer()
+            return False
+
+        if self._trailer_active:
+            self._stop_inline_trailer()
+
+        try:
+            was_muted = bool(xbmc.getCondVisibility('Player.Muted'))
+            self._prev_mute_state = was_muted
+            if not was_muted:
+                control.jsonrpc({
+                    'jsonrpc': '2.0',
+                    'method': 'Application.SetMute',
+                    'params': {'mute': True},
+                    'id': 1,
+                })
+        except Exception:
+            self._prev_mute_state = None
+
+        control.setGlobalProp('otaku.preview_mode', 'true')
+        self.setProperty('anichart.trailer_active', 'true')
+        self._trailer_active = True
+        self._trailer_position = position
+        try:
+            li = xbmcgui.ListItem(
+                label=str(self.anime_items[position].get('release_title') or 'Trailer Preview'),
+                path=trailer_url,
+                offscreen=True,
+            )
+            player.play(trailer_url, listitem=li, windowed=True)
+            return True
+        except Exception as e:
+            control.log(f"[ANICHART] Inline trailer preview failed: {e}", 'debug')
+            self._stop_inline_trailer()
+            return False
+
+    def _stop_inline_trailer(self):
+        """Stop active inline trailer preview and restore prior mute & preview state."""
+        was_active = bool(getattr(self, '_trailer_active', False))
+        prev_mute = getattr(self, '_prev_mute_state', None)
+        self._trailer_active = False
+        self._trailer_position = -1
+        if was_active:
+            try:
+                self.clearProperty('anichart.trailer_active')
+            except Exception:
+                try:
+                    self.setProperty('anichart.trailer_active', '')
+                except Exception:
+                    pass
+            control.clearGlobalProp('otaku.preview_mode')
+            try:
+                player = xbmc.Player()
+                if player.isPlaying():
+                    player.stop()
+            except Exception:
+                pass
+        if prev_mute is False:
+            try:
+                control.jsonrpc({
+                    'jsonrpc': '2.0',
+                    'method': 'Application.SetMute',
+                    'params': {'mute': False},
+                    'id': 1,
+                })
+            except Exception:
+                pass
+        self._prev_mute_state = None
+
+    def close(self):
+        self._stop_inline_trailer()
+        try:
+            super().close()
+        finally:
+            self._win_closed = True
 
     def onInit(self):
         self.display_list = self.getControl(1000)
@@ -80,8 +228,26 @@ class Anichart(BaseWindow):
                         xbmcgui.ACTION_NAV_BACK,
                         xbmcgui.ACTION_PREVIOUS_MENU]:
             self.close()
+            return
+
+        # NF-15: Stop preview when moving focus to a different anime card; toggle preview on Info (11)
+        if actionID in (1, 2, 3, 4, 5, 6):
+            if self._trailer_active and self.display_list is not None:
+                try:
+                    cur_pos = self.display_list.getSelectedPosition()
+                except Exception:
+                    cur_pos = -1
+                if cur_pos != self._trailer_position:
+                    self._stop_inline_trailer()
+        elif actionID == 11:  # ACTION_SHOW_INFO toggles inline trailer preview on Kodi 22+
+            if self._trailer_active:
+                self._stop_inline_trailer()
+            else:
+                self._start_inline_trailer()
+            return
+
         # Touch input fallback - require double tap when onClick is not dispatched
-        elif actionID == xbmcgui.ACTION_TOUCH_TAP:
+        if actionID == xbmcgui.ACTION_TOUCH_TAP:
             control.log("Touch input detected - checking for double tap")
             current_time = time.time()
             current_position = self.display_list.getSelectedPosition() if self.getFocusId() == 1000 else -1
@@ -172,6 +338,7 @@ class Anichart(BaseWindow):
         if not self.anime_items or not (0 <= self.position < len(self.anime_items)):
             return
         self._activated = True
+        self._stop_inline_trailer()
 
         # Get the selected anime item
         selected_item = self.anime_items[self.position]

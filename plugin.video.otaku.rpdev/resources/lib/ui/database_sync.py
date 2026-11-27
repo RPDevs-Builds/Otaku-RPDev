@@ -27,7 +27,7 @@ class SyncDatabase:
     # Bump this whenever the metadata schema changes;
     # a mismatch triggers re_build_database(silent=True) and refreshes
     # embed host defaults (see check_database_version).
-    SCHEMA_VERSION = '1.0.16'
+    SCHEMA_VERSION = '1.0.17'
 
     def __init__(self):
         self.activites = None
@@ -287,6 +287,8 @@ class SyncDatabase:
                 'sub_lang TEXT, '
                 'sub_mode TEXT, '
                 'preferred_provider TEXT, '
+                'preferred_group TEXT DEFAULT "", '
+                'excluded_groups TEXT DEFAULT "", '
                 'intro_offset_s INTEGER DEFAULT 0, '
                 'outro_offset_s INTEGER DEFAULT 0, '
                 'episode_offset INTEGER DEFAULT 0, '
@@ -359,7 +361,7 @@ class SyncDatabase:
                     except Exception:
                         pass
 
-            # Check series_overrides table for episode_offset and sub_offset_ms
+            # Check series_overrides table for episode_offset, sub_offset_ms, preferred_group, excluded_groups
             cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='series_overrides'")
             if cur.fetchone():
                 cur.execute("PRAGMA table_info(series_overrides)")
@@ -372,6 +374,16 @@ class SyncDatabase:
                 if 'sub_offset_ms' not in cols:
                     try:
                         cur.execute("ALTER TABLE series_overrides ADD COLUMN sub_offset_ms INTEGER DEFAULT 0")
+                    except Exception:
+                        pass
+                if 'preferred_group' not in cols:
+                    try:
+                        cur.execute('ALTER TABLE series_overrides ADD COLUMN preferred_group TEXT DEFAULT ""')
+                    except Exception:
+                        pass
+                if 'excluded_groups' not in cols:
+                    try:
+                        cur.execute('ALTER TABLE series_overrides ADD COLUMN excluded_groups TEXT DEFAULT ""')
                     except Exception:
                         pass
 

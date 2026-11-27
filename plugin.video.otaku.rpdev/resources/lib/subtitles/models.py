@@ -29,6 +29,12 @@ class VideoMeta:
         search_string: str = '',
         is_manual_search: bool = False,
         mal_id: str = '',
+        anilist_id: str = '',
+        anidb_id: str = '',
+        anidb_ep_id: str = '',
+        kitsu_id: str = '',
+        release_group: str = '',
+        preferred_group: str = '',
     ):
         self.title = str(title or '').strip()
         self.tvshow = str(tvshow or '').strip()
@@ -46,6 +52,12 @@ class VideoMeta:
         self.search_string = str(search_string or '').strip()
         self.is_manual_search = bool(is_manual_search)
         self.mal_id = str(mal_id or '').strip()
+        self.anilist_id = str(anilist_id or '').strip()
+        self.anidb_id = str(anidb_id or '').strip()
+        self.anidb_ep_id = str(anidb_ep_id or '').strip()
+        self.kitsu_id = str(kitsu_id or '').strip()
+        self.release_group = str(release_group or '').strip()
+        self.preferred_group = str(preferred_group or '').strip()
 
         if is_tvshow is not None:
             self.is_tvshow = bool(is_tvshow)
@@ -89,6 +101,12 @@ class VideoMeta:
             'search_string': self.search_string,
             'is_manual_search': self.is_manual_search,
             'mal_id': self.mal_id,
+            'anilist_id': self.anilist_id,
+            'anidb_id': self.anidb_id,
+            'anidb_ep_id': self.anidb_ep_id,
+            'kitsu_id': self.kitsu_id,
+            'release_group': self.release_group,
+            'preferred_group': self.preferred_group,
         }
 
     def __repr__(self) -> str:
@@ -118,6 +136,10 @@ class SubtitleResult:
         auto_identified: bool = False,
         match_confidence: str = 'low',
         match_reason: str = '',
+        release_group: str = '',
+        is_anime_native: bool = False,
+        subtitle_format: str = '',
+        is_signs_only: bool = False,
     ):
         self.service_name = service_name
         self.display_name = display_name
@@ -137,6 +159,10 @@ class SubtitleResult:
         self.auto_identified = bool(auto_identified)
         self.match_confidence = str(match_confidence or 'low')
         self.match_reason = str(match_reason or '')
+        self.release_group = str(release_group or '').strip()
+        self.is_anime_native = bool(is_anime_native)
+        self.subtitle_format = str(subtitle_format or '').strip().lower()
+        self.is_signs_only = bool(is_signs_only)
         self.score = 0.0
 
     def to_dict(self) -> Dict[str, Any]:
@@ -158,6 +184,10 @@ class SubtitleResult:
             'auto_identified': self.auto_identified,
             'match_confidence': self.match_confidence,
             'match_reason': self.match_reason,
+            'release_group': self.release_group,
+            'is_anime_native': self.is_anime_native,
+            'subtitle_format': self.subtitle_format,
+            'is_signs_only': self.is_signs_only,
             'score': round(self.score, 3),
         }
 

@@ -111,10 +111,10 @@ Every feature branch and release must satisfy all five gates before tag push:
 ### 7.1 Forward Backlog (`NF-10`, `NF-13`, `NF-15`–`NF-16`)
 - **`NF-10` — Offline Watchlist & Metadata Snapshot Bundles**: Exportable/importable `.tar.xz` snapshot bundles containing `malSync.db`, `search.db`, and `series_overrides` for 1-click LAN migration between Kodi devices.
 - **`NF-13` — Local LAN Peer Cache Discovery (mDNS / ZeroConf)**: Opt-in read-only SQLite metadata & `mappings.db`/`anime_metadata.db` LAN peer sharing across secondary Kodi boxes on the same home subnet.
-- **`NF-15` — Embedded `ControlVideoWindow` Trailer Preview**: Render inline trailer previews inside `anichart.xml` and show info dialogs via Kodi 22 video control windows.
-- **`NF-16` — `getDevicePowerStatus()` Background Throttling**: Read Kodi 22/Android power-state hints in `service.py` to pause background precaching and WAL checkpoints during standby.
+- **`NF-15` — Embedded `ControlVideoWindow` Trailer Preview**: *Delivered in Track C (`interface.anichart.inline_trailers`, `anichart.xml` preview overlay `2050`/`2051`/`2052`, YouTube addon gate, `windowed=True` muted playback, `otaku.preview_mode` scrobble suppression, Kodi 20/21 no-op fallback).*
+- **`NF-16` — `getDevicePowerStatus()` Background Throttling**: *Delivered in Track C (`general.standby_throttling`, string/integer CEC power states, Kodi 20/21 DPMS/screensaver fallback only on unknown/unavailable, and prompt OAuth/scrobble retry catch-up on standby→resumed transitions).*
 - **`NF-17` — Debrid Cloud Quota & Active-Transfer Guard**: *Delivered in WS-4 (`debrid.quota_guard` & opt-in `debrid.lazy_cache_probe`).*
-- **Companion Add-on Enhancements**: `service.subtitles.otaku.rpdev` chapter-aligned auto calibration delivered in WS-5; dual-language (`jpn` + `eng`) ASS muxing & `context.otaku.rpdev` copy/pin quick actions remain on backlog.
+- **Release-Group Pinning, Native Anime Subtitles & Kodi 22 HDR/Deep Links**: *Delivered in Tracks A–C (`SCHEMA_VERSION = '1.0.17'`, 11-row `SeriesProfileDialog`, 19th `context.otaku.rpdev` item `pinreleasegroup`, `JimakuService` & `AnimetoshoSubtitleService` with `.xz` support, `detect_hdr_type` + `setHdrType` surfacing, and `@Route('deeplink/*')` with 10s NTP-clamped replay guard).*
 
 ### 7.2 Test & Coverage Expansion Priorities (`P1`–`P3` from [`docs/TESTS.md`](TESTS.md))
 - **Priority 1 (`routes/tools.py` & `ui/settings_manager.py`)**: Raise function coverage from ~45% to >=75% via parameterized hermetic route tests.

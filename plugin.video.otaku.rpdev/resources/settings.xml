@@ -400,6 +400,11 @@
 						<dependency type="enable" setting="interface.spoilers.hide_thumbs">true</dependency>
 					</dependencies>
 				</setting>
+				<setting id="interface.anichart.inline_trailers" type="boolean" label="30277" help="30154">
+					<level>2</level>
+					<default>true</default>
+					<control type="toggle" />
+				</setting>
 				<setting id="artwork.preference" type="integer" label="30115" help="30743">
 					<level>2</level>
 					<default>0</default>
@@ -1776,6 +1781,41 @@
 					</dependencies>
 				</setting>
 				<setting id="subtitles.provider.addic7ed" type="boolean" label="30624" help="30820" parent="subtitles.enabled">
+					<level>1</level>
+					<default>true</default>
+					<control type="toggle" />
+					<dependencies>
+						<dependency type="visible" setting="subtitles.enabled">true</dependency>
+					</dependencies>
+				</setting>
+				<setting id="subtitles.provider.jimaku" type="boolean" label="30239" help="30280" parent="subtitles.enabled">
+					<level>1</level>
+					<default>true</default>
+					<control type="toggle" />
+					<dependencies>
+						<dependency type="visible" setting="subtitles.enabled">true</dependency>
+					</dependencies>
+				</setting>
+				<setting id="subtitles.jimaku.apikey" type="string" label="30241" help="30281" parent="subtitles.provider.jimaku">
+					<level>1</level>
+					<default />
+					<constraints>
+						<allowempty>true</allowempty>
+					</constraints>
+					<control type="edit" format="string">
+						<heading>30241</heading>
+						<hidden>true</hidden>
+					</control>
+					<dependencies>
+						<dependency type="visible">
+							<and>
+								<condition operator="is" setting="subtitles.enabled">true</condition>
+								<condition operator="is" setting="subtitles.provider.jimaku">true</condition>
+							</and>
+						</dependency>
+					</dependencies>
+				</setting>
+				<setting id="subtitles.provider.animetosho" type="boolean" label="30243" help="30292" parent="subtitles.enabled">
 					<level>1</level>
 					<default>true</default>
 					<control type="toggle" />
@@ -4506,6 +4546,11 @@
 					<default>true</default>
 					<control type="toggle" />
 				</setting>
+				<setting id="context.otaku.pinreleasegroup" type="boolean" label="30238" help="30278">
+					<level>2</level>
+					<default>true</default>
+					<control type="toggle" />
+				</setting>
 				<setting id="context_customization.reset_category" type="action" label="30985" help="30986">
 					<level>1</level>
 					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/reset_category_settings?category=Context%20Customization&amp;setting=true)</data>
@@ -4570,6 +4615,11 @@
 					<control type="slider" format="integer">
 						<popup>false</popup>
 					</control>
+				</setting>
+				<setting id="general.standby_throttling" type="boolean" label="30276" help="30294">
+					<level>2</level>
+					<default>true</default>
+					<control type="toggle" />
 				</setting>
 			</group>
 			<group id="2" label="30654">

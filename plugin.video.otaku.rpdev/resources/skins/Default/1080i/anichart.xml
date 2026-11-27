@@ -1081,6 +1081,37 @@
             <texturesliderbarfocus colordiffuse="FF00BFFF">white.png</texturesliderbarfocus>
         </control>
 
+        <!-- NF-15: Non-intrusive Kodi 22+ Inline Trailer Preview Overlay (hidden unless active) -->
+        <control type="group" id="2050">
+            <left>1360</left>
+            <top>700</top>
+            <width>440</width>
+            <height>248</height>
+            <visible>!String.IsEmpty(Window.Property(anichart.trailer_active))</visible>
+            <control type="image">
+                <left>-4</left>
+                <top>-4</top>
+                <width>448</width>
+                <height>256</height>
+                <texture colordiffuse="CC000000">white.png</texture>
+            </control>
+            <control type="videowindow" id="2051">
+                <left>0</left>
+                <top>0</top>
+                <width>440</width>
+                <height>248</height>
+            </control>
+            <control type="label" id="2052">
+                <left>8</left>
+                <top>8</top>
+                <width>220</width>
+                <height>28</height>
+                <font>font10</font>
+                <textcolor>FFFFFFFF</textcolor>
+                <label>[B]TRAILER PREVIEW (MUTED)[/B]</label>
+            </control>
+        </control>
+
         <!-- DEBUG: Layout grid (commented out) -->
         <!--<control type="image">-->
         <!--<width>100%</width>-->

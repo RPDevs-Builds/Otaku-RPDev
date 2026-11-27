@@ -54,6 +54,9 @@ def get_subtitles_settings() -> Dict[str, Any]:
         'subtitles.provider.podnadpisi': control.getBool('subtitles.provider.podnadpisi', True),
         'subtitles.provider.bsplayer': control.getBool('subtitles.provider.bsplayer', True),
         'subtitles.provider.addic7ed': control.getBool('subtitles.provider.addic7ed', True),
+        'subtitles.provider.jimaku': control.getBool('subtitles.provider.jimaku', True),
+        'subtitles.jimaku.apikey': control.getSetting('subtitles.jimaku.apikey') or '',
+        'subtitles.provider.animetosho': control.getBool('subtitles.provider.animetosho', True),
     }
 
 
@@ -72,12 +75,20 @@ def format_result_badge(result: SubtitleResult) -> str:
 def format_kodi_listitem_label2(result: SubtitleResult) -> str:
     """Format label2 for Kodi's native DialogSubtitles.xml with auto-identified indicator, ext, provider & flags."""
     raw_name = str(result.name or 'Subtitle').strip()
-    base, ext = os.path.splitext(raw_name)
-    if ext.lower() in ('.srt', '.ass', '.ssa', '.vtt', '.sub', '.zip', '.gz'):
-        clean_name = (base or raw_name).replace('.', ' ').strip()
-        ext_upper = 'SRT' if ext.lower() in ('.zip', '.gz') else ext.lstrip('.').upper()
+    stripped_name = raw_name
+    for comp_ext in ('.xz', '.gz', '.zip'):
+        if stripped_name.lower().endswith(comp_ext):
+            stripped_name = stripped_name[:-len(comp_ext)]
+            break
+    base, ext = os.path.splitext(stripped_name)
+    if ext.lower() in ('.srt', '.ass', '.ssa', '.vtt', '.sub'):
+        clean_name = (base or stripped_name).replace('.', ' ').strip()
+        ext_upper = ext.lstrip('.').upper()
+    elif getattr(result, 'subtitle_format', ''):
+        clean_name = stripped_name.replace('.', ' ').strip()
+        ext_upper = str(result.subtitle_format).upper()
     else:
-        clean_name = raw_name.replace('.', ' ').strip()
+        clean_name = stripped_name.replace('.', ' ').strip()
         ext_upper = 'SRT'
     badge = format_result_badge(result)
     sdh_tag = " [B][SDH][/B]" if result.impaired else ""

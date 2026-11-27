@@ -29,6 +29,7 @@ CREDENTIAL_SETTING_IDS = {
     'subtitles.opensubtitles.password',
     'subtitles.subdl.apikey',
     'subtitles.subsource.apikey',
+    'subtitles.jimaku.apikey',
 
     # Debrid - Real-Debrid
     'realdebrid.username',
@@ -548,6 +549,8 @@ def import_settings(scope: str, filepath: str) -> tuple[bool, int]:
                         skip_filler_mode=ov.get('skip_filler_mode', 'default'),
                         episode_offset=ov.get('episode_offset', 0),
                         sub_offset_ms=ov.get('sub_offset_ms', 0),
+                        preferred_group=ov.get('preferred_group', ''),
+                        excluded_groups=ov.get('excluded_groups', ''),
                     )
         except Exception as e:
             control.log(f"import_settings: Could not restore series_overrides: {e}", 'warning')

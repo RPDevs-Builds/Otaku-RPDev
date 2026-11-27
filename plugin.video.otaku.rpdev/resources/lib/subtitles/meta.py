@@ -42,6 +42,52 @@ def _enrich_sub_fields_from_mappings(mal_id, imdb_id='', year='', tvshow='', ori
     return imdb_id, year, tvshow, original_title, season
 
 
+def _resolve_anime_ids_and_groups(mal_id, season='', episode='', filename=''):
+    """Resolve anime tracker IDs (anilist/anidb/kitsu/anidb_ep_id) and release/preferred groups."""
+    anilist_id = ''
+    anidb_id = ''
+    anidb_ep_id = ''
+    kitsu_id = ''
+    preferred_group = ''
+    release_group = source_utils.extract_release_group(filename or '')
+
+    if mal_id and str(mal_id).isdigit():
+        try:
+            mp = database.resolve_mappings_with_fallback(mal_id)
+            if isinstance(mp, dict):
+                anilist_id = str(mp.get('anilist_id') or '').strip()
+                anidb_id = str(mp.get('anidb_id') or mp.get('anidb') or '').strip()
+                kitsu_id = str(mp.get('kitsu_id') or '').strip()
+        except Exception:
+            pass
+        if episode and str(episode).isdigit():
+            try:
+                ep_rows = database.get_episode_list(int(mal_id)) or []
+                target_ep = int(episode)
+                for row in ep_rows:
+                    if isinstance(row, dict) and int(row.get('number') or -1) == target_ep:
+                        if row.get('anidb_ep_id'):
+                            anidb_ep_id = str(row['anidb_ep_id']).strip()
+                        break
+            except Exception:
+                pass
+        try:
+            ov = database.get_series_override(mal_id)
+            if isinstance(ov, dict):
+                preferred_group = str(ov.get('preferred_group') or '').strip()
+        except Exception:
+            pass
+
+    return {
+        'anilist_id': anilist_id,
+        'anidb_id': anidb_id,
+        'anidb_ep_id': anidb_ep_id,
+        'kitsu_id': kitsu_id,
+        'release_group': release_group,
+        'preferred_group': preferred_group,
+    }
+
+
 def publish_active_playback_meta(video_info: Optional[Dict[str, Any]], mal_id: str = '', filename: str = '') -> None:
     """Publish compact active-playback metadata to Window(10000) for auto-download and Kodi subtitle service."""
     try:
@@ -57,17 +103,25 @@ def publish_active_playback_meta(video_info: Optional[Dict[str, Any]], mal_id: s
         imdb_id, year, tvshow, original_title, season = _enrich_sub_fields_from_mappings(
             mal_id, imdb_id=imdb_id, year=year, tvshow=tvshow, original_title=original_title, season=season
         )
+        eff_filename = str(filename or info.get('release_title') or source_utils.format_video_filename(info) or '')
+        anime_ctx = _resolve_anime_ids_and_groups(mal_id, season=season, episode=episode, filename=eff_filename)
 
         payload = {
             'mal_id': str(mal_id or ''),
             'imdb_id': imdb_id,
+            'anilist_id': str(unique_ids.get('anilist_id') or anime_ctx['anilist_id'] or ''),
+            'anidb_id': str(unique_ids.get('anidb') or unique_ids.get('anidb_id') or anime_ctx['anidb_id'] or ''),
+            'anidb_ep_id': str(info.get('anidb_ep_id') or anime_ctx['anidb_ep_id'] or ''),
+            'kitsu_id': str(unique_ids.get('kitsu_id') or anime_ctx['kitsu_id'] or ''),
+            'release_group': anime_ctx['release_group'],
+            'preferred_group': anime_ctx['preferred_group'],
             'title': title,
             'tvshow': tvshow,
             'original_title': original_title,
             'season': season,
             'episode': episode,
             'year': year,
-            'filename': str(filename or source_utils.format_video_filename(info) or ''),
+            'filename': eff_filename,
         }
         control.setGlobalProp(ACTIVE_SUB_META_PROP, json.dumps(payload))
     except Exception as e:
@@ -257,6 +311,14 @@ def get_meta_from_player(
     else:
         clean_langs = [languages.to_english_name(pref_code)]
 
+    anime_ctx = _resolve_anime_ids_and_groups(mal_id, season=season, episode=episode, filename=filename)
+    anilist_id = str(active.get('anilist_id') or anime_ctx['anilist_id'] or '') if active else anime_ctx['anilist_id']
+    anidb_id = str(active.get('anidb_id') or anime_ctx['anidb_id'] or '') if active else anime_ctx['anidb_id']
+    anidb_ep_id = str(active.get('anidb_ep_id') or anime_ctx['anidb_ep_id'] or '') if active else anime_ctx['anidb_ep_id']
+    kitsu_id = str(active.get('kitsu_id') or anime_ctx['kitsu_id'] or '') if active else anime_ctx['kitsu_id']
+    release_group = str(active.get('release_group') or anime_ctx['release_group'] or '') if active else anime_ctx['release_group']
+    preferred_group = str(active.get('preferred_group') or anime_ctx['preferred_group'] or '') if active else anime_ctx['preferred_group']
+
     return VideoMeta(
         title=title,
         tvshow=tvshow,
@@ -269,6 +331,12 @@ def get_meta_from_player(
         languages=clean_langs,
         preferred_lang=pref_code,
         mal_id=mal_id,
+        anilist_id=anilist_id,
+        anidb_id=anidb_id,
+        anidb_ep_id=anidb_ep_id,
+        kitsu_id=kitsu_id,
+        release_group=release_group,
+        preferred_group=preferred_group,
     )
 
 
@@ -331,7 +399,12 @@ def get_meta_from_dict(video_info: Dict[str, Any], mal_id: Optional[str] = None)
         mal_id, imdb_id=imdb_id, year=year, tvshow=tvshow, original_title=original_title, season=season
     )
 
-    clean_filename = source_utils.format_video_filename(video_info)
+    clean_filename = str(video_info.get('release_title') or source_utils.format_video_filename(video_info) or '')
+    anime_ctx = _resolve_anime_ids_and_groups(mal_id, season=season, episode=episode, filename=clean_filename)
+    anilist_id = str((unique_ids.get('anilist_id') if isinstance(unique_ids, dict) else '') or anime_ctx['anilist_id'] or '')
+    anidb_id = str((unique_ids.get('anidb') or unique_ids.get('anidb_id') if isinstance(unique_ids, dict) else '') or anime_ctx['anidb_id'] or '')
+    anidb_ep_id = str(video_info.get('anidb_ep_id') or anime_ctx['anidb_ep_id'] or '')
+    kitsu_id = str((unique_ids.get('kitsu_id') if isinstance(unique_ids, dict) else '') or anime_ctx['kitsu_id'] or '')
 
     pref_code = languages.get_preferred_subtitle_language()
     if pref_code == "none":
@@ -352,4 +425,11 @@ def get_meta_from_dict(video_info: Dict[str, Any], mal_id: Optional[str] = None)
         filename=clean_filename,
         languages=languages_list,
         preferred_lang=pref_code,
+        mal_id=str(mal_id or ''),
+        anilist_id=anilist_id,
+        anidb_id=anidb_id,
+        anidb_ep_id=anidb_ep_id,
+        kitsu_id=kitsu_id,
+        release_group=anime_ctx['release_group'],
+        preferred_group=anime_ctx['preferred_group'],
     )
