@@ -8,7 +8,8 @@ import concurrent.futures
 import functools
 import re
 from typing import List, Dict, Any, Optional
-from resources.lib.ui import control, domains, source_utils
+from contextlib import nullcontext
+from resources.lib.ui import client, control, domains, source_utils
 from resources.lib.subtitles.models import VideoMeta, SubtitleResult
 from resources.lib.subtitles.services import ALL_SERVICES
 from resources.lib.subtitles import languages
@@ -303,34 +304,36 @@ def search_all_services(meta: VideoMeta, settings: Dict[str, Any]) -> List[Subti
 
     def _query(svc_tuple):
         svc_name, svc_cls = svc_tuple
+        gate_ctx = client.bypass_connectivity_gate() if hasattr(client, 'bypass_connectivity_gate') else nullcontext()
         try:
-            # Query with primary title
-            res = svc_cls.search(meta, settings)
-            # If no results and an alternative original/romaji title exists, probe secondary title
-            if not res and not meta.is_manual_search and meta.original_title and meta.original_title.lower() != (meta.tvshow or meta.title).lower():
-                alt_meta = VideoMeta(
-                    title=meta.original_title if meta.is_movie else meta.title,
-                    tvshow=meta.original_title if meta.is_tvshow else '',
-                    original_title='',
-                    season=meta.season,
-                    episode=meta.episode,
-                    year=meta.year,
-                    imdb_id=meta.imdb_id,
-                    filename=meta.filename,
-                    languages=meta.languages,
-                    preferred_lang=meta.preferred_lang,
-                    filehash=meta.filehash,
-                    filesize=meta.filesize,
-                    is_tvshow=meta.is_tvshow,
-                    mal_id=meta.mal_id,
-                    anilist_id=getattr(meta, 'anilist_id', ''),
-                    anidb_id=getattr(meta, 'anidb_id', ''),
-                    anidb_ep_id=getattr(meta, 'anidb_ep_id', ''),
-                    kitsu_id=getattr(meta, 'kitsu_id', ''),
-                    release_group=getattr(meta, 'release_group', ''),
-                    preferred_group=getattr(meta, 'preferred_group', ''),
-                )
-                res = svc_cls.search(alt_meta, settings)
+            with gate_ctx:
+                # Query with primary title
+                res = svc_cls.search(meta, settings)
+                # If no results and an alternative original/romaji title exists, probe secondary title
+                if not res and not meta.is_manual_search and meta.original_title and meta.original_title.lower() != (meta.tvshow or meta.title).lower():
+                    alt_meta = VideoMeta(
+                        title=meta.original_title if meta.is_movie else meta.title,
+                        tvshow=meta.original_title if meta.is_tvshow else '',
+                        original_title='',
+                        season=meta.season,
+                        episode=meta.episode,
+                        year=meta.year,
+                        imdb_id=meta.imdb_id,
+                        filename=meta.filename,
+                        languages=meta.languages,
+                        preferred_lang=meta.preferred_lang,
+                        filehash=meta.filehash,
+                        filesize=meta.filesize,
+                        is_tvshow=meta.is_tvshow,
+                        mal_id=meta.mal_id,
+                        anilist_id=getattr(meta, 'anilist_id', ''),
+                        anidb_id=getattr(meta, 'anidb_id', ''),
+                        anidb_ep_id=getattr(meta, 'anidb_ep_id', ''),
+                        kitsu_id=getattr(meta, 'kitsu_id', ''),
+                        release_group=getattr(meta, 'release_group', ''),
+                        preferred_group=getattr(meta, 'preferred_group', ''),
+                    )
+                    res = svc_cls.search(alt_meta, settings)
             domains.adaptive_circuit_breaker.record_success(f"sub_{svc_name}", category="subtitle")
             return res
         except Exception as e:

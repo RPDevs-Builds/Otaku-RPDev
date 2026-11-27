@@ -130,6 +130,33 @@ class OpenSubtitlesService:
 
             data = res.json(default={})
             items = data.get('data', []) if isinstance(data, dict) else []
+
+            # Long-running anime (e.g. Bleach S1E55) use single-season absolute numbering on MAL/AniDB
+            # while IMDb/OpenSubtitles splits them into multiple TV seasons; retry without season/episode lock.
+            if (
+                not items
+                and meta.is_tvshow
+                and not meta.is_manual_search
+                and str(meta.season or '') == '1'
+                and str(meta.episode or '').isdigit()
+                and int(meta.episode) > 20
+            ):
+                ep_int = int(meta.episode)
+                query_title = (meta.tvshow or meta.title or '').strip()
+                fallback_params: Dict[str, Any] = {
+                    'languages': ','.join(lang_codes),
+                    'type': 'episode',
+                }
+                if meta.imdb_id_int:
+                    fallback_params['parent_imdb_id'] = meta.imdb_id_int
+                if query_title:
+                    fallback_params['query'] = f"{query_title} {ep_int:02d}"
+                fb_res = client.get(url, params=fallback_params, headers=headers, timeout=timeout)
+                if fb_res and fb_res.status_code == 200:
+                    fb_data = fb_res.json(default={})
+                    if isinstance(fb_data, dict):
+                        items = fb_data.get('data', []) or []
+
             results = []
 
             for item in items:

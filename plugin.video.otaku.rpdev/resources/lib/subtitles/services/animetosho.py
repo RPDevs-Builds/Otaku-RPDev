@@ -209,33 +209,8 @@ class AnimetoshoSubtitleService:
     display_name = 'AnimeTosho'
 
     @classmethod
-    def _query_entries(cls, meta: VideoMeta, timeout: float) -> tuple[List[Dict[str, Any]], str]:
-        """Query AnimeTosho JSON feed by eid -> aid -> title+episode."""
-        anidb_ep_id = str(getattr(meta, 'anidb_ep_id', '') or '').strip()
-        anidb_id = str(getattr(meta, 'anidb_id', '') or '').strip()
-
-        if anidb_ep_id and anidb_ep_id.isdigit():
-            url = _join_query(FEED_BASE_URL, {'eid': anidb_ep_id})
-            res, aborted = _get_with_429_retry(url, timeout=timeout)
-            if aborted:
-                return [], ''
-            status = getattr(res, 'status_code', None) if res is not None else None
-            if isinstance(status, int) and status == 200:
-                data = _parse_json_response(res)
-                if isinstance(data, list) and data:
-                    return data, 'anidb_eid'
-
-        if anidb_id and anidb_id.isdigit():
-            url = _join_query(FEED_BASE_URL, {'aid': anidb_id})
-            res, aborted = _get_with_429_retry(url, timeout=timeout)
-            if aborted:
-                return [], ''
-            status = getattr(res, 'status_code', None) if res is not None else None
-            if isinstance(status, int) and status == 200:
-                data = _parse_json_response(res)
-                if isinstance(data, list) and data:
-                    return data, 'anidb_aid'
-
+    def _query_title_entries(cls, meta: VideoMeta, timeout: float) -> tuple[List[Dict[str, Any]], str]:
+        """Query AnimeTosho JSON feed by title + episode and gate with score_title_candidate >= 100."""
         query_title = (meta.tvshow or meta.title or meta.search_string or '').strip()
         if not query_title:
             return [], ''
@@ -267,14 +242,46 @@ class AnimetoshoSubtitleService:
         return filtered, 'query'
 
     @classmethod
-    def search(cls, meta: VideoMeta, settings: Dict[str, Any]) -> List[SubtitleResult]:
-        timeout = float(settings.get('subtitles.timeout', 15) or 15)
-        deadline = time.monotonic() + max(3.0, timeout)
+    def _query_entries(cls, meta: VideoMeta, timeout: float) -> tuple[List[Dict[str, Any]], str]:
+        """Query AnimeTosho JSON feed by eid -> aid -> title+episode."""
+        anidb_ep_id = str(getattr(meta, 'anidb_ep_id', '') or '').strip()
+        anidb_id = str(getattr(meta, 'anidb_id', '') or '').strip()
 
-        entries, matched_via = cls._query_entries(meta, timeout=timeout)
-        if not entries:
-            return []
+        if anidb_ep_id and anidb_ep_id.isdigit():
+            url = _join_query(FEED_BASE_URL, {'eid': anidb_ep_id})
+            res, aborted = _get_with_429_retry(url, timeout=timeout)
+            if aborted:
+                return [], ''
+            status = getattr(res, 'status_code', None) if res is not None else None
+            if isinstance(status, int) and status == 200:
+                data = _parse_json_response(res)
+                if isinstance(data, list) and data:
+                    return data, 'anidb_eid'
 
+        if anidb_id and anidb_id.isdigit():
+            url = _join_query(FEED_BASE_URL, {'aid': anidb_id})
+            res, aborted = _get_with_429_retry(url, timeout=timeout)
+            if aborted:
+                return [], ''
+            status = getattr(res, 'status_code', None) if res is not None else None
+            if isinstance(status, int) and status == 200:
+                data = _parse_json_response(res)
+                if isinstance(data, list) and data:
+                    return data, 'anidb_aid'
+
+        return cls._query_title_entries(meta, timeout=timeout)
+
+    @classmethod
+    def _collect_results(
+        cls,
+        entries: List[Dict[str, Any]],
+        matched_via: str,
+        meta: VideoMeta,
+        timeout: float,
+        deadline: float,
+        seen_urls: set,
+        detail_budget: Optional[List[int]] = None,
+    ) -> List[SubtitleResult]:
         target_group_norm = source_utils.normalize_release_group(
             getattr(meta, 'release_group', '') or getattr(meta, 'preferred_group', '')
         )
@@ -293,8 +300,8 @@ class AnimetoshoSubtitleService:
         ordered = sorted([e for e in entries if isinstance(e, dict)], key=_entry_rank)
 
         results: List[SubtitleResult] = []
-        seen_urls = set()
-        detail_fetches = 0
+        if detail_budget is None:
+            detail_budget = [0]
 
         for entry in ordered:
             parent_title = str(entry.get('title') or '').strip()
@@ -312,12 +319,12 @@ class AnimetoshoSubtitleService:
             # Bounded optional detail lookup ONLY when inline attachments absent and time budget allows
             if (
                 not attachments
-                and detail_fetches < _MAX_DETAIL_FETCHES
+                and detail_budget[0] < _MAX_DETAIL_FETCHES
                 and entry.get('id') is not None
                 and (deadline - time.monotonic()) > 2.0
                 and not control.monitor.abortRequested()
             ):
-                detail_fetches += 1
+                detail_budget[0] += 1
                 rem_timeout = min(timeout, max(1.5, deadline - time.monotonic()))
                 detail_url = _join_query(FEED_BASE_URL, {'show': 'torrent', 'id': str(entry['id'])})
                 dres, daborted = _get_with_429_retry(detail_url, timeout=rem_timeout)
@@ -382,6 +389,36 @@ class AnimetoshoSubtitleService:
                         is_signs_only=is_signs,
                     )
                 )
+        return results
+
+    @classmethod
+    def search(cls, meta: VideoMeta, settings: Dict[str, Any]) -> List[SubtitleResult]:
+        timeout = float(settings.get('subtitles.timeout', 15) or 15)
+        deadline = time.monotonic() + max(3.0, timeout)
+
+        entries, matched_via = cls._query_entries(meta, timeout=timeout)
+        seen_urls = set()
+        detail_budget = [0]
+        results = (
+            cls._collect_results(entries, matched_via, meta, timeout, deadline, seen_urls, detail_budget=detail_budget)
+            if entries else []
+        )
+
+        # Long-running anime (e.g. Bleach aid=2369) return only recent batches/episodes on aid= queries;
+        # fall back to title+episode query when aid yields 0 usable subtitle attachments.
+        if (
+            not results
+            and matched_via == 'anidb_aid'
+            and (deadline - time.monotonic()) > 2.0
+            and not control.monitor.abortRequested()
+        ):
+            rem_timeout = min(timeout, max(1.5, deadline - time.monotonic()))
+            q_entries, q_via = cls._query_title_entries(meta, timeout=rem_timeout)
+            if q_entries:
+                results.extend(
+                    cls._collect_results(q_entries, q_via, meta, timeout, deadline, seen_urls, detail_budget=detail_budget)
+                )
+
         return results
 
     @classmethod

@@ -196,6 +196,15 @@ def parse_manual_search_query(search_string: str) -> Dict[str, str]:
         year = m_yr.group(1)
         clean = (clean[:m_yr.start()] + ' ' + clean[m_yr.end():]).strip()
 
+    # Match trailing standalone episode number (e.g. 'One Piece 1120', 'Bleach 55')
+    if not episode:
+        m_trail_ep = re.match(r'^(.+?)\s+(\d{1,4})$', clean)
+        if m_trail_ep and m_trail_ep.group(1).strip():
+            ep_val = int(m_trail_ep.group(2))
+            if ep_val > 0 and not (1950 <= ep_val <= 2039):
+                episode = str(ep_val)
+                clean = m_trail_ep.group(1).strip()
+
     clean = re.sub(r'[\s._\-]+$', '', re.sub(r'\s{2,}', ' ', clean)).strip()
     return {
         'title': clean or raw,
@@ -363,21 +372,35 @@ def get_meta_for_manual_search(
     else:
         langs = base_meta.languages or [languages.to_english_name(pref_code)]
 
+    same_show = bool(
+        query_title
+        and (
+            query_title.lower() == (base_meta.tvshow or '').strip().lower()
+            or query_title.lower() == (base_meta.title or '').strip().lower()
+        )
+    )
+
     return VideoMeta(
         title=query_title,
         tvshow=query_title if is_tv else '',
-        original_title='',
+        original_title=base_meta.original_title if same_show else '',
         season=season,
         episode=episode,
         year=year,
-        imdb_id='',
+        imdb_id=base_meta.imdb_id if same_show else '',
         filename=base_meta.filename,
         languages=langs,
         preferred_lang=pref_code,
         is_tvshow=is_tv,
         search_string=str(search_string or '').strip(),
         is_manual_search=True,
-        mal_id=base_meta.mal_id,
+        mal_id=base_meta.mal_id if same_show else '',
+        anilist_id=base_meta.anilist_id if same_show else '',
+        anidb_id=base_meta.anidb_id if same_show else '',
+        anidb_ep_id=base_meta.anidb_ep_id if (same_show and episode == base_meta.episode) else '',
+        kitsu_id=base_meta.kitsu_id if same_show else '',
+        release_group=base_meta.release_group if same_show else '',
+        preferred_group=base_meta.preferred_group if same_show else '',
     )
 
 

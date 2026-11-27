@@ -1,7 +1,22 @@
 ========================
+[B]OTAKU RPDEV v6.6.2[/B]
+Subtitle Search & DNS Fix
+========================
+
+v6.6.2 Highlights:
+  * Subtitle DNS Gate Isolation: Prevented dead/blocked subtitle provider
+    hosts from tripping the 15s global DNS connectivity gate during
+    parallel subtitle searches.
+  * Long-Running Anime Subtitle Fallbacks: Added AnimeTosho aid ->
+    title+episode fallback and OpenSubtitles/SubDL S1E21+ seasonless
+    fallback for absolute-numbered series (e.g. Bleach).
+  * Manual Search & Diagnostics: Parsed trailing episode numbers (e.g.
+    Bleach 55), preserved anime IDs, and added auto-download summaries.
+
+--------------------------------
 [B]OTAKU RPDEV v6.6.1[/B]
 Multi-Select Groups & Filter
-========================
+--------------------------------
 
 v6.6.1 Highlights:
   * Series Playback Profile Multi-Select: Multi-select Preferred & Excluded

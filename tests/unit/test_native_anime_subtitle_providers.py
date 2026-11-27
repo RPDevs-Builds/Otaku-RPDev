@@ -334,3 +334,188 @@ def test_ass_sdh_strip_only_modifies_dialogue_text_field():
     assert "(gasps)" not in cleaned
     assert "FERN:" not in cleaned
     assert "Wait, Miss Frieren!" in cleaned
+
+
+def test_subtitle_search_bypasses_global_dns_gate(monkeypatch):
+    import socket
+    import urllib.error
+    from resources.lib.ui import client
+    from resources.lib.subtitles import search as sub_search
+    from resources.lib.subtitles.models import SubtitleResult
+
+    client.clear_connectivity_gate()
+    try:
+        # Simulate two distinct subtitle hosts failing DNS inside bypass_connectivity_gate()
+        with client.bypass_connectivity_gate():
+            gate = client._connectivity_gate
+            # Direct request() path checks bypass_dns_gate before recording failure
+            monkeypatch.setattr(
+                client.urllib.request,
+                'build_opener',
+                lambda *a, **kw: (_ for _ in ()).throw(urllib.error.URLError(socket.gaierror(-2, 'Name or service not known'))),
+            )
+            client.get('https://dead-sub-a.example/api', timeout=1)
+            client.get('https://dead-sub-b.example/api', timeout=1)
+            assert client.is_connectivity_gate_tripped() is False
+            assert gate._recent_host_failures == {}
+
+        # Verify search_all_services wraps provider calls in bypass_connectivity_gate()
+        saw_bypass = []
+
+        class _ProbeSvc:
+            service_name = 'probe_svc'
+            display_name = 'Probe'
+
+            @classmethod
+            def search(cls, meta, settings):
+                saw_bypass.append(bool(getattr(client._tls_req_state, 'bypass_dns_gate', False)))
+                return [
+                    SubtitleResult(
+                        service_name='probe_svc',
+                        display_name='Probe',
+                        name='Bleach - 55.ass',
+                        lang='English',
+                        lang_code='en',
+                        download_url='https://example.invalid/55.ass',
+                    )
+                ]
+
+        monkeypatch.setattr(sub_search, 'ALL_SERVICES', {'probe_svc': _ProbeSvc})
+        meta = VideoMeta(title='Bleach', tvshow='Bleach', season='1', episode='55', is_tvshow=True, preferred_lang='en', languages=['English'])
+        res = sub_search.search_all_services(meta, {'subtitles.provider.probe_svc': True, 'subtitles.timeout': 5})
+        assert saw_bypass == [True]
+        assert len(res) == 1
+    finally:
+        client.clear_connectivity_gate()
+
+
+def test_animetosho_aid_falls_back_to_title_query_for_long_running_anime(monkeypatch):
+    seen_urls = []
+
+    def fake_get(url, params=None, headers=None, timeout=15):
+        seen_urls.append(url)
+        if 'aid=2369' in url:
+            # Recent episode (366) only — no ep 55
+            return _resp(200, json_data=[{
+                'id': 9001,
+                'title': '[Group] Bleach - 366 [1080p].mkv',
+                'seeders': 20,
+                'attachments': [{'url': 'https://animetosho.org/sub/366.ass.xz', 'filename': 'ep366.ass.xz'}],
+            }])
+        if 'q=Bleach+55' in url or 'q=Bleach%2055' in url:
+            return _resp(200, json_data=[{
+                'id': 9002,
+                'title': '[Yameii] Bleach - 55 [1080p].mkv',
+                'seeders': 15,
+                'attachments': [{'url': 'https://animetosho.org/sub/55.ass.xz', 'filename': 'Bleach - 55.eng.ass.xz'}],
+            }])
+        return _resp(200, json_data=[])
+
+    monkeypatch.setattr(client, 'get', fake_get)
+    meta = VideoMeta(
+        title='Bleach',
+        tvshow='Bleach',
+        season='1',
+        episode='55',
+        is_tvshow=True,
+        anidb_id='2369',
+        preferred_lang='en',
+        languages=['English'],
+    )
+    results = AnimetoshoSubtitleService.search(meta, {'subtitles.timeout': 10})
+    assert any('aid=2369' in u for u in seen_urls)
+    assert any('q=Bleach' in u for u in seen_urls)
+    assert len(results) == 1
+    assert '55' in results[0].name
+
+
+def test_opensubtitles_and_subdl_fallback_for_long_running_s1_ep_gt_20(monkeypatch):
+    from resources.lib.subtitles.services import opensubtitles, subdl
+
+    os_calls = []
+
+    def fake_os_get(url, params=None, headers=None, timeout=15):
+        os_calls.append(dict(params or {}))
+        if 'season_number' in (params or {}):
+            return _resp(200, json_data={'data': []})
+        return _resp(200, json_data={
+            'data': [{
+                'attributes': {
+                    'language': 'en',
+                    'ratings': 8.0,
+                    'feature_details': {'season_number': 3, 'episode_number': 14},
+                    'files': [{'file_id': 111, 'file_name': 'Bleach.S03E14.55.srt'}],
+                }
+            }]
+        })
+
+    monkeypatch.setattr(opensubtitles.client, 'get', fake_os_get)
+    meta = VideoMeta(
+        title='Bleach',
+        tvshow='Bleach',
+        season='1',
+        episode='55',
+        imdb_id='tt0434665',
+        is_tvshow=True,
+        preferred_lang='en',
+        languages=['English'],
+    )
+    os_res = opensubtitles.OpenSubtitlesService.search(meta, {'subtitles.timeout': 10})
+    assert len(os_calls) == 2
+    assert os_calls[0].get('season_number') == '1'
+    assert 'season_number' not in os_calls[1]
+    assert len(os_res) == 1
+
+    subdl_calls = []
+
+    def fake_subdl_get(url, params=None, headers=None, timeout=15):
+        subdl_calls.append(dict(params or {}))
+        if 'season' in (params or {}):
+            return _resp(200, json_data={'subtitles': []})
+        return _resp(200, json_data={
+            'subtitles': [{
+                'release_name': 'Bleach.055.srt',
+                'url': '/subtitle/123.zip',
+                'language': 'en',
+                'season': 3,
+                'episode': 14,
+            }]
+        })
+
+    monkeypatch.setattr(subdl.client, 'get', fake_subdl_get)
+    subdl_res = subdl.SubDLService.search(meta, {'subtitles.subdl.apikey': 'test-key', 'subtitles.timeout': 10})
+    assert len(subdl_calls) == 2
+    assert subdl_calls[0].get('season') == '1'
+    assert 'season' not in subdl_calls[1]
+    assert len(subdl_res) == 1
+
+
+def test_manual_search_trailing_episode_and_preserves_anime_ids(monkeypatch):
+    from resources.lib.subtitles import meta as sub_meta
+
+    p1 = sub_meta.parse_manual_search_query('Bleach 55')
+    assert p1 == {'title': 'Bleach', 'season': '', 'episode': '55', 'year': ''}
+
+    p2 = sub_meta.parse_manual_search_query('Spirited Away 2001')
+    assert p2 == {'title': 'Spirited Away', 'season': '', 'episode': '', 'year': '2001'}
+
+    base = VideoMeta(
+        title='Bleach',
+        tvshow='Bleach',
+        season='1',
+        episode='55',
+        imdb_id='tt0434665',
+        mal_id='269',
+        anidb_id='2369',
+        preferred_group='Yameii',
+        is_tvshow=True,
+        preferred_lang='en',
+        languages=['English'],
+    )
+    monkeypatch.setattr(sub_meta, 'get_meta_from_player', lambda **kw: base)
+    manual_meta = sub_meta.get_meta_for_manual_search('Bleach 55')
+    assert manual_meta.title == 'Bleach'
+    assert manual_meta.episode == '55'
+    assert manual_meta.anidb_id == '2369'
+    assert manual_meta.imdb_id == 'tt0434665'
+    assert manual_meta.preferred_group == 'Yameii'

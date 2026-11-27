@@ -254,6 +254,11 @@ def auto_download_subtitles(meta: Optional[VideoMeta] = None, settings: Optional
                 )
                 return True
 
+    control.log(
+        f"Native Subtitles: Auto-download checked {len(results)} candidate(s) (attempted={attempts}) "
+        f"but none were usable for {meta.tvshow or meta.title} S{meta.season}E{meta.episode}",
+        'info',
+    )
     return False
 
 

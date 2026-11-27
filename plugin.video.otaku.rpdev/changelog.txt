@@ -1,3 +1,10 @@
+Changelog v6.6.2 (2026-11-26):
+- Long-Running Anime Subtitle Search & DNS Gate Hardening:
+  - Subtitle DNS Gate Isolation: Added client.bypass_connectivity_gate() around parallel subtitle provider queries so dead/blocked subtitle hosts no longer trip the 15s global DNS connectivity gate across other providers.
+  - AnimeTosho Title+Episode Fallback: When aid-level queries (e.g. Bleach aid=2369) return only recent batches/episodes with 0 usable attachments, AnimetoshoSubtitleService now falls back to title+episode search within the shared detail-fetch budget.
+  - OpenSubtitles & SubDL S1E21+ Fallback: Added automatic fallback without season=1 lock for long-running absolute-numbered anime (e.g. Bleach S1E55) when strict season=1 queries return empty.
+  - Manual Search & Auto-Download Diagnostics: Parsed trailing standalone episode numbers (e.g. Bleach 55) while preserving anime tracker IDs and added info-level auto-download skip summaries.
+
 Changelog v6.6.1 (2026-11-26):
 - Multi-Select Release Groups, Sort & Filter Sub-Section & Context Cleanup:
   - Series Playback Profile Multi-Select: Expanded Preferred & Excluded Release Groups to multi-select across 40 empirically harvested anime release groups (plus recent-group detection, custom entry, automatic mutual exclusivity, and 1080i badge truncation).

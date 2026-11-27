@@ -18,6 +18,7 @@ Helpers          - store / retrieve / byteify / strip_cookie_url
 # -*- coding: utf-8 -*-
 
 import gzip
+from contextlib import contextmanager
 import errno
 import http.client
 import io
@@ -285,6 +286,18 @@ def clear_connectivity_gate():
     _connectivity_gate.reset()
 
 
+@contextmanager
+def bypass_connectivity_gate():
+    """Thread-local scope preventing non-critical parallel probes (e.g. subtitle providers)
+    from tripping or being blocked by the global 15s DNS connectivity gate."""
+    prev = getattr(_tls_req_state, 'bypass_dns_gate', False)
+    _tls_req_state.bypass_dns_gate = True
+    try:
+        yield
+    finally:
+        _tls_req_state.bypass_dns_gate = prev
+
+
 def _validate_url_scheme(url: str) -> str:
     """Validate that the URL has an allowed HTTP/HTTPS scheme to prevent SSRF and LFI."""
     if not url or not isinstance(url, str):
@@ -470,7 +483,7 @@ def request(
             control.log(f"client.request blocked URL: {e}", level='warning')
             return None
 
-        if not bypass_gate and _connectivity_gate.is_tripped():
+        if not (bypass_gate or getattr(_tls_req_state, 'bypass_dns_gate', False)) and _connectivity_gate.is_tripped():
             _tls_req_state.last_connectivity_drop = True
             control.log(f"Request paused cleanly by active 15s DNS/connectivity gate: {url}", 'debug')
             return None
@@ -863,7 +876,8 @@ def request(
             host = urllib.parse.urlparse(url).netloc
             if is_dns_or_network_drop(e):
                 _tls_req_state.last_connectivity_drop = True
-                _connectivity_gate.record_failure(host, e)
+                if not (bypass_gate or getattr(_tls_req_state, 'bypass_dns_gate', False)):
+                    _connectivity_gate.record_failure(host, e)
             if output == '':
                 control.log('Request-Error (%s): %s' % (e.reason, url))
             if not error:
@@ -1030,7 +1044,8 @@ def request(
         host = urllib.parse.urlparse(url).netloc if url else ''
         if is_dns_or_network_drop(e):
             _tls_req_state.last_connectivity_drop = True
-            _connectivity_gate.record_failure(host, e)
+            if not (bypass_gate or getattr(_tls_req_state, 'bypass_dns_gate', False)):
+                _connectivity_gate.record_failure(host, e)
         control.log('Request-Error: (%s) => %s' % (str(e), url))
         return
 

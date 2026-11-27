@@ -80,6 +80,27 @@ class SubDLService:
                 return []
 
             subtitles = data.get('subtitles', [])
+
+            # Long-running anime (e.g. Bleach S1E55) use single-season absolute numbering on MAL/AniDB
+            # while IMDb/SubDL splits them into multiple TV seasons; retry without season/episode lock.
+            if (
+                not subtitles
+                and meta.is_tvshow
+                and not meta.is_manual_search
+                and str(meta.season or '') == '1'
+                and str(meta.episode or '').isdigit()
+                and int(meta.episode) > 20
+            ):
+                fb_params = {
+                    k: v for k, v in params.items()
+                    if k not in ('season', 'episode', 'file_name')
+                }
+                fb_res = client.get(url, params=fb_params, headers=headers, timeout=timeout)
+                if fb_res and fb_res.status_code == 200:
+                    fb_data = fb_res.json(default={})
+                    if isinstance(fb_data, dict) and 'error' not in fb_data:
+                        subtitles = fb_data.get('subtitles', []) or []
+
             results = []
 
             for sub_data in subtitles:
