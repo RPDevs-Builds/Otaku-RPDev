@@ -10,11 +10,15 @@ PlayerDialogs    - Skip intro / skip outro / playing-next dialog display
 Monitor          - Playback error detection with grace period
 """
 
+import os
 import re
+import sqlite3
 import time
 import threading
+from pathlib import Path
 import xbmc
 import xbmcgui
+import xbmcvfs
 import service
 import json
 
@@ -25,6 +29,87 @@ from resources.lib.pages import EMBED_SKIP_PREFIXES
 
 playList = control.playList
 player = xbmc.Player
+
+_KODI_VIDEO_DB_RE = re.compile(r'^MyVideos(\d+)\.db$', re.IGNORECASE)
+
+
+def _find_latest_kodi_video_db(db_dir=None):
+    """Return absolute path to the highest-numbered Kodi MyVideos<NNN>.db, or None."""
+    try:
+        target_dir = db_dir or xbmcvfs.translatePath('special://database/')
+    except Exception:
+        target_dir = ''
+    if not target_dir or not os.path.isdir(target_dir):
+        return None
+    best_num = -1
+    best_path = None
+    try:
+        for entry in os.listdir(target_dir):
+            m = _KODI_VIDEO_DB_RE.match(entry)
+            if not m:
+                continue
+            num = int(m.group(1))
+            full_path = os.path.join(target_dir, entry)
+            if num > best_num and os.path.isfile(full_path):
+                best_num = num
+                best_path = full_path
+    except OSError:
+        return None
+    return best_path
+
+
+def _read_kodi_subtitle_delay_ms(candidate_paths, db_path=None):
+    """Read Kodi's persisted per-file SubtitleDelay (ms) from MyVideos<NNN>.db via strictly
+    read-only SQLite URI (?mode=ro). Returns int ms or None if unavailable/unset."""
+    if not candidate_paths:
+        return None
+    norm_candidates = []
+    seen = set()
+    for raw in candidate_paths:
+        val = str(raw or '').strip()
+        if not val:
+            continue
+        for variant in (val, val.split('|', 1)[0].strip()):
+            if variant and variant not in seen:
+                seen.add(variant)
+                norm_candidates.append(variant)
+    if not norm_candidates:
+        return None
+
+    target_db = db_path or _find_latest_kodi_video_db()
+    if not target_db or not os.path.isfile(target_db):
+        return None
+
+    conn = None
+    try:
+        abs_db = os.path.abspath(target_db)
+        db_uri = f"{Path(abs_db).as_uri()}?mode=ro"
+        conn = sqlite3.connect(db_uri, uri=True, timeout=1.0)
+        cur = conn.cursor()
+        placeholders = ','.join('?' for _ in norm_candidates)
+        sql = (
+            "SELECT s.SubtitleDelay "
+            "FROM settings s "
+            "JOIN files f ON f.idFile = s.idFile "
+            "JOIN path p ON p.idPath = f.idPath "
+            f"WHERE (p.strPath || f.strFilename) IN ({placeholders}) "
+            f"   OR f.strFilename IN ({placeholders}) "
+            "ORDER BY s.idFile DESC "
+            "LIMIT 1"
+        )
+        row = cur.execute(sql, norm_candidates + norm_candidates).fetchone()
+        if row is None or row[0] is None:
+            return None
+        return int(round(float(row[0]) * 1000.0))
+    except Exception as e:
+        control.log(f"Player: Read-only MyVideos SubtitleDelay lookup failed: {e}", 'debug')
+        return None
+    finally:
+        if conn is not None:
+            try:
+                conn.close()
+            except Exception:
+                pass
 
 
 # ── Intelligent Subtitle Track Selection Heuristics ──────────────────────
@@ -268,6 +353,10 @@ class WatchlistPlayer(player):
         self._playback_stopped = False
         self._playback_ended = False
         self._user_stopped_or_errored = False
+        self._skip_done_event = threading.Event()
+        self._sub_delay_persisted = False
+        self._initial_kodi_sub_delay_ms = 0
+        self._playing_file = ''
         self.episodes = []
         self.type = ''
         self.provider = ''
@@ -348,6 +437,7 @@ class WatchlistPlayer(player):
 
         # Process skip times asynchronously to not block playback
         if not self._skip_processed:
+            self._skip_done_event = threading.Event()
             self._async_process_skip_times()
 
         # Continue with playback initialization
@@ -355,6 +445,11 @@ class WatchlistPlayer(player):
 
     def _async_process_skip_times(self):
         """Process skip times in background to avoid blocking playback"""
+        done_event = getattr(self, '_skip_done_event', None)
+        if done_event is None:
+            done_event = threading.Event()
+            self._skip_done_event = done_event
+
         def _process():
             try:
                 if self.provider in EMBED_SKIP_PREFIXES:
@@ -368,9 +463,156 @@ class WatchlistPlayer(player):
                 self._publish_scene_markers()
             except Exception as e:
                 control.log(f'Error processing skip times: {e}', 'error')
+            finally:
+                done_event.set()
 
-        import threading
         threading.Thread(target=_process, daemon=True).start()
+
+    @staticmethod
+    def _clear_subtitle_sync_properties():
+        """Clear transient per-playback external subtitle sync tracking properties."""
+        for prop in (
+            'otaku.subtitle.external_attached',
+            'otaku.subtitle.baked_offset_ms',
+            'otaku.subtitle.initial_kodi_delay_ms',
+        ):
+            control.playerWindow.clearProperty(prop)
+
+    def _subtitle_delay_candidate_paths(self):
+        """Return deduplicated full file/plugin paths to match Kodi MyVideos*.db settings.SubtitleDelay."""
+        candidates = []
+        mal_id = getattr(self, 'mal_id', '')
+        ep = getattr(self, 'episode', 0)
+        media_type = getattr(self, 'media_type', '')
+        if mal_id and str(mal_id).isdigit():
+            if media_type == 'movie':
+                candidates.append(f'plugin://{control.ADDON_ID}/play_movie/{mal_id}/')
+                candidates.append(f'plugin://{control.ADDON_ID}/play_movie/{mal_id}')
+            elif ep is not None and str(ep) != '':
+                candidates.append(f'plugin://{control.ADDON_ID}/play/{mal_id}/{ep}')
+        for attr in ('path', '_playing_file'):
+            val = getattr(self, attr, '')
+            if val:
+                candidates.append(str(val))
+        try:
+            cur_file = self.getPlayingFile()
+            if cur_file:
+                candidates.append(str(cur_file))
+        except Exception:
+            pass
+        return candidates
+
+    def _ensure_scene_markers_for_subtitle_calibration(self, max_wait_s=1.5):
+        """Ensure demuxer chapters and async AniSkip/AnimeSkip/IntroDB markers are published
+        to otaku.scene_markers before auto_download_subtitles() runs chapter calibration.
+        Fast 0ms no-op when auto-calibration is disabled or a per-series offset is already set."""
+        if not control.getBool('subtitles.auto_calibrate_chapters', False):
+            return False
+        mal_id = getattr(self, 'mal_id', '')
+        if mal_id and str(mal_id).isdigit():
+            try:
+                ov = database.get_series_override(mal_id)
+                if isinstance(ov, dict) and int(ov.get('sub_offset_ms') or 0) != 0:
+                    return False
+            except Exception:
+                pass
+
+        if not getattr(self, 'ffprobe_chapters', None):
+            try:
+                self.query_demuxer_chapters()
+            except Exception:
+                pass
+        if getattr(self, 'ffprobe_chapters', None):
+            try:
+                self.process_ffprobe_chapter_skips()
+            except Exception:
+                pass
+
+        done_event = getattr(self, '_skip_done_event', None)
+        if done_event is not None and not done_event.is_set() and not getattr(self, '_skip_processed', False):
+            deadline = time.monotonic() + max(0.0, float(max_wait_s))
+            while not done_event.is_set() and time.monotonic() < deadline:
+                if getattr(self, '_playback_stopped', False):
+                    break
+                step = min(0.15, max(0.01, deadline - time.monotonic()))
+                if control.monitor.waitForAbort(step):
+                    break
+
+        try:
+            self._publish_scene_markers()
+            return True
+        except Exception:
+            return False
+
+    def _persist_kodi_subtitle_delay(self):
+        """Persist Kodi's in-player SubtitleDelay adjustment (from MyVideos*.db ?mode=ro) into
+        series_overrides.sub_offset_ms for external Otaku subtitles so subsequent episodes
+        inherit the user's sync adjustment automatically without double-shifting on replay."""
+        if control.getGlobalProp('otaku.preview_mode') == 'true':
+            return False
+        if getattr(self, '_failover_triggered', False):
+            return False
+        if getattr(self, '_sub_delay_persisted', False):
+            return False
+
+        mal_id = getattr(self, 'mal_id', '')
+        try:
+            ext_attached = control.playerWindow.getProperty('otaku.subtitle.external_attached') == 'true'
+            if not ext_attached or not mal_id or not str(mal_id).isdigit():
+                return False
+
+            self._sub_delay_persisted = True
+            try:
+                baked_offset_ms = int(control.playerWindow.getProperty('otaku.subtitle.baked_offset_ms') or 0)
+            except (TypeError, ValueError):
+                baked_offset_ms = 0
+            try:
+                initial_kodi_delay_ms = int(
+                    control.playerWindow.getProperty('otaku.subtitle.initial_kodi_delay_ms')
+                    or getattr(self, '_initial_kodi_sub_delay_ms', 0)
+                    or 0
+                )
+            except (TypeError, ValueError):
+                initial_kodi_delay_ms = 0
+
+            candidates = self._subtitle_delay_candidate_paths()
+            final_kodi_delay_ms = _read_kodi_subtitle_delay_ms(candidates)
+            if final_kodi_delay_ms is None or final_kodi_delay_ms == initial_kodi_delay_ms:
+                if not control.monitor.waitForAbort(0.25):
+                    retry_delay = _read_kodi_subtitle_delay_ms(candidates)
+                    if retry_delay is not None:
+                        final_kodi_delay_ms = retry_delay
+
+            if final_kodi_delay_ms is None:
+                return False
+
+            user_delta_ms = final_kodi_delay_ms - initial_kodi_delay_ms
+            if abs(user_delta_ms) < 100:
+                return False
+
+            raw_total_ms = baked_offset_ms + final_kodi_delay_ms
+            new_total_ms = max(-30000, min(30000, int(round(raw_total_ms / 50.0) * 50)))
+            if database.update_series_sub_offset(mal_id, new_total_ms):
+                control.log_metric(
+                    'sub_calibrate',
+                    level='info',
+                    mal_id=mal_id,
+                    offset_ms=new_total_ms,
+                    delta_ms=user_delta_ms,
+                    source='kodi_delay_persist',
+                )
+                control.log(
+                    f"Player: Saved per-series subtitle offset {new_total_ms:+d}ms for MAL #{mal_id} "
+                    f"(kodi_delay={final_kodi_delay_ms:+d}ms, baked={baked_offset_ms:+d}ms)",
+                    'info',
+                )
+                return True
+            return False
+        except Exception as e:
+            control.log(f"Player: Failed persisting Kodi subtitle delay: {e}", 'debug')
+            return False
+        finally:
+            self._clear_subtitle_sync_properties()
 
     # ── Playback Callbacks ────────────────────────────────────────────────
 
@@ -593,6 +835,7 @@ class WatchlistPlayer(player):
             return
         self._playback_stopped = True
         self._user_stopped_or_errored = True
+        self._persist_kodi_subtitle_delay()
         self._clear_preresolved_properties()
         self._clear_failover_attempts()
         self._clear_scene_markers()
@@ -673,6 +916,7 @@ class WatchlistPlayer(player):
                 return
         self._playback_stopped = True
         self._playback_ended = True
+        self._persist_kodi_subtitle_delay()
         self._clear_failover_attempts()
         self._clear_scene_markers()
         control.closeAllDialogs()
@@ -727,6 +971,7 @@ class WatchlistPlayer(player):
                     return
         self._playback_stopped = True
         self._user_stopped_or_errored = True
+        self._clear_subtitle_sync_properties()
         self._clear_preresolved_properties()
         self._clear_failover_attempts()
         self._clear_scene_markers()
@@ -1005,6 +1250,17 @@ class WatchlistPlayer(player):
             _subs_mod.publish_active_playback_meta(_active_video_info, mal_id=str(self.mal_id or ''))
         except Exception as e:
             control.log(f'Player: Failed publishing active subtitle meta: {e}', 'debug')
+
+        # Record Kodi's initial per-file SubtitleDelay (read-only MyVideos*.db) before external subs bake offsets
+        self._sub_delay_persisted = False
+        self._clear_subtitle_sync_properties()
+        try:
+            self._playing_file = str(self.getPlayingFile() or '')
+        except Exception:
+            self._playing_file = ''
+        init_kodi_delay = _read_kodi_subtitle_delay_ms(self._subtitle_delay_candidate_paths())
+        self._initial_kodi_sub_delay_ms = int(init_kodi_delay) if init_kodi_delay is not None else 0
+        control.playerWindow.setProperty('otaku.subtitle.initial_kodi_delay_ms', str(self._initial_kodi_sub_delay_ms))
 
         # Continue with audio/subtitle setup which is needed immediately
         if self.type not in ['embed', 'direct']:
@@ -1347,6 +1603,7 @@ class WatchlistPlayer(player):
             control.log("Player: English audio active with dubsubtitles disabled; skipping external subtitle auto-download", 'debug')
             return False
         try:
+            self._ensure_scene_markers_for_subtitle_calibration()
             from resources.lib import subtitles
             control.log("Player: No matching subtitle stream available; triggering native subtitles auto-download", 'info')
             return bool(subtitles.auto_download_subtitles())

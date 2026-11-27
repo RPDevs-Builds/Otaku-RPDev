@@ -3413,6 +3413,27 @@ def set_series_override(
         return False
 
 
+def update_series_sub_offset(mal_id, sub_offset_ms):
+    """Update only series_overrides.sub_offset_ms for *mal_id*, preserving every other override column."""
+    if not mal_id or not str(mal_id).isdigit():
+        return False
+    existing = get_series_override(mal_id) or {}
+    return set_series_override(
+        mal_id,
+        audio_lang=existing.get('audio_lang'),
+        sub_lang=existing.get('sub_lang'),
+        sub_mode=existing.get('sub_mode'),
+        preferred_provider=existing.get('preferred_provider'),
+        intro_offset_s=int(existing.get('intro_offset_s') or 0),
+        outro_offset_s=int(existing.get('outro_offset_s') or 0),
+        skip_filler_mode=existing.get('skip_filler_mode') or 'default',
+        episode_offset=int(existing.get('episode_offset') or 0),
+        sub_offset_ms=int(sub_offset_ms or 0),
+        preferred_group=existing.get('preferred_group'),
+        excluded_groups=existing.get('excluded_groups'),
+    )
+
+
 def pin_series_release_group(mal_id, group_name):
     """Pin (append) a preferred release group for *mal_id*, preserving other overrides & removing from exclusions."""
     if not mal_id or not str(mal_id).isdigit():

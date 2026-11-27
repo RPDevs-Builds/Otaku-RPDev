@@ -237,11 +237,56 @@ def _parse_dialogue_cues_seconds(sub_text: str, ext: str):
     return cues
 
 
-def detect_chapter_aligned_subtitle_offset_ms(sub_text: str, ext: str, scene_markers=None) -> int:
+def _parse_ass_sign_title_cues_seconds(sub_text: str, ext: str):
+    """Extract non-dialogue ASS/SSA Title/Sign intervals as sorted [(start_s, end_s), ...]
+    for post-OP title card false-positive guards."""
+    norm_ext = str(ext or '').lower()
+    if norm_ext not in ('.ass', '.ssa') or not sub_text:
+        return []
+    sign_cues = []
+    for raw_line in sub_text.splitlines():
+        line = raw_line.strip()
+        if not line.startswith('Dialogue:'):
+            continue
+        parts = line[9:].split(',', 9)
+        if len(parts) < 10:
+            continue
+        style = parts[3].strip().lower()
+        text_body = parts[9]
+        if not (any(w in style for w in ('sign', 'title', 'caption')) or _ASS_DRAW_POS_RE.search(text_body)):
+            continue
+        m_s = _ASS_TS_RE.search(parts[1])
+        m_e = _ASS_TS_RE.search(parts[2])
+        if not (m_s and m_e):
+            continue
+        s_val = int(m_s.group(1)) * 3600 + int(m_s.group(2)) * 60 + int(m_s.group(3)) + int(m_s.group(4)) / 100.0
+        e_val = int(m_e.group(1)) * 3600 + int(m_e.group(2)) * 60 + int(m_e.group(3)) + int(m_e.group(4)) / 100.0
+        plain = re.sub(r'\{[^}]*\}', '', text_body).strip()
+        if plain and e_val > s_val:
+            sign_cues.append((s_val, e_val))
+    sign_cues.sort(key=lambda item: item[0])
+    return sign_cues
+
+
+def _scene_marker_kind(marker) -> str:
+    """Return normalized scene marker kind/type across both player.py ('kind') and legacy ('type') schemas."""
+    if not isinstance(marker, dict):
+        return ''
+    return str(marker.get('type') or marker.get('kind') or '').strip().lower()
+
+
+def detect_chapter_aligned_subtitle_offset_ms(
+    sub_text: str,
+    ext: str,
+    scene_markers=None,
+    video_total_s: float = 0.0,
+) -> int:
     """
     Detect bounded broadcast-vs-BD/commercial-bumper shift (+-3s..+-12s) requiring
     multi-boundary corroboration between dialogue silence gaps and Kodi 22 / AniSkip chapter markers.
-    Returns 0 cleanly when ambiguous, out-of-range, or uncorroborated (guarding against post-OP title cards).
+    Also handles OP-at-0s episodes (intro_start <= 2.0s) via leading OP-end gap alignment while
+    preserving false-positive protection against silent post-OP title cards.
+    Returns 0 cleanly when ambiguous, out-of-range, or uncorroborated.
     """
     if not sub_text:
         return 0
@@ -251,8 +296,14 @@ def detect_chapter_aligned_subtitle_offset_ms(sub_text: str, ext: str, scene_mar
     if not isinstance(scene_markers, list) or not scene_markers:
         return 0
 
-    intro_marker = next((m for m in scene_markers if isinstance(m, dict) and m.get('type') in ('intro', 'op') and m.get('end')), None)
-    outro_marker = next((m for m in scene_markers if isinstance(m, dict) and m.get('type') in ('outro', 'ed') and m.get('start')), None)
+    intro_marker = next(
+        (m for m in scene_markers if _scene_marker_kind(m) in ('intro', 'op') and m.get('end')),
+        None,
+    )
+    outro_marker = next(
+        (m for m in scene_markers if _scene_marker_kind(m) in ('outro', 'ed') and m.get('start')),
+        None,
+    )
     if not intro_marker:
         return 0
 
@@ -269,12 +320,30 @@ def detect_chapter_aligned_subtitle_offset_ms(sub_text: str, ext: str, scene_mar
     if len(cues) < 3:
         return 0
 
+    outro_start = 0.0
+    if outro_marker:
+        try:
+            outro_start = float(outro_marker.get('start') or 0.0)
+        except (TypeError, ValueError):
+            outro_start = 0.0
+
+    try:
+        vid_total = float(video_total_s or 0.0)
+    except (TypeError, ValueError):
+        vid_total = 0.0
+
     # Find OP-sized silence gaps in non-signs dialogue cues
     min_gap_s = max(30.0, intro_dur * 0.65)
-    candidates = []
+    gap_windows = []
+    if intro_start <= 2.0 and cues[0][0] >= min_gap_s:
+        # Episode starts immediately with OP (e.g. intro 0-90s): evaluate leading OP-end gap
+        gap_windows.append((0.0, cues[0][0], True))
     for idx in range(len(cues) - 1):
-        pre_end = cues[idx][1]
-        post_start = cues[idx + 1][0]
+        gap_windows.append((cues[idx][1], cues[idx + 1][0], False))
+
+    sign_cues = None
+    candidates = []
+    for pre_end, post_start, is_leading in gap_windows:
         gap_len = post_start - pre_end
         if gap_len < min_gap_s or post_start > (intro_end + 30.0) or pre_end < max(0.0, intro_start - 30.0):
             continue
@@ -282,24 +351,47 @@ def detect_chapter_aligned_subtitle_offset_ms(sub_text: str, ext: str, scene_mar
         delta_ms = int(round(delta_s * 1000.0))
         if not (3000 <= abs(delta_ms) <= 12000):
             continue
-        # Multi-boundary corroboration (tolerance +-1500 ms = 1.5s):
-        # 1) intro_start + intro_end must both align with the shifted dialogue gap, OR
-        # 2) outro_start corroborates the same delta_s.
-        pre_aligned = abs((pre_end + delta_s) - intro_start) <= 1.5
+
         post_aligned = abs((post_start + delta_s) - intro_end) <= 1.5
         outro_corroborated = False
-        if outro_marker:
-            try:
-                outro_start = float(outro_marker.get('start') or 0.0)
-                if outro_start > intro_end + 60.0:
-                    outro_corroborated = any(
-                        abs((c_end + delta_s) - outro_start) <= 1.5
-                        for c_end in (c[1] for c in cues)
-                    )
-            except (TypeError, ValueError):
-                outro_corroborated = False
-        if (pre_aligned and post_aligned) or (post_aligned and outro_corroborated):
-            candidates.append((abs(delta_ms), delta_ms))
+        if outro_start > intro_end + 60.0:
+            outro_corroborated = any(
+                abs((c_end + delta_s) - outro_start) <= 1.5
+                for c_end in (c[1] for c in cues)
+            )
+
+        if not is_leading:
+            # Standard multi-boundary corroboration (tolerance +-1500 ms = 1.5s):
+            # 1) intro_start + intro_end must both align with the shifted dialogue gap, OR
+            # 2) outro_start corroborates the same delta_s.
+            pre_aligned = abs((pre_end + delta_s) - intro_start) <= 1.5
+            if (pre_aligned and post_aligned) or (post_aligned and outro_corroborated):
+                candidates.append((abs(delta_ms), delta_ms))
+        else:
+            # Leading OP gap (intro_start <= 2.0s, no spoken dialogue before OP):
+            # 1) Outro corroboration accepts both early (+) and late (-) shifts.
+            # 2) Positive shift (delta_ms > 0, dialogue starts early inside OP music): safe directly,
+            #    because a silent post-OP title card can only delay dialogue, never make it start early.
+            # 3) Negative shift (delta_ms < 0, dialogue starts after intro_end) without outro:
+            #    require duration-overflow corroboration and no synced ASS title/sign card at intro_end.
+            if post_aligned and outro_corroborated:
+                candidates.append((abs(delta_ms), delta_ms))
+            elif post_aligned and delta_ms > 0:
+                candidates.append((abs(delta_ms), delta_ms))
+            elif post_aligned and delta_ms < 0 and vid_total > 300.0:
+                if sign_cues is None:
+                    sign_cues = _parse_ass_sign_title_cues_seconds(sub_text, ext)
+                has_synced_title_card = any(
+                    (intro_end - 1.5) <= s_start <= (intro_end + 2.5)
+                    for s_start, _ in sign_cues
+                )
+                last_cue_end = cues[-1][1]
+                duration_overflow_corroborated = (
+                    last_cue_end > (vid_total + 1.5)
+                    and (last_cue_end + delta_s) <= (vid_total + 2.0)
+                )
+                if duration_overflow_corroborated and not has_synced_title_card:
+                    candidates.append((abs(delta_ms), delta_ms))
 
     if len(candidates) != 1:
         # Reject ambiguous/zero-match cases cleanly
@@ -425,25 +517,17 @@ def download_and_prepare_subtitle(
             settings.get('subtitles.auto_calibrate_chapters', False)
             or control.getBool('subtitles.auto_calibrate_chapters', False)
         ):
-            calibrated_ms = detect_chapter_aligned_subtitle_offset_ms(normalized_text, ext)
+            calibrated_ms = detect_chapter_aligned_subtitle_offset_ms(
+                normalized_text,
+                ext,
+                video_total_s=total_time,
+            )
             if calibrated_ms:
                 series_shift_ms = calibrated_ms
                 if mal_id and str(mal_id).isdigit():
                     try:
                         from resources.lib.ui import database
-                        existing_ov = database.get_series_override(mal_id) or {}
-                        database.set_series_override(
-                            mal_id,
-                            audio_lang=existing_ov.get('audio_lang'),
-                            sub_lang=existing_ov.get('sub_lang'),
-                            sub_mode=existing_ov.get('sub_mode'),
-                            preferred_provider=existing_ov.get('preferred_provider'),
-                            intro_offset_s=int(existing_ov.get('intro_offset_s') or 0),
-                            outro_offset_s=int(existing_ov.get('outro_offset_s') or 0),
-                            skip_filler_mode=existing_ov.get('skip_filler_mode') or 'default',
-                            episode_offset=int(existing_ov.get('episode_offset') or 0),
-                            sub_offset_ms=calibrated_ms,
-                        )
+                        database.update_series_sub_offset(mal_id, calibrated_ms)
                     except Exception:
                         pass
                 control.log_metric(
@@ -454,10 +538,18 @@ def download_and_prepare_subtitle(
                     source='chapter_align',
                 )
 
-        if series_shift_ms != 0:
-            normalized_text = shift_subtitle_timestamps(normalized_text, ext, series_shift_ms)
+        # Prevent double-shifting when Kodi already holds a per-file SubtitleDelay for this URL
+        try:
+            initial_kodi_delay_ms = int(control.playerWindow.getProperty('otaku.subtitle.initial_kodi_delay_ms') or 0)
+        except (TypeError, ValueError):
+            initial_kodi_delay_ms = 0
+        effective_bake_ms = series_shift_ms - initial_kodi_delay_ms
+
+        if effective_bake_ms != 0:
+            normalized_text = shift_subtitle_timestamps(normalized_text, ext, effective_bake_ms)
             control.log(
-                f"Native Subtitles: Applied {series_shift_ms:+d}ms per-series subtitle timing shift",
+                f"Native Subtitles: Applied {effective_bake_ms:+d}ms subtitle timing shift "
+                f"(series_offset={series_shift_ms:+d}ms, kodi_delay={initial_kodi_delay_ms:+d}ms)",
                 'info',
             )
 
@@ -485,6 +577,12 @@ def download_and_prepare_subtitle(
                     vfs_file.close()
         except Exception as vfs_err:
             control.log(f"Native Subtitles: VFS visibility sync warning for {dest_path}: {vfs_err}", 'debug')
+
+        try:
+            control.playerWindow.setProperty('otaku.subtitle.external_attached', 'true')
+            control.playerWindow.setProperty('otaku.subtitle.baked_offset_ms', str(effective_bake_ms))
+        except Exception:
+            pass
 
         control.log(f"Native Subtitles: Downloaded and prepared {dest_path} (enc={detected_enc})", 'info')
         return dest_path

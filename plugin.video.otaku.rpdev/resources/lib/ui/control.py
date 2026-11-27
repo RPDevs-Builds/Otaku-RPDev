@@ -2474,7 +2474,11 @@ def draw_items(video_data, content_type='', cacheToDisc=True):
         xbmcplugin.addSortMethod(HANDLE, xbmcplugin.SORT_METHOD_UNSORTED, "%L", "%R")
     xbmcplugin.endOfDirectory(HANDLE, cacheToDisc=cacheToDisc)
     _directory_ended = True
-    closeAllDialogs()
+    if not is_interactive_video_nav():
+        # Never close dialogs, mutate view modes, or stall smart-scroll when invoked via
+        # Files.GetDirectory() from Skin Shortcuts, Home widgets, or while a modal dialog is open.
+        return
+    closeBusyDialog()
     if getBool('interface.viewtype'):
         xbmc.sleep(100)  # Delay so the directory is painted before changing view mode
         if getBool('interface.viewidswitch'):
@@ -2597,6 +2601,41 @@ def clear_settings(silent=False):
 
 def exit_(code):
     sys.exit(code)
+
+
+_NON_MODAL_DIALOG_IDS = frozenset({
+    9999,   # WINDOW_INVALID (no dialog open)
+    10104,  # WINDOW_DIALOG_VOLUME_BAR
+    10107,  # WINDOW_DIALOG_KAI_TOAST (notification toast)
+    10113,  # WINDOW_DIALOG_MUTE_BUG
+    10115,  # WINDOW_DIALOG_SEEK_BAR
+    10138,  # WINDOW_DIALOG_BUSY
+    10151,  # WINDOW_DIALOG_EXT_PROGRESS
+    10160,  # WINDOW_DIALOG_BUSY_NOCANCEL
+})
+
+
+def has_active_modal_dialog():
+    """Return True when a user-interactive modal dialog (e.g. script-skinshortcuts,
+    DialogSelect, AddonSettings, ContextMenu, Custom Skin Dialog) is active."""
+    try:
+        dlg_id = xbmcgui.getCurrentWindowDialogId()
+        if not isinstance(dlg_id, int) or dlg_id < 1000:
+            return False
+        return dlg_id not in _NON_MODAL_DIALOG_IDS
+    except Exception:
+        return False
+
+
+def is_interactive_video_nav():
+    """Return True ONLY when Kodi is actively showing MyVideoNav (10025) with no
+    foreign modal dialog (such as Skin Shortcuts or DialogSelect) open above it."""
+    try:
+        if xbmcgui.getCurrentWindowId() != 10025:
+            return False
+    except Exception:
+        return False
+    return not has_active_modal_dialog()
 
 
 def is_addon_visible():

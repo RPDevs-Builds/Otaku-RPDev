@@ -1,7 +1,23 @@
 ========================
+[B]OTAKU RPDEV v6.9.1[/B]
+Subtitle Sync & Skin Shortcuts
+========================
+
+v6.9.1 Highlights:
+  * Subtitle Timing Persistence: Adjustments made with Kodi's in-player
+    Subtitle Delay slider on external Otaku subtitles now save
+    automatically to your Series Playback Profile for subsequent episodes
+    without double-shifting on replay.
+  * OP-End Chapter Calibration: Fixed chapter marker matching, added
+    OP-at-0s calibration with title-card false-positive protection, and
+    synchronized async AniSkip markers before auto-downloading subtitles.
+  * Skin Shortcuts Fix: Creating Home menu shortcuts to Otaku-RPDev via
+    Customize Main Menu no longer closes the Skin Shortcuts dialog.
+
+--------------------------------
 [B]OTAKU RPDEV v6.9.0[/B]
 Subtitle Service Settings Split
-========================
+--------------------------------
 
 v6.9.0 Highlights:
   * Dedicated Subtitle Service Settings (service.subtitles.otaku.rpdev

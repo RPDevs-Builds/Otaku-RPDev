@@ -875,6 +875,7 @@ mock_xbmcgui.ACTION_TOUCH_TAP = 401
 mock_xbmcgui.DLG_YESNO_YES_BTN = 11
 mock_xbmcgui.INPUT_ALPHANUM = 0
 mock_xbmcgui.getCurrentWindowId.return_value = 10000
+mock_xbmcgui.getCurrentWindowDialogId.return_value = 9999
 
 mock_xbmcgui.ListItem = MockListItem
 mock_xbmcgui.Dialog = MockDialog

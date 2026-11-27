@@ -41,7 +41,10 @@ if __name__ == "__main__":
         if (
             not control.is_addon_visible()
             and _route_key not in _no_delay_routes
+            and not control.has_active_modal_dialog()
             and not control.xbmc.getCondVisibility('Window.IsActive(addonsettings)')
+            and not control.xbmc.getCondVisibility('Window.IsActive(skinsettings)')
+            and not control.xbmc.getCondVisibility('Window.IsActive(selectdialog)')
         ):
             widget_delay = control.getInt('widgets.delay') or 0
             if widget_delay > 0:
@@ -78,6 +81,8 @@ if __name__ == "__main__":
                 if (
                     control.getInt('showchangelog') == 0
                     and control.is_addon_visible()
+                    and not control.has_active_modal_dialog()
+                    and not control.xbmc.getCondVisibility('Window.IsActive(skinsettings)')
                     and not control.xbmc.Player().isPlaying()
                 ):
                     control.xbmc.executebuiltin(f'RunPlugin(plugin://{control.ADDON_ID}/change_log)')

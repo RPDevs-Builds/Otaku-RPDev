@@ -1,3 +1,9 @@
+Changelog v6.9.1 (2026-11-27):
+- Subtitle Timing & Sync + Skin Shortcuts Modal Protection:
+  - Chapter-Aligned Subtitle Calibration: Fixed `otaku.scene_markers` `'kind'`/`'type'` schema mismatch, added `intro_start <= 2.0s` OP-end calibration (positive shifts accepted directly; negative shifts require outro, pre-OP, or duration-overflow corroboration with ASS Title/Sign false-positive guards), and added abort-safe async `AniSkip` / chapter wait before auto-subtitle calibration.
+  - Kodi In-Player Subtitle Delay Persistence: Added strictly read-only (`?mode=ro`) `MyVideos*.db` `settings.SubtitleDelay` reader and non-destructive `database.update_series_sub_offset()` so user OSD subtitle delay tweaks on external Otaku subtitles persist across episodes without clobbering other series overrides or double-shifting on replay.
+  - Skin Shortcuts & Modal Dialog Fix: Removed `closeAllDialogs()` (`Dialog.Close(all,true)`) from `control.draw_items()` and guarded `closeBusyDialog()`, `Container.SetViewMode()`, smart scroll (`wait_loop`), `widgets.delay`, and post-upgrade `change_log` popups against modal dialogs / non-`MyVideoNav` contexts so `script.skinshortcuts` Customize Main Menu never cancels when adding Otaku-RPDev shortcuts.
+
 Changelog v6.9.0 (2026-11-27):
 - Companion Subtitle Service Settings Split (service.subtitles.otaku.rpdev v1.1.0 / service.otaku.rpdev v1.2.0):
   - Moved all 23 online subtitle engine settings, 8 subtitle provider toggles & credentials (OpenSubtitles, SubDL, SubSource, Podnadpisi, BSPlayer, Addic7ed, Jimaku, AnimeTosho), and service actions into service.subtitles.otaku.rpdev (`SubtitleService` and `SubtitleProviders` categories), keeping 7 Otaku playback/embedded subtitle track settings + a 1-click shortcut button under Settings > Subtitles (and Tools).
