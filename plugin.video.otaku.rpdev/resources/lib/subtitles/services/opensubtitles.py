@@ -149,7 +149,7 @@ class OpenSubtitlesService:
                 }
                 if meta.imdb_id_int:
                     fallback_params['parent_imdb_id'] = meta.imdb_id_int
-                if query_title:
+                elif query_title:
                     fallback_params['query'] = f"{query_title} {ep_int:02d}"
                 fb_res = client.get(url, params=fallback_params, headers=headers, timeout=timeout)
                 if fb_res and fb_res.status_code == 200:

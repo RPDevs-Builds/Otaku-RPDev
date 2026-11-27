@@ -1,3 +1,10 @@
+Changelog v6.6.3 (2026-11-27):
+- Multi-Season & Long-Running Anime Subtitle Search Fixes:
+  - OpenSubtitles S1E21+ Fallback: Removed restrictive text `query` when `parent_imdb_id` is set so multi-season series (e.g. Bleach) return all available episodes and season packs.
+  - AnimeTosho 3-Digit Padding & Detail Budget: Gave `anidb_aid -> q` fallback a fresh detail-fetch budget (`<= 2`) and added 3-digit zero-padded episode fallback (`060`) for 100+ episode anime.
+  - SubSource Multi-Season Querying: When `season=1` and `episode > 20`, SubSource now queries additional season entries returned by `/movies/search` instead of locking solely to Season 1 packs.
+  - Provider Telemetry: Added `info`-level per-provider result counts (`Native Subtitles: Provider results: ...`) for instant diagnosis.
+
 Changelog v6.6.2 (2026-11-26):
 - Long-Running Anime Subtitle Search & DNS Gate Hardening:
   - Subtitle DNS Gate Isolation: Added client.bypass_connectivity_gate() around parallel subtitle provider queries so dead/blocked subtitle hosts no longer trip the 15s global DNS connectivity gate across other providers.

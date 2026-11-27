@@ -343,18 +343,26 @@ def search_all_services(meta: VideoMeta, settings: Dict[str, Any]) -> List[Subti
 
     # Run in parallel across thread pool
     max_workers = min(len(enabled_services), 8)
+    provider_counts: Dict[str, int] = {}
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         future_map = {executor.submit(_query, svc): svc[0] for svc in enabled_services}
         try:
             for future in concurrent.futures.as_completed(future_map, timeout=timeout + 5):
+                svc_name = future_map[future]
                 try:
                     sub_list = future.result()
+                    provider_counts[svc_name] = len(sub_list) if sub_list else 0
                     if sub_list:
                         all_results.extend(sub_list)
                 except Exception as e:
-                    control.log(f"Search future exception: {e}", 'warning')
+                    provider_counts[svc_name] = 0
+                    control.log(f"Search future exception ({svc_name}): {e}", 'warning')
         except concurrent.futures.TimeoutError:
             control.log("Native Subtitles: search_all_services timeout exceeded", 'warning')
+
+    if provider_counts:
+        summary = ", ".join(f"{k}={v}" for k, v in sorted(provider_counts.items()))
+        control.log(f"Native Subtitles: Provider results: {summary}", 'info')
 
     if not all_results:
         return []

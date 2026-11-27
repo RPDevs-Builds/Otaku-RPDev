@@ -94,50 +94,79 @@ class SubSourceService:
             if matched_season is None and target_movie_id == first_season_id and meta.is_tvshow:
                 matched_season = 1
 
-            # 2. Query subtitles for the target movie/season ID
-            sub_params = {
-                'movieId': target_movie_id,
-                'language': ','.join([l.lower() for l in meta.languages]),
-            }
-            subs_res = client.get(f"{API_BASE}/subtitles", params=sub_params, headers=headers, timeout=timeout)
-            if not subs_res or subs_res.status_code != 200:
-                return []
+            # For long-running absolute-numbered anime (e.g. Bleach S1E60), Season 1 on SubSource
+            # only covers early episodes; also query additional season entries in `relevant`.
+            query_targets = [(target_movie_id, matched_season)]
+            if (
+                meta.is_tvshow
+                and str(meta.season or '') == '1'
+                and str(meta.episode or '').isdigit()
+                and int(meta.episode) > 20
+            ):
+                seen_mids = {target_movie_id}
+                for item in relevant:
+                    mid = item.get('movieId')
+                    if not mid or mid in seen_mids:
+                        continue
+                    seen_mids.add(mid)
+                    try:
+                        it_season = int(item.get('season')) if item.get('season') is not None else None
+                    except (ValueError, TypeError):
+                        it_season = None
+                    query_targets.append((mid, it_season))
+                    if len(query_targets) >= 5:
+                        break
 
-            subs_data = subs_res.json(default={})
-            if not isinstance(subs_data, dict) or not subs_data.get('success') or not subs_data.get('data'):
-                return []
-
+            # 2. Query subtitles for the target movie/season ID(s)
             results = []
-            for item in subs_data['data']:
-                rel_info = item.get('releaseInfo', [''])
-                name = rel_info[0] if rel_info else f"{target_name}.srt"
-                lang_name = (item.get('language') or 'English').capitalize()
-                lang_code = languages.to_iso639_1(lang_name)
-                impaired = bool(item.get('hearingImpaired', False))
-                link = item.get('link', '')
-                sub_id = link.split('/')[-1] if link else str(item.get('subtitleId', ''))
+            seen_sub_ids = set()
+            for q_mid, q_season in query_targets:
+                sub_params = {
+                    'movieId': q_mid,
+                    'language': ','.join([l.lower() for l in meta.languages]),
+                }
+                subs_res = client.get(f"{API_BASE}/subtitles", params=sub_params, headers=headers, timeout=timeout)
+                if not subs_res or subs_res.status_code != 200:
+                    continue
 
-                rating_data = item.get('rating', {})
-                rating = float(rating_data.get('total', 0.0) or 0.0)
+                subs_data = subs_res.json(default={})
+                if not isinstance(subs_data, dict) or not subs_data.get('success') or not subs_data.get('data'):
+                    continue
 
-                sub = SubtitleResult(
-                    service_name=cls.service_name,
-                    display_name=cls.display_name,
-                    name=name,
-                    lang=lang_name,
-                    lang_code=lang_code,
-                    download_url=f"{API_BASE}/subtitles/{sub_id}/download",
-                    rating=rating,
-                    sync=(meta.filename_without_ext.lower() in name.lower()) if meta.filename_without_ext else False,
-                    impaired=impaired,
-                    season=matched_season if meta.is_tvshow else None,
-                    action_args={
-                        'sub_id': sub_id,
-                        'apikey': apikey,
-                        'filename': name,
-                    },
-                )
-                results.append(sub)
+                for item in subs_data['data']:
+                    rel_info = item.get('releaseInfo', [''])
+                    name = rel_info[0] if rel_info else f"{target_name}.srt"
+                    lang_name = (item.get('language') or 'English').capitalize()
+                    lang_code = languages.to_iso639_1(lang_name)
+                    impaired = bool(item.get('hearingImpaired', False))
+                    link = item.get('link', '')
+                    sub_id = link.split('/')[-1] if link else str(item.get('subtitleId', ''))
+                    if sub_id and sub_id in seen_sub_ids:
+                        continue
+                    if sub_id:
+                        seen_sub_ids.add(sub_id)
+
+                    rating_data = item.get('rating', {})
+                    rating = float(rating_data.get('total', 0.0) or 0.0)
+
+                    sub = SubtitleResult(
+                        service_name=cls.service_name,
+                        display_name=cls.display_name,
+                        name=name,
+                        lang=lang_name,
+                        lang_code=lang_code,
+                        download_url=f"{API_BASE}/subtitles/{sub_id}/download",
+                        rating=rating,
+                        sync=(meta.filename_without_ext.lower() in name.lower()) if meta.filename_without_ext else False,
+                        impaired=impaired,
+                        season=q_season if meta.is_tvshow else None,
+                        action_args={
+                            'sub_id': sub_id,
+                            'apikey': apikey,
+                            'filename': name,
+                        },
+                    )
+                    results.append(sub)
 
             return results
         except Exception as e:

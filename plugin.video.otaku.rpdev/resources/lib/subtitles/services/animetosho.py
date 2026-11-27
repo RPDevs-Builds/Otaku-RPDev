@@ -209,13 +209,13 @@ class AnimetoshoSubtitleService:
     display_name = 'AnimeTosho'
 
     @classmethod
-    def _query_title_entries(cls, meta: VideoMeta, timeout: float) -> tuple[List[Dict[str, Any]], str]:
+    def _query_title_entries(cls, meta: VideoMeta, timeout: float, pad_width: int = 2) -> tuple[List[Dict[str, Any]], str]:
         """Query AnimeTosho JSON feed by title + episode and gate with score_title_candidate >= 100."""
         query_title = (meta.tvshow or meta.title or meta.search_string or '').strip()
         if not query_title:
             return [], ''
         if meta.is_tvshow and meta.episode and str(meta.episode).isdigit():
-            q_str = f"{query_title} {int(meta.episode):02d}"
+            q_str = f"{query_title} {int(meta.episode):0{pad_width}d}"
         else:
             q_str = query_title
         url = _join_query(FEED_BASE_URL, {'q': q_str})
@@ -405,7 +405,7 @@ class AnimetoshoSubtitleService:
         )
 
         # Long-running anime (e.g. Bleach aid=2369) return only recent batches/episodes on aid= queries;
-        # fall back to title+episode query when aid yields 0 usable subtitle attachments.
+        # fall back to title+episode query (2-digit then 3-digit padding for 100+ ep series) when aid yields 0.
         if (
             not results
             and matched_via == 'anidb_aid'
@@ -413,11 +413,25 @@ class AnimetoshoSubtitleService:
             and not control.monitor.abortRequested()
         ):
             rem_timeout = min(timeout, max(1.5, deadline - time.monotonic()))
-            q_entries, q_via = cls._query_title_entries(meta, timeout=rem_timeout)
+            q_entries, q_via = cls._query_title_entries(meta, timeout=rem_timeout, pad_width=2)
             if q_entries:
                 results.extend(
-                    cls._collect_results(q_entries, q_via, meta, timeout, deadline, seen_urls, detail_budget=detail_budget)
+                    cls._collect_results(q_entries, q_via, meta, timeout, deadline, seen_urls, detail_budget=[0])
                 )
+            if (
+                not results
+                and meta.episode
+                and str(meta.episode).isdigit()
+                and int(meta.episode) < 100
+                and (deadline - time.monotonic()) > 2.0
+                and not control.monitor.abortRequested()
+            ):
+                rem_timeout = min(timeout, max(1.5, deadline - time.monotonic()))
+                q3_entries, q3_via = cls._query_title_entries(meta, timeout=rem_timeout, pad_width=3)
+                if q3_entries:
+                    results.extend(
+                        cls._collect_results(q3_entries, q3_via, meta, timeout, deadline, seen_urls, detail_budget=[0])
+                    )
 
         return results
 
