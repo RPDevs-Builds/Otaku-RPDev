@@ -979,6 +979,7 @@ class TestCR04CIReleaseAndPackaging(unittest.TestCase):
             cov_proc = run_cli_script(
                 'scripts/audit_function_coverage.py',
                 ['--test-target', 'tests.lint.test_ast_integrity', '--fail-below', '0', '--json', cov_json],
+                timeout=120,
             )
             self.assertIn(cov_proc.returncode, (0, 1))
             with open(cov_json, 'r', encoding='utf-8') as jf:
