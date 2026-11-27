@@ -219,7 +219,7 @@ class SourceSelect(BaseWindow):
         if not isinstance(override, dict):
             return ''
         norm_grp = source_utils.normalize_release_group(release_group)
-        if norm_grp and norm_grp == source_utils.normalize_release_group(override.get('preferred_group')):
+        if norm_grp and norm_grp in source_utils.parse_release_group_set(override.get('preferred_group')):
             return 'pinned'
         if norm_grp and norm_grp in source_utils.parse_excluded_groups(override.get('excluded_groups')):
             return 'excluded'
@@ -353,7 +353,7 @@ class SourceSelect(BaseWindow):
                     self._refresh_group_status_in_place()
                     control.notify(control.ADDON_NAME, f"Pinned release group: {release_group}")
             elif chosen == "unpin_group":
-                if database.unpin_series_release_group(mal_id):
+                if database.unpin_series_release_group(mal_id, release_group):
                     database.clear_episode_sources(mal_id)
                     self._refresh_group_status_in_place()
                     control.notify(control.ADDON_NAME, f"Unpinned release group: {release_group}")

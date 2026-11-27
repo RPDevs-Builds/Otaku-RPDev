@@ -812,13 +812,26 @@ class Sources(GetSources):
         # Sort sources (Seren-style composite keys; fresh sort_options.json)
         sortedList = sort_select.sort_sources_list(sortedList)
 
-        # NF-06 / Track A: Per-Series Overrides (Excluded Release Groups, Preferred Group, Preferred Provider)
+        # NF-06 / Release-Group Sorting & Filtering (Per-Series overrides + Global Sort & Filter)
         series_override = database.get_series_override(mal_id) if mal_id else None
+        series_pref_list = source_utils.parse_release_groups(
+            series_override.get('preferred_group') if isinstance(series_override, dict) else ''
+        )
+        global_pref_list = source_utils.parse_release_groups(
+            control.getSetting('general.release_group.preferred') or ''
+        )
+        effective_pref_list = series_pref_list if series_pref_list else global_pref_list
+        preferred_groups = {g.lower() for g in effective_pref_list}
 
-        # Safe release-group exclusion: filter excluded groups ONLY when >= 1 playable candidate remains
-        excluded_groups = source_utils.parse_excluded_groups(
+        series_excl = source_utils.parse_release_group_set(
             series_override.get('excluded_groups') if isinstance(series_override, dict) else ''
         )
+        global_excl = source_utils.parse_release_group_set(
+            control.getSetting('general.release_group.excluded') or ''
+        )
+        # Per-series preferred groups override global exclusions (unless also explicitly excluded per-series)
+        excluded_groups = (global_excl - {g.lower() for g in series_pref_list}) | series_excl
+
         if excluded_groups and sortedList:
             kept = [
                 src for src in sortedList
@@ -855,19 +868,22 @@ class Sources(GetSources):
                 return 2
             return 3
 
-        preferred_group_norm = source_utils.normalize_release_group(
-            series_override.get('preferred_group') if isinstance(series_override, dict) else ''
-        )
+        # Multi-group intra-tier boost (strictly inside same relevance tier; never promotes Tier 1/2/3
+        # derivatives over Tier 0 exact match and never hard-drops non-matching groups)
+        if preferred_groups and sortedList:
+            tiebreak_mode = control.getInt('general.release_group.tiebreak', 0)
+            rank_map = {g.lower(): idx for idx, g in enumerate(effective_pref_list)}
+            non_match_rank = len(effective_pref_list)
 
-        # Soft intra-tier +25 priority boost for pinned release group (strictly inside same relevance tier;
-        # never promotes Tier 1/2/3 derivatives over Tier 0 exact match and never hard-drops non-matching groups)
-        if preferred_group_norm and sortedList:
             def _tier_and_group_key(item):
                 tier = _get_relevance_tier(item)
                 cand_group = source_utils.normalize_release_group(
                     source_utils.extract_release_group(item.get('release_title') or item.get('filename') or '')
                 )
-                group_pin_bonus = 25 if cand_group == preferred_group_norm else 0
+                is_pref = cand_group in preferred_groups
+                group_pin_bonus = 25 if is_pref else 0
+                if tiebreak_mode == 1:
+                    return (tier, -group_pin_bonus, rank_map.get(cand_group, non_match_rank))
                 return (tier, -group_pin_bonus)
 
             sortedList.sort(key=_tier_and_group_key)
@@ -875,7 +891,7 @@ class Sources(GetSources):
             sortedList.sort(key=_get_relevance_tier)
 
         override_prov = (series_override.get('preferred_provider') or '').strip().lower() if isinstance(series_override, dict) else ''
-        override_applied = bool(preferred_group_norm)
+        override_applied = bool(preferred_groups)
         if override_prov and override_prov not in ('auto', 'default', 'none'):
             match_idx = -1
             for idx, src in enumerate(sortedList):

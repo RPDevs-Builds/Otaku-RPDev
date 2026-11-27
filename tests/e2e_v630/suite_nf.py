@@ -183,7 +183,7 @@ class TestSuiteNFWave3Features(TestWave3FeaturesNF01ToNF08):
     @tier(2)
     @feature('NF-06', 'NF-12')
     def test_track_a_release_group_pinning_and_exclusion_e2e(self):
-        """E2E Track A: Pinning & excluding release groups in SQLite series_overrides governs sortSources() strictly inside relevance tiers."""
+        """E2E Track A: Multi-group per-series + global Sort & Filter tie-breaking and exclusions."""
         from resources.lib.pages import Sources
         from resources.lib.ui import control, database
 
@@ -192,9 +192,12 @@ class TestSuiteNFWave3Features(TestWave3FeaturesNF01ToNF08):
         control.setInt('general.fileFilter', 0)
         control.setInt('general.source', 0)
         control.setBool('general.release_title_filter.enabled', False)
+        control.setSetting('general.release_group.preferred', '')
+        control.setSetting('general.release_group.excluded', 'Judas')
+        control.setInt('general.release_group.tiebreak', 1)
         try:
             self.assertTrue(database.pin_series_release_group(52991, 'Erai-raws'))
-            self.assertTrue(database.exclude_series_release_group(52991, 'Judas'))
+            self.assertTrue(database.pin_series_release_group(52991, 'SubsPlease'))
 
             cands = [
                 {'release_title': '[Judas] Frieren - 01 (1080p).mkv', 'hash': 'h1', 'type': 'torrent', 'quality': 3, 'debrid_provider': 'Real-Debrid', 'provider': 'nyaa', 'size': '1.0 GB', 'seeders': 80, 'byte_size': 10**9, 'info': ['1080p'], 'lang': 0, 'cached': True, 'relevance': 160},
@@ -204,12 +207,14 @@ class TestSuiteNFWave3Features(TestWave3FeaturesNF01ToNF08):
             ]
             ranked = Sources.__new__(Sources).sortSources(cands, [], [], [], [], 'episode', 24, mal_id='52991')
             titles = [r['release_title'] for r in ranked]
-            # Judas excluded; Erai-raws Tier 0 promoted #1; SubsPlease Tier 0 kept #2; Erai-raws Tier 1 stays #3
+            # Judas excluded by global Sort & Filter; Erai-raws (idx 0) > SubsPlease (idx 1) in Strict Selection Order; Tier 1 stays #3
             self.assertEqual(len(titles), 3)
             self.assertTrue(titles[0].startswith('[Erai-raws] Frieren - 01'))
             self.assertTrue(titles[1].startswith('[SubsPlease]'))
             self.assertTrue(titles[2].startswith('[Erai-raws] Frieren OVA'))
         finally:
+            control.setSetting('general.release_group.excluded', '')
+            control.setInt('general.release_group.tiebreak', 0)
             database.delete_series_override(52991)
 
     @tier(2)

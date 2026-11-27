@@ -7,7 +7,7 @@
 """
 
 import xbmcgui
-from resources.lib.ui import control, database
+from resources.lib.ui import control, database, source_utils
 from resources.lib.windows.base_window import BaseWindow
 
 _AUDIO_CHOICES = [
@@ -158,19 +158,76 @@ _FIELD_SPECS = [
     },
     {
         'key': 'preferred_group',
-        'title': 'Preferred Release Group',
-        'description': 'Prioritize a fansub/encode group within equal relevance tiers (e.g. SubsPlease, Judas)',
-        'kind': 'text',
+        'title': 'Preferred Release Groups',
+        'description': 'Multi-select preferred fansub/encode groups boosted within equal relevance tiers',
+        'kind': 'release_groups',
         'default': '',
     },
     {
         'key': 'excluded_groups',
         'title': 'Excluded Release Groups',
-        'description': 'Comma-separated release groups to avoid when alternatives exist (e.g. Judas, EMBER)',
-        'kind': 'text',
+        'description': 'Multi-select release groups to avoid when alternative sources exist',
+        'kind': 'release_groups',
         'default': '',
     },
 ]
+
+
+def _build_release_group_choices(current_csv, recent_groups=None):
+    """Build ordered, deduplicated list of (group_name, display_label) choices."""
+    current_list = source_utils.parse_release_groups(current_csv)
+    choices = []
+    seen = set()
+
+    def _add(grp, tag=''):
+        clean = str(grp or '').strip()
+        norm = clean.lower()
+        if not norm or norm in seen:
+            return
+        seen.add(norm)
+        choices.append((clean, f"{clean} {tag}".strip() if tag else clean))
+
+    for rg in (recent_groups or []):
+        _add(rg, '[Recent]')
+    for cg in current_list:
+        if not any(p.lower() == cg.lower() for p in source_utils.PRECONFIGURED_RELEASE_GROUPS):
+            _add(cg, '[Custom]')
+    for pg in source_utils.PRECONFIGURED_RELEASE_GROUPS:
+        _add(pg)
+    return choices
+
+
+def prompt_release_groups_selection(heading, current_csv, recent_groups=None):
+    """Shared interactive multi-select + custom-entry dialog for release groups.
+
+    Returns updated CSV string when modified, or ``None`` when canceled.
+    """
+    current_list = source_utils.parse_release_groups(current_csv)
+    summary = ', '.join(current_list[:2]) + (f' (+{len(current_list) - 2} more)' if len(current_list) > 2 else '')
+    opts = ['Select Release Groups (Multi-Select)', 'Add Custom Release Group(s)...']
+    if current_list:
+        opts.append('Clear All (Global Default)')
+
+    pick = control.select_dialog(f"{heading} ({summary or 'None'})", opts)
+    if pick < 0 or pick >= len(opts):
+        return None
+    if pick == 2:
+        return ''
+    if pick == 1:
+        raw = control.input_dialog(heading, ', '.join(current_list))
+        if raw is None:
+            return None
+        return source_utils.format_release_groups_csv(raw)
+
+    choices = _build_release_group_choices(current_csv, recent_groups=recent_groups)
+    labels = [lbl for _grp, lbl in choices]
+    current_norms = {g.lower() for g in current_list}
+    preselect = [i for i, (grp, _lbl) in enumerate(choices) if grp.lower() in current_norms]
+    selected_indices = control.multiselect_dialog(heading, labels, preselect=preselect)
+    if selected_indices is None:
+        return None
+    chosen = [choices[i][0] for i in selected_indices if 0 <= i < len(choices)]
+    return source_utils.format_release_groups_csv(chosen)
 
 
 class SeriesProfileDialog(BaseWindow):
@@ -226,8 +283,8 @@ class SeriesProfileDialog(BaseWindow):
                     k = spec['key']
                     if spec['kind'] == 'int':
                         vals[k] = int(existing.get(k) or 0)
-                    elif spec['kind'] == 'text':
-                        vals[k] = str(existing.get(k) or '').strip()
+                    elif spec['kind'] in ('text', 'release_groups'):
+                        vals[k] = source_utils.format_release_groups_csv(existing.get(k) or '') if spec['kind'] == 'release_groups' else str(existing.get(k) or '').strip()
                     else:
                         raw_v = existing.get(k)
                         vals[k] = raw_v if raw_v is not None else spec['default']
@@ -289,6 +346,13 @@ class SeriesProfileDialog(BaseWindow):
             is_ovr = (ival != 0)
             sign_str = f"{ival:+d}{spec.get('unit', '')}" if is_ovr else "0 (Global Default)"
             return sign_str, is_ovr
+        if spec['kind'] == 'release_groups':
+            groups = source_utils.parse_release_groups(val)
+            if not groups:
+                return 'Global Default', False
+            if len(groups) <= 2:
+                return ', '.join(groups), True
+            return f"{groups[0]}, {groups[1]} (+{len(groups) - 2} more)", True
         if spec['kind'] == 'text':
             sval = str(val or '').strip()
             return (sval, True) if sval else ("Global Default", False)
@@ -365,6 +429,37 @@ class SeriesProfileDialog(BaseWindow):
             if pick >= 0:
                 self.values[spec['key']] = spec['choices'][pick][0]
                 self._refresh_row_in_place(idx)
+        elif spec['kind'] == 'release_groups':
+            recent = []
+            if self.mal_id:
+                try:
+                    lp = database.get_last_played_source(self.mal_id)
+                    if isinstance(lp, dict):
+                        lp_grp = source_utils.extract_release_group(
+                            lp.get('release_title') or lp.get('release_group') or ''
+                        ) or str(lp.get('release_group') or '').strip()
+                        if lp_grp:
+                            recent.append(lp_grp)
+                except Exception:
+                    pass
+            cur_csv = str(self.values.get(spec['key']) or '')
+            updated_csv = prompt_release_groups_selection(spec['title'], cur_csv, recent_groups=recent)
+            if updated_csv is None:
+                return
+            self.values[spec['key']] = updated_csv
+            # Enforce mutual exclusivity between preferred_group and excluded_groups
+            other_key = 'excluded_groups' if spec['key'] == 'preferred_group' else 'preferred_group'
+            chosen_norms = source_utils.parse_release_group_set(updated_csv)
+            if chosen_norms:
+                other_kept = [
+                    g for g in source_utils.parse_release_groups(self.values.get(other_key) or '')
+                    if g.lower() not in chosen_norms
+                ]
+                self.values[other_key] = source_utils.format_release_groups_csv(other_kept)
+                other_idx = next((i for i, s in enumerate(_FIELD_SPECS) if s['key'] == other_key), None)
+                if other_idx is not None:
+                    self._refresh_row_in_place(other_idx)
+            self._refresh_row_in_place(idx)
         elif spec['kind'] == 'text':
             cur_s = str(self.values.get(spec['key']) or '').strip()
             opts = ["Enter Value...", "Clear (Global Default)"] if cur_s else ["Enter Value..."]
@@ -420,7 +515,7 @@ class SeriesProfileDialog(BaseWindow):
             cur_v = int(self.values.get(key) or 0)
             new_v = max(spec['min'], min(spec['max'], cur_v + (int(delta) * spec.get('step', 1))))
             self.values[key] = new_v
-        elif spec['kind'] == 'text':
+        elif spec['kind'] in ('text', 'release_groups'):
             self.edit_field(idx)
             return
         else:

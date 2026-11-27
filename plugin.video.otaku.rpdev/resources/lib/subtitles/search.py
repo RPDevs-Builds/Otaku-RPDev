@@ -197,14 +197,18 @@ def score_result(sub: SubtitleResult, meta: VideoMeta, settings: Dict[str, Any])
         sub_group = source_utils.normalize_release_group(
             getattr(sub, 'release_group', '') or source_utils.extract_release_group(sub.name)
         )
-        target_groups = {
-            g for g in (
-                source_utils.normalize_release_group(getattr(meta, 'release_group', '')),
-                source_utils.normalize_release_group(getattr(meta, 'preferred_group', '')),
-                source_utils.normalize_release_group(source_utils.extract_release_group(meta.filename)),
+        target_groups = set()
+        for g in (
+            source_utils.normalize_release_group(getattr(meta, 'release_group', '')),
+            source_utils.normalize_release_group(source_utils.extract_release_group(meta.filename)),
+        ):
+            if g:
+                target_groups.add(g)
+        target_groups.update(source_utils.parse_release_group_set(getattr(meta, 'preferred_group', '')))
+        if not getattr(meta, 'preferred_group', ''):
+            target_groups.update(
+                source_utils.parse_release_group_set(control.getSetting('general.release_group.preferred') or '')
             )
-            if g
-        }
         if sub_group and sub_group in target_groups:
             score += 1.2
             group_matched = True

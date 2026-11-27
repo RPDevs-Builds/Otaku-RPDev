@@ -3566,7 +3566,7 @@ def set_series_override(
 
 
 def pin_series_release_group(mal_id, group_name):
-    """Pin a preferred release group for *mal_id*, preserving all other overrides and clearing from exclusions."""
+    """Pin (append) a preferred release group for *mal_id*, preserving other overrides & removing from exclusions."""
     if not mal_id or not str(mal_id).isdigit():
         return False
     clean_group = str(group_name or '').strip()
@@ -3574,10 +3574,12 @@ def pin_series_release_group(mal_id, group_name):
         return unpin_series_release_group(mal_id)
     norm_target = source_utils.normalize_release_group(clean_group)
     existing = get_series_override(mal_id) or {}
-    excl_raw = str(existing.get('excluded_groups') or '')
+    pref_list = source_utils.parse_release_groups(existing.get('preferred_group') or '')
+    if not any(g.lower() == norm_target for g in pref_list):
+        pref_list.append(clean_group)
     kept_excl = [
-        g.strip() for g in excl_raw.replace(';', ',').split(',')
-        if g.strip() and source_utils.normalize_release_group(g) != norm_target
+        g for g in source_utils.parse_release_groups(existing.get('excluded_groups') or '')
+        if g.lower() != norm_target
     ]
     return set_series_override(
         mal_id,
@@ -3590,18 +3592,27 @@ def pin_series_release_group(mal_id, group_name):
         skip_filler_mode=existing.get('skip_filler_mode') or 'default',
         episode_offset=int(existing.get('episode_offset') or 0),
         sub_offset_ms=int(existing.get('sub_offset_ms') or 0),
-        preferred_group=clean_group,
-        excluded_groups=', '.join(kept_excl),
+        preferred_group=source_utils.format_release_groups_csv(pref_list),
+        excluded_groups=source_utils.format_release_groups_csv(kept_excl),
     )
 
 
-def unpin_series_release_group(mal_id):
-    """Clear preferred release group for *mal_id*, preserving all other overrides."""
+def unpin_series_release_group(mal_id, group_name=None):
+    """Remove *group_name* from preferred release groups (or clear all when None), preserving other overrides."""
     if not mal_id or not str(mal_id).isdigit():
         return False
     existing = get_series_override(mal_id)
     if not isinstance(existing, dict):
         return True
+    if group_name:
+        norm_target = source_utils.normalize_release_group(group_name)
+        kept_pref = [
+            g for g in source_utils.parse_release_groups(existing.get('preferred_group') or '')
+            if g.lower() != norm_target
+        ]
+        new_pref = source_utils.format_release_groups_csv(kept_pref)
+    else:
+        new_pref = ''
     return set_series_override(
         mal_id,
         audio_lang=existing.get('audio_lang'),
@@ -3613,7 +3624,7 @@ def unpin_series_release_group(mal_id):
         skip_filler_mode=existing.get('skip_filler_mode') or 'default',
         episode_offset=int(existing.get('episode_offset') or 0),
         sub_offset_ms=int(existing.get('sub_offset_ms') or 0),
-        preferred_group='',
+        preferred_group=new_pref,
         excluded_groups=existing.get('excluded_groups') or '',
     )
 
@@ -3627,17 +3638,14 @@ def exclude_series_release_group(mal_id, group_name, remove=False):
         return False
     norm_target = source_utils.normalize_release_group(clean_group)
     existing = get_series_override(mal_id) or {}
-    excl_raw = str(existing.get('excluded_groups') or '')
-    groups = [g.strip() for g in excl_raw.replace(';', ',').split(',') if g.strip()]
+    groups = source_utils.parse_release_groups(existing.get('excluded_groups') or '')
+    pref_list = source_utils.parse_release_groups(existing.get('preferred_group') or '')
     if remove:
-        groups = [g for g in groups if source_utils.normalize_release_group(g) != norm_target]
-        pref = str(existing.get('preferred_group') or '').strip()
+        groups = [g for g in groups if g.lower() != norm_target]
     else:
-        if not any(source_utils.normalize_release_group(g) == norm_target for g in groups):
+        if not any(g.lower() == norm_target for g in groups):
             groups.append(clean_group)
-        pref = str(existing.get('preferred_group') or '').strip()
-        if pref and source_utils.normalize_release_group(pref) == norm_target:
-            pref = ''
+        pref_list = [g for g in pref_list if g.lower() != norm_target]
     return set_series_override(
         mal_id,
         audio_lang=existing.get('audio_lang'),
@@ -3649,8 +3657,8 @@ def exclude_series_release_group(mal_id, group_name, remove=False):
         skip_filler_mode=existing.get('skip_filler_mode') or 'default',
         episode_offset=int(existing.get('episode_offset') or 0),
         sub_offset_ms=int(existing.get('sub_offset_ms') or 0),
-        preferred_group=pref,
-        excluded_groups=', '.join(groups),
+        preferred_group=source_utils.format_release_groups_csv(pref_list),
+        excluded_groups=source_utils.format_release_groups_csv(groups),
     )
 
 

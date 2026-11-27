@@ -289,6 +289,11 @@ SORT_AND_FILTER_SETTING_IDS = {
     "general.release_title_filter.exclude3",
     "general.release_title_filter.exclude4",
     "general.release_title_filter.exclude5",
+    "general.release_group.select_preferred",
+    "general.release_group.preferred",
+    "general.release_group.tiebreak",
+    "general.release_group.select_excluded",
+    "general.release_group.excluded",
     "sort_filter.reset_category",
 }
 
@@ -470,7 +475,7 @@ CONTEXT_CUSTOMIZATION_SETTING_IDS = {
     "context.otaku.fanartselect",
     "context.otaku.clearcache",
     "context.otaku.inspectmappings",
-    "context.otaku.pinreleasegroup",
+    "context.otaku.seriesprofile",
     "context_customization.reset_category",
 }
 
@@ -764,8 +769,8 @@ class TestAllSettingsOutcomes(unittest.TestCase):
         Assert that TESTED_SETTING_IDS contains exactly all 471 declared settings
         from resources/settings.xml, ensuring 0 omitted settings across all categories.
         """
-        self.assertEqual(len(self.declared_settings), 509, f"Expected 509 declared settings, got {len(self.declared_settings)}")
-        self.assertEqual(len(TESTED_SETTING_IDS), 509, f"Expected 509 tested settings in registry, got {len(TESTED_SETTING_IDS)}")
+        self.assertEqual(len(self.declared_settings), 514, f"Expected 514 declared settings, got {len(self.declared_settings)}")
+        self.assertEqual(len(TESTED_SETTING_IDS), 514, f"Expected 514 tested settings in registry, got {len(TESTED_SETTING_IDS)}")
         self.assertEqual(
             set(self.declared_settings.keys()), TESTED_SETTING_IDS,
             "TESTED_SETTING_IDS does not match declared_settings in resources/settings.xml"
@@ -778,7 +783,7 @@ class TestAllSettingsOutcomes(unittest.TestCase):
         self.assertEqual(len(CACHE_SETTING_IDS), 16)
         self.assertEqual(len(PLAYBACK_SETTING_IDS), 46)
         self.assertEqual(len(SUBTITLES_SETTING_IDS), 33)
-        self.assertEqual(len(SORT_AND_FILTER_SETTING_IDS), 43)
+        self.assertEqual(len(SORT_AND_FILTER_SETTING_IDS), 48)
         self.assertEqual(len(ACCOUNTS_SETTING_IDS), 42)
         self.assertEqual(len(WATCHLIST_SETTING_IDS), 38)
         self.assertEqual(len(MENU_CUSTOMIZATION_SETTING_IDS), 73)
@@ -1401,12 +1406,34 @@ class TestAllSettingsOutcomes(unittest.TestCase):
             control.setBool('interface.anichart.inline_trailers', True)
             self.assertTrue(_anichart_mod._supports_inline_trailers())
 
-        control.setBool('context.otaku.pinreleasegroup', False)
+        control.setBool('context.otaku.seriesprofile', False)
         control.process_context()
-        self.assertEqual(control.homeWindow.getProperty('context.otaku.rpdev.pinreleasegroup'), 'false')
-        control.setBool('context.otaku.pinreleasegroup', True)
+        self.assertEqual(control.homeWindow.getProperty('context.otaku.rpdev.seriesprofile'), 'false')
+        control.setBool('context.otaku.seriesprofile', True)
         control.process_context()
-        self.assertEqual(control.homeWindow.getProperty('context.otaku.rpdev.pinreleasegroup'), 'true')
+        self.assertEqual(control.homeWindow.getProperty('context.otaku.rpdev.seriesprofile'), 'true')
+
+        from resources.lib.pages import Sources
+        control.setSetting('general.release_group.preferred', 'Erai-raws, SubsPlease')
+        control.setInt('general.release_group.tiebreak', 1)
+        control.setSetting('general.release_group.excluded', 'Judas')
+        control.setInt('general.minResolution', 0)
+        control.setInt('general.maxResolution', 4)
+        control.setInt('general.fileFilter', 0)
+        control.setInt('general.source', 0)
+        control.setBool('general.release_title_filter.enabled', False)
+        ranked = Sources.__new__(Sources).sortSources(
+            [
+                {'release_title': '[Judas] Show - 01.mkv', 'hash': '1', 'type': 'torrent', 'quality': 3, 'debrid_provider': 'Real-Debrid', 'provider': 'nyaa', 'size': '1 GB', 'seeders': 10, 'byte_size': 10**9, 'info': [], 'lang': 0, 'cached': True, 'relevance': 160},
+                {'release_title': '[SubsPlease] Show - 01.mkv', 'hash': '2', 'type': 'torrent', 'quality': 3, 'debrid_provider': 'Real-Debrid', 'provider': 'nyaa', 'size': '1 GB', 'seeders': 10, 'byte_size': 10**9, 'info': [], 'lang': 0, 'cached': True, 'relevance': 160},
+                {'release_title': '[Erai-raws] Show - 01.mkv', 'hash': '3', 'type': 'torrent', 'quality': 3, 'debrid_provider': 'Real-Debrid', 'provider': 'nyaa', 'size': '1 GB', 'seeders': 10, 'byte_size': 10**9, 'info': [], 'lang': 0, 'cached': True, 'relevance': 160},
+            ],
+            [], [], [], [], 'episode', 24,
+        )
+        self.assertEqual([r['release_title'] for r in ranked], ['[Erai-raws] Show - 01.mkv', '[SubsPlease] Show - 01.mkv'])
+        control.setSetting('general.release_group.preferred', '')
+        control.setInt('general.release_group.tiebreak', 0)
+        control.setSetting('general.release_group.excluded', '')
 
         control.setBool('subtitles.provider.jimaku', False)
         control.setBool('subtitles.provider.animetosho', False)
@@ -1442,7 +1469,7 @@ class TestAllSettingsOutcomes(unittest.TestCase):
 
         # Verify clean_settings.get_active_setting_ids() keeps all declared settings (including legacy keys)
         active_ids = clean_settings.get_active_setting_ids(self.settings_xml_path)
-        self.assertEqual(len(active_ids), 509)
+        self.assertEqual(len(active_ids), 514)
         for legacy_key in LEGACY_LEVEL_4_KEYS:
             self.assertIn(legacy_key, active_ids)
 

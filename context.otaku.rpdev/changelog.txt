@@ -1,3 +1,7 @@
+Changelog v1.0.50 (2026-11-26):
+- Consolidate release-group pinning & exclusion into Series Playback Profile and remove the redundant pinreleasegroup context menu item (18 context actions)
+- Honor the new Settings > Context Customization > Series Playback Profile toggle (context.otaku.seriesprofile) cleanly
+
 Changelog v1.0.49 (2026-11-26):
 - Add toggleable Pin Release Group context menu item (pinreleasegroup) visible on Otaku items and external skin widgets carrying UniqueID(mal_id) or Property(mal_id)
 - Route pinreleasegroup cleanly to plugin://plugin.video.otaku.rpdev/pin_release_group/<mal_id> with safe no-op guarding on non-Otaku videodb:// items

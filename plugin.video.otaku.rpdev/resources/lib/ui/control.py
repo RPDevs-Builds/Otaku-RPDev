@@ -1099,7 +1099,7 @@ def process_context():
         "context.otaku.fanartselect",
         "context.otaku.clearcache",
         "context.otaku.inspectmappings",
-        "context.otaku.pinreleasegroup",
+        "context.otaku.seriesprofile",
     ]
     for s_id in context_settings:
         try:
@@ -1114,10 +1114,6 @@ def process_context():
                         homeWindow.setProperty(unw_prop, val_str)
         except Exception:
             log(f'Failed to cache context setting: {s_id}', 'error')
-    for prefix in ('context.otaku', 'context.otaku.testing', 'context.otaku.rpdev'):
-        sp_prop = f'{prefix}.seriesprofile'
-        if homeWindow.getProperty(sp_prop) != 'true':
-            homeWindow.setProperty(sp_prop, 'true')
 
 
 # ═══════════════════════════════════════════════════════════════════════════

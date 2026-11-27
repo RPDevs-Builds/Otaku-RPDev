@@ -1,7 +1,22 @@
 ========================
+[B]OTAKU RPDEV v6.6.1[/B]
+Multi-Select Groups & Filter
+========================
+
+v6.6.1 Highlights:
+  * Series Playback Profile Multi-Select: Multi-select Preferred & Excluded
+    Release Groups across 40 empirically harvested anime groups plus custom
+    entry, mutual exclusivity, and 1080i badge truncation.
+  * Global Sort & Filter Sub-Section: Added Release Group Sorting and
+    Filtering under Settings > Sort and Filter with default-empty lists and
+    Equal Boost vs Strict Selection Order tie-breaking.
+  * Context Menu Cleanup: Removed extra Pin Release Group context item
+    (context.otaku.rpdev v1.0.50) and added Series Playback Profile toggle.
+
+--------------------------------
 [B]OTAKU RPDEV v6.6.0[/B]
 Group Pinning, Subs & Kodi 22
-========================
+--------------------------------
 
 v6.6.0 Highlights:
   * Per-Series Release-Group Pinning & Exclusion: Pin preferred fansub

@@ -239,7 +239,7 @@ class TestContextAddonXMLVisibilityMatrix(unittest.TestCase):
         addon_xml = os.path.abspath(os.path.join(control.ADDON_PATH, '..', 'context.otaku.rpdev', 'addon.xml'))
         root = ET.parse(addon_xml).getroot()
         items = root.findall('.//extension[@point="kodi.context.item"]/menu/item')
-        self.assertEqual(len(items), 19)
+        self.assertEqual(len(items), 18)
 
         all_enabled_props = {
             f"context.otaku.rpdev.{it.attrib['args']}": 'true'
@@ -260,7 +260,7 @@ class TestContextAddonXMLVisibilityMatrix(unittest.TestCase):
         }
         for arg in ('findrecommendations', 'findrelations', 'getwatchorder', 'viewreviews', 'viewstatistics',
                     'deletefromdatabase', 'watchlist', 'fanartselect', 'clearcache', 'seriesprofile',
-                    'inspectmappings', 'pinreleasegroup'):
+                    'inspectmappings'):
             self.assertTrue(_eval_kodi_visible(by_args[arg], ctx_tv), f"{arg} should be visible on tvshow")
         for ep_only in ('markedaswatched', 'markedasunwatched', 'markpreviouswatched', 'rescrape', 'sourceselect', 'logout', 'manualsubtitles'):
             self.assertFalse(_eval_kodi_visible(by_args[ep_only], ctx_tv), f"{ep_only} should NOT be visible on idle tvshow")

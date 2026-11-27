@@ -1534,8 +1534,19 @@ _NON_GROUP_TAGS = frozenset({
     'hdtv', 'dvd', 'dvdrip', 'flac', 'aac', 'aac2.0', 'opus', 'eac3', 'ac3', 'ddp', 'ddp2.0',
     'ddp5.1', 'dts', 'dts-hd', 'truehd', 'atmos', 'hdr', 'hdr10', 'hdr10+', 'dv', 'dovi', 'hlg',
     'uncensored', 'repack', 'proper', 'ova', 'oad', 'special', 'specials', 'end', 'final', 'dl',
-    'audio', 'video', 'ncop', 'nced',
+    'audio', 'video', 'ncop', 'nced', 'bdmv', 'jp-en', 'en-jp', 'jpn-eng', 'eng-jpn',
 })
+
+PRECONFIGURED_RELEASE_GROUPS = (
+    'SubsPlease', 'EMBER', 'Yameii', 'Erai-raws', 'ToonsHub', 'ASW',
+    'Anime Time', 'Judas', 'VARYG', 'Trix', 'DB', 'YuiSubs', 'DKB',
+    'neoDESU', 'TTGA', 'NC-Raws', 'YURASUKA', 'Yameii-Unofficial',
+    'Salieri', 'AnoZu', 'LostYears', 'neoHEVC', 'Anime Chap', 'Sokudo',
+    'Tenrai-Sensei', 'SSA', 'MTBB', 'MiniMTBB', 'CRUCiBLE',
+    'HorribleSubs', 'Exiled-Destiny', 'JacobSwaggedUp', 'Cleo',
+    'Beatrice-Raws', 'Kawaiika-Raws', 'DBD-Raws', 'GJM', 'Kaleido',
+    'ReinForce', 'Coalgirls',
+)
 
 _RE_CRC32_TAG = re.compile(r'^[0-9A-Fa-f]{8}$')
 _RE_TECH_TOKEN_ONLY = re.compile(
@@ -1567,20 +1578,39 @@ def normalize_release_group(name):
     return cleaned
 
 
-def parse_excluded_groups(raw_csv):
-    """Parse a comma/semicolon-separated excluded_groups string into a normalized set."""
+def parse_release_groups(raw_csv):
+    """Parse a comma/semicolon-separated release-group list, preserving canonical casing & order."""
     if not raw_csv:
-        return set()
+        return []
     if isinstance(raw_csv, (list, tuple, set, frozenset)):
         items = raw_csv
     else:
         items = str(raw_csv).replace(';', ',').split(',')
-    out = set()
+    out = []
+    seen = set()
     for item in items:
-        norm = normalize_release_group(item)
-        if norm:
-            out.add(norm)
+        clean = str(item or '').strip().strip('[]() ')
+        clean = re.sub(r'\s+', ' ', clean).strip()
+        norm = clean.lower()
+        if norm and norm not in seen:
+            seen.add(norm)
+            out.append(clean)
     return out
+
+
+def format_release_groups_csv(groups):
+    """Normalize and format release groups into a clean deduplicated comma-separated string."""
+    return ', '.join(parse_release_groups(groups))
+
+
+def parse_release_group_set(raw_csv):
+    """Parse a comma/semicolon-separated release-group string into a normalized lowercase set."""
+    return {g.lower() for g in parse_release_groups(raw_csv)}
+
+
+def parse_excluded_groups(raw_csv):
+    """Parse a comma/semicolon-separated excluded_groups string into a normalized set."""
+    return parse_release_group_set(raw_csv)
 
 
 def _is_non_group_token(token):

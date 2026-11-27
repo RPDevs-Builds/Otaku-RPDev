@@ -1,3 +1,9 @@
+Changelog v6.6.1 (2026-11-26):
+- Multi-Select Release Groups, Sort & Filter Sub-Section & Context Cleanup:
+  - Series Playback Profile Multi-Select: Expanded Preferred & Excluded Release Groups to multi-select across 40 empirically harvested anime release groups (plus recent-group detection, custom entry, automatic mutual exclusivity, and 1080i badge truncation).
+  - Global Sort & Filter Release Group Sub-Section: Added Settings > Sort and Filter > Release Group Sorting and Filtering with default-empty Preferred/Excluded lists and configurable Multi-Group Sort Tie-Breaking (Equal Boost vs Strict Selection Order).
+  - Context Menu Cleanup & Series Profile Toggle: Removed redundant pinreleasegroup context item (context.otaku.rpdev v1.0.50) and added the missing Settings > Context Customization > Series Playback Profile toggle (context.otaku.seriesprofile).
+
 Changelog v6.6.0 (2026-11-26):
 - Release-Group Pinning, Native Anime Subtitles & Kodi 22 Piers Integrations:
   - Per-Series Release-Group Pinning & Exclusion: SQLite schema v1.0.17 (preferred_group, excluded_groups), deterministic fansub/scene group parser, intra-tier +25 sort boost with safe exclusion fallback, 11-row SeriesProfileDialog, 1-click SourceSelect Pin/Exclude, settings backup/restore, and context.otaku.rpdev v1.0.49 Pin Release Group item.

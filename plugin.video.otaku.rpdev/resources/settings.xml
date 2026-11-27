@@ -2404,6 +2404,53 @@
 					</dependencies>
 					<control type="toggle" />
 				</setting>
+			</group>
+			<group id="5" label="30132">
+				<setting id="general.release_group.select_preferred" type="action" label="30174" help="30176">
+					<level>2</level>
+					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/select_release_groups/preferred)</data>
+					<control type="button" format="action">
+						<close>false</close>
+					</control>
+				</setting>
+				<setting id="general.release_group.preferred" type="string" label="30217" help="30226">
+					<level>2</level>
+					<default />
+					<constraints>
+						<allowempty>true</allowempty>
+					</constraints>
+					<control type="edit" format="string">
+						<heading>30217</heading>
+					</control>
+				</setting>
+				<setting id="general.release_group.tiebreak" type="integer" label="30362" help="30380">
+					<level>2</level>
+					<default>0</default>
+					<constraints>
+						<options>
+							<option label="30397">0</option>
+							<option label="30439">1</option>
+						</options>
+					</constraints>
+					<control type="spinner" format="string" />
+				</setting>
+				<setting id="general.release_group.select_excluded" type="action" label="30440" help="30455">
+					<level>2</level>
+					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/select_release_groups/excluded)</data>
+					<control type="button" format="action">
+						<close>false</close>
+					</control>
+				</setting>
+				<setting id="general.release_group.excluded" type="string" label="30489" help="30498">
+					<level>2</level>
+					<default />
+					<constraints>
+						<allowempty>true</allowempty>
+					</constraints>
+					<control type="edit" format="string">
+						<heading>30489</heading>
+					</control>
+				</setting>
 				<setting id="sort_filter.reset_category" type="action" label="30985" help="30986">
 					<level>1</level>
 					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/reset_category_settings?category=Sort%20and%20Filter&amp;setting=true)</data>
@@ -4546,7 +4593,7 @@
 					<default>true</default>
 					<control type="toggle" />
 				</setting>
-				<setting id="context.otaku.pinreleasegroup" type="boolean" label="30238" help="30278">
+				<setting id="context.otaku.seriesprofile" type="boolean" label="30238" help="30278">
 					<level>2</level>
 					<default>true</default>
 					<control type="toggle" />

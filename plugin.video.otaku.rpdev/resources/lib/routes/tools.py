@@ -1599,101 +1599,37 @@ def INSPECT_MAPPINGS(payload, params):
     return control.exit_code()
 
 
-@Route('pin_release_group/*')
-def PIN_RELEASE_GROUP(payload, params):
-    """Interactive per-series Release Group pinning & exclusion workflow."""
+@Route('select_release_groups/*')
+def SELECT_RELEASE_GROUPS(payload, params):
+    """Multi-select global Preferred or Excluded Release Groups in Settings > Sort & Filter."""
     from resources.lib.ui import source_utils
+    from resources.lib.windows.series_profile import prompt_release_groups_selection
 
-    raw_parts = [seg for seg in str(payload or '').strip('/').split('/') if seg]
-    mal_id = next((seg for seg in raw_parts if seg.isdigit()), '')
-    if not mal_id or not mal_id.isdigit():
-        control.notify(control.ADDON_NAME, "No anime MAL ID found for item.")
+    mode = str(payload or 'preferred').strip('/').lower()
+    if mode not in ('preferred', 'excluded'):
+        mode = 'preferred'
+
+    setting_id = f'general.release_group.{mode}'
+    other_setting_id = 'general.release_group.excluded' if mode == 'preferred' else 'general.release_group.preferred'
+    heading = 'Preferred Release Groups' if mode == 'preferred' else 'Excluded Release Groups'
+
+    current_csv = control.getSetting(setting_id) or ''
+    updated_csv = prompt_release_groups_selection(heading, current_csv)
+    if updated_csv is None:
         return control.exit_code()
 
-    override = database.get_series_override(mal_id) or {}
-    current_pin = str(override.get('preferred_group') or '').strip()
-    current_excl = str(override.get('excluded_groups') or '').strip()
+    control.setSetting(setting_id, updated_csv)
+    chosen_norms = source_utils.parse_release_group_set(updated_csv)
+    if chosen_norms:
+        other_csv = control.getSetting(other_setting_id) or ''
+        other_kept = [
+            g for g in source_utils.parse_release_groups(other_csv)
+            if g.lower() not in chosen_norms
+        ]
+        control.setSetting(other_setting_id, source_utils.format_release_groups_csv(other_kept))
 
-    # Collect known/recent groups for this series (last played + common anime fansub groups)
-    suggested = []
-    try:
-        last_played = database.get_last_played_source(mal_id)
-        if isinstance(last_played, dict):
-            lp_grp = source_utils.extract_release_group(
-                last_played.get('release_title') or last_played.get('release_group') or ''
-            ) or str(last_played.get('release_group') or '').strip()
-            if lp_grp:
-                suggested.append(lp_grp)
-    except Exception:
-        pass
-    for preset in ('SubsPlease', 'Erai-raws', 'Judas', 'EMBER', 'CRUCiBLE', 'Yameii', 'ASW'):
-        if not any(source_utils.normalize_release_group(g) == source_utils.normalize_release_group(preset) for g in suggested):
-            suggested.append(preset)
-
-    options = []
-    actions = []
-    if current_pin:
-        options.append(f"Unpin Current Group ({current_pin})")
-        actions.append(('unpin', ''))
-    options.append("Enter Release Group Name to Pin...")
-    actions.append(('custom_pin', ''))
-    options.append(f"Edit Excluded Groups ({current_excl or 'None'})...")
-    actions.append(('edit_excl', ''))
-    for grp in suggested:
-        marker = " [Pinned]" if source_utils.normalize_release_group(grp) == source_utils.normalize_release_group(current_pin) else ""
-        options.append(f"Pin: {grp}{marker}")
-        actions.append(('pin', grp))
-
-    heading = f"Release Group Pin — MAL #{mal_id}"
-    if current_pin:
-        heading += f" (Pinned: {current_pin})"
-    choice = control.select_dialog(heading, options)
-    if choice < 0 or choice >= len(actions):
-        return control.exit_code()
-
-    act, val = actions[choice]
-    if act == 'unpin':
-        if database.unpin_series_release_group(mal_id):
-            database.clear_episode_sources(mal_id)
-            control.notify(control.ADDON_NAME, f"Unpinned release group for MAL #{mal_id}")
-    elif act == 'pin':
-        if database.pin_series_release_group(mal_id, val):
-            database.clear_episode_sources(mal_id)
-            control.notify(control.ADDON_NAME, f"Pinned release group: {val}")
-    elif act == 'custom_pin':
-        entered = control.input_dialog("Preferred Release Group", current_pin)
-        if entered is not None:
-            clean = str(entered).strip()
-            if clean:
-                if database.pin_series_release_group(mal_id, clean):
-                    database.clear_episode_sources(mal_id)
-                    control.notify(control.ADDON_NAME, f"Pinned release group: {clean}")
-            else:
-                if database.unpin_series_release_group(mal_id):
-                    database.clear_episode_sources(mal_id)
-                    control.notify(control.ADDON_NAME, f"Cleared pinned release group for MAL #{mal_id}")
-    elif act == 'edit_excl':
-        entered = control.input_dialog("Excluded Release Groups (comma-separated)", current_excl)
-        if entered is not None:
-            clean_excl = ', '.join([g.strip() for g in str(entered).replace(';', ',').split(',') if g.strip()])
-            existing = database.get_series_override(mal_id) or {}
-            database.set_series_override(
-                mal_id,
-                audio_lang=existing.get('audio_lang'),
-                sub_lang=existing.get('sub_lang'),
-                sub_mode=existing.get('sub_mode'),
-                preferred_provider=existing.get('preferred_provider'),
-                intro_offset_s=int(existing.get('intro_offset_s') or 0),
-                outro_offset_s=int(existing.get('outro_offset_s') or 0),
-                skip_filler_mode=existing.get('skip_filler_mode') or 'default',
-                episode_offset=int(existing.get('episode_offset') or 0),
-                sub_offset_ms=int(existing.get('sub_offset_ms') or 0),
-                preferred_group=existing.get('preferred_group') or '',
-                excluded_groups=clean_excl,
-            )
-            database.clear_episode_sources(mal_id)
-            control.notify(
-                control.ADDON_NAME,
-                f"Excluded groups: {clean_excl}" if clean_excl else "Cleared excluded release groups",
-            )
+    control.notify(
+        control.ADDON_NAME,
+        f"{heading}: {updated_csv}" if updated_csv else f"Cleared {heading}",
+    )
     return control.exit_code()

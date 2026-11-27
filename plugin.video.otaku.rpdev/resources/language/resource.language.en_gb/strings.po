@@ -560,7 +560,7 @@ msgid "Embeds"
 msgstr ""
 
 msgctxt "#30132"
-msgid "Other"
+msgid "Release Group Sorting and Filtering"
 msgstr ""
 
 msgctxt "#30133"
@@ -728,7 +728,7 @@ msgid "MUSIC"
 msgstr ""
 
 msgctxt "#30174"
-msgid "Preferred Artwork Size"
+msgid "Select Preferred Release Groups (Multi-Select)"
 msgstr ""
 
 msgctxt "#30175"
@@ -736,7 +736,7 @@ msgid "Content Customization"
 msgstr ""
 
 msgctxt "#30176"
-msgid "Enable searching mature titles"
+msgid "Open a multi-select picker to choose preferred fansub/encode release groups to sort to the top (defaults to none)."
 msgstr ""
 
 msgctxt "#30177"
@@ -900,7 +900,7 @@ msgid "Scrape AllDebrid Cloud"
 msgstr ""
 
 msgctxt "#30217"
-msgid "Scrape Debrid-Link Cloud"
+msgid "Preferred Release Groups (CSV)"
 msgstr ""
 
 msgctxt "#30218"
@@ -936,7 +936,7 @@ msgid "Password:"
 msgstr ""
 
 msgctxt "#30226"
-msgid "How titles will be displayed:"
+msgid "Comma-separated global preferred release groups sorted to the top within equal relevance tiers (leave blank for no preference)."
 msgstr ""
 
 msgctxt "#30227"
@@ -984,7 +984,7 @@ msgid "AnimePahe"
 msgstr ""
 
 msgctxt "#30238"
-msgid "Pin Release Group"
+msgid "Series Playback Profile"
 msgstr ""
 
 msgctxt "#30239"
@@ -1144,7 +1144,7 @@ msgid "Inline AniChart Trailer Previews (Kodi 22+)"
 msgstr ""
 
 msgctxt "#30278"
-msgid "Show the Pin Release Group context menu item to prioritize or exclude fansub/encode groups per anime series."
+msgid "Show the Series Playback Profile context menu item to configure per-series audio, subtitles, provider, and release groups."
 msgstr ""
 
 msgctxt "#30279"
@@ -1480,7 +1480,7 @@ msgid "Genres"
 msgstr ""
 
 msgctxt "#30362"
-msgid "Run All UnCached Sources in Forground"
+msgid "Multi-Group Sort Tie-Breaking"
 msgstr ""
 
 msgctxt "#30363"
@@ -1552,7 +1552,7 @@ msgid "Watchnixtoons2"
 msgstr ""
 
 msgctxt "#30380"
-msgid "Run All UnCached Sources in Background"
+msgid "Choose whether multiple preferred release groups share an equal boost (sorted by quality/size) or rank strictly in selection order."
 msgstr ""
 
 msgctxt "#30381"
@@ -1620,7 +1620,7 @@ msgid "Install Trakt Script"
 msgstr ""
 
 msgctxt "#30397"
-msgid "Skip UnCached Sources (Real-Debrid, AllDebrid, Debrid-Link)"
+msgid "Equal Boost (Quality / Size)"
 msgstr ""
 
 msgctxt "#30398"
@@ -1788,11 +1788,11 @@ msgid "Merge native Kodi 22 demuxer chapters with AniSkip/IntroDB bounds into un
 msgstr ""
 
 msgctxt "#30439"
-msgid "Large"
+msgid "Strict Selection Order"
 msgstr ""
 
 msgctxt "#30440"
-msgid "Preferred Anime Artwork from"
+msgid "Select Excluded Release Groups (Multi-Select)"
 msgstr ""
 
 msgctxt "#30441"
@@ -1852,7 +1852,7 @@ msgid "Auto (First Enabled)"
 msgstr ""
 
 msgctxt "#30455"
-msgid "Enable Next Up"
+msgid "Open a multi-select picker to choose release groups to exclude globally when alternative sources are available (defaults to none)."
 msgstr ""
 
 msgctxt "#30456"
@@ -1988,7 +1988,7 @@ msgid "Torrents Cache TTL (Hours)"
 msgstr ""
 
 msgctxt "#30489"
-msgid "Cache Settings"
+msgid "Excluded Release Groups (CSV)"
 msgstr ""
 
 msgctxt "#30490"
@@ -2024,7 +2024,7 @@ msgid "Cache Duration (TTL)"
 msgstr ""
 
 msgctxt "#30498"
-msgid "Database Maintenance"
+msgid "Comma-separated global release groups to avoid when alternatives exist (leave blank for no global exclusions)."
 msgstr ""
 
 msgctxt "#30499"

@@ -171,7 +171,10 @@ _FIXTURE_SETTINGS = {
     'cache.torrents.ttl': '24',
     'general.standby_throttling': 'true',
     'interface.anichart.inline_trailers': 'true',
-    'context.otaku.pinreleasegroup': 'true',
+    'context.otaku.seriesprofile': 'true',
+    'general.release_group.preferred': '',
+    'general.release_group.excluded': '',
+    'general.release_group.tiebreak': '0',
     'subtitles.provider.jimaku': 'true',
     'subtitles.provider.animetosho': 'true',
 }

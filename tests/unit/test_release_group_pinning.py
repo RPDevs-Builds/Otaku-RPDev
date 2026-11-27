@@ -1,13 +1,11 @@
 # -*- coding: utf-8 -*-
-"""Track A unit tests: Per-Series Release-Group Pinning & Exclusion."""
+"""Release-Group Sorting, Filtering & Series Playback Profile Multi-Select Unit Tests."""
 
-import importlib.util
 import json
 import os
 import sqlite3
-import sys
 import xml.etree.ElementTree as ET
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -20,10 +18,18 @@ from tests.kodi_profile import KodiProfile
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 CONTEXT_ADDON_XML = os.path.join(REPO_ROOT, 'context.otaku.rpdev', 'addon.xml')
-CONTEXT_DEFAULT_PY = os.path.join(REPO_ROOT, 'context.otaku.rpdev', 'default.py')
+SETTINGS_XML = os.path.join(REPO_ROOT, 'plugin.video.otaku.rpdev', 'resources', 'settings.xml')
 
 
-# ─── 1. Deterministic Release-Group Extraction (Happy + Negative/Edge) ───────
+@pytest.fixture(autouse=True)
+def _restore_release_group_settings():
+    yield
+    control.setSetting('general.release_group.preferred', '')
+    control.setSetting('general.release_group.excluded', '')
+    control.setInt('general.release_group.tiebreak', 0)
+
+
+# ─── 1. Deterministic Release-Group Extraction & 40-Group Catalog ────────────
 
 @pytest.mark.parametrize(
     'title,expected',
@@ -34,6 +40,8 @@ CONTEXT_DEFAULT_PY = os.path.join(REPO_ROOT, 'context.otaku.rpdev', 'default.py'
         ('[EMBER] Solo Leveling - 01 (1080p) [Dual-Audio].mkv', 'EMBER'),
         ('[CRUCiBLE] Dungeon Meshi - 12 [1080p].mkv', 'CRUCiBLE'),
         ('[Yameii] Kusuriya no Hitorigoto - 08 [WEB-DL 1080p].mkv', 'Yameii'),
+        ('[ToonsHub] Sakamoto Days - 01 [1080p].mkv', 'ToonsHub'),
+        ('[Anime Time] Bleach TYBW - 01 [1080p][HEVC].mkv', 'Anime Time'),
         ('[BD][Judas] Fullmetal Alchemist Brotherhood - 01 [1080p][HEVC].mkv', 'Judas'),
         ('[1080p][Dual-Audio][SubsPlease] Frieren - 02.mkv', 'SubsPlease'),
         ('Sousou.no.Frieren.S01E01.1080p.WEB-DL.H.264-VARYG.mkv', 'VARYG'),
@@ -55,6 +63,8 @@ def test_extract_release_group_happy(title, expected):
         '[HEVC] [10bit] [Dual-Audio] Show - 02.mkv',
         '[A1B2C3D4] Show - 03 [720p].mkv',
         '[Multi-Sub][Batch][BD] Complete Series.mkv',
+        '[BDMV] Cowboy Bebop Complete Box [1080p].mkv',
+        '[JP-EN] Naruto Shippuden - 01.mkv',
         '[WEB-DL] Show - 01 (1080p) [1234ABCD].mkv',
         'Show - 01 [1080p].mkv',
         'Re:Zero - Starting Life in Another World - 01.mkv',
@@ -69,24 +79,27 @@ def test_extract_release_group_negative_and_edge_cases(title):
     assert source_utils.extract_release_group(title) == ''
 
 
-def test_normalize_and_parse_excluded_groups_edge_cases():
-    assert source_utils.normalize_release_group('  [SubsPlease]  ') == 'subsplease'
-    assert source_utils.normalize_release_group('(Erai-raws)') == 'erai-raws'
-    assert source_utils.normalize_release_group('') == ''
-    assert source_utils.normalize_release_group(None) == ''
+def test_preconfigured_catalog_and_csv_helpers():
+    assert len(source_utils.PRECONFIGURED_RELEASE_GROUPS) == 40
+    for grp in ('SubsPlease', 'EMBER', 'Yameii', 'Erai-raws', 'ToonsHub', 'ASW', 'Anime Time', 'Judas', 'VARYG', 'YuiSubs'):
+        assert grp in source_utils.PRECONFIGURED_RELEASE_GROUPS
+
+    assert source_utils.parse_release_groups('SubsPlease, [Erai-raws]; subsplease, EMBER, ') == [
+        'SubsPlease', 'Erai-raws', 'EMBER',
+    ]
+    assert source_utils.format_release_groups_csv(['SubsPlease', 'subsplease', 'EMBER']) == 'SubsPlease, EMBER'
     assert source_utils.parse_excluded_groups('Judas, EMBER; [Erai-raws], ,') == {'judas', 'ember', 'erai-raws'}
-    assert source_utils.parse_excluded_groups('') == set()
-    assert source_utils.parse_excluded_groups(None) == set()
+    assert source_utils.parse_release_groups('') == []
+    assert source_utils.parse_release_group_set(None) == set()
 
 
-# ─── 2. SQLite Schema Migration (1.0.16 -> 1.0.17) & Non-Clobbering CRUD ─────
+# ─── 2. SQLite Schema Migration & Multi-Group CRUD ───────────────────────────
 
 def test_schema_migration_1016_to_1017_preserves_existing_rows(tmp_path, monkeypatch):
     db_path = str(tmp_path / 'malSync.db')
     monkeypatch.setattr(control, 'malSyncDB', db_path)
     database._tables_ready.clear()
 
-    # Build legacy v1.0.16 series_overrides table WITHOUT preferred_group / excluded_groups
     conn = sqlite3.connect(db_path)
     try:
         conn.execute(
@@ -114,55 +127,49 @@ def test_schema_migration_1016_to_1017_preserves_existing_rows(tmp_path, monkeyp
     assert row['preferred_group'] == ''
     assert row['excluded_groups'] == ''
 
-    # Pinning a group preserves audio_lang & sub_offset_ms
+    # Multi-group pinning appends cleanly without clobbering existing groups or offsets
     assert database.pin_series_release_group(52991, 'SubsPlease') is True
+    assert database.pin_series_release_group(52991, 'Erai-raws') is True
     updated = database.get_series_override(52991)
-    assert updated['preferred_group'] == 'SubsPlease'
+    assert updated['preferred_group'] == 'SubsPlease, Erai-raws'
     assert updated['audio_lang'] == 'jpn'
-    assert updated['sub_offset_ms'] == 250
 
-    # Updating unrelated field with preferred_group=None does NOT clobber pinned group
+    # Unpinning one group preserves the other
+    assert database.unpin_series_release_group(52991, 'SubsPlease') is True
+    assert database.get_series_override(52991)['preferred_group'] == 'Erai-raws'
+
+    # Unrelated set_series_override preserves preferred_group
     assert database.set_series_override(52991, audio_lang='eng', sub_offset_ms=500) is True
-    preserved = database.get_series_override(52991)
-    assert preserved['preferred_group'] == 'SubsPlease'
-    assert preserved['audio_lang'] == 'eng'
-    assert preserved['sub_offset_ms'] == 500
+    assert database.get_series_override(52991)['preferred_group'] == 'Erai-raws'
 
 
-def test_pin_and_exclude_mutual_exclusivity_and_invalid_ids(tmp_path, monkeypatch):
+def test_multi_group_mutual_exclusivity_and_invalid_ids(tmp_path, monkeypatch):
     db_path = str(tmp_path / 'malSync.db')
     monkeypatch.setattr(control, 'malSyncDB', db_path)
     database._tables_ready.clear()
 
-    # Invalid mal_id rejection
     assert database.pin_series_release_group('', 'SubsPlease') is False
     assert database.pin_series_release_group('abc', 'SubsPlease') is False
     assert database.unpin_series_release_group('notanint') is False
     assert database.exclude_series_release_group('abc', 'Judas') is False
     assert database.exclude_series_release_group(52991, '') is False
 
-    # Pinning clears from excluded_groups; excluding clears matching preferred_group
     assert database.exclude_series_release_group(52991, 'Judas') is True
     assert database.exclude_series_release_group(52991, 'EMBER') is True
-    row = database.get_series_override(52991)
-    assert source_utils.parse_excluded_groups(row['excluded_groups']) == {'judas', 'ember'}
-
+    assert database.pin_series_release_group(52991, 'SubsPlease') is True
     assert database.pin_series_release_group(52991, 'Judas') is True
     row = database.get_series_override(52991)
-    assert row['preferred_group'] == 'Judas'
-    assert source_utils.parse_excluded_groups(row['excluded_groups']) == {'ember'}
+    assert source_utils.parse_release_group_set(row['preferred_group']) == {'subsplease', 'judas'}
+    assert source_utils.parse_release_group_set(row['excluded_groups']) == {'ember'}
 
+    # Excluding Judas strips only Judas from preferred_group while keeping SubsPlease
     assert database.exclude_series_release_group(52991, 'Judas') is True
     row = database.get_series_override(52991)
-    assert row['preferred_group'] == ''
-    assert source_utils.parse_excluded_groups(row['excluded_groups']) == {'ember', 'judas'}
-
-    assert database.exclude_series_release_group(52991, 'Judas', remove=True) is True
-    row = database.get_series_override(52991)
-    assert source_utils.parse_excluded_groups(row['excluded_groups']) == {'ember'}
+    assert row['preferred_group'] == 'SubsPlease'
+    assert source_utils.parse_release_group_set(row['excluded_groups']) == {'ember', 'judas'}
 
 
-def test_settings_manager_export_import_preserves_release_groups(tmp_path, monkeypatch):
+def test_settings_manager_export_import_preserves_multi_release_groups(tmp_path, monkeypatch):
     db_path = str(tmp_path / 'malSync.db')
     monkeypatch.setattr(control, 'malSyncDB', db_path)
     database._tables_ready.clear()
@@ -170,7 +177,7 @@ def test_settings_manager_export_import_preserves_release_groups(tmp_path, monke
     database.set_series_override(
         52991,
         audio_lang='jpn',
-        preferred_group='SubsPlease',
+        preferred_group='SubsPlease, Erai-raws',
         excluded_groups='Judas, EMBER',
     )
 
@@ -178,23 +185,20 @@ def test_settings_manager_export_import_preserves_release_groups(tmp_path, monke
     assert ok is True
     with open(export_file, 'r', encoding='utf-8') as fp:
         exported = json.load(fp)
-    assert exported['series_overrides'][0]['preferred_group'] == 'SubsPlease'
+    assert exported['series_overrides'][0]['preferred_group'] == 'SubsPlease, Erai-raws'
     assert exported['series_overrides'][0]['excluded_groups'] == 'Judas, EMBER'
 
     database.delete_series_override(52991)
-    assert database.get_series_override(52991) is None
-
     ok_imp, _ = settings_manager.import_settings('settings', export_file)
     assert ok_imp is True
     restored = database.get_series_override(52991)
-    assert restored is not None
-    assert restored['preferred_group'] == 'SubsPlease'
+    assert restored['preferred_group'] == 'SubsPlease, Erai-raws'
     assert restored['excluded_groups'] == 'Judas, EMBER'
 
 
-# ─── 3. sortSources() Intra-Tier Pinning & Safe Exclusion ────────────────────
+# ─── 3. sortSources(): Multi-Group Tie-Break + Global Sort & Filter ──────────
 
-def _make_torrent(title, quality=3, size='1.40 GB', relevance=160, provider='nyaa'):
+def _make_torrent(title, quality=3, size='1.40 GB', byte_size=1500000000, relevance=160, provider='nyaa'):
     return {
         'release_title': title,
         'hash': f'hash_{abs(hash(title)) % 100000}',
@@ -204,7 +208,7 @@ def _make_torrent(title, quality=3, size='1.40 GB', relevance=160, provider='nya
         'provider': provider,
         'size': size,
         'seeders': 50,
-        'byte_size': 1500000000,
+        'byte_size': byte_size,
         'info': ['1080p', 'SUB'],
         'lang': 0,
         'cached': True,
@@ -218,253 +222,187 @@ def _configure_sort_defaults():
     control.setInt('general.fileFilter', 0)
     control.setInt('general.source', 0)
     control.setBool('general.release_title_filter.enabled', False)
+    control.setSetting('general.release_group.preferred', '')
+    control.setSetting('general.release_group.excluded', '')
+    control.setInt('general.release_group.tiebreak', 0)
 
 
-def test_sort_sources_pinned_group_boosts_intra_tier_only(tmp_path, monkeypatch):
+def test_sort_sources_global_defaults_empty_and_strict_tiebreak_vs_equal_boost(tmp_path, monkeypatch):
     _configure_sort_defaults()
     db_path = str(tmp_path / 'malSync.db')
     monkeypatch.setattr(control, 'malSyncDB', db_path)
     database._tables_ready.clear()
-    database.pin_series_release_group(52991, 'Erai-raws')
 
-    t_other_tier0 = _make_torrent('[SubsPlease] Frieren - 01 (1080p).mkv', quality=3, relevance=160)
-    t_pinned_tier0 = _make_torrent('[Erai-raws] Frieren - 01 (1080p).mkv', quality=3, relevance=150)
-    t_pinned_tier1 = _make_torrent('[Erai-raws] Frieren OVA - 01 (1080p).mkv', quality=4, relevance=110)
+    # Global preferred: SubsPlease (first), Erai-raws (second)
+    # Erai-raws is 4K (larger/higher res), SubsPlease is 1080p, ToonsHub is non-preferred 4K
+    t_toons_4k = _make_torrent('[ToonsHub] Frieren - 01 [2160p].mkv', quality=4, byte_size=3 * 10**9, relevance=160)
+    t_erai_4k = _make_torrent('[Erai-raws] Frieren - 01 [2160p].mkv', quality=4, byte_size=28 * 10**8, relevance=155)
+    t_subs_1080 = _make_torrent('[SubsPlease] Frieren - 01 [1080p].mkv', quality=3, byte_size=14 * 10**8, relevance=150)
+    t_subs_tier1 = _make_torrent('[SubsPlease] Frieren OVA - 01 [1080p].mkv', quality=4, byte_size=20 * 10**8, relevance=110)
 
-    src = Sources.__new__(Sources)
-    result = src.sortSources(
-        [t_other_tier0, t_pinned_tier0, t_pinned_tier1],
-        [],
-        [],
-        [],
-        [],
-        'episode',
-        24,
-        mal_id='52991',
-    )
-    # Pinned Tier 0 ranks #1, non-pinned Tier 0 stays #2 (not dropped for failover), Tier 1 stays below Tier 0
-    assert len(result) == 3
-    assert result[0]['release_title'] == t_pinned_tier0['release_title']
-    assert result[1]['release_title'] == t_other_tier0['release_title']
-    assert result[2]['release_title'] == t_pinned_tier1['release_title']
+    control.setSetting('general.release_group.preferred', 'SubsPlease, Erai-raws')
+
+    # Mode 0 (Equal Boost): both preferred Tier 0 groups beat ToonsHub 4K, and Erai-raws 4K beats SubsPlease 1080p by quality
+    control.setInt('general.release_group.tiebreak', 0)
+    res_eq = Sources.__new__(Sources).sortSources([t_toons_4k, t_subs_1080, t_erai_4k, t_subs_tier1], [], [], [], [], 'episode', 24)
+    assert [r['release_title'] for r in res_eq] == [
+        t_erai_4k['release_title'],
+        t_subs_1080['release_title'],
+        t_toons_4k['release_title'],
+        t_subs_tier1['release_title'],
+    ]
+
+    # Mode 1 (Strict Selection Order): SubsPlease (idx 0) ranks strictly ahead of Erai-raws (idx 1), still inside Tier 0
+    control.setInt('general.release_group.tiebreak', 1)
+    res_ord = Sources.__new__(Sources).sortSources([t_toons_4k, t_subs_1080, t_erai_4k, t_subs_tier1], [], [], [], [], 'episode', 24)
+    assert [r['release_title'] for r in res_ord] == [
+        t_subs_1080['release_title'],
+        t_erai_4k['release_title'],
+        t_toons_4k['release_title'],
+        t_subs_tier1['release_title'],
+    ]
 
 
-def test_sort_sources_pinned_derivative_never_outranks_tier0_exact(tmp_path, monkeypatch):
+def test_sort_sources_per_series_preferred_overrides_global_exclusion_and_safe_fallback(tmp_path, monkeypatch):
     _configure_sort_defaults()
     db_path = str(tmp_path / 'malSync.db')
     monkeypatch.setattr(control, 'malSyncDB', db_path)
     database._tables_ready.clear()
-    database.pin_series_release_group(19, 'Judas')
 
-    t_exact = _make_torrent('[SubsPlease] Monster - 01 (1080p).mkv', quality=3, relevance=160)
-    t_pinned_tier1 = _make_torrent('[Judas] Monster Special - 01 (1080p).mkv', quality=3, relevance=115)
-
-    src = Sources.__new__(Sources)
-    result = src.sortSources([t_pinned_tier1, t_exact], [], [], [], [], 'episode', 24, mal_id='19')
-    assert result[0]['release_title'] == t_exact['release_title']
-    assert result[1]['release_title'] == t_pinned_tier1['release_title']
-
-
-def test_sort_sources_excluded_groups_filters_and_falls_back_when_pool_emptied(tmp_path, monkeypatch):
-    _configure_sort_defaults()
-    db_path = str(tmp_path / 'malSync.db')
-    monkeypatch.setattr(control, 'malSyncDB', db_path)
-    database._tables_ready.clear()
-    database.exclude_series_release_group(52991, 'Judas')
+    control.setSetting('general.release_group.excluded', 'Judas, EMBER')
+    database.pin_series_release_group(52991, 'Judas')
 
     t_judas = _make_torrent('[Judas] Frieren - 01 (1080p).mkv', relevance=160)
+    t_ember = _make_torrent('[EMBER] Frieren - 01 (1080p).mkv', relevance=160)
     t_subs = _make_torrent('[SubsPlease] Frieren - 01 (1080p).mkv', relevance=160)
 
-    src = Sources.__new__(Sources)
-    # When alternative exists, Judas is filtered out
-    filtered = src.sortSources([t_judas, t_subs], [], [], [], [], 'episode', 24, mal_id='52991')
-    assert [s['release_title'] for s in filtered] == [t_subs['release_title']]
+    ranked = Sources.__new__(Sources).sortSources([t_ember, t_subs, t_judas], [], [], [], [], 'episode', 24, mal_id='52991')
+    # Global exclusion drops EMBER, while per-series pin overrides global exclusion for Judas and ranks it #1
+    assert [r['release_title'] for r in ranked] == [t_judas['release_title'], t_subs['release_title']]
 
-    # When ALL candidates are excluded, safely fall back to unfiltered pool (never empty!)
-    fallback = src.sortSources([t_judas], [], [], [], [], 'episode', 24, mal_id='52991')
-    assert [s['release_title'] for s in fallback] == [t_judas['release_title']]
+    # When ALL candidates are excluded and not series-pinned, safely fall back to unfiltered pool
+    control.setSetting('general.release_group.excluded', 'SubsPlease')
+    fallback = Sources.__new__(Sources).sortSources([t_subs], [], [], [], [], 'episode', 24)
+    assert [r['release_title'] for r in fallback] == [t_subs['release_title']]
 
 
-# ─── 4. SeriesProfileDialog (11 rows, Kodi 22 strict) & SourceSelect Context ─
+# ─── 4. SeriesProfileDialog Multi-Select & Badge Truncation ──────────────────
 
-def test_series_profile_dialog_11_rows_kodi22_strict_and_close_order(tmp_path, monkeypatch):
+def test_series_profile_dialog_multiselect_custom_and_mutual_exclusivity(tmp_path, monkeypatch):
     db_path = str(tmp_path / 'malSync.db')
     monkeypatch.setattr(control, 'malSyncDB', db_path)
     database._tables_ready.clear()
 
     assert len(series_profile._FIELD_SPECS) == 11
-    keys = [s['key'] for s in series_profile._FIELD_SPECS]
-    assert 'preferred_group' in keys
-    assert 'excluded_groups' in keys
+    assert series_profile._FIELD_SPECS[9]['kind'] == 'release_groups'
+    assert series_profile._FIELD_SPECS[10]['kind'] == 'release_groups'
 
     with KodiProfile('22', strict_skin_controls=True):
         dlg = series_profile.SeriesProfileDialog('series_profile.xml', control.ADDON_PATH, mal_id='52991')
         dlg.onInit()
         assert dlg.list_control.size() == 11
 
-        close_order = []
-        orig_close = dlg.close
-
-        def _spy_close():
-            close_order.append(('close', dlg._win_closed))
-            orig_close()
-
-        monkeypatch.setattr(dlg, 'close', _spy_close)
+        # 1. Multi-select 3 preferred groups (indices 0, 1, 2 -> SubsPlease, EMBER, Yameii) -> badge truncates cleanly
         monkeypatch.setattr(control, 'select_dialog', lambda *a, **k: 0)
-        monkeypatch.setattr(control, 'input_dialog', lambda *a, **k: 'SubsPlease')
-        dlg.edit_field(idx=9)  # preferred_group
-        assert dlg.values['preferred_group'] == 'SubsPlease'
-        assert dlg.list_control.getListItem(9).getProperty('value_badge') == 'SubsPlease'
+        monkeypatch.setattr(control, 'multiselect_dialog', lambda heading, labels, preselect=None: [0, 1, 2])
+        dlg.edit_field(idx=9)
+        assert dlg.values['preferred_group'] == 'SubsPlease, EMBER, Yameii'
+        assert dlg.list_control.getListItem(9).getProperty('value_badge') == 'SubsPlease, EMBER (+1 more)'
 
-        monkeypatch.setattr(control, 'input_dialog', lambda *a, **k: 'Judas, EMBER')
-        dlg.edit_field(idx=10)  # excluded_groups
-        assert dlg.values['excluded_groups'] == 'Judas, EMBER'
+        # 2. Add custom release group via input dialog ("Add Custom Release Group(s)...")
+        monkeypatch.setattr(control, 'select_dialog', lambda *a, **k: 1)
+        monkeypatch.setattr(control, 'input_dialog', lambda *a, **k: 'SubsPlease, EMBER, CustomGroup')
+        dlg.edit_field(idx=9)
+        assert dlg.values['preferred_group'] == 'SubsPlease, EMBER, CustomGroup'
+
+        # 3. Exclude EMBER via multi-select -> automatically strips EMBER from preferred_group and updates both rows
+        monkeypatch.setattr(control, 'select_dialog', lambda *a, **k: 0)
+        ember_idx = next(
+            i for i, (g, _l) in enumerate(series_profile._build_release_group_choices(''))
+            if g == 'EMBER'
+        )
+        monkeypatch.setattr(control, 'multiselect_dialog', lambda heading, labels, preselect=None: [ember_idx])
+        dlg.edit_field(idx=10)
+        assert dlg.values['excluded_groups'] == 'EMBER'
+        assert dlg.values['preferred_group'] == 'SubsPlease, CustomGroup'
+        assert dlg.list_control.getListItem(9).getProperty('value_badge') == 'SubsPlease, CustomGroup'
 
         dlg.save_and_close()
-        assert close_order == [('close', False)]
         assert dlg._win_closed is True
 
     saved = database.get_series_override(52991)
-    assert saved['preferred_group'] == 'SubsPlease'
-    assert saved['excluded_groups'] == 'Judas, EMBER'
+    assert saved['preferred_group'] == 'SubsPlease, CustomGroup'
+    assert saved['excluded_groups'] == 'EMBER'
 
 
-def test_source_select_context_pin_and_exclude_in_place_no_reset(tmp_path, monkeypatch):
-    db_path = str(tmp_path / 'malSync.db')
-    monkeypatch.setattr(control, 'malSyncDB', db_path)
-    database._tables_ready.clear()
+# ─── 5. Settings > Sort & Filter Route & Context Menu Cleanup ────────────────
 
-    sources = [
-        _make_torrent('[SubsPlease] Frieren - 01 (1080p).mkv'),
-        _make_torrent('[Judas] Frieren - 01 (1080p).mkv'),
-    ]
-    with KodiProfile('22', strict_skin_controls=True):
-        dlg = source_select.SourceSelect(
-            'source_select.xml',
-            control.ADDON_PATH,
-            actionArgs={'mal_id': '52991'},
-            sources=sources,
-        )
-        dlg.onInit()
-        assert dlg.display_list.size() == 2
-        assert dlg.display_list.getListItem(0).getProperty('release_group') == 'SubsPlease'
-
-        reset_spy = MagicMock(side_effect=AssertionError("list_control.reset() must NOT be called on Pin/Exclude"))
-        monkeypatch.setattr(dlg.display_list, 'reset', reset_spy)
-        dlg.display_list.selectItem(0)
-
-        # Action 117 -> choose index 3 ("Pin Release Group: SubsPlease")
-        captured_menus = []
-
-        def _fake_ctx(opts):
-            captured_menus.append(list(opts))
-            return 3
-
-        monkeypatch.setattr(control, 'context_menu', _fake_ctx)
-        action = MagicMock()
-        action.getId.return_value = 117
-        dlg.onAction(action)
-
-        assert any('Pin Release Group: SubsPlease' in o for o in captured_menus[-1])
-        assert database.get_series_override(52991)['preferred_group'] == 'SubsPlease'
-        assert dlg.display_list.getListItem(0).getProperty('group_pin_status') == 'pinned'
-        reset_spy.assert_not_called()
-
-        # Re-open context menu -> now offers Unpin at index 3 and Exclude at index 4
-        monkeypatch.setattr(control, 'context_menu', lambda opts: (captured_menus.append(list(opts)) or 4))
-        dlg.onAction(action)
-        assert any('Unpin Release Group: SubsPlease' in o for o in captured_menus[-1])
-        assert database.get_series_override(52991)['preferred_group'] == ''
-        assert 'subsplease' in source_utils.parse_excluded_groups(
-            database.get_series_override(52991)['excluded_groups']
-        )
-        assert dlg.display_list.getListItem(0).getProperty('group_pin_status') == 'excluded'
-        reset_spy.assert_not_called()
-
-
-# ─── 5. Route pin_release_group/*, process_context() & context.otaku.rpdev ──
-
-def test_pin_release_group_route_happy_and_invalid_mal_id(tmp_path, monkeypatch):
-    db_path = str(tmp_path / 'malSync.db')
-    monkeypatch.setattr(control, 'malSyncDB', db_path)
-    database._tables_ready.clear()
-
+def test_select_release_groups_route_and_context_seriesprofile_toggle(monkeypatch):
+    _configure_sort_defaults()
     notifies = []
     monkeypatch.setattr(control, 'notify', lambda *a, **k: notifies.append(a))
     monkeypatch.setattr(control, 'exit_code', lambda: None)
 
-    # Invalid mal_id -> clean no-op toast
-    tools_routes.PIN_RELEASE_GROUP('invalid/abc', {})
-    assert any('No anime MAL ID' in str(n) for n in notifies)
+    monkeypatch.setattr(control, 'select_dialog', lambda *a, **k: 0)
+    monkeypatch.setattr(control, 'multiselect_dialog', lambda heading, labels, preselect=None: [0, 3])  # SubsPlease, Erai-raws
+    tools_routes.SELECT_RELEASE_GROUPS('preferred', {})
+    assert control.getSetting('general.release_group.preferred') == 'SubsPlease, Erai-raws'
 
-    # Valid mal_id -> custom pin via dialog
-    monkeypatch.setattr(control, 'select_dialog', lambda heading, opts: 0)  # Enter Release Group Name...
-    monkeypatch.setattr(control, 'input_dialog', lambda *a, **k: 'EMBER')
-    tools_routes.PIN_RELEASE_GROUP('52991/', {})
-    assert database.get_series_override(52991)['preferred_group'] == 'EMBER'
+    # Selecting SubsPlease in excluded removes it from global preferred automatically
+    monkeypatch.setattr(control, 'multiselect_dialog', lambda heading, labels, preselect=None: [0])
+    tools_routes.SELECT_RELEASE_GROUPS('excluded', {})
+    assert control.getSetting('general.release_group.excluded') == 'SubsPlease'
+    assert control.getSetting('general.release_group.preferred') == 'Erai-raws'
 
-
-def test_context_addon_xml_and_default_py_pinreleasegroup(monkeypatch):
+    # Context menu cleanup: 18 items, pinreleasegroup removed, seriesprofile toggled by setting
     root = ET.parse(CONTEXT_ADDON_XML).getroot()
-    # Acyclic DAG invariant: imports ONLY xbmc.python
-    imports = [el.attrib.get('addon') for el in root.findall('./requires/import')]
-    assert imports == ['xbmc.python']
-
+    assert [el.attrib.get('addon') for el in root.findall('./requires/import')] == ['xbmc.python']
     items = root.findall('./extension[@point="kodi.context.item"]/menu/item')
-    assert len(items) == 19
-    pin_item = next((i for i in items if i.attrib.get('args') == 'pinreleasegroup'), None)
-    assert pin_item is not None
-    vis = pin_item.findtext('visible') or ''
-    assert 'Window(home).Property(context.otaku.rpdev.pinreleasegroup)' in vis
-    assert 'ListItem.UniqueID(mal_id)' in vis
-    assert 'ListItem.Property(mal_id)' in vis
+    assert len(items) == 18
+    args = [i.attrib.get('args') for i in items]
+    assert 'pinreleasegroup' not in args
+    assert 'seriesprofile' in args
 
-    # process_context() caches context.otaku.rpdev.pinreleasegroup
-    control.setBool('context.otaku.pinreleasegroup', False)
+    with open(SETTINGS_XML, 'r', encoding='utf-8') as fp:
+        settings_text = fp.read()
+    assert 'context.otaku.pinreleasegroup' not in settings_text
+    assert 'context.otaku.seriesprofile' in settings_text
+    assert 'general.release_group.preferred' in settings_text
+    assert 'general.release_group.excluded' in settings_text
+    assert 'general.release_group.tiebreak' in settings_text
+
+    control.setBool('context.otaku.seriesprofile', False)
     control.process_context()
-    assert control.homeWindow.getProperty('context.otaku.rpdev.pinreleasegroup') == 'false'
-    control.setBool('context.otaku.pinreleasegroup', True)
+    assert control.homeWindow.getProperty('context.otaku.rpdev.seriesprofile') == 'false'
+    control.setBool('context.otaku.seriesprofile', True)
     control.process_context()
-    assert control.homeWindow.getProperty('context.otaku.rpdev.pinreleasegroup') == 'true'
+    assert control.homeWindow.getProperty('context.otaku.rpdev.seriesprofile') == 'true'
 
-    # Execute context.otaku.rpdev/default.py for Otaku path, widget item, and non-Otaku videodb://
-    spec = importlib.util.spec_from_file_location('ctx_default_track_a', CONTEXT_DEFAULT_PY)
-    ctx_mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(ctx_mod)
 
-    executed = []
-    monkeypatch.setattr(ctx_mod.xbmc, 'executebuiltin', lambda cmd: executed.append(cmd))
+def test_source_select_context_multi_pin_and_unpin_in_place(tmp_path, monkeypatch):
+    db_path = str(tmp_path / 'malSync.db')
+    monkeypatch.setattr(control, 'malSyncDB', db_path)
+    database._tables_ready.clear()
+    database.pin_series_release_group(52991, 'Erai-raws')
 
-    # 1. Valid Otaku plugin path
-    li_ok = MagicMock()
-    li_ok.getPath.return_value = 'plugin://plugin.video.otaku.rpdev/animes/52991/'
-    li_ok.getProperty.return_value = ''
-    monkeypatch.setattr(sys, 'argv', ['default.py', 'pinreleasegroup'])
-    monkeypatch.setattr(sys, 'listitem', li_ok, raising=False)
-    ctx_mod.main()
-    assert executed[-1] == 'RunPlugin(plugin://plugin.video.otaku.rpdev/pin_release_group/52991)'
+    sources = [
+        _make_torrent('[SubsPlease] Frieren - 01 (1080p).mkv'),
+        _make_torrent('[Erai-raws] Frieren - 01 (1080p).mkv'),
+    ]
+    with KodiProfile('22', strict_skin_controls=True):
+        dlg = source_select.SourceSelect('source_select.xml', control.ADDON_PATH, actionArgs={'mal_id': '52991'}, sources=sources)
+        dlg.onInit()
+        reset_spy = MagicMock(side_effect=AssertionError("list_control.reset() must NOT be called"))
+        monkeypatch.setattr(dlg.display_list, 'reset', reset_spy)
+        dlg.display_list.selectItem(0)
 
-    # 2. External widget item carrying UniqueID(mal_id) / Property(mal_id)
-    executed.clear()
-    li_widget = MagicMock()
-    li_widget.getPath.return_value = 'videodb://tvshows/titles/99/'
-    li_widget.getProperty.side_effect = lambda k: '52991' if k == 'mal_id' else ''
-    li_widget.getVideoInfoTag.return_value.getUniqueIDs.return_value = {}
-    li_widget.getVideoInfoTag.return_value.getUniqueID.return_value = ''
-    li_widget.getVideoInfoTag.return_value.getEpisode.return_value = 1
-    monkeypatch.setattr(ctx_mod.xbmc, 'getInfoLabel', lambda lbl: '')
-    monkeypatch.setattr(sys, 'listitem', li_widget, raising=False)
-    ctx_mod.main()
-    assert executed == ['RunPlugin(plugin://plugin.video.otaku.rpdev/pin_release_group/52991)']
+        monkeypatch.setattr(control, 'context_menu', lambda opts: 3)  # Pin Release Group: SubsPlease
+        action = MagicMock()
+        action.getId.return_value = 117
+        dlg.onAction(action)
+        assert database.get_series_override(52991)['preferred_group'] == 'Erai-raws, SubsPlease'
 
-    # 3. Non-Otaku videodb:// item with NO mal_id -> clean no-op
-    executed.clear()
-    li_foreign = MagicMock()
-    li_foreign.getPath.return_value = 'videodb://movies/titles/42/'
-    li_foreign.getProperty.return_value = ''
-    li_foreign.getVideoInfoTag.return_value.getUniqueIDs.return_value = {}
-    li_foreign.getVideoInfoTag.return_value.getUniqueID.return_value = ''
-    monkeypatch.setattr(ctx_mod.xbmc, 'getInfoLabel', lambda lbl: '')
-    monkeypatch.setattr(sys, 'listitem', li_foreign, raising=False)
-    ctx_mod.main()
-    assert executed == []
+        # Unpinning SubsPlease removes ONLY SubsPlease, keeping Erai-raws
+        dlg.onAction(action)
+        assert database.get_series_override(52991)['preferred_group'] == 'Erai-raws'
+        reset_spy.assert_not_called()

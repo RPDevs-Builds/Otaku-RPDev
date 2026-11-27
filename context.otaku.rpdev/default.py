@@ -212,13 +212,6 @@ def main():
         mal_seg = target.strip('/').split('/')[0] if target else ''
         if mal_seg and mal_seg.isdigit():
             xbmc.executebuiltin(f"RunPlugin({plugin}/inspect_mappings/{mal_seg})")
-    elif arg == 'pinreleasegroup':
-        if not _has_resolved_target(item, path, plugin):
-            return
-        target = _extract_watch_target(path, plugin, item=item)
-        mal_seg = target.strip('/').split('/')[0] if target else ''
-        if mal_seg and mal_seg.isdigit():
-            xbmc.executebuiltin(f"RunPlugin({plugin}/pin_release_group/{mal_seg})")
     elif arg == 'rescrape':
         if not _has_resolved_target(item, path, plugin):
             return
