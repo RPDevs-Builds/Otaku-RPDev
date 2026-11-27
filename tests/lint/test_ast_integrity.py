@@ -29,6 +29,7 @@ CONTEXT_ADDON_DIR = os.path.join(REPO_ROOT, 'context.otaku.rpdev')
 SUBTITLE_ADDON_DIR = os.path.join(REPO_ROOT, 'service.subtitles.otaku.rpdev')
 SKIN_XML_DIR = os.path.join(ADDON_DIR, 'resources', 'skins', 'Default', '1080i')
 CONTROL_PY_PATH = os.path.normpath(os.path.join(ADDON_DIR, 'resources', 'lib', 'ui', 'control.py'))
+SAFE_JSON_PY_PATH = os.path.normpath(os.path.join(SERVICE_ADDON_DIR, 'resources', 'lib', 'otaku_service', 'safe_json.py'))
 
 
 def _iter_addon_py_files(include_context=True):
@@ -364,10 +365,11 @@ class TestASTIntegrity(unittest.TestCase):
         )
 
     def test_zero_direct_json_loads_outside_control(self):
-        """AGENTS.md §11: Direct json.loads() calls outside control.py are forbidden; use safe_json / loads_json."""
+        """AGENTS.md §11: Direct json.loads() calls outside control.py / otaku_service.safe_json are forbidden."""
         violations = []
+        allowed = {CONTROL_PY_PATH, SAFE_JSON_PY_PATH}
         for f, tree in self._parsed_files:
-            if os.path.normpath(f) == CONTROL_PY_PATH:
+            if os.path.normpath(f) in allowed:
                 continue
             violations.extend(_find_direct_json_loads(tree, f))
 
@@ -376,6 +378,26 @@ class TestASTIntegrity(unittest.TestCase):
             [],
             f"Direct json.loads() calls outside control.py found (use control.loads_json / safe_json): {violations}",
         )
+
+    def test_otaku_service_leaf_modules_zero_plugin_imports(self):
+        """Phase 2 leaf modules under service.otaku.rpdev must maintain ZERO imports from plugin.video.otaku.rpdev."""
+        leaf_names = ('migration.py', 'metrics.py', 'safe_json.py', 'connectivity.py', 'circuit_breaker.py', 'sqlite_pool.py')
+        leaf_dir = os.path.join(SERVICE_ADDON_DIR, 'resources', 'lib', 'otaku_service')
+        violations = []
+        for fn in leaf_names:
+            path = os.path.normpath(os.path.join(leaf_dir, fn))
+            self.assertTrue(os.path.isfile(path), f"Missing leaf module: {path}")
+            with open(path, 'r', encoding='utf-8') as fp:
+                tree = ast.parse(fp.read(), filename=path)
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Import):
+                    for alias in node.names:
+                        if alias.name.startswith('resources') or 'otaku.rpdev' in alias.name:
+                            violations.append((fn, node.lineno, alias.name))
+                elif isinstance(node, ast.ImportFrom) and node.module:
+                    if node.module.startswith('resources') or 'otaku.rpdev' in node.module:
+                        violations.append((fn, node.lineno, node.module))
+        self.assertEqual(violations, [], f"Leaf modules in otaku_service must not import plugin modules: {violations}")
 
     def test_zero_bs4_css_selectors_requiring_soupsieve(self):
         """BeautifulSoup .select() / .select_one() require optional soupsieve not guaranteed in Kodi; use find/find_all."""

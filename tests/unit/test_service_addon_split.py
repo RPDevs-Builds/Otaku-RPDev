@@ -342,5 +342,166 @@ class TestDualAddonSettingsManagement(unittest.TestCase):
             self.assertTrue(control.getBool('fs_enable'))
 
 
+class TestPhase2LeafExtraction(unittest.TestCase):
+    """Phase 2 leaf modules under otaku_service (metrics, safe_json, connectivity, circuit_breaker, sqlite_pool)."""
+
+    def test_metrics_formatting_and_edge_sanitization(self):
+        from otaku_service import metrics
+
+        # Happy: formats sorted fields cleanly
+        line = metrics.format_metric_line('scrape_summary', ok=True, ratio=1.500, cached=3)
+        self.assertEqual(line, 'OTAKU_METRIC event=scrape_summary cached=3 ok=true ratio=1.5')
+
+        # Edge/Negative: None skipped, empty event, newline/injection sanitized, throwing logger swallowed
+        bad_line = metrics.format_metric_line('', skipped=None, **{'bad key': 'a\r\nb c', 'empty': '   '})
+        self.assertEqual(bad_line, 'OTAKU_METRIC event=unknown bad_key=a_b_c empty=none')
+
+        logged = []
+        metrics.log_metric('test_ev', logger_fn=lambda msg, level='info': logged.append((level, msg)), x=1)
+        self.assertEqual(logged, [('info', 'OTAKU_METRIC event=test_ev x=1')])
+        self.assertEqual(control.log_metric('proxy_ev', count=2), 'OTAKU_METRIC event=proxy_ev count=2')
+
+    def test_safe_json_happy_and_negative_inputs(self):
+        from otaku_service import safe_json as sj
+
+        self.assertEqual(sj.loads_json('{"a": 1}'), {'a': 1})
+        self.assertIsNone(sj.loads_json(''))
+        self.assertEqual(sj.loads_json('{corrupt', default={'fallback': True}), {'fallback': True})
+        self.assertEqual(sj.safe_json('<html>502 Bad Gateway</html>', default=[]), [])
+        self.assertEqual(sj.safe_json(b'{"ok": true}'), {'ok': True})
+
+        bad_resp = MagicMock()
+        bad_resp.json.side_effect = ValueError('invalid json')
+        self.assertEqual(sj.safe_json(bad_resp, default={'empty': 1}), {'empty': 1})
+
+        none_resp = MagicMock()
+        none_resp.json.return_value = None
+        self.assertEqual(sj.safe_json(none_resp), {})
+
+        # Verify control re-exports point to shared leaf functions
+        self.assertIs(control.safe_json, sj.safe_json)
+        self.assertIs(control.loads_json, sj.loads_json)
+
+    def test_standalone_connectivity_gate_and_negative_cases(self):
+        import errno
+        import socket
+        from otaku_service import connectivity
+
+        props = {}
+        emitted = []
+        gate = connectivity.ConnectivityGate(
+            ttl_seconds=10.0,
+            distinct_window_s=5.0,
+            min_distinct_hosts=2,
+            get_prop_fn=lambda k: props.get(k, ''),
+            set_prop_fn=lambda k, v: props.__setitem__(k, v),
+            clear_prop_fn=lambda k: props.pop(k, None),
+            metric_fn=lambda ev, **kw: emitted.append((ev, kw)),
+            verify_connectivity_fn=lambda: True,
+        )
+
+        # Negative: non-DNS error does not trip
+        self.assertFalse(gate.record_failure('nyaa.si', ValueError('http 500')))
+        self.assertFalse(gate.is_tripped())
+
+        # Negative: single-host DNS failure with connectivity probe True does NOT trip global gate
+        self.assertFalse(gate.record_failure('dead.example', socket.gaierror(-2, 'Name or service not known')))
+        self.assertFalse(gate.is_tripped())
+
+        # Edge: cyclic exception chain terminates cleanly
+        e1 = OSError('plain')
+        e2 = OSError('wrapped')
+        e1.__cause__ = e2
+        e2.__cause__ = e1
+        self.assertFalse(connectivity.is_dns_or_network_drop(e1))
+
+        # Edge: URLError errno ENETUNREACH detected
+        net_err = OSError(errno.ENETUNREACH, 'network is unreachable')
+        self.assertTrue(connectivity.is_dns_or_network_drop(net_err))
+
+        # Edge: corrupt window property value does not crash is_tripped()
+        props[gate._PROP_KEY] = 'not-a-float'
+        self.assertFalse(gate.is_tripped())
+
+        # Happy: 2nd distinct host DNS failure trips gate and record_success clears it
+        self.assertTrue(gate.record_failure('second.example', net_err))
+        self.assertTrue(gate.is_tripped())
+        self.assertEqual(emitted[-1][1]['state'], 'tripped')
+        gate.record_success()
+        self.assertFalse(gate.is_tripped())
+        self.assertEqual(emitted[-1][1]['state'], 'cleared')
+
+    def test_standalone_adaptive_circuit_breaker_and_edge_cases(self):
+        import socket
+        from otaku_service import circuit_breaker
+
+        props = {}
+        cb = circuit_breaker.AdaptiveCircuitBreaker(
+            failure_threshold=2,
+            cooldown_seconds=300,
+            get_prop_fn=lambda k: props.get(k, ''),
+            set_prop_fn=lambda k, v: props.__setitem__(k, v),
+            clear_prop_fn=lambda k: props.pop(k, None),
+            log_fn=lambda _msg, _lvl='debug': None,
+            is_gate_tripped_fn=lambda: False,
+        )
+
+        # Negative: malformed persisted Window JSON safely ignored
+        props[cb._PROP_KEY] = '{bad_json'
+        self.assertFalse(cb.is_tripped('nyaa', category='torrent'))
+
+        # Negative: DNS drop does not increment failures or trip circuit
+        cb.record_failure('nyaa', exc=socket.gaierror(-2, 'Name or service not known'))
+        self.assertIsNone(cb.get_snapshot().get('nyaa'))
+
+        # Happy + partial reset: 429 trips immediately; reset(one) leaves other intact
+        cb.record_failure('hianime', category='embed', status_code=429)
+        cb.record_failure('nyaa', category='torrent', status_code=429)
+        self.assertTrue(cb.is_tripped('hianime'))
+        self.assertTrue(cb.is_tripped('nyaa'))
+        cb.reset('hianime')
+        self.assertFalse(cb.is_tripped('hianime'))
+        self.assertTrue(cb.is_tripped('nyaa'))
+
+    def test_shared_sqlite_pool_ro_enforcement_and_retry(self):
+        from sqlite3 import OperationalError
+        from otaku_service import sqlite_pool
+        from resources.lib.ui import database
+
+        # Shared singleton identity with database.py
+        self.assertIs(database._all_thread_conns, sqlite_pool._all_thread_conns)
+        self.assertIs(database._conns_lock, sqlite_pool._conns_lock)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = os.path.join(tmp, 'dir with spaces', 'test.db')
+            os.makedirs(os.path.dirname(db_path), exist_ok=True)
+            rw_conn = sqlite_pool.open_sqlite_connection(db_path, is_readonly=False, cache_mb=8, mmap_size_bytes=0)
+            try:
+                cur = rw_conn.cursor()
+                sqlite_pool.execute_write_with_retry(cur, 'CREATE TABLE items (id INTEGER PRIMARY KEY, name TEXT)')
+                sqlite_pool.execute_write_with_retry(cur, 'INSERT INTO items VALUES (1, ?)', ('ok',))
+            finally:
+                rw_conn.close()
+
+            # Read-only connection with URL-encoded path + low_memory disables mmap and rejects writes
+            ro_conn = sqlite_pool.open_sqlite_connection(db_path, is_readonly=True, low_memory=True)
+            try:
+                rows = ro_conn.cursor().execute('SELECT id, name FROM items').fetchall()
+                self.assertEqual(rows, [{'id': 1, 'name': 'ok'}])
+                with self.assertRaises(OperationalError):
+                    ro_conn.cursor().execute('INSERT INTO items VALUES (2, "bad")')
+            finally:
+                ro_conn.close()
+
+        # Negative: corruption classifier and non-lock error pass-through
+        self.assertTrue(sqlite_pool.is_db_corruption_error(OperationalError('database disk image is malformed')))
+        self.assertFalse(sqlite_pool.is_db_corruption_error(None))
+        bad_cur = MagicMock()
+        bad_cur.execute.side_effect = OperationalError('no such table: missing')
+        with self.assertRaises(OperationalError):
+            sqlite_pool.execute_write_with_retry(bad_cur, 'SELECT 1', max_retries=3)
+        self.assertEqual(bad_cur.execute.call_count, 1)
+
+
 if __name__ == '__main__':
     unittest.main()

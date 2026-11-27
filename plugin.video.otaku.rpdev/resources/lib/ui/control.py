@@ -474,6 +474,24 @@ try:
 except Exception:
     SERVICE_ADDON_PATH = xbmcvfs.translatePath(f'special://home/addons/{SERVICE_ADDON_ID}/')
 
+
+def _ensure_otaku_service_on_path():
+    """Ensure service.otaku.rpdev/resources/lib is on sys.path (mirrors Kodi xbmc.python.module loader)."""
+    candidates = []
+    if SERVICE_ADDON_PATH:
+        translated = xbmcvfs.translatePath(SERVICE_ADDON_PATH)
+        if translated:
+            candidates.append(os.path.join(translated, 'resources', 'lib'))
+    repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+    candidates.append(os.path.join(repo_root, SERVICE_ADDON_ID, 'resources', 'lib'))
+    for lib_dir in candidates:
+        if lib_dir and os.path.isdir(lib_dir) and lib_dir not in sys.path:
+            sys.path.insert(0, lib_dir)
+
+
+_ensure_otaku_service_on_path()
+from otaku_service import metrics as _otaku_metrics, safe_json as _otaku_safe_json  # noqa: E402
+
 SERVICE_SETTING_IDS = frozenset({
     # Category 1: Cache & Database
     'general.kodi.cache',
@@ -711,29 +729,14 @@ def log(msg, level="debug"):
     xbmc.log(f'{ADDON_NAME.upper()} ({HANDLE}): {sanitized}', level)
 
 
-_METRIC_TOKEN_RE = re.compile(r'[^A-Za-z0-9_.\-/:]+')
+_METRIC_TOKEN_RE = _otaku_metrics._METRIC_TOKEN_RE
 
 
 def log_metric(event, level='info', **fields):
     """Emit a single-line structured OTAKU_METRIC key=value telemetry marker via log()."""
-    clean_event = _METRIC_TOKEN_RE.sub('_', str(event or 'unknown').strip()) or 'unknown'
-    parts = [f"OTAKU_METRIC event={clean_event}"]
-    for k in sorted(fields.keys()):
-        v = fields[k]
-        if v is None:
-            continue
-        clean_k = _METRIC_TOKEN_RE.sub('_', str(k).strip())
-        if not clean_k:
-            continue
-        if isinstance(v, bool):
-            clean_v = 'true' if v else 'false'
-        elif isinstance(v, float):
-            clean_v = f"{v:.3f}".rstrip('0').rstrip('.') if '.' in f"{v:.3f}" else str(v)
-        else:
-            raw_v = str(v).replace('\r', ' ').replace('\n', ' ').strip()
-            clean_v = _METRIC_TOKEN_RE.sub('_', raw_v) if raw_v else 'none'
-        parts.append(f"{clean_k}={clean_v}")
-    log(' '.join(parts), level=level)
+    line = _otaku_metrics.format_metric_line(event, **fields)
+    log(line, level=level)
+    return line
 
 
 def bin(s):
@@ -2540,41 +2543,9 @@ def safe_call(func, *args, default=None, log_msg='', **kwargs):
         return default
 
 
-_JSON_DEFAULT_SENTINEL = object()
-
-
-def safe_json(response, default=_JSON_DEFAULT_SENTINEL):
-    """Safely parse a response or string/bytes as JSON, returning default on failure."""
-    def_val = {} if default is _JSON_DEFAULT_SENTINEL else default
-    if not response:
-        return def_val
-    if hasattr(response, 'json'):
-        try:
-            res = response.json()
-            return res if res is not None else def_val
-        except (ValueError, AttributeError, TypeError, json.JSONDecodeError):
-            return def_val
-    if isinstance(response, (str, bytes)):
-        try:
-            res = json.loads(response)
-            return res if res is not None else def_val
-        except (ValueError, AttributeError, TypeError, json.JSONDecodeError):
-            return def_val
-    try:
-        res = response.json()
-        return res if res is not None else def_val
-    except (ValueError, AttributeError, TypeError, json.JSONDecodeError):
-        return def_val
-
-
-def loads_json(text, default=None):
-    """Safely parse a JSON string, returning `default` on error or empty string."""
-    if not text:
-        return default
-    try:
-        return json.loads(text)
-    except (json.JSONDecodeError, TypeError, ValueError):
-        return default
+_JSON_DEFAULT_SENTINEL = _otaku_safe_json._JSON_DEFAULT_SENTINEL
+safe_json = _otaku_safe_json.safe_json
+loads_json = _otaku_safe_json.loads_json
 
 
 def safe_next(iterable, default=None):

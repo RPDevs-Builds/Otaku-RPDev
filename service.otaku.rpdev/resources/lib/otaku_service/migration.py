@@ -16,6 +16,8 @@ import xbmc
 import xbmcaddon
 import xbmcvfs
 
+from otaku_service import metrics
+
 SERVICE_ADDON_ID = 'service.otaku.rpdev'
 PLUGIN_ADDON_ID = 'plugin.video.otaku.rpdev'
 MIGRATION_MARKER_ID = 'service.migrated_from_plugin_v1'
@@ -167,5 +169,5 @@ def migrate_service_settings(plugin_settings_xml=None, service_addon=None):
     except Exception as e:
         _log(f'migration: Failed setting {MIGRATION_MARKER_ID}: {e}', xbmc.LOGWARNING)
 
-    _log(f'OTAKU_METRIC event=service_settings_migrated count={migrated}')
+    _log(metrics.format_metric_line('service_settings_migrated', count=migrated))
     return migrated

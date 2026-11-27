@@ -143,7 +143,27 @@ def write_addon_settings(profile_dir, overrides, addon_id="plugin.video.otaku.rp
 
 def set_runtime_setting(profile_dir, overrides):
     """Write setting to disk and mutate active in-memory Kodi runtime via /set_settings route."""
-    write_addon_settings(profile_dir, overrides)
+    plugin_overrides = {}
+    service_overrides = {}
+    svc_keys = {
+        'general.kodi.cache', 'cache.scrapers.ttl', 'cache.torrents.ttl',
+        'cache.metadata.ttl', 'cache.calendar.ttl', 'db.sqlite.cache_size_mb',
+        'db.sqlite.mmap_size_mb', 'db.sqlite.synchronous', 'db.sqlite.temp_store_ram',
+        'general.memory_watermark_mb', 'general.standby_throttling', 'download.location',
+        'dub.etag', 'mappings.etag', 'mappings.last_modified', 'update.time.1',
+        'update.time.7', 'update.time.30', 'clean.memory', 'service.migrated_from_plugin_v1',
+        'fs_enable', 'fs_url', 'fs_timeout', 'ms_enable', 'ms_url',
+        'ipv6.status', 'http2.status', 'webpdb.enabled', 'webpdb.port', 'webpdb.mode',
+    }
+    for k, v in overrides.items():
+        if k in svc_keys:
+            service_overrides[k] = v
+        else:
+            plugin_overrides[k] = v
+    if plugin_overrides:
+        write_addon_settings(profile_dir, plugin_overrides, addon_id="plugin.video.otaku.rpdev")
+    if service_overrides:
+        write_addon_settings(profile_dir, service_overrides, addon_id="service.otaku.rpdev")
     try:
         q = urllib.parse.urlencode(overrides)
         get_dir(f"plugin://plugin.video.otaku.rpdev/set_settings?{q}", timeout=10.0)
@@ -967,6 +987,21 @@ def run_kodi_version_suite(ver, mode, fs_url, mock_server_url=None, skip_playbac
     write_addon_settings(profile_dir, initial_settings, addon_id="plugin.video.otaku.rpdev")
     write_addon_settings(profile_dir, service_settings, addon_id="service.otaku.rpdev")
 
+    # Ensure obsolete orphan test keys from any prior run are cleared before Kodi boots
+    plugin_settings_file = os.path.join(profile_dir, "userdata", "addon_data", "plugin.video.otaku.rpdev", "settings.xml")
+    if os.path.exists(plugin_settings_file):
+        try:
+            _t = ET.parse(plugin_settings_file)
+            _r = _t.getroot()
+            _removed = False
+            for _el in list(_r.findall("./setting[@id='obsolete.orphan.e2e.test']")):
+                _r.remove(_el)
+                _removed = True
+            if _removed:
+                _t.write(plugin_settings_file, encoding="utf-8", xml_declaration=True)
+        except Exception:
+            pass
+
     # Clear stale caches, logs, and probe artifacts prior to launching
     for stale_fn in ("domains.json", "cache.db", "cache.db-wal", "cache.db-shm", "settings_probe.json"):
         stale_p = os.path.join(profile_dir, "userdata", "addon_data", "plugin.video.otaku.rpdev", stale_fn)
@@ -979,16 +1014,19 @@ def run_kodi_version_suite(ver, mode, fs_url, mock_server_url=None, skip_playbac
     seed_test_databases(profile_dir)
 
     log_path = os.path.join(profile_dir, "temp", "kodi.log")
-    if os.path.exists(log_path):
-        try:
-            os.remove(log_path)
-        except OSError:
-            pass
+    stderr_log_path = os.path.join(profile_dir, "temp", "kodi_stderr.log")
+    for p_rm in (log_path, stderr_log_path):
+        if os.path.exists(p_rm):
+            try:
+                os.remove(p_rm)
+            except OSError:
+                pass
 
+    stderr_fh = open(stderr_log_path, "wb")
     proc = subprocess.Popen(
         ["xvfb-run", "-a", "-s", "-screen 0 1920x1080x24", "flatpak", "run", f"--branch={branch}", "tv.kodi.Kodi", "--audio-backend=pulseaudio"],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
+        stdout=stderr_fh,
+        stderr=stderr_fh,
         start_new_session=True,
     )
 
@@ -1228,6 +1266,7 @@ def run_kodi_version_suite(ver, mode, fs_url, mock_server_url=None, skip_playbac
             tkey = tool_action.split("?")[0]
             tests[f"tool_{tkey}"] = "error" not in r_exec
             print(f"  [Tool] {tkey:<25} -> ok={'error' not in r_exec}")
+        time.sleep(2.5)
 
         # 10. service.py Orphan Setting Pruning (clean_settings)
         prune_res = test_clean_settings_orphan_pruning(profile_dir)
@@ -1302,9 +1341,24 @@ def run_kodi_version_suite(ver, mode, fs_url, mock_server_url=None, skip_playbac
         print(f"  [Shutdown] Clean Application.Quit exit = {clean_exit} ({round(shutdown_sec, 2)}s)")
 
     finally:
+        exit_rc = proc.poll()
+        if exit_rc is not None and not tests.get("clean_shutdown"):
+            print(f"  [KodiCrash] Process exited early with returncode={exit_rc}")
         if proc.poll() is None:
             try:
                 os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+            except Exception:
+                pass
+        try:
+            stderr_fh.close()
+        except Exception:
+            pass
+        if os.path.exists(stderr_log_path):
+            try:
+                with open(stderr_log_path, "r", encoding="utf-8", errors="ignore") as ef:
+                    err_txt = ef.read().strip()
+                if err_txt and not tests.get("clean_shutdown"):
+                    print(f"  [kodi_stderr.log tail]\n{err_txt[-1500:]}")
             except Exception:
                 pass
         subprocess.run(["flatpak", "kill", "tv.kodi.Kodi"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

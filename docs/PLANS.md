@@ -1,6 +1,6 @@
 # Otaku-RPDev Architecture Roadmap & Release Milestone Ledger (`docs/PLANS.md`)
 
-**Active Production Release:** `plugin.video.otaku.rpdev v6.7.0` | `service.otaku.rpdev v1.0.0` | `context.otaku.rpdev v1.0.50` | `service.subtitles.otaku.rpdev v1.0.3`  
+**Active Production Release:** `plugin.video.otaku.rpdev v6.8.0` | `service.otaku.rpdev v1.1.0` | `context.otaku.rpdev v1.0.50` | `service.subtitles.otaku.rpdev v1.0.3`  
 **Completed Major Milestones:** `v6.3.0` ([QA_SIGNOFF.md](teamwork/sprints/v6.3.0/QA_SIGNOFF.md)) → `v6.4.0`–`v6.4.11` ([CONCERNS.md](CONCERNS.md))  
 **Verification Gate:** `python3 scripts/verify_all.py --fail-below 65` + `python3 scripts/e2e_v630_suite.py` + Local Headless Flatpak Kodi 21.3 (Omega) & Kodi 22.0-RC2 (Piers) E2E (`scripts/test_kodi_installs.py`)
 

@@ -35,6 +35,7 @@ import xbmcvfs
 
 from sqlite3 import OperationalError, dbapi2
 from resources.lib.ui import control
+from otaku_service import sqlite_pool as _sqlite_pool
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -107,125 +108,31 @@ def loads(blob):
 #  SQL - Thread-Local Pooled SQLite Context Manager (WAL-mode concurrent)
 # ═══════════════════════════════════════════════════════════════════════════
 
-_thread_local = threading.local()
-_conns_lock = threading.RLock()
-_all_thread_conns = {}
-
-
-def _dict_factory(cursor, row):
-    """Row factory that returns dicts keyed by column name."""
-    return {col[0]: row[idx] for idx, col in enumerate(cursor.description)}
-
-
-def _get_thread_conns():
-    tid = threading.get_ident()
-    conns = getattr(_thread_local, 'conns', None)
-    if conns is None:
-        conns = {}
-        _thread_local.conns = conns
-    with _conns_lock:
-        _all_thread_conns[tid] = conns
-    return conns
+_thread_local = _sqlite_pool._thread_local
+_conns_lock = _sqlite_pool._conns_lock
+_all_thread_conns = _sqlite_pool._all_thread_conns
+_dict_factory = _sqlite_pool.dict_factory
+_get_thread_conns = _sqlite_pool.get_thread_conns
+_is_db_corruption_error = _sqlite_pool.is_db_corruption_error
+execute_write_with_retry = _sqlite_pool.execute_write_with_retry
 
 
 def prune_dead_thread_connections():
     """Close and remove SQLite connections belonging to worker threads that have exited."""
-    alive_tids = {t.ident for t in threading.enumerate() if t.ident is not None}
-    with _conns_lock:
-        dead_tids = [tid for tid in list(_all_thread_conns.keys()) if tid not in alive_tids]
-        dead_dicts = [_all_thread_conns.pop(tid, {}) for tid in dead_tids]
-    for conns in dead_dicts:
-        for _, (conn, _) in list(conns.items()):
-            try:
-                conn.close()
-            except (dbapi2.Error, OSError) as e:
-                control.log(f"dead thread db close error: {e}", 'debug')
-        conns.clear()
+    _sqlite_pool.prune_dead_thread_connections(log_fn=control.log)
 
 
 def close_thread_connections(path=None):
     """Close cached SQLite connections for the current thread and prune dead worker threads."""
-    tid = threading.get_ident()
-    conns = getattr(_thread_local, 'conns', None)
-    if conns:
-        if path is not None:
-            target = os.path.abspath(path)
-            for key in ((target, True), (target, False), (target, 'ro'), (target, 'rw'), target, f"{target}:ro"):
-                entry = conns.pop(key, None)
-                if entry:
-                    try:
-                        entry[0].close()
-                    except (dbapi2.Error, OSError) as e:
-                        control.log(f"database close error: {e}", 'debug')
-            if not conns:
-                with _conns_lock:
-                    _all_thread_conns.pop(tid, None)
-        else:
-            for _, (conn, _) in list(conns.items()):
-                try:
-                    conn.close()
-                except (dbapi2.Error, OSError) as e:
-                    control.log(f"database pool close error: {e}", 'debug')
-            conns.clear()
-            with _conns_lock:
-                _all_thread_conns.pop(tid, None)
-    prune_dead_thread_connections()
+    _sqlite_pool.close_thread_connections(path=path, log_fn=control.log)
 
 
 def close_all_connections(path=None):
     """Close cached SQLite connections across all threads in this interpreter."""
-    with _conns_lock:
-        all_items = list(_all_thread_conns.items())
-        if path is None:
-            _all_thread_conns.clear()
-    target = os.path.abspath(path) if path is not None else None
-    for tid, conns in all_items:
-        if target is not None:
-            for key in ((target, True), (target, False), (target, 'ro'), (target, 'rw'), target, f"{target}:ro"):
-                entry = conns.pop(key, None)
-                if entry:
-                    try:
-                        entry[0].close()
-                    except (dbapi2.Error, OSError) as e:
-                        control.log(f"database close error: {e}", 'debug')
-            if not conns:
-                with _conns_lock:
-                    _all_thread_conns.pop(tid, None)
-        else:
-            for _, (conn, _) in list(conns.items()):
-                try:
-                    conn.close()
-                except (dbapi2.Error, OSError) as e:
-                    control.log(f"database pool close error: {e}", 'debug')
-            conns.clear()
-    # Ensure current thread local dict is also closed if not yet registered
-    cur_conns = getattr(_thread_local, 'conns', None)
-    if cur_conns:
-        if target is not None:
-            for key in ((target, True), (target, False), (target, 'ro'), (target, 'rw'), target, f"{target}:ro"):
-                entry = cur_conns.pop(key, None)
-                if entry:
-                    try:
-                        entry[0].close()
-                    except (dbapi2.Error, OSError):
-                        pass
-        else:
-            for _, (conn, _) in list(cur_conns.items()):
-                try:
-                    conn.close()
-                except (dbapi2.Error, OSError):
-                    pass
-            cur_conns.clear()
+    _sqlite_pool.close_all_connections(path=path, log_fn=control.log)
 
 
 atexit.register(close_all_connections)
-
-
-def _is_db_corruption_error(exc):
-    if not exc:
-        return False
-    msg = str(exc).lower()
-    return any(p in msg for p in ('malformed', 'not a database', 'disk image is malformed', 'file is encrypted'))
 
 
 def _quarantine_and_recover_db(path):
@@ -269,22 +176,6 @@ def _quarantine_and_recover_db(path):
             control.log("Auto-recovery: mappings.db quarantined; will be restored on next service sync", level='info')
     except Exception as re:
         control.log(f"Auto-recovery schema recreation error for {abs_path}: {re}", level='error')
-
-
-def execute_write_with_retry(cur, sql, params=(), max_retries=3):
-    """Execute a write statement with exponential backoff and jitter on database lock."""
-    for attempt in range(max_retries):
-        try:
-            return cur.execute(sql, params)
-        except (dbapi2.OperationalError, OperationalError) as e:
-            if 'locked' in str(e).lower() or 'busy' in str(e).lower():
-                if attempt == max_retries - 1:
-                    raise
-                jitter = random.uniform(0.01, 0.04)
-                backoff = (0.05 * (2 ** attempt)) + jitter
-                time.sleep(backoff)
-            else:
-                raise
 
 
 def _resolve_mmap_size_bytes():
@@ -351,61 +242,18 @@ class SQL:
 
             try:
                 if cache_key not in conns:
-                    if self.is_readonly and os.path.exists(self.path):
-                        import urllib.parse
-                        safe_chars = '/:\\'
-                        ro_uri = f"file:{urllib.parse.quote(abs_path, safe=safe_chars)}?mode=ro"
-                        try:
-                            conn = dbapi2.connect(
-                                ro_uri,
-                                uri=True,
-                                timeout=float(self.timeout),
-                                isolation_level=None,
-                                check_same_thread=False
-                            )
-                        except Exception as ro_exc:
-                            control.log(f"SQL read-only URI fallback for {abs_path}: {ro_exc}", 'warning')
-                            conn = dbapi2.connect(
-                                f"file:{abs_path}?mode=ro",
-                                uri=True,
-                                timeout=float(self.timeout),
-                                isolation_level=None,
-                                check_same_thread=False
-                            )
-                    else:
-                        conn = dbapi2.connect(
-                            self.path,
-                            timeout=float(self.timeout),
-                            isolation_level=None,
-                            check_same_thread=False
-                        )
-                    conn.row_factory = _dict_factory
-                    if not is_readonly:
-                        conn.execute("PRAGMA foreign_keys = ON")
-                        # Synchronous setting (0=OFF, 1=NORMAL, 2=FULL)
-                        sync_val = control.getSetting('db.sqlite.synchronous')
-                        sync_modes = {'0': 'OFF', '1': 'NORMAL', '2': 'FULL'}
-                        sync_mode = sync_modes.get(str(sync_val), 'NORMAL')
-                        conn.execute(f"PRAGMA synchronous = {sync_mode}")
-                        try:
-                            conn.execute("PRAGMA journal_mode = WAL")
-                        except dbapi2.DatabaseError:
-                            pass
-                        # Cache size setting (negative value in KiB)
-                        cache_mb = control.getInt('db.sqlite.cache_size_mb') or (16 if control.is_low_memory() else 32)
-                        if cache_mb > 0:
-                            conn.execute(f"PRAGMA cache_size = -{cache_mb * 1024}")
-                        # Memory map size setting (disable mmap on 32-bit / low-RAM to avoid std::bad_alloc fragmentation)
-                        conn.execute(f"PRAGMA mmap_size = {_resolve_mmap_size_bytes()}")
-                        # Temp store in RAM
-                        if control.getBool('db.sqlite.temp_store_ram', default=True):
-                            conn.execute("PRAGMA temp_store = MEMORY")
-                    elif control.is_low_memory():
-                        # Disable virtual-memory mmap on read-only pools (info.db/mappings.db) on 32-bit / low-RAM devices
-                        try:
-                            conn.execute("PRAGMA mmap_size = 0")
-                        except dbapi2.DatabaseError:
-                            pass
+                    low_mem = control.is_low_memory()
+                    conn = _sqlite_pool.open_sqlite_connection(
+                        self.path,
+                        timeout=self.timeout,
+                        is_readonly=is_readonly,
+                        synchronous=control.getSetting('db.sqlite.synchronous') if not is_readonly else '1',
+                        cache_mb=(control.getInt('db.sqlite.cache_size_mb') or (16 if low_mem else 32)) if not is_readonly else 0,
+                        mmap_size_bytes=_resolve_mmap_size_bytes() if not is_readonly else 0,
+                        temp_store_ram=control.getBool('db.sqlite.temp_store_ram', default=True) if not is_readonly else False,
+                        low_memory=low_mem,
+                        log_fn=control.log,
+                    )
                     if os.path.exists(abs_path):
                         try:
                             st_ino = os.stat(abs_path).st_ino

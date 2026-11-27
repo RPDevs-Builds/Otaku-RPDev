@@ -1,3 +1,8 @@
+Changelog v1.1.0 (2026-11-27):
+- Phase 2 Shared Leaf Infrastructure Extraction (xbmc.python.module):
+  - Extracted zero-plugin-dependency leaf modules into otaku_service: metrics.py (OTAKU_METRIC formatter/logger), safe_json.py (safe_json / loads_json), connectivity.py (ConnectivityGate & DNS/network drop classifier), circuit_breaker.py (AdaptiveCircuitBreaker), and sqlite_pool.py (thread-local SQLite pool & WAL/RO connection helper).
+  - Enforced zero intra-Otaku plugin imports across all otaku_service leaf modules via AST integrity lint tests.
+
 Changelog v1.0.0 (2026-11-27):
 - Initial release of Otaku RPDev Background Service companion add-on:
   - Extracted persistent xbmc.service background daemon (startup maintenance, 15-minute OAuth/scrobble retry drain, NF-16 standby/CEC throttling, daily mappings.db + anime_metadata.db sync, MultipageWorker, C-37 memory watermark guard, and <2s deterministic WAL checkpoint teardown).

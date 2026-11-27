@@ -14,7 +14,7 @@ Detailed reference for developers and contributors working on `plugin.video.otak
 
 ```text
 Otaku-RPDev/
-├── plugin.video.otaku.rpdev/           # v6.7.0 primary video add-on
+├── plugin.video.otaku.rpdev/           # v6.8.0 primary video add-on
 │   ├── default.py                      # Plugin router dispatch (async changelog offload)
 │   ├── service.py                      # Thin backwards-compatible shim delegating to otaku_service.{daemon,sync}
 │   └── resources/
@@ -25,16 +25,16 @@ Otaku-RPDev/
 │           ├── Main.py & routes/       # Explicit re-exports + modular routes (playback, history, subtitles, tools, search, watchlist)
 │           ├── pages/                  # Torrent, Usenet & embed scrapers + orchestrator (__init__.py)
 │           ├── debrid/                 # Real-Debrid, Premiumize, AllDebrid, Debrid-Link, TorBox, EasyDebrid, Easynews
-│           ├── ui/                     # control.py (dual-addon proxy + epoch sync), database.py, database_sync.py, client.py, player.py, source_utils.py, embed_extractor.py, domains.py (AdaptiveCircuitBreaker), settings_manager.py
+│           ├── ui/                     # control.py, database.py, database_sync.py, client.py, domains.py (plugin adapters wrapping otaku_service leaf modules), player.py, source_utils.py, embed_extractor.py, settings_manager.py
 │           ├── subtitles/              # Subtitle Intelligence v2 (8 providers, SDH stripper, fallback, dual BCP 47 / ISO 639-2 matcher)
 │           ├── endpoints/              # AniList, MAL, TMDb, TVDB, AniZip, AnimeFiller, AniSkip, IntroDB
 │           ├── WatchlistFlavor/        # AniList, MyAnimeList, Kitsu, Simkl sync, Conflict Engine & Drift Auditor
 │           └── windows/                # Custom WindowXML controllers (resolver, source_select, get_sources, filter_select, stats_window, anichart, etc.)
-├── service.otaku.rpdev/                # v1.0.0 background daemon (xbmc.service) + shared module (xbmc.python.module)
+├── service.otaku.rpdev/                # v1.1.0 background daemon (xbmc.service) + shared module (xbmc.python.module)
 │   ├── service.py                      # Startup readiness check, migration, standby-aware loop, <2s teardown
 │   └── resources/
 │       ├── settings.xml                # 61 declared settings across 3 categories (Cache, Maintenance, Solvers & Network)
-│       └── lib/otaku_service/          # migration.py (self-contained), daemon.py, sync.py
+│       └── lib/otaku_service/          # Leaf modules (zero plugin imports): migration, metrics, safe_json, connectivity, circuit_breaker, sqlite_pool; daemon & sync
 ├── context.otaku.rpdev/                # v1.0.50 standalone widget-aware context menu add-on + 494 deduplicated PNGs per style (coloured/white)
 ├── service.subtitles.otaku.rpdev/      # v1.0.3 native Kodi xbmc.subtitle.module companion add-on (OSD search & auto-download)
 ├── scripts/                            # verify_all.py, qa_fast.py, e2e_v630_suite.py, audit_onn_logs.py, release_addon.py, audit_function_coverage.py, test_kodi_installs.py

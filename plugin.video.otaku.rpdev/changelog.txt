@@ -1,3 +1,8 @@
+Changelog v6.8.0 (2026-11-27):
+- Phase 2 Shared Leaf Infrastructure Extraction (service.otaku.rpdev v1.1.0):
+  - Extracted shared zero-plugin-dependency leaf infrastructure into service.otaku.rpdev/resources/lib/otaku_service: metrics.py (OTAKU_METRIC), safe_json.py, connectivity.py (ConnectivityGate), circuit_breaker.py (AdaptiveCircuitBreaker), and sqlite_pool.py (thread-local SQLite RO/WAL connection pool).
+  - Updated ui/control.py, ui/client.py, ui/domains.py, and ui/database.py to delegate to the shared otaku_service module layer with full backwards compatibility and AST-enforced leaf isolation.
+
 Changelog v6.7.0 (2026-11-27):
 - Companion Background Service Extraction (service.otaku.rpdev v1.0.0):
   - Extracted xbmc.service background daemon (startup maintenance, 15-min OAuth/scrobble retry loop, NF-16 standby/CEC throttling, daily mappings.db/anime_metadata.db sync, MultipageWorker, C-37 memory watermark guard, <2s WAL checkpoint teardown) into service.otaku.rpdev (v1.0.0).

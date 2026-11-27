@@ -1169,7 +1169,7 @@ def CLEAN_SETTINGS(payload, params):
             import sys
             handle = int(sys.argv[1]) if len(sys.argv) > 1 and sys.argv[1].isdigit() else -1
             if handle >= 0:
-                xbmcplugin.endOfDirectory(handle, succeeded=True)
+                xbmcplugin.endOfDirectory(handle, succeeded=True, cacheToDisc=False)
         except Exception:
             pass
 
@@ -1306,7 +1306,7 @@ def PROBE_SETTINGS(payload, params):
             import sys
             handle = int(sys.argv[1]) if len(sys.argv) > 1 and sys.argv[1].isdigit() else -1
             if handle >= 0:
-                xbmcplugin.endOfDirectory(handle, succeeded=True)
+                xbmcplugin.endOfDirectory(handle, succeeded=True, cacheToDisc=False)
         except Exception:
             pass
 
