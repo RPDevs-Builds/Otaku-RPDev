@@ -164,6 +164,8 @@ ACCOUNT_RELATED_SETTING_IDS = {
     'subtitles.provider.podnadpisi',
     'subtitles.provider.bsplayer',
     'subtitles.provider.addic7ed',
+    'subtitles.provider.jimaku',
+    'subtitles.provider.animetosho',
 
     # Anime-Skip - Enablement & Skip Toggles
     'animeskip.enable',
@@ -173,6 +175,19 @@ ACCOUNT_RELATED_SETTING_IDS = {
 
 # Unified set of all login and account-related settings for scoped export/import
 LOGIN_SETTING_IDS = CREDENTIAL_SETTING_IDS | ACCOUNT_RELATED_SETTING_IDS
+
+# Internal migration markers excluded from backup export/import and non-factory resets
+_INTERNAL_MIGRATION_SETTING_IDS = frozenset({
+    'service.migrated_from_plugin_v1',
+    'subtitles.migrated_from_plugin_v1',
+})
+
+# Categories grouped under the 'subtitles' backup scope (plugin + companion subtitle service)
+SUBTITLE_BACKUP_CATEGORIES = frozenset({
+    'subtitles',
+    'subtitleservice',
+    'subtitleproviders',
+})
 
 _LOGIN_PREFIXES = (
     'realdebrid.',
@@ -189,6 +204,7 @@ _LOGIN_PREFIXES = (
     'subtitles.opensubtitles.',
     'subtitles.subdl.',
     'subtitles.subsource.',
+    'subtitles.jimaku.',
     'subtitles.provider.',
     'animeskip.',
     'skipintro.animeskip.',
@@ -243,6 +259,11 @@ SERVICE_SETTINGS_XML_PATH = os.path.join(
     'resources',
     'settings.xml',
 ) if getattr(control, 'SERVICE_ADDON_PATH', '') else ''
+SUBTITLE_SETTINGS_XML_PATH = os.path.join(
+    getattr(control, 'SUBTITLE_ADDON_PATH', ''),
+    'resources',
+    'settings.xml',
+) if getattr(control, 'SUBTITLE_ADDON_PATH', '') else ''
 
 
 def is_login_setting(setting_id: str) -> bool:
@@ -325,7 +346,7 @@ def _parse_settings_xml_into_map(xml_path: str, addon_id: str, settings_map: dic
 
 
 def get_canonical_settings() -> dict:
-    """Parse plugin + service resources/settings.xml and return schema metadata for all stored settings."""
+    """Parse plugin + service + subtitle resources/settings.xml and return schema metadata for all stored settings."""
     settings_map = {}
     if not os.path.exists(SETTINGS_XML_PATH):
         control.log(f"get_canonical_settings: settings.xml not found at {SETTINGS_XML_PATH}", 'error')
@@ -340,14 +361,32 @@ def get_canonical_settings() -> dict:
     if svc_xml and os.path.exists(svc_xml):
         _parse_settings_xml_into_map(svc_xml, getattr(control, 'SERVICE_ADDON_ID', 'service.otaku.rpdev'), settings_map)
 
+    sub_xml = SUBTITLE_SETTINGS_XML_PATH
+    if not sub_xml or not os.path.exists(sub_xml):
+        sub_path = getattr(control, 'SUBTITLE_ADDON_PATH', '')
+        if sub_path:
+            sub_xml = os.path.join(sub_path, 'resources', 'settings.xml')
+    if sub_xml and os.path.exists(sub_xml):
+        _parse_settings_xml_into_map(sub_xml, getattr(control, 'SUBTITLE_ADDON_ID', 'service.subtitles.otaku.rpdev'), settings_map)
+
     return settings_map
+
+
+def _is_subtitle_scope_setting(sid: str, meta: dict = None) -> bool:
+    """Return True if setting belongs to Subtitles, SubtitleService, or SubtitleProviders."""
+    if meta:
+        cat = (meta.get('category') or '').strip().lower().replace(' ', '').replace('_', '')
+        if cat in SUBTITLE_BACKUP_CATEGORIES:
+            return True
+    low = (sid or '').strip().lower()
+    return low.startswith('subtitles.') or low.startswith('general.subtitles') or low == 'general.dubsubtitles'
 
 
 def get_active_settings(scope: str = 'all') -> dict:
     """Read live settings from Kodi C++ runtime filtered by scope.
 
     Args:
-        scope (str): 'all', 'logins', or 'settings'.
+        scope (str): 'all', 'logins', 'settings', or 'subtitles'.
 
     Returns:
         dict: mapping of setting_id -> current live value.
@@ -357,10 +396,14 @@ def get_active_settings(scope: str = 'all') -> dict:
     active = {}
 
     for sid, meta in canonical.items():
+        if sid in _INTERNAL_MIGRATION_SETTING_IDS:
+            continue
         is_login = is_login_setting(sid)
         if scope == 'logins' and not is_login:
             continue
         if scope == 'settings' and is_login:
+            continue
+        if scope == 'subtitles' and not _is_subtitle_scope_setting(sid, meta):
             continue
 
         stype = meta['type']
@@ -443,7 +486,7 @@ def export_settings(scope: str, dest_dir: str) -> tuple[bool, str, int]:
         tuple[bool, str, int]: (success, backup_filepath, settings_count).
     """
     scope = (scope or 'all').lower()
-    if scope not in ('all', 'logins', 'settings'):
+    if scope not in ('all', 'logins', 'settings', 'subtitles'):
         scope = 'all'
 
     if not dest_dir or not os.path.isdir(dest_dir):
@@ -458,7 +501,11 @@ def export_settings(scope: str, dest_dir: str) -> tuple[bool, str, int]:
     try:
         svc_ver = control.SERVICE_ADDON.getAddonInfo('version')
     except Exception:
-        svc_ver = '1.0.0'
+        svc_ver = '1.2.0'
+    try:
+        sub_ver = control.SUBTITLE_ADDON.getAddonInfo('version')
+    except Exception:
+        sub_ver = '1.1.0'
 
     payload = {
         'otaku_backup_version': 2,
@@ -468,6 +515,7 @@ def export_settings(scope: str, dest_dir: str) -> tuple[bool, str, int]:
         'addon_versions': {
             control.ADDON_ID: control.ADDON_VERSION,
             getattr(control, 'SERVICE_ADDON_ID', 'service.otaku.rpdev'): svc_ver,
+            getattr(control, 'SUBTITLE_ADDON_ID', 'service.subtitles.otaku.rpdev'): sub_ver,
         },
         'settings_count': len(active_data),
         'settings': active_data,
@@ -500,7 +548,7 @@ def import_settings(scope: str, filepath: str) -> tuple[bool, int]:
         tuple[bool, int]: (success, imported_count).
     """
     scope = (scope or 'all').lower()
-    if scope not in ('all', 'logins', 'settings'):
+    if scope not in ('all', 'logins', 'settings', 'subtitles'):
         scope = 'all'
 
     if not filepath or not os.path.isfile(filepath):
@@ -536,19 +584,23 @@ def import_settings(scope: str, filepath: str) -> tuple[bool, int]:
 
     applied_count = 0
     for sid, val in imported_map.items():
+        if sid in _INTERNAL_MIGRATION_SETTING_IDS:
+            continue
         is_login = is_login_setting(sid)
+        meta = canonical.get(sid)
         if scope == 'logins' and not is_login:
             continue
         if scope == 'settings' and is_login:
             continue
+        if scope == 'subtitles' and not _is_subtitle_scope_setting(sid, meta):
+            continue
 
-        meta = canonical.get(sid)
         stype = meta['type'] if meta else 'string'
         set_typed_setting(sid, val, stype)
         applied_count += 1
 
-    # Reconcile and auto-heal account state if importing logins or all settings
-    if scope in ('all', 'logins'):
+    # Reconcile and auto-heal account state if importing logins, subtitles, or all settings
+    if scope in ('all', 'logins', 'subtitles'):
         reconcile_authenticated_accounts(imported_map)
 
     if scope in ('all', 'settings') and imported_overrides:
@@ -762,15 +814,19 @@ def reconcile_authenticated_accounts(imported_map: dict = None) -> dict:
     if control.getSetting('subtitles.subsource.apikey') and not is_explicitly_disabled('subtitles.provider.subsource'):
         control.setBool('subtitles.provider.subsource', True)
         control.setBool('subtitles.enabled', True)
+    if control.getSetting('subtitles.jimaku.apikey') and not is_explicitly_disabled('subtitles.provider.jimaku'):
+        control.setBool('subtitles.provider.jimaku', True)
+        control.setBool('subtitles.enabled', True)
 
     return reconciled
 
 
-def reset_category_settings(category_id: str) -> int:
+def reset_category_settings(category_id: str, addon_id: str = None) -> int:
     """Reset all settings in a specific category to canonical defaults from settings.xml.
 
     Args:
         category_id (str): Target category name or ID (case-insensitive).
+        addon_id (str, optional): Restrict reset to settings owned by a specific add-on.
 
     Returns:
         int: Number of settings reset.
@@ -783,6 +839,10 @@ def reset_category_settings(category_id: str) -> int:
     reset_count = 0
 
     for sid, meta in canonical.items():
+        if sid in _INTERNAL_MIGRATION_SETTING_IDS:
+            continue
+        if addon_id and meta.get('addon_id') != addon_id:
+            continue
         cat = meta['category'].strip().lower().replace('_', ' ')
         if cat == norm_target or meta['category'].strip().lower() == category_id.strip().lower():
             set_typed_setting(sid, meta['default'], meta['type'])
@@ -797,7 +857,7 @@ def reset_settings_to_defaults(preserve_logins: bool = True) -> int:
     """Reset all settings across all categories to canonical defaults.
 
     Args:
-        preserve_logins (bool): If True, skips all 53 login/credential/token settings.
+        preserve_logins (bool): If True, skips all login/credential/token settings.
 
     Returns:
         int: Number of settings reset.
@@ -806,7 +866,7 @@ def reset_settings_to_defaults(preserve_logins: bool = True) -> int:
     reset_count = 0
 
     for sid, meta in canonical.items():
-        if sid == 'service.migrated_from_plugin_v1':
+        if sid in _INTERNAL_MIGRATION_SETTING_IDS:
             continue
         if preserve_logins and is_login_setting(sid):
             continue
@@ -862,19 +922,29 @@ def wipe_addon_data(silent: bool = False) -> bool:
     for sid in CREDENTIAL_SETTING_IDS:
         set_typed_setting(sid, '', 'string')
 
-    # 5. Delete SQLite databases and user JSON caches in plugin + service profiles
-    profile_dirs = [control.dataPath]
-    try:
-        svc_id = getattr(control, 'SERVICE_ADDON_ID', 'service.otaku.rpdev')
-        svc_profile_dir = control.xbmcvfs.translatePath(f'special://profile/addon_data/{svc_id}/')
-        if svc_profile_dir and os.path.normpath(svc_profile_dir) != os.path.normpath(control.dataPath):
-            profile_dirs.append(svc_profile_dir)
-    except Exception:
-        pass
+    # 5. Delete SQLite databases and user JSON caches in plugin + service + subtitle profiles
+    #    (Preserve service.subtitles.otaku.rpdev's C-30 temp/ staging directory.)
+    profile_entries = [(control.dataPath, False)]
+    seen_dirs = {os.path.normpath(control.dataPath)}
+    for comp_id, preserve_temp in (
+        (getattr(control, 'SERVICE_ADDON_ID', 'service.otaku.rpdev'), False),
+        (getattr(control, 'SUBTITLE_ADDON_ID', 'service.subtitles.otaku.rpdev'), True),
+    ):
+        try:
+            comp_profile_dir = control.xbmcvfs.translatePath(f'special://profile/addon_data/{comp_id}/')
+            if comp_profile_dir:
+                norm_dir = os.path.normpath(comp_profile_dir)
+                if norm_dir not in seen_dirs:
+                    seen_dirs.add(norm_dir)
+                    profile_entries.append((comp_profile_dir, preserve_temp))
+        except Exception:
+            pass
 
-    for pdir in profile_dirs:
+    for pdir, preserve_temp in profile_entries:
         if os.path.exists(pdir):
             for item in os.listdir(pdir):
+                if preserve_temp and item == 'temp':
+                    continue
                 item_path = os.path.join(pdir, item)
                 try:
                     if os.path.isfile(item_path):
@@ -902,6 +972,7 @@ def wipe_addon_data(silent: bool = False) -> bool:
     control.setString('changelog.version', '')
     control.setString('addon.last_watched', '')
     control.setBool('service.migrated_from_plugin_v1', False)
+    control.setBool('subtitles.migrated_from_plugin_v1', False)
 
     # 8. Evict and flush in-memory caches
     control.clearSettingsCache()

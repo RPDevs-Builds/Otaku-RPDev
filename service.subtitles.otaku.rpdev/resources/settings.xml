@@ -1,8 +1,116 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <settings version="1">
     <section id="service.subtitles.otaku.rpdev">
-        <category id="general" label="30001" help="">
-            <group id="1" label="30001">
+        <category id="SubtitleService" label="30001" help="30006">
+            <group id="1" label="30007">
+                <setting id="subtitles.enabled" type="boolean" label="30009" help="30010">
+                    <level>0</level>
+                    <default>true</default>
+                    <control type="toggle" />
+                </setting>
+                <setting id="subtitles.auto_search" type="boolean" label="30011" help="30012" parent="subtitles.enabled">
+                    <level>2</level>
+                    <default>true</default>
+                    <control type="toggle" />
+                    <dependencies>
+                        <dependency type="visible" setting="subtitles.enabled">true</dependency>
+                    </dependencies>
+                </setting>
+                <setting id="subtitles.auto_download" type="boolean" label="30013" help="30014" parent="subtitles.auto_search">
+                    <level>2</level>
+                    <default>true</default>
+                    <control type="toggle" />
+                    <dependencies>
+                        <dependency type="visible">
+                            <and>
+                                <condition operator="is" setting="subtitles.enabled">true</condition>
+                                <condition operator="is" setting="subtitles.auto_search">true</condition>
+                            </and>
+                        </dependency>
+                    </dependencies>
+                </setting>
+                <setting id="subtitles.prefer_sdh" type="boolean" label="30015" help="30016" parent="subtitles.enabled">
+                    <level>2</level>
+                    <default>false</default>
+                    <control type="toggle" />
+                    <dependencies>
+                        <dependency type="visible" setting="subtitles.enabled">true</dependency>
+                    </dependencies>
+                </setting>
+                <setting id="subtitles.prefer_forced" type="boolean" label="30017" help="30018" parent="subtitles.enabled">
+                    <level>2</level>
+                    <default>false</default>
+                    <control type="toggle" />
+                    <dependencies>
+                        <dependency type="visible" setting="subtitles.enabled">true</dependency>
+                    </dependencies>
+                </setting>
+                <setting id="subtitles.strip_sdh_tags" type="boolean" label="30019" help="30020" parent="subtitles.enabled">
+                    <level>2</level>
+                    <default>false</default>
+                    <control type="toggle" />
+                    <dependencies>
+                        <dependency type="visible" setting="subtitles.enabled">true</dependency>
+                    </dependencies>
+                </setting>
+                <setting id="subtitles.auto_calibrate_chapters" type="boolean" label="30021" help="30022" parent="subtitles.enabled">
+                    <level>2</level>
+                    <default>false</default>
+                    <control type="toggle" />
+                    <dependencies>
+                        <dependency type="visible" setting="subtitles.enabled">true</dependency>
+                    </dependencies>
+                </setting>
+                <setting id="subtitles.use_chardet" type="boolean" label="30023" help="30024" parent="subtitles.enabled">
+                    <level>2</level>
+                    <default>true</default>
+                    <control type="toggle" />
+                    <dependencies>
+                        <dependency type="visible" setting="subtitles.enabled">true</dependency>
+                    </dependencies>
+                </setting>
+                <setting id="subtitles.timeout" type="integer" label="30025" help="30026" parent="subtitles.enabled">
+                    <level>2</level>
+                    <default>15</default>
+                    <constraints>
+                        <minimum>5</minimum>
+                        <step>1</step>
+                        <maximum>30</maximum>
+                    </constraints>
+                    <control type="slider" format="integer" />
+                    <dependencies>
+                        <dependency type="visible" setting="subtitles.enabled">true</dependency>
+                    </dependencies>
+                </setting>
+                <setting id="subtitles.results_limit" type="integer" label="30027" help="30028" parent="subtitles.enabled">
+                    <level>2</level>
+                    <default>20</default>
+                    <constraints>
+                        <minimum>5</minimum>
+                        <step>5</step>
+                        <maximum>50</maximum>
+                    </constraints>
+                    <control type="slider" format="integer" />
+                    <dependencies>
+                        <dependency type="visible" setting="subtitles.enabled">true</dependency>
+                    </dependencies>
+                </setting>
+            </group>
+            <group id="2" label="30008">
+                <setting id="subtitles.set_kodi_default" type="action" label="30004" help="30005">
+                    <level>0</level>
+                    <data>RunPlugin(plugin://plugin.video.otaku.rpdev/set_kodi_subtitle_service)</data>
+                    <control type="button" format="action">
+                        <close>false</close>
+                    </control>
+                </setting>
+                <setting id="subtitles.manual_search" type="action" label="30059" help="30060">
+                    <level>1</level>
+                    <data>RunPlugin(plugin://plugin.video.otaku.rpdev/search_subtitles)</data>
+                    <control type="button" format="action">
+                        <close>true</close>
+                    </control>
+                </setting>
                 <setting id="open_otaku_settings" type="action" label="30002" help="30003">
                     <level>0</level>
                     <data>RunPlugin(plugin://plugin.video.otaku.rpdev/open_subtitle_settings)</data>
@@ -10,11 +118,185 @@
                         <close>true</close>
                     </control>
                 </setting>
-                <setting id="set_kodi_default" type="action" label="30004" help="30005">
-                    <level>0</level>
-                    <data>RunPlugin(plugin://plugin.video.otaku.rpdev/set_kodi_subtitle_service)</data>
+                <setting id="subtitles.service.reset_category" type="action" label="30061" help="30062">
+                    <level>1</level>
+                    <data>RunPlugin(plugin://plugin.video.otaku.rpdev/reset_category_settings?category=SubtitleService&amp;setting=true)</data>
                     <control type="button" format="action">
-                        <close>false</close>
+                        <close>true</close>
+                    </control>
+                </setting>
+                <setting id="subtitles.migrated_from_plugin_v1" type="boolean" label="30063">
+                    <level>4</level>
+                    <default>false</default>
+                    <control type="toggle" />
+                </setting>
+            </group>
+        </category>
+        <category id="SubtitleProviders" label="30029" help="30030">
+            <group id="1" label="30029">
+                <setting id="subtitles.provider.opensubtitles" type="boolean" label="30031" help="30032">
+                    <level>1</level>
+                    <default>true</default>
+                    <control type="toggle" />
+                    <dependencies>
+                        <dependency type="enable" setting="subtitles.enabled">true</dependency>
+                    </dependencies>
+                </setting>
+                <setting id="subtitles.opensubtitles.username" type="string" label="30033" help="30034" parent="subtitles.provider.opensubtitles">
+                    <level>3</level>
+                    <default />
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
+                    <control type="edit" format="string">
+                        <heading>30033</heading>
+                    </control>
+                    <dependencies>
+                        <dependency type="visible">
+                            <and>
+                                <condition operator="is" setting="subtitles.enabled">true</condition>
+                                <condition operator="is" setting="subtitles.provider.opensubtitles">true</condition>
+                            </and>
+                        </dependency>
+                    </dependencies>
+                </setting>
+                <setting id="subtitles.opensubtitles.password" type="string" label="30035" help="30036" parent="subtitles.provider.opensubtitles">
+                    <level>3</level>
+                    <default />
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
+                    <control type="edit" format="string">
+                        <heading>30035</heading>
+                        <hidden>true</hidden>
+                    </control>
+                    <dependencies>
+                        <dependency type="visible">
+                            <and>
+                                <condition operator="is" setting="subtitles.enabled">true</condition>
+                                <condition operator="is" setting="subtitles.provider.opensubtitles">true</condition>
+                            </and>
+                        </dependency>
+                    </dependencies>
+                </setting>
+                <setting id="subtitles.provider.subdl" type="boolean" label="30037" help="30038">
+                    <level>1</level>
+                    <default>true</default>
+                    <control type="toggle" />
+                    <dependencies>
+                        <dependency type="enable" setting="subtitles.enabled">true</dependency>
+                    </dependencies>
+                </setting>
+                <setting id="subtitles.subdl.apikey" type="string" label="30039" help="30040" parent="subtitles.provider.subdl">
+                    <level>3</level>
+                    <default />
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
+                    <control type="edit" format="string">
+                        <heading>30039</heading>
+                    </control>
+                    <dependencies>
+                        <dependency type="visible">
+                            <and>
+                                <condition operator="is" setting="subtitles.enabled">true</condition>
+                                <condition operator="is" setting="subtitles.provider.subdl">true</condition>
+                            </and>
+                        </dependency>
+                    </dependencies>
+                </setting>
+                <setting id="subtitles.provider.subsource" type="boolean" label="30041" help="30042">
+                    <level>1</level>
+                    <default>true</default>
+                    <control type="toggle" />
+                    <dependencies>
+                        <dependency type="enable" setting="subtitles.enabled">true</dependency>
+                    </dependencies>
+                </setting>
+                <setting id="subtitles.subsource.apikey" type="string" label="30043" help="30044" parent="subtitles.provider.subsource">
+                    <level>3</level>
+                    <default />
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
+                    <control type="edit" format="string">
+                        <heading>30043</heading>
+                    </control>
+                    <dependencies>
+                        <dependency type="visible">
+                            <and>
+                                <condition operator="is" setting="subtitles.enabled">true</condition>
+                                <condition operator="is" setting="subtitles.provider.subsource">true</condition>
+                            </and>
+                        </dependency>
+                    </dependencies>
+                </setting>
+                <setting id="subtitles.provider.podnadpisi" type="boolean" label="30045" help="30046">
+                    <level>1</level>
+                    <default>true</default>
+                    <control type="toggle" />
+                    <dependencies>
+                        <dependency type="enable" setting="subtitles.enabled">true</dependency>
+                    </dependencies>
+                </setting>
+                <setting id="subtitles.provider.bsplayer" type="boolean" label="30047" help="30048">
+                    <level>1</level>
+                    <default>true</default>
+                    <control type="toggle" />
+                    <dependencies>
+                        <dependency type="enable" setting="subtitles.enabled">true</dependency>
+                    </dependencies>
+                </setting>
+                <setting id="subtitles.provider.addic7ed" type="boolean" label="30049" help="30050">
+                    <level>1</level>
+                    <default>true</default>
+                    <control type="toggle" />
+                    <dependencies>
+                        <dependency type="enable" setting="subtitles.enabled">true</dependency>
+                    </dependencies>
+                </setting>
+                <setting id="subtitles.provider.jimaku" type="boolean" label="30051" help="30052">
+                    <level>1</level>
+                    <default>true</default>
+                    <control type="toggle" />
+                    <dependencies>
+                        <dependency type="enable" setting="subtitles.enabled">true</dependency>
+                    </dependencies>
+                </setting>
+                <setting id="subtitles.jimaku.apikey" type="string" label="30053" help="30054" parent="subtitles.provider.jimaku">
+                    <level>1</level>
+                    <default />
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
+                    <control type="edit" format="string">
+                        <heading>30053</heading>
+                        <hidden>true</hidden>
+                    </control>
+                    <dependencies>
+                        <dependency type="visible">
+                            <and>
+                                <condition operator="is" setting="subtitles.enabled">true</condition>
+                                <condition operator="is" setting="subtitles.provider.jimaku">true</condition>
+                            </and>
+                        </dependency>
+                    </dependencies>
+                </setting>
+                <setting id="subtitles.provider.animetosho" type="boolean" label="30055" help="30056">
+                    <level>1</level>
+                    <default>true</default>
+                    <control type="toggle" />
+                    <dependencies>
+                        <dependency type="enable" setting="subtitles.enabled">true</dependency>
+                    </dependencies>
+                </setting>
+            </group>
+            <group id="2" label="30058">
+                <setting id="subtitles.providers.reset_category" type="action" label="30061" help="30062">
+                    <level>1</level>
+                    <data>RunPlugin(plugin://plugin.video.otaku.rpdev/reset_category_settings?category=SubtitleProviders&amp;setting=true)</data>
+                    <control type="button" format="action">
+                        <close>true</close>
                     </control>
                 </setting>
             </group>

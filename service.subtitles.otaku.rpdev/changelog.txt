@@ -1,3 +1,8 @@
+Changelog v1.1.0 (2026-11-27):
+- Dedicated Subtitle Service & Providers Settings Split:
+  - Moved all 23 online subtitle engine settings, provider toggles (OpenSubtitles, SubDL, SubSource, Podnadpisi, BSPlayer, Addic7ed, Jimaku, AnimeTosho), credentials, and service actions into dedicated SubtitleService and SubtitleProviders categories with #30000-#30999 localization.
+  - Preserved zero-data-loss pre-prune migration from plugin.video.otaku.rpdev with lazy idempotent fallback and bidirectional settings shortcuts.
+
 Changelog v1.0.3 (2026-11-21):
 - Harden Kodi 22 external subtitle VFS cache compliance, BOM/whitespace stripping, and fallback origin fetches for proxy hosts
 - Add ASS override tag preservation during SDH hearing-impaired bracket/speaker stripping

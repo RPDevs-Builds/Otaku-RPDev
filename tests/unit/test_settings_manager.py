@@ -112,6 +112,20 @@ class TestSettingsManager(unittest.TestCase):
         self.assertIn('realdebrid.token', canonical)
         self.assertEqual(canonical['realdebrid.token']['type'], 'string')
 
+        # Companion subtitle service settings are unified into canonical schema
+        self.assertIn('subtitles.enabled', canonical)
+        self.assertEqual(canonical['subtitles.enabled']['addon_id'], 'service.subtitles.otaku.rpdev')
+        self.assertIn('subtitles.jimaku.apikey', canonical)
+        self.assertEqual(canonical['subtitles.jimaku.apikey']['addon_id'], 'service.subtitles.otaku.rpdev')
+        for cred_key in (
+            'subtitles.opensubtitles.username',
+            'subtitles.opensubtitles.password',
+            'subtitles.subdl.apikey',
+            'subtitles.subsource.apikey',
+            'subtitles.jimaku.apikey',
+        ):
+            self.assertIn(cred_key, settings_manager.CREDENTIAL_SETTING_IDS)
+
     def test_get_active_settings_scopes(self):
         """Verify get_active_settings filters correctly by 'all', 'logins', and 'settings' scopes."""
         all_settings = settings_manager.get_active_settings(scope='all')
@@ -127,8 +141,8 @@ class TestSettingsManager(unittest.TestCase):
             self.assertFalse(settings_manager.is_login_setting(sid))
 
     def test_export_settings_all_scopes(self):
-        """Verify export_settings serializes settings to JSON with metadata across all scopes."""
-        for scope in ('all', 'logins', 'settings'):
+        """Verify export_settings serializes settings to JSON with metadata across all scopes and excludes migration markers."""
+        for scope in ('all', 'logins', 'settings', 'subtitles'):
             success, filepath, count = settings_manager.export_settings(scope, self.temp_dir)
             self.assertTrue(success)
             self.assertTrue(os.path.isfile(filepath))
@@ -140,11 +154,20 @@ class TestSettingsManager(unittest.TestCase):
 
             self.assertEqual(data.get('otaku_backup_version'), 2)
             self.assertIn('addon_versions', data)
+            self.assertIn('service.otaku.rpdev', data['addon_versions'])
+            self.assertIn('service.subtitles.otaku.rpdev', data['addon_versions'])
             self.assertEqual(data.get('scope'), scope)
             self.assertEqual(data.get('settings_count'), count)
             self.assertIn('timestamp', data)
             self.assertIn('addon_version', data)
             self.assertIsInstance(data.get('settings'), dict)
+            self.assertNotIn('service.migrated_from_plugin_v1', data['settings'])
+            self.assertNotIn('subtitles.migrated_from_plugin_v1', data['settings'])
+            if scope == 'subtitles':
+                self.assertIn('general.subtitles', data['settings'])
+                self.assertIn('subtitles.enabled', data['settings'])
+                self.assertIn('subtitles.provider.opensubtitles', data['settings'])
+                self.assertNotIn('general.timeout', data['settings'])
 
     def test_import_settings_json_and_scope_filtering(self):
         """Verify import_settings correctly restores values from JSON backup files respecting scopes."""

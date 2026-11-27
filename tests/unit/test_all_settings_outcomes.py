@@ -212,7 +212,17 @@ PLAYBACK_SETTING_IDS = {
 }
 
 SUBTITLES_SETTING_IDS = {
+    # plugin.video.otaku.rpdev -> Subtitles (9 settings)
     "general.subtitles",
+    "open_subtitle_service_settings",
+    "general.subtitles.type",
+    "subtitles.types",
+    "general.subtitles.keyword",
+    "subtitles.keywords",
+    "subtitles.customkeyword",
+    "general.dubsubtitles",
+    "subtitles.reset_category",
+    # service.subtitles.otaku.rpdev -> SubtitleService & SubtitleProviders (29 settings)
     "subtitles.enabled",
     "subtitles.auto_search",
     "subtitles.auto_download",
@@ -223,12 +233,11 @@ SUBTITLES_SETTING_IDS = {
     "subtitles.use_chardet",
     "subtitles.timeout",
     "subtitles.results_limit",
-    "general.subtitles.type",
-    "subtitles.types",
-    "general.subtitles.keyword",
-    "subtitles.keywords",
-    "subtitles.customkeyword",
-    "general.dubsubtitles",
+    "subtitles.set_kodi_default",
+    "subtitles.manual_search",
+    "open_otaku_settings",
+    "subtitles.service.reset_category",
+    "subtitles.migrated_from_plugin_v1",
     "subtitles.provider.opensubtitles",
     "subtitles.opensubtitles.username",
     "subtitles.opensubtitles.password",
@@ -242,9 +251,7 @@ SUBTITLES_SETTING_IDS = {
     "subtitles.provider.jimaku",
     "subtitles.jimaku.apikey",
     "subtitles.provider.animetosho",
-    "subtitles.set_kodi_default",
-    "subtitles.manual_search",
-    "subtitles.reset_category",
+    "subtitles.providers.reset_category",
 }
 
 SORT_AND_FILTER_SETTING_IDS = {
@@ -638,7 +645,8 @@ class TestAllSettingsOutcomes(unittest.TestCase):
     def setUpClass(cls):
         cls.settings_xml_path = os.path.join(control.ADDON_PATH, 'resources', 'settings.xml')
         cls.service_settings_xml_path = os.path.join(control.SERVICE_ADDON_PATH, 'resources', 'settings.xml')
-        for p in (cls.settings_xml_path, cls.service_settings_xml_path):
+        cls.subtitle_settings_xml_path = os.path.join(control.SUBTITLE_ADDON_PATH, 'resources', 'settings.xml')
+        for p in (cls.settings_xml_path, cls.service_settings_xml_path, cls.subtitle_settings_xml_path):
             if not os.path.exists(p):
                 raise FileNotFoundError(f"settings.xml not found at: {p}")
 
@@ -646,9 +654,11 @@ class TestAllSettingsOutcomes(unittest.TestCase):
         cls.root = cls.tree.getroot()
         cls.service_tree = ET.parse(cls.service_settings_xml_path)
         cls.service_root = cls.service_tree.getroot()
+        cls.subtitle_tree = ET.parse(cls.subtitle_settings_xml_path)
+        cls.subtitle_root = cls.subtitle_tree.getroot()
 
         cls.declared_settings = {}
-        for root_el in (cls.root, cls.service_root):
+        for root_el in (cls.root, cls.service_root, cls.subtitle_root):
             for s in root_el.findall('.//setting'):
                 sid = s.get('id')
                 if sid:
@@ -773,14 +783,15 @@ class TestAllSettingsOutcomes(unittest.TestCase):
     def test_00_all_467_settings_tested_completeness_registry(self):
         """
         Exhaustive Registry Invariant:
-        Assert that TESTED_SETTING_IDS contains exactly all 516 declared settings
-        across plugin.video.otaku.rpdev and service.otaku.rpdev, ensuring 0 omitted settings.
+        Assert that TESTED_SETTING_IDS contains exactly all 521 declared settings
+        across plugin.video.otaku.rpdev, service.otaku.rpdev, and service.subtitles.otaku.rpdev,
+        ensuring 0 omitted settings.
         """
-        self.assertEqual(len(self.declared_settings), 516, f"Expected 516 declared settings, got {len(self.declared_settings)}")
-        self.assertEqual(len(TESTED_SETTING_IDS), 516, f"Expected 516 tested settings in registry, got {len(TESTED_SETTING_IDS)}")
+        self.assertEqual(len(self.declared_settings), 521, f"Expected 521 declared settings, got {len(self.declared_settings)}")
+        self.assertEqual(len(TESTED_SETTING_IDS), 521, f"Expected 521 tested settings in registry, got {len(TESTED_SETTING_IDS)}")
         self.assertEqual(
             set(self.declared_settings.keys()), TESTED_SETTING_IDS,
-            "TESTED_SETTING_IDS does not match declared_settings across plugin + service settings.xml"
+            "TESTED_SETTING_IDS does not match declared_settings across plugin + service + subtitles settings.xml"
         )
 
         # Assert individual category counts match expectations
@@ -789,7 +800,7 @@ class TestAllSettingsOutcomes(unittest.TestCase):
         self.assertEqual(len(SCRAPING_SETTING_IDS), 15)
         self.assertEqual(len(CACHE_SETTING_IDS), 16)
         self.assertEqual(len(PLAYBACK_SETTING_IDS), 46)
-        self.assertEqual(len(SUBTITLES_SETTING_IDS), 33)
+        self.assertEqual(len(SUBTITLES_SETTING_IDS), 38)
         self.assertEqual(len(SORT_AND_FILTER_SETTING_IDS), 48)
         self.assertEqual(len(ACCOUNTS_SETTING_IDS), 42)
         self.assertEqual(len(WATCHLIST_SETTING_IDS), 38)
@@ -1468,7 +1479,7 @@ class TestAllSettingsOutcomes(unittest.TestCase):
             if lvl_elem is not None and lvl_elem.text and lvl_elem.text.strip() == '4':
                 level4_settings.append(sid)
 
-        self.assertEqual(len(level4_settings), 128, f"Expected 128 level 4 settings, found {len(level4_settings)}")
+        self.assertEqual(len(level4_settings), 129, f"Expected 129 level 4 settings, found {len(level4_settings)}")
 
         # Verify all legacy compatibility keys are present in level 4
         for legacy_key in LEGACY_LEVEL_4_KEYS:
@@ -1476,7 +1487,9 @@ class TestAllSettingsOutcomes(unittest.TestCase):
 
         # Verify clean_settings.get_active_setting_ids() keeps all declared settings (including legacy keys)
         active_ids = clean_settings.get_active_setting_ids(self.settings_xml_path)
-        self.assertEqual(len(active_ids), 455)
+        self.assertEqual(len(active_ids), 431)
+        self.assertEqual(len(clean_settings.get_active_setting_ids(self.service_settings_xml_path)), 61)
+        self.assertEqual(len(clean_settings.get_active_setting_ids(self.subtitle_settings_xml_path)), 29)
         for legacy_key in LEGACY_LEVEL_4_KEYS:
             self.assertIn(legacy_key, active_ids)
 

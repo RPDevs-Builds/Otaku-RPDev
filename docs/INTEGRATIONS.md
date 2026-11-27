@@ -12,7 +12,7 @@ Technical reference for how **`plugin.video.otaku.rpdev`**, **`service.otaku.rpd
 - Companion add-ons must **never** declare `<import addon="plugin.video.otaku.rpdev"/>` (preventing circular dependency deadlocks in Kodi 22 `DialogAddonInfo.xml`, enforced by `test_zero_circular_addon_dependencies` in `tests/lint/test_ast_integrity.py`).
   - `context.otaku.rpdev/addon.xml` and `service.subtitles.otaku.rpdev/addon.xml` declare **only** `<import addon="xbmc.python" version="3.0.1"/>`.
   - `service.otaku.rpdev/addon.xml` declares `xbmc.python` + third-party `script.module.*` dependencies only, exposing `<extension point="xbmc.service" library="service.py"/>` and `<extension point="xbmc.python.module" library="resources/lib"/>`.
-- `control.ADDON_ID` remains statically pinned to `'plugin.video.otaku.rpdev'` and `control.SERVICE_ADDON_ID` to `'service.otaku.rpdev'`. `control.py` transparently routes all 30 `SERVICE_SETTING_IDS` keys to `service_settings` (with `otaku.service_settings_epoch` cache sync and resilient `RuntimeError` fallback).
+- `control.ADDON_ID` remains statically pinned to `'plugin.video.otaku.rpdev'`, `control.SERVICE_ADDON_ID` to `'service.otaku.rpdev'`, and `control.SUBTITLE_ADDON_ID` to `'service.subtitles.otaku.rpdev'`. `control.py` transparently routes all 30 `SERVICE_SETTING_IDS` keys to `service_settings` and all 24 `SUBTITLE_SETTING_IDS` keys to `subtitle_settings` (with epoch/mtime cache sync and resilient `RuntimeError` fallbacks).
 
 ### 1.2 `plugin.video.otaku.rpdev` ↔ `service.otaku.rpdev`
 - **Startup Upgrade Safety**: `service.otaku.rpdev/service.py` runs self-contained `otaku_service.migration.migrate_service_settings()` first (zero plugin imports, idempotent via `service.migrated_from_plugin_v1`), then verifies via plain-text disk check that `plugin.video.otaku.rpdev` is v6.7.0+ (no `xbmc.service`, exposes `SERVICE_ADDON_ID`) before mutating `sys.path` or importing `resources.*`.
@@ -30,9 +30,10 @@ Technical reference for how **`plugin.video.otaku.rpdev`**, **`service.otaku.rpd
   - Non-Otaku `videodb://` and `library://` items without a resolved `mal_id` safely no-op.
 - **Shared Static Dictionary (`info.db`)**: `context.otaku.rpdev/info.db` is queried by `plugin.video.otaku.rpdev` strictly in SQLite URI read-only mode (`file:...info.db?mode=ro`, `is_readonly=True`) with `PRAGMA mmap_size = 0` on low-memory devices.
 
-### 1.3 `plugin.video.otaku.rpdev` ↔ `service.subtitles.otaku.rpdev`
+### 1.4 `plugin.video.otaku.rpdev` ↔ `service.subtitles.otaku.rpdev`
+- **Dedicated Settings & Dual-Trigger Migration (`v1.1.0`)**: `service.subtitles.otaku.rpdev` owns all 29 subtitle engine/provider settings across globally unique categories (`SubtitleService`, `SubtitleProviders`), accessible via 1-click `open_subtitle_service_settings` in Otaku's `Settings > Subtitles` and `Tools` (with a bidirectional `open_otaku_settings` button back to Otaku). Pre-prune raw-XML migration (`otaku_service.migration.migrate_subtitle_settings()`) runs both at Kodi boot in `service.otaku.rpdev` and lazily on first subtitle call, guarded by an on-disk `subtitles.migrated_from_plugin_v1` schema readiness check so an in-progress upgrade never drops settings or triggers Kodi 22 `Invalid setting type` errors.
 - **Active Playback Metadata Handoff**: On playback start, `WatchlistPlayer.keepAlive()` calls `subtitles.publish_active_playback_meta(...)` to publish title, show title, season, episode, year, and `UniqueIDs` (`mal_id`, `imdb`, `tmdb`, `tvdb`, `anidb`) to `Window(10000)` (`otaku.active_playback_meta`), and clears it on stop/end.
-- **VFS Cache-Safe Temp Staging (`C-30`)**: `service.subtitles.otaku.rpdev` stages downloaded OSD subtitles inside its own profile directory (`special://profile/addon_data/service.subtitles.otaku.rpdev/temp/`) rather than `special://temp/`, avoiding Kodi C++ `g_directoryCache` collisions with `embed_extractor.del_subs()`.
+- **VFS Cache-Safe Temp Staging (`C-30`)**: `service.subtitles.otaku.rpdev` stages downloaded OSD subtitles inside its own profile directory (`special://profile/addon_data/service.subtitles.otaku.rpdev/temp/`) rather than `special://temp/`, avoiding Kodi C++ `g_directoryCache` collisions with `embed_extractor.del_subs()`, and `wipe_addon_data()` preserves this `temp/` directory during factory wipes.
 
 ---
 

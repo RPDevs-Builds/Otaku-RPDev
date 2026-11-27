@@ -7,7 +7,7 @@ msgstr ""
 "Language: en_GB\n"
 
 msgctxt "#30001"
-msgid "Otaku RPDev Subtitles"
+msgid "Subtitle Service"
 msgstr ""
 
 msgctxt "#30002"
@@ -15,7 +15,7 @@ msgid "Open Settings - Otaku RPDev > Subtitles"
 msgstr ""
 
 msgctxt "#30003"
-msgid "All subtitle providers, credentials, timeouts, and auto-download preferences are managed centrally inside Settings - Otaku RPDev > Subtitles."
+msgid "Configure preferred subtitle language and embedded MKV/HLS subtitle track selection inside Settings - Otaku RPDev > Subtitles."
 msgstr ""
 
 msgctxt "#30004"
@@ -23,5 +23,233 @@ msgid "Set as Kodi Default Subtitle Service"
 msgstr ""
 
 msgctxt "#30005"
-msgid "Configure Kodi's default TV show and movie subtitle service to use Otaku RPDev Subtitles."
+msgid "Configure Kodi's OSD Subtitle Settings > Download Subtitle service for TV shows and movies to use Otaku RPDev Subtitles."
+msgstr ""
+
+msgctxt "#30006"
+msgid "Configure Otaku RPDev's native online subtitle search, automatic download, SDH/forced preferences, charset detection, and timeouts."
+msgstr ""
+
+msgctxt "#30007"
+msgid "Native Subtitle Engine"
+msgstr ""
+
+msgctxt "#30008"
+msgid "Kodi Integration & Actions"
+msgstr ""
+
+msgctxt "#30009"
+msgid "Enable Native Subtitles"
+msgstr ""
+
+msgctxt "#30010"
+msgid "Automatically search and download external subtitle tracks when embedded subtitles are absent."
+msgstr ""
+
+msgctxt "#30011"
+msgid "Automatically Search Subtitles"
+msgstr ""
+
+msgctxt "#30012"
+msgid "Automatically query external subtitle providers when video streams have no matching subtitle tracks (Default: Enabled)."
+msgstr ""
+
+msgctxt "#30013"
+msgid "Automatically Download Best Match"
+msgstr ""
+
+msgctxt "#30014"
+msgid "Auto-download the highest-scoring matching subtitle if no embedded or local subtitle is present."
+msgstr ""
+
+msgctxt "#30015"
+msgid "Prefer Hearing Impaired (SDH)"
+msgstr ""
+
+msgctxt "#30016"
+msgid "Prioritize SDH (Subtitles for the Deaf and Hard of Hearing) tracks when available."
+msgstr ""
+
+msgctxt "#30017"
+msgid "Prefer Forced Subtitles"
+msgstr ""
+
+msgctxt "#30018"
+msgid "Prioritize Forced subtitle tracks (translations for foreign dialogue / songs only)."
+msgstr ""
+
+msgctxt "#30019"
+msgid "Strip SDH Hearing-Impaired Bracket Tags"
+msgstr ""
+
+msgctxt "#30020"
+msgid "Remove bracketed sound-effect annotations ([sighs], (applause)) and speaker prefixes from downloaded external subtitles (Default: Disabled)."
+msgstr ""
+
+msgctxt "#30021"
+msgid "Auto-Calibrate Subtitle Bumper Offset"
+msgstr ""
+
+msgctxt "#30022"
+msgid "Automatically detect bounded 3s to 12s commercial bumper shifts by corroborating OP/ED dialogue silence gaps with chapter markers (Default: Disabled)."
+msgstr ""
+
+msgctxt "#30023"
+msgid "Auto Detect Charset (Chardet)"
+msgstr ""
+
+msgctxt "#30024"
+msgid "Auto-detect character encoding for downloaded subtitles to prevent garbled text on international tracks."
+msgstr ""
+
+msgctxt "#30025"
+msgid "Subtitle Search Timeout (Seconds)"
+msgstr ""
+
+msgctxt "#30026"
+msgid "Maximum time in seconds to wait for each subtitle provider API before displaying results (default: 15)."
+msgstr ""
+
+msgctxt "#30027"
+msgid "Maximum Results per Provider"
+msgstr ""
+
+msgctxt "#30028"
+msgid "Maximum number of subtitle search results returned per provider in the subtitle selection dialog."
+msgstr ""
+
+msgctxt "#30029"
+msgid "Subtitle Providers"
+msgstr ""
+
+msgctxt "#30030"
+msgid "Enable or disable individual online subtitle providers and configure optional API keys or account credentials."
+msgstr ""
+
+msgctxt "#30031"
+msgid "OpenSubtitles"
+msgstr ""
+
+msgctxt "#30032"
+msgid "Enable searching and downloading subtitles from OpenSubtitles.com REST API. Credentials optional."
+msgstr ""
+
+msgctxt "#30033"
+msgid "OpenSubtitles Username"
+msgstr ""
+
+msgctxt "#30034"
+msgid "OpenSubtitles.com account username. Improves download rate limits when authenticated."
+msgstr ""
+
+msgctxt "#30035"
+msgid "OpenSubtitles Password"
+msgstr ""
+
+msgctxt "#30036"
+msgid "OpenSubtitles.com account password for authentication."
+msgstr ""
+
+msgctxt "#30037"
+msgid "SubDL"
+msgstr ""
+
+msgctxt "#30038"
+msgid "Enable searching Subdl for anime subtitle releases across multiple languages. Requires API key."
+msgstr ""
+
+msgctxt "#30039"
+msgid "SubDL API Key"
+msgstr ""
+
+msgctxt "#30040"
+msgid "Personal Subdl API key required for subtitle search and download requests via subdl.com."
+msgstr ""
+
+msgctxt "#30041"
+msgid "SubSource"
+msgstr ""
+
+msgctxt "#30042"
+msgid "Enable searching SubSource.net subtitle archive for community-synced anime subtitle files."
+msgstr ""
+
+msgctxt "#30043"
+msgid "SubSource API Key"
+msgstr ""
+
+msgctxt "#30044"
+msgid "Personal SubSource API key for authenticating requests to the SubSource REST API."
+msgstr ""
+
+msgctxt "#30045"
+msgid "Podnadpisi"
+msgstr ""
+
+msgctxt "#30046"
+msgid "Search Podnadpisi.net international subtitle repository for multi-language subtitles."
+msgstr ""
+
+msgctxt "#30047"
+msgid "BSPlayer"
+msgstr ""
+
+msgctxt "#30048"
+msgid "Query BSPlayer hash-matched subtitle database using media file hash and byte size."
+msgstr ""
+
+msgctxt "#30049"
+msgid "Addic7ed"
+msgstr ""
+
+msgctxt "#30050"
+msgid "Search Addic7ed for fast community-translated TV anime subtitles and multi-language subs."
+msgstr ""
+
+msgctxt "#30051"
+msgid "Jimaku (Japanese Anime Subtitles)"
+msgstr ""
+
+msgctxt "#30052"
+msgid "Enable Jimaku.cc native Japanese anime subtitles (requires a Jimaku API key; only queried when Japanese subtitles are requested)."
+msgstr ""
+
+msgctxt "#30053"
+msgid "Jimaku API Key"
+msgstr ""
+
+msgctxt "#30054"
+msgid "Personal API key from jimaku.cc/account (sent via Authorization header; leave blank to skip Jimaku with zero network calls)."
+msgstr ""
+
+msgctxt "#30055"
+msgid "AnimeTosho (Native .ass/.srt Attachments)"
+msgstr ""
+
+msgctxt "#30056"
+msgid "Enable AnimeTosho standalone .ass/.srt subtitle attachment search (no API key required)."
+msgstr ""
+
+msgctxt "#30058"
+msgid "Category Actions"
+msgstr ""
+
+msgctxt "#30059"
+msgid "Manual Subtitle Search"
+msgstr ""
+
+msgctxt "#30060"
+msgid "Search and download external subtitles for current playing video."
+msgstr ""
+
+msgctxt "#30061"
+msgid "Reset Category to Defaults"
+msgstr ""
+
+msgctxt "#30062"
+msgid "Resets all settings in this category to add-on defaults."
+msgstr ""
+
+msgctxt "#30063"
+msgid "Migrated from plugin v1 (internal)"
 msgstr ""

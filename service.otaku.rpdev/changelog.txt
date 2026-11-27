@@ -1,3 +1,8 @@
+Changelog v1.2.0 (2026-11-27):
+- Companion Subtitle Service Settings Split Integration (service.subtitles.otaku.rpdev v1.1.0):
+  - Added self-contained pre-prune raw-XML migration (`migrate_subtitle_settings()`) with on-disk v1.1.0+ schema readiness guard inside `otaku_service/migration.py`, executed at startup prior to orphaned-settings pruning.
+  - Extended `otaku_service/daemon.py` (`load_settings()` + standby-aware `Monitor`) to watch `service.subtitles.otaku.rpdev/settings.xml` `(st_mtime_ns, st_size)` and bump `otaku.subtitle_settings_epoch` immediately on change.
+
 Changelog v1.1.0 (2026-11-27):
 - Phase 2 Shared Leaf Infrastructure Extraction (xbmc.python.module):
   - Extracted zero-plugin-dependency leaf modules into otaku_service: metrics.py (OTAKU_METRIC formatter/logger), safe_json.py (safe_json / loads_json), connectivity.py (ConnectivityGate & DNS/network drop classifier), circuit_breaker.py (AdaptiveCircuitBreaker), and sqlite_pool.py (thread-local SQLite pool & WAL/RO connection helper).

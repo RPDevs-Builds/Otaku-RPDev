@@ -41,10 +41,12 @@ class TestSettingsSchemaAndCodeReferences(unittest.TestCase):
         cls.repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         cls.addon_dir = os.path.join(cls.repo_root, 'plugin.video.otaku.rpdev')
         cls.service_addon_dir = os.path.join(cls.repo_root, 'service.otaku.rpdev')
+        cls.subtitle_addon_dir = os.path.join(cls.repo_root, 'service.subtitles.otaku.rpdev')
         cls.settings_xml_path = os.path.join(cls.addon_dir, 'resources', 'settings.xml')
         cls.service_settings_xml_path = os.path.join(cls.service_addon_dir, 'resources', 'settings.xml')
+        cls.subtitle_settings_xml_path = os.path.join(cls.subtitle_addon_dir, 'resources', 'settings.xml')
 
-        for p in (cls.settings_xml_path, cls.service_settings_xml_path):
+        for p in (cls.settings_xml_path, cls.service_settings_xml_path, cls.subtitle_settings_xml_path):
             if not os.path.exists(p):
                 raise FileNotFoundError(f"settings.xml not found at: {p}")
 
@@ -52,6 +54,8 @@ class TestSettingsSchemaAndCodeReferences(unittest.TestCase):
         cls.root = cls.tree.getroot()
         cls.service_tree = ET.parse(cls.service_settings_xml_path)
         cls.service_root = cls.service_tree.getroot()
+        cls.subtitle_tree = ET.parse(cls.subtitle_settings_xml_path)
+        cls.subtitle_root = cls.subtitle_tree.getroot()
 
         # Collect declared settings per add-on and union
         cls.plugin_declared_settings = {}
@@ -66,9 +70,16 @@ class TestSettingsSchemaAndCodeReferences(unittest.TestCase):
             if sid:
                 cls.service_declared_settings[sid] = s
 
+        cls.subtitle_declared_settings = {}
+        for s in cls.subtitle_root.findall('.//setting'):
+            sid = s.get('id')
+            if sid:
+                cls.subtitle_declared_settings[sid] = s
+
         cls.declared_settings = {}
         cls.declared_settings.update(cls.plugin_declared_settings)
         cls.declared_settings.update(cls.service_declared_settings)
+        cls.declared_settings.update(cls.subtitle_declared_settings)
 
         cls.strings_po_path = os.path.join(
             cls.addon_dir, 'resources', 'language', 'resource.language.en_gb', 'strings.po'
@@ -76,12 +87,16 @@ class TestSettingsSchemaAndCodeReferences(unittest.TestCase):
         cls.service_strings_po_path = os.path.join(
             cls.service_addon_dir, 'resources', 'language', 'resource.language.en_gb', 'strings.po'
         )
-        for p in (cls.strings_po_path, cls.service_strings_po_path):
+        cls.subtitle_strings_po_path = os.path.join(
+            cls.subtitle_addon_dir, 'resources', 'language', 'resource.language.en_gb', 'strings.po'
+        )
+        for p in (cls.strings_po_path, cls.service_strings_po_path, cls.subtitle_strings_po_path):
             if not os.path.exists(p):
                 raise FileNotFoundError(f"strings.po not found at: {p}")
 
         cls.po_entries, cls.po_duplicates = cls._parse_strings_po_file(cls.strings_po_path)
         cls.service_po_entries, cls.service_po_duplicates = cls._parse_strings_po_file(cls.service_strings_po_path)
+        cls.subtitle_po_entries, cls.subtitle_po_duplicates = cls._parse_strings_po_file(cls.subtitle_strings_po_path)
 
     @classmethod
     def _parse_strings_po_file(cls, po_path):
@@ -159,6 +174,7 @@ class TestSettingsSchemaAndCodeReferences(unittest.TestCase):
         for label, root_el, expected_sec_id, min_cats, min_groups in (
             ('plugin', self.root, 'otaku', 10, 20),
             ('service', self.service_root, 'service.otaku.rpdev', 3, 5),
+            ('subtitles', self.subtitle_root, 'service.subtitles.otaku.rpdev', 2, 4),
         ):
             sections = root_el.findall('section')
             self.assertGreaterEqual(len(sections), 1, f"{label} settings.xml must contain at least one <section>")
@@ -188,18 +204,37 @@ class TestSettingsSchemaAndCodeReferences(unittest.TestCase):
             self.assertIsNotNone(s.get('type'), f"<setting id='{sid}'> missing required 'type' attribute")
 
     def test_no_duplicate_setting_ids(self):
-        """Ensure no two settings share the same id within or across plugin and service schemas."""
+        """Ensure no two settings or category IDs collide within or across plugin, service, and subtitle schemas."""
         plugin_ids = [s.get('id') for s in self.root.findall('.//setting') if s.get('id')]
         service_ids = [s.get('id') for s in self.service_root.findall('.//setting') if s.get('id')]
+        subtitle_ids = [s.get('id') for s in self.subtitle_root.findall('.//setting') if s.get('id')]
         plugin_dups = {x for x in plugin_ids if plugin_ids.count(x) > 1}
         service_dups = {x for x in service_ids if service_ids.count(x) > 1}
-        cross_overlap = set(plugin_ids) & set(service_ids)
+        subtitle_dups = {x for x in subtitle_ids if subtitle_ids.count(x) > 1}
         self.assertEqual(len(plugin_dups), 0, f"Duplicate setting IDs in plugin settings.xml: {plugin_dups}")
         self.assertEqual(len(service_dups), 0, f"Duplicate setting IDs in service settings.xml: {service_dups}")
-        self.assertEqual(len(cross_overlap), 0, f"Overlapping setting IDs across plugin and service settings.xml: {cross_overlap}")
+        self.assertEqual(len(subtitle_dups), 0, f"Duplicate setting IDs in subtitle settings.xml: {subtitle_dups}")
+
+        p_set, s_set, sub_set = set(plugin_ids), set(service_ids), set(subtitle_ids)
+        self.assertEqual(p_set & s_set, set(), f"Overlapping setting IDs across plugin & service: {p_set & s_set}")
+        self.assertEqual(p_set & sub_set, set(), f"Overlapping setting IDs across plugin & subtitles: {p_set & sub_set}")
+        self.assertEqual(s_set & sub_set, set(), f"Overlapping setting IDs across service & subtitles: {s_set & sub_set}")
+
+        # Assert globally unique case-insensitive <category id> across all 3 add-ons
+        seen_cats = {}
+        cat_collisions = []
+        for label, root_el in (('plugin', self.root), ('service', self.service_root), ('subtitles', self.subtitle_root)):
+            for cat in root_el.findall('.//category'):
+                cid = (cat.get('id') or '').strip()
+                norm = cid.lower().replace('_', ' ')
+                if norm in seen_cats:
+                    cat_collisions.append((cid, label, seen_cats[norm]))
+                else:
+                    seen_cats[norm] = f"{label}:{cid}"
+        self.assertEqual(cat_collisions, [], f"Category ID collisions across add-on schemas: {cat_collisions}")
 
     def test_service_setting_ids_and_migration_specs_parity(self):
-        """Verify control.SERVICE_SETTING_IDS and otaku_service.migration.SERVICE_SETTING_SPECS match service settings.xml."""
+        """Verify control.SERVICE_SETTING_IDS / SUBTITLE_SETTING_IDS and migration specs match their settings.xml files."""
         from resources.lib.ui import control
         from otaku_service import migration
 
@@ -227,6 +262,30 @@ class TestSettingsSchemaAndCodeReferences(unittest.TestCase):
             f"SERVICE_SETTING_SPECS types do not match service.otaku.rpdev/resources/settings.xml: {mismatched_types}",
         )
 
+        subtitle_value_ids = {
+            sid for sid, s in self.subtitle_declared_settings.items()
+            if s.get('type') != 'action'
+        }
+        self.assertEqual(
+            set(control.SUBTITLE_SETTING_IDS),
+            subtitle_value_ids,
+            "control.SUBTITLE_SETTING_IDS must match all non-action subtitle service settings",
+        )
+        self.assertEqual(
+            set(migration.SUBTITLE_SETTING_SPECS.keys()),
+            subtitle_value_ids,
+            "migration.SUBTITLE_SETTING_SPECS keys must match all non-action subtitle service settings",
+        )
+        sub_mismatched = []
+        for sid, (expected_type, _default) in migration.SUBTITLE_SETTING_SPECS.items():
+            xml_type = self.subtitle_declared_settings[sid].get('type')
+            if xml_type != expected_type:
+                sub_mismatched.append((sid, expected_type, xml_type))
+        self.assertEqual(
+            sub_mismatched, [],
+            f"SUBTITLE_SETTING_SPECS types do not match service.subtitles.otaku.rpdev/resources/settings.xml: {sub_mismatched}",
+        )
+
     def test_all_setting_types_valid(self):
         """All declared setting types must conform to Kodi's supported type system."""
         invalid_types = []
@@ -237,14 +296,26 @@ class TestSettingsSchemaAndCodeReferences(unittest.TestCase):
         self.assertEqual(len(invalid_types), 0, f"Settings with invalid Kodi types: {invalid_types}")
 
     def test_setting_dependencies_reference_declared_settings(self):
-        """All <dependency> rules in settings.xml must reference existing setting IDs."""
+        """All <dependency>, <condition>, and parent references must resolve within the SAME add-on's settings.xml."""
         broken_deps = []
-        for sid, s in self.declared_settings.items():
-            for dep in s.findall('.//dependency'):
-                target = dep.get('setting')
-                if target and target not in self.declared_settings:
-                    broken_deps.append((sid, target))
-        self.assertEqual(len(broken_deps), 0, f"Setting dependencies reference non-existent settings: {broken_deps}")
+        for label, local_map in (
+            ('plugin', self.plugin_declared_settings),
+            ('service', self.service_declared_settings),
+            ('subtitles', self.subtitle_declared_settings),
+        ):
+            for sid, s in local_map.items():
+                parent_id = s.get('parent')
+                if parent_id and parent_id not in local_map:
+                    broken_deps.append((label, sid, 'parent', parent_id))
+                for dep in s.findall('.//dependency'):
+                    target = dep.get('setting')
+                    if target and target not in local_map:
+                        broken_deps.append((label, sid, 'dependency', target))
+                    for cond in dep.findall('.//condition'):
+                        ctarget = cond.get('setting')
+                        if ctarget and ctarget not in local_map:
+                            broken_deps.append((label, sid, 'condition', ctarget))
+        self.assertEqual(len(broken_deps), 0, f"Cross-addon or missing setting dependencies: {broken_deps}")
 
     def test_static_code_settings_map_to_settings_xml(self):
         """
@@ -267,7 +338,7 @@ class TestSettingsSchemaAndCodeReferences(unittest.TestCase):
         }
         static_keys = {}  # key -> list of (file, line_no)
 
-        for scan_root in (self.addon_dir, self.service_addon_dir):
+        for scan_root in (self.addon_dir, self.service_addon_dir, self.subtitle_addon_dir):
             for root_dir, _, files in os.walk(scan_root):
                 for filename in files:
                     if not filename.endswith('.py'):
@@ -420,6 +491,7 @@ class TestSettingsSchemaAndCodeReferences(unittest.TestCase):
         for label, root_el, po_map, expected_count in (
             ('plugin', self.root, self.po_entries, 10),
             ('service', self.service_root, self.service_po_entries, 3),
+            ('subtitles', self.subtitle_root, self.subtitle_po_entries, 2),
         ):
             categories = root_el.findall('.//category')
             self.assertEqual(len(categories), expected_count, f"Expected exactly {expected_count} categories in {label} settings.xml")
@@ -461,11 +533,12 @@ class TestSettingsSchemaAndCodeReferences(unittest.TestCase):
         user_visible_missing = []
         user_visible_invalid = []
         level4_with_help = []
-        counts = {'plugin': [0, 0], 'service': [0, 0]}
+        counts = {'plugin': [0, 0], 'service': [0, 0], 'subtitles': [0, 0]}
 
         for label, declared_map, po_map in (
             ('plugin', self.plugin_declared_settings, self.po_entries),
             ('service', self.service_declared_settings, self.service_po_entries),
+            ('subtitles', self.subtitle_declared_settings, self.subtitle_po_entries),
         ):
             for sid, s in declared_map.items():
                 lvl_elem = s.find('level')
@@ -495,8 +568,9 @@ class TestSettingsSchemaAndCodeReferences(unittest.TestCase):
                     if help_val and help_val.strip():
                         level4_with_help.append((f"{label}:{sid}", help_val))
 
-        self.assertEqual(counts['plugin'], [336, 119], f"Expected plugin [336 visible, 119 level-4], found {counts['plugin']}")
+        self.assertEqual(counts['plugin'], [312, 119], f"Expected plugin [312 visible, 119 level-4], found {counts['plugin']}")
         self.assertEqual(counts['service'], [52, 9], f"Expected service [52 visible, 9 level-4], found {counts['service']}")
+        self.assertEqual(counts['subtitles'], [28, 1], f"Expected subtitles [28 visible, 1 level-4], found {counts['subtitles']}")
         self.assertEqual(
             len(user_visible_missing), 0,
             f"Found {len(user_visible_missing)} user-visible (level 0-3) settings MISSING help tooltips:\n" +
@@ -519,6 +593,7 @@ class TestSettingsSchemaAndCodeReferences(unittest.TestCase):
         for label, po_map, po_dups in (
             ('plugin', self.po_entries, self.po_duplicates),
             ('service', self.service_po_entries, self.service_po_duplicates),
+            ('subtitles', self.subtitle_po_entries, self.subtitle_po_duplicates),
         ):
             self.assertEqual(
                 len(po_dups), 0,
@@ -546,6 +621,7 @@ class TestSettingsSchemaAndCodeReferences(unittest.TestCase):
         for label, root_el, po_map in (
             ('plugin', self.root, self.po_entries),
             ('service', self.service_root, self.service_po_entries),
+            ('subtitles', self.subtitle_root, self.subtitle_po_entries),
         ):
             def check_ref(elem_tag, elem_id, attr_name, val_str, _label=label, _po=po_map):
                 if not val_str or not val_str.isdigit():
@@ -591,6 +667,7 @@ class TestSettingsSchemaAndCodeReferences(unittest.TestCase):
         for label, root_el, po_map in (
             ('plugin', self.root, self.po_entries),
             ('service', self.service_root, self.service_po_entries),
+            ('subtitles', self.subtitle_root, self.subtitle_po_entries),
         ):
             help_ids = set()
             for cat in root_el.findall('.//category'):
@@ -654,10 +731,13 @@ class TestSettingsSchemaAndCodeReferences(unittest.TestCase):
         from resources.lib.ui import clean_settings
         plugin_active_ids = clean_settings.get_active_setting_ids(self.settings_xml_path)
         service_active_ids = clean_settings.get_active_setting_ids(self.service_settings_xml_path)
-        self.assertEqual(len(plugin_active_ids), 455, f"Expected 455 plugin active setting IDs, got {len(plugin_active_ids)}")
+        subtitle_active_ids = clean_settings.get_active_setting_ids(self.subtitle_settings_xml_path)
+        self.assertEqual(len(plugin_active_ids), 431, f"Expected 431 plugin active setting IDs, got {len(plugin_active_ids)}")
         self.assertEqual(len(service_active_ids), 61, f"Expected 61 service active setting IDs, got {len(service_active_ids)}")
+        self.assertEqual(len(subtitle_active_ids), 29, f"Expected 29 subtitle active setting IDs, got {len(subtitle_active_ids)}")
         self.assertEqual(plugin_active_ids, set(self.plugin_declared_settings.keys()))
         self.assertEqual(service_active_ids, set(self.service_declared_settings.keys()))
+        self.assertEqual(subtitle_active_ids, set(self.subtitle_declared_settings.keys()))
 
         legacy_compatibility_keys = [
             'regex.question',

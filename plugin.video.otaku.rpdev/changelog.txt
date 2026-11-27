@@ -1,3 +1,8 @@
+Changelog v6.9.0 (2026-11-27):
+- Companion Subtitle Service Settings Split (service.subtitles.otaku.rpdev v1.1.0 / service.otaku.rpdev v1.2.0):
+  - Moved all 23 online subtitle engine settings, 8 subtitle provider toggles & credentials (OpenSubtitles, SubDL, SubSource, Podnadpisi, BSPlayer, Addic7ed, Jimaku, AnimeTosho), and service actions into service.subtitles.otaku.rpdev (`SubtitleService` and `SubtitleProviders` categories), keeping 7 Otaku playback/embedded subtitle track settings + a 1-click shortcut button under Settings > Subtitles (and Tools).
+  - Added dual-trigger pre-prune raw-XML migration (startup in service.otaku.rpdev + lazy fallback in subtitle service) with on-disk v1.1.0+ readiness guard, transparent 3-way routing in control.py with instant epoch/mtime cache sync, unified tri-profile backup/restore/wipe, Jimaku API key log redaction + import reconciliation, and reclaimed 47 net #30000-#30999 string slots.
+
 Changelog v6.8.0 (2026-11-27):
 - Phase 2 Shared Leaf Infrastructure Extraction (service.otaku.rpdev v1.1.0):
   - Extracted shared zero-plugin-dependency leaf infrastructure into service.otaku.rpdev/resources/lib/otaku_service: metrics.py (OTAKU_METRIC), safe_json.py, connectivity.py (ConnectivityGate), circuit_breaker.py (AdaptiveCircuitBreaker), and sqlite_pool.py (thread-local SQLite RO/WAL connection pool).

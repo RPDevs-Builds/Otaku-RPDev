@@ -4,7 +4,7 @@ service.subtitles.otaku.rpdev/service.py - Kodi xbmc.subtitle.module Integration
 ================================================================================
 Bridges Kodi's native OSD "Subtitle settings > Download subtitle" dialog
 (Window 10153 / DialogSubtitles.xml) directly into Otaku-RPDev's built-in
-multi-provider subtitle engine and Settings - Otaku RPDev > Subtitles.
+multi-provider subtitle engine and service.subtitles.otaku.rpdev settings.
 
 Supports:
   - action=search       : Automatic subtitle identification & parallel search
@@ -24,6 +24,7 @@ import xbmcplugin
 import xbmcvfs
 
 PLUGIN_ADDON_ID = 'plugin.video.otaku.rpdev'
+SERVICE_ADDON_ID = 'service.otaku.rpdev'
 SUBTITLE_ADDON_ID = 'service.subtitles.otaku.rpdev'
 
 
@@ -52,6 +53,44 @@ def _ensure_otaku_plugin_on_path() -> Optional[str]:
                 sys.path.insert(0, path)
             return path
     return None
+
+
+def _ensure_otaku_service_on_path() -> Optional[str]:
+    """Defensively add service.otaku.rpdev/resources/lib to sys.path (no addon.xml reverse dep)."""
+    candidates = []
+    try:
+        svc_path = xbmcaddon.Addon(SERVICE_ADDON_ID).getAddonInfo('path')
+        if svc_path:
+            translated = xbmcvfs.translatePath(svc_path)
+            if translated:
+                candidates.append(os.path.join(translated, 'resources', 'lib'))
+    except Exception:
+        pass
+
+    repo_sibling = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        SERVICE_ADDON_ID,
+        'resources',
+        'lib',
+    )
+    candidates.append(repo_sibling)
+
+    for lib_dir in candidates:
+        if lib_dir and os.path.isdir(lib_dir):
+            if lib_dir not in sys.path:
+                sys.path.insert(0, lib_dir)
+            return lib_dir
+    return None
+
+
+def _ensure_subtitle_settings_migrated() -> int:
+    """Idempotent lazy pre-prune migration fallback if service.otaku.rpdev has not run yet."""
+    _ensure_otaku_service_on_path()
+    try:
+        from otaku_service import migration
+        return migration.migrate_subtitle_settings()
+    except (ImportError, RuntimeError, Exception):
+        return 0
 
 
 def _get_service_temp_dir() -> Optional[str]:
@@ -155,6 +194,7 @@ def handle_request(handle: int, param_string: str) -> int:
     Returns number of directory items emitted (useful for deterministic unit tests).
     """
     _ensure_otaku_plugin_on_path()
+    _ensure_subtitle_settings_migrated()
     from resources.lib.ui import control
     from resources.lib import subtitles
     from resources.lib.subtitles.models import SubtitleResult

@@ -58,6 +58,7 @@ from scripts.kodi_e2e_mock_server import LocalMockServer
 
 ADDON_DIR = os.path.join(REPO_ROOT, "plugin.video.otaku.rpdev")
 SERVICE_ADDON_DIR = os.path.join(REPO_ROOT, "service.otaku.rpdev")
+SUBTITLE_ADDON_DIR = os.path.join(REPO_ROOT, "service.subtitles.otaku.rpdev")
 KODI_ENV_PROFILES = "/mnt/sharedroot/projects/kodi-test-env/profiles"
 
 PROFILES = {
@@ -145,6 +146,7 @@ def set_runtime_setting(profile_dir, overrides):
     """Write setting to disk and mutate active in-memory Kodi runtime via /set_settings route."""
     plugin_overrides = {}
     service_overrides = {}
+    subtitle_overrides = {}
     svc_keys = {
         'general.kodi.cache', 'cache.scrapers.ttl', 'cache.torrents.ttl',
         'cache.metadata.ttl', 'cache.calendar.ttl', 'db.sqlite.cache_size_mb',
@@ -155,15 +157,32 @@ def set_runtime_setting(profile_dir, overrides):
         'fs_enable', 'fs_url', 'fs_timeout', 'ms_enable', 'ms_url',
         'ipv6.status', 'http2.status', 'webpdb.enabled', 'webpdb.port', 'webpdb.mode',
     }
+    sub_keys = {
+        'subtitles.enabled', 'subtitles.auto_search', 'subtitles.auto_download',
+        'subtitles.prefer_sdh', 'subtitles.prefer_forced', 'subtitles.strip_sdh_tags',
+        'subtitles.auto_calibrate_chapters', 'subtitles.use_chardet',
+        'subtitles.timeout', 'subtitles.results_limit', 'subtitles.migrated_from_plugin_v1',
+        'subtitles.provider.opensubtitles', 'subtitles.opensubtitles.username',
+        'subtitles.opensubtitles.password', 'subtitles.provider.subdl',
+        'subtitles.subdl.apikey', 'subtitles.provider.subsource',
+        'subtitles.subsource.apikey', 'subtitles.provider.podnadpisi',
+        'subtitles.provider.bsplayer', 'subtitles.provider.addic7ed',
+        'subtitles.provider.jimaku', 'subtitles.jimaku.apikey',
+        'subtitles.provider.animetosho',
+    }
     for k, v in overrides.items():
         if k in svc_keys:
             service_overrides[k] = v
+        elif k in sub_keys:
+            subtitle_overrides[k] = v
         else:
             plugin_overrides[k] = v
     if plugin_overrides:
         write_addon_settings(profile_dir, plugin_overrides, addon_id="plugin.video.otaku.rpdev")
     if service_overrides:
         write_addon_settings(profile_dir, service_overrides, addon_id="service.otaku.rpdev")
+    if subtitle_overrides:
+        write_addon_settings(profile_dir, subtitle_overrides, addon_id="service.subtitles.otaku.rpdev")
     try:
         q = urllib.parse.urlencode(overrides)
         get_dir(f"plugin://plugin.video.otaku.rpdev/set_settings?{q}", timeout=10.0)
@@ -213,26 +232,34 @@ def get_dir(plugin_path, props=None, timeout=45.0):
 
 
 def run_flatpak_settings_probe(branch):
-    """Run an isolated Flatpak python probe verifying plugin + service settings.xml and strings.po resolution."""
+    """Run an isolated Flatpak python probe verifying plugin + service + subtitle settings.xml and strings.po."""
     probe_script = (
         "import os, xml.etree.ElementTree as ET\n"
         f"addon_dir = '{ADDON_DIR}'\n"
         f"service_dir = '{SERVICE_ADDON_DIR}'\n"
+        f"subtitle_dir = '{SUBTITLE_ADDON_DIR}'\n"
         "p_xml = os.path.join(addon_dir, 'resources', 'settings.xml')\n"
         "s_xml = os.path.join(service_dir, 'resources', 'settings.xml')\n"
+        "sub_xml = os.path.join(subtitle_dir, 'resources', 'settings.xml')\n"
         "p_settings = [e.attrib.get('id') for e in ET.parse(p_xml).findall('.//setting') if e.attrib.get('id')]\n"
         "s_settings = [e.attrib.get('id') for e in ET.parse(s_xml).findall('.//setting') if e.attrib.get('id')]\n"
-        "total = len(p_settings) + len(s_settings)\n"
+        "sub_settings = [e.attrib.get('id') for e in ET.parse(sub_xml).findall('.//setting') if e.attrib.get('id')]\n"
+        "total = len(p_settings) + len(s_settings) + len(sub_settings)\n"
         "po_file = os.path.join(addon_dir, 'resources', 'language', 'resource.language.en_gb', 'strings.po')\n"
         "with open(po_file, 'r', encoding='utf-8') as f:\n"
         "    po_text = f.read()\n"
         "svc_po_file = os.path.join(service_dir, 'resources', 'language', 'resource.language.en_gb', 'strings.po')\n"
         "with open(svc_po_file, 'r', encoding='utf-8') as f:\n"
         "    svc_po_text = f.read()\n"
-        "assert len(p_settings) >= 450, f'Expected >= 450 plugin settings, got {len(p_settings)}'\n"
+        "sub_po_file = os.path.join(subtitle_dir, 'resources', 'language', 'resource.language.en_gb', 'strings.po')\n"
+        "with open(sub_po_file, 'r', encoding='utf-8') as f:\n"
+        "    sub_po_text = f.read()\n"
+        "assert len(p_settings) >= 430, f'Expected >= 430 plugin settings, got {len(p_settings)}'\n"
         "assert len(s_settings) >= 60, f'Expected >= 60 service settings, got {len(s_settings)}'\n"
+        "assert len(sub_settings) >= 29, f'Expected >= 29 subtitle settings, got {len(sub_settings)}'\n"
         "assert 'msgctxt \"#30716\"' in po_text, 'Missing strings in plugin strings.po'\n"
         "assert 'msgctxt \"#30001\"' in svc_po_text, 'Missing strings in service strings.po'\n"
+        "assert 'msgctxt \"#30001\"' in sub_po_text, 'Missing strings in subtitle strings.po'\n"
         "print(f'FLATPAK_PROBE_OK:{total}')"
     )
     cmd = ["flatpak", "run", f"--branch={branch}", "--command=python3", "tv.kodi.Kodi", "-c", probe_script]

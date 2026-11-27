@@ -104,6 +104,7 @@ def run_service_loop(monitor=None, max_wait_s=30.0):
 
     # 1. Self-contained pre-prune settings migration (zero plugin imports)
     migration.migrate_service_settings()
+    migration.migrate_subtitle_settings()
 
     # 2. Bounded readiness wait before adding plugin to sys.path
     plugin_path = _wait_for_compatible_plugin(mon, max_wait_s=max_wait_s)
@@ -192,10 +193,12 @@ def run_service_loop(monitor=None, max_wait_s=30.0):
 
             if was_settings_open and not settings_open:
                 svc_monitor.check_plugin_settings_changed(force=False)
+                svc_monitor.check_subtitle_settings_changed(force=False)
             was_settings_open = settings_open
 
             if not in_standby and not settings_open:
                 svc_monitor.check_plugin_settings_changed(force=False)
+                svc_monitor.check_subtitle_settings_changed(force=False)
 
             now_mono = time.monotonic()
             if (now_mono - last_maintenance_ts) >= 900.0:

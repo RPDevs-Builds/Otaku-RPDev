@@ -120,12 +120,14 @@ def parse_skin_xml(xml_file):
 
 
 def reset_settings_to_defaults(include_test_fixtures=True):
-    """Reset conftest._settings_store to plugin + service XML defaults plus required test fixture tokens."""
+    """Reset conftest._settings_store to plugin + service + subtitle XML defaults plus required test fixture tokens."""
     _, plugin_defaults = load_settings_schema('plugin.video.otaku.rpdev')
     _, service_defaults = load_settings_schema('service.otaku.rpdev')
+    _, subtitle_defaults = load_settings_schema('service.subtitles.otaku.rpdev')
     conftest._settings_store.clear()
     conftest._settings_store.update(plugin_defaults)
     conftest._settings_store.update(service_defaults)
+    conftest._settings_store.update(subtitle_defaults)
     if include_test_fixtures:
         conftest._settings_store.update({
             'menu.mainmenu.config': 'airing_calendar,airing_last_season,airing_this_season,airing_next_season,trending,popular,voted,favourites,top_100,genres,search,tools',

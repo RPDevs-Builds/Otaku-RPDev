@@ -140,6 +140,50 @@ class TestCleanSettings(unittest.TestCase):
         self.assertEqual(count2, 1)
         self.assertEqual(removed2, ['fs_url'])
 
+    def test_clean_settings_protects_unmigrated_subtitle_keys(self):
+        """Moved SUBTITLE_SETTING_IDS must not be pruned from plugin profile until subtitle migration completes."""
+        from unittest.mock import patch
+        from resources.lib.ui import control
+
+        profile_with_subs = os.path.join(self.temp_dir.name, 'profile_unmigrated_subs.xml')
+        with open(profile_with_subs, 'w', encoding='utf-8') as f:
+            f.write(
+                '<?xml version="1.0" encoding="utf-8"?>\n'
+                '<settings version="2">\n'
+                '    <setting id="general.smartplay">true</setting>\n'
+                '    <setting id="subtitles.subdl.apikey">my_secret_subdl_key</setting>\n'
+                '    <setting id="subtitles.provider.jimaku">true</setting>\n'
+                '    <setting id="obsolete.old_key">1</setting>\n'
+                '</settings>'
+            )
+
+        def _fake_get_bool_unmigrated(k, default=False):
+            if k == 'service.migrated_from_plugin_v1':
+                return True
+            if k == 'subtitles.migrated_from_plugin_v1':
+                return False
+            return default
+
+        with patch.object(control, 'getBool', side_effect=_fake_get_bool_unmigrated):
+            count, removed = clean_settings.clean_settings(
+                profile_settings_path=profile_with_subs,
+                silent=True,
+            )
+        self.assertEqual(count, 1)
+        self.assertEqual(removed, ['obsolete.old_key'])
+        remaining = {e.get('id') for e in ET.parse(profile_with_subs).getroot()}
+        self.assertIn('subtitles.subdl.apikey', remaining)
+        self.assertIn('subtitles.provider.jimaku', remaining)
+
+        # Once migrated, moved subtitle keys are pruned cleanly from plugin profile
+        with patch.object(control, 'getBool', side_effect=lambda k, default=False: True if k.endswith('migrated_from_plugin_v1') else default):
+            count2, removed2 = clean_settings.clean_settings(
+                profile_settings_path=profile_with_subs,
+                silent=True,
+            )
+        self.assertEqual(count2, 2)
+        self.assertEqual(set(removed2), {'subtitles.subdl.apikey', 'subtitles.provider.jimaku'})
+
 
 if __name__ == '__main__':
     unittest.main()

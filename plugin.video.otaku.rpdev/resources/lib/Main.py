@@ -292,6 +292,7 @@ def _tools_menu():
         (30070, 'change_log', 'changelog.png'),
         (30071, 'settings', 'open_settings_menu.png'),
         ('Background Service & Maintenance Settings', 'open_service_settings', 'open_settings_menu.png'),
+        ('Subtitle Service & Providers Settings', 'open_subtitle_service_settings', 'open_settings_menu.png'),
         (30072, 'clear_cache', 'clear_cache.png'),
         (30073, 'clear_search_history', 'clear_search_history.png'),
         (30074, 'clear_watch_history', 'clear_watch_history.png'),

@@ -1,7 +1,23 @@
 ========================
+[B]OTAKU RPDEV v6.9.0[/B]
+Subtitle Service Settings Split
+========================
+
+v6.9.0 Highlights:
+  * Dedicated Subtitle Service Settings (service.subtitles.otaku.rpdev
+    v1.1.0): Moved online subtitle engine tuning, all 8 subtitle
+    providers, and API credentials into service.subtitles.otaku.rpdev,
+    keeping playback & embedded subtitle selection inside Otaku Settings.
+  * 1-Click Access & Zero-Loss Migration: Open Subtitle Service settings
+    directly from Settings > Subtitles or Tools; existing providers and
+    API keys migrate automatically on upgrade.
+  * Localization & Cache Relief: Reclaimed 47 net #30000-#30999 string
+    slots with instant cross-addon settings sync.
+
+--------------------------------
 [B]OTAKU RPDEV v6.8.0[/B]
 Shared Core Infrastructure
-========================
+--------------------------------
 
 v6.8.0 Highlights:
   * Shared Service Module Layer (service.otaku.rpdev v1.1.0): Extracted

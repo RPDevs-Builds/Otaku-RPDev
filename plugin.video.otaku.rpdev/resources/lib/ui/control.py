@@ -30,6 +30,7 @@ import json
 import shutil
 import subprocess
 import threading
+import time
 import re
 
 from concurrent.futures import ThreadPoolExecutor
@@ -474,6 +475,14 @@ try:
 except Exception:
     SERVICE_ADDON_PATH = xbmcvfs.translatePath(f'special://home/addons/{SERVICE_ADDON_ID}/')
 
+SUBTITLE_ADDON_ID = 'service.subtitles.otaku.rpdev'
+try:
+    _temp_subtitle = xbmcaddon.Addon(SUBTITLE_ADDON_ID)
+    SUBTITLE_ADDON_PATH = _temp_subtitle.getAddonInfo('path')
+    del _temp_subtitle
+except Exception:
+    SUBTITLE_ADDON_PATH = xbmcvfs.translatePath(f'special://home/addons/{SUBTITLE_ADDON_ID}/')
+
 
 def _ensure_otaku_service_on_path():
     """Ensure service.otaku.rpdev/resources/lib is on sys.path (mirrors Kodi xbmc.python.module loader)."""
@@ -528,14 +537,50 @@ SERVICE_SETTING_IDS = frozenset({
     'webpdb.mode',
 })
 
+SUBTITLE_SETTING_IDS = frozenset({
+    # Category 1: SubtitleService
+    'subtitles.enabled',
+    'subtitles.auto_search',
+    'subtitles.auto_download',
+    'subtitles.prefer_sdh',
+    'subtitles.prefer_forced',
+    'subtitles.strip_sdh_tags',
+    'subtitles.auto_calibrate_chapters',
+    'subtitles.use_chardet',
+    'subtitles.timeout',
+    'subtitles.results_limit',
+    'subtitles.migrated_from_plugin_v1',
+    # Category 2: SubtitleProviders
+    'subtitles.provider.opensubtitles',
+    'subtitles.opensubtitles.username',
+    'subtitles.opensubtitles.password',
+    'subtitles.provider.subdl',
+    'subtitles.subdl.apikey',
+    'subtitles.provider.subsource',
+    'subtitles.subsource.apikey',
+    'subtitles.provider.podnadpisi',
+    'subtitles.provider.bsplayer',
+    'subtitles.provider.addic7ed',
+    'subtitles.provider.jimaku',
+    'subtitles.jimaku.apikey',
+    'subtitles.provider.animetosho',
+})
+
+_UNSET_STAT = object()
 _SERVICE_SETTINGS_EPOCH_PROP = 'otaku.service_settings_epoch'
 _last_service_settings_epoch = ''
+_SUBTITLE_SETTINGS_EPOCH_PROP = 'otaku.subtitle_settings_epoch'
+_last_subtitle_settings_epoch = ''
+_last_subtitle_settings_stat = _UNSET_STAT
+_last_subtitle_stat_check_ts = 0.0
 
 ADDON = _AddonProxy(ADDON_ID)
 CONTEXT_ADDON = _AddonProxy(CONTEXT_ADDON_ID)
 SERVICE_ADDON = _AddonProxy(SERVICE_ADDON_ID)
+SUBTITLE_ADDON = _AddonProxy(SUBTITLE_ADDON_ID)
 settings = _SettingsProxy(ADDON_ID)
 service_settings = _SettingsProxy(SERVICE_ADDON_ID)
+subtitle_settings = _SettingsProxy(SUBTITLE_ADDON_ID)
 monitor = _MonitorProxy()
 
 
@@ -683,7 +728,8 @@ _SENSITIVE_SETTING_KEYS = (
     'debridlink.token', 'easydebrid.token', 'simkl.token',
     'mal.token', 'kitsu.token',
     'subtitles.subdl.apikey', 'subtitles.subsource.apikey',
-    'subtitles.opensubtitles.password', 'animeskip.apikey', 'easynews.password',
+    'subtitles.jimaku.apikey', 'subtitles.opensubtitles.password',
+    'animeskip.apikey', 'easynews.password',
 )
 
 
@@ -795,9 +841,11 @@ def refresh():
 # ═══════════════════════════════════════════════════════════════════════════
 
 def _settings_target(key):
-    """Return (settings_proxy, addon_id) for key, routing SERVICE_SETTING_IDS to service.otaku.rpdev."""
+    """Return (settings_proxy, addon_id) for key, routing SERVICE_SETTING_IDS and SUBTITLE_SETTING_IDS."""
     if key in SERVICE_SETTING_IDS:
         return service_settings, SERVICE_ADDON_ID
+    if key in SUBTITLE_SETTING_IDS:
+        return subtitle_settings, SUBTITLE_ADDON_ID
     return settings, ADDON_ID
 
 
@@ -832,11 +880,84 @@ def _sync_service_settings_epoch():
         service_settings.cleanup()
 
 
+def _stat_subtitle_settings_file():
+    """Return (st_mtime_ns, st_size) for service.subtitles.otaku.rpdev/settings.xml, or None."""
+    try:
+        sub_profile = xbmcvfs.translatePath(f'special://profile/addon_data/{SUBTITLE_ADDON_ID}/')
+        if not sub_profile:
+            return None
+        st = os.stat(os.path.join(sub_profile, 'settings.xml'))
+        return (st.st_mtime_ns, st.st_size)
+    except (OSError, Exception):
+        return None
+
+
+def _evict_subtitle_settings_cache():
+    for sid in SUBTITLE_SETTING_IDS:
+        for prefix in ('s_', 'gs_', 'b_', 'i_', 'n_', 'sl_', 'bl_', 'il_', 'nl_'):
+            _settings_cache.pop(f'{prefix}{sid}', None)
+    subtitle_settings.cleanup()
+
+
+def bump_subtitle_settings_epoch():
+    """Increment shared Window(10000) epoch so plugin, daemon & subtitle service observe writes immediately."""
+    global _last_subtitle_settings_epoch, _last_subtitle_settings_stat
+    try:
+        cur = homeWindow.getProperty(_SUBTITLE_SETTINGS_EPOCH_PROP) or '0'
+        next_epoch = str(int(cur) + 1)
+    except (ValueError, TypeError):
+        next_epoch = '1'
+    _last_subtitle_settings_epoch = next_epoch
+    _last_subtitle_settings_stat = _stat_subtitle_settings_file()
+    try:
+        homeWindow.setProperty(_SUBTITLE_SETTINGS_EPOCH_PROP, next_epoch)
+    except Exception:
+        pass
+    return next_epoch
+
+
+def _sync_subtitle_settings_epoch(force_stat=False):
+    """Evict cached SUBTITLE_SETTING_IDS if epoch changed or subtitle settings.xml mtime/size changed."""
+    global _last_subtitle_settings_epoch, _last_subtitle_settings_stat, _last_subtitle_stat_check_ts
+    evicted = False
+    try:
+        cur = homeWindow.getProperty(_SUBTITLE_SETTINGS_EPOCH_PROP) or ''
+    except Exception:
+        cur = ''
+    if cur and cur != _last_subtitle_settings_epoch:
+        _last_subtitle_settings_epoch = cur
+        _evict_subtitle_settings_cache()
+        evicted = True
+
+    now = time.monotonic()
+    if force_stat or (now - _last_subtitle_stat_check_ts) >= 0.5:
+        _last_subtitle_stat_check_ts = now
+        cur_stat = _stat_subtitle_settings_file()
+        if _last_subtitle_settings_stat is _UNSET_STAT:
+            _last_subtitle_settings_stat = cur_stat
+        elif cur_stat != _last_subtitle_settings_stat:
+            _last_subtitle_settings_stat = cur_stat
+            if not evicted:
+                _evict_subtitle_settings_cache()
+
+
+def _sync_companion_epoch_for_key(key):
+    if key in SERVICE_SETTING_IDS:
+        _sync_service_settings_epoch()
+    elif key in SUBTITLE_SETTING_IDS:
+        _sync_subtitle_settings_epoch()
+
+
+def _bump_companion_epoch_for_addon(aid):
+    if aid == SERVICE_ADDON_ID:
+        bump_service_settings_epoch()
+    elif aid == SUBTITLE_ADDON_ID:
+        bump_subtitle_settings_epoch()
+
+
 def getSetting(key):
     """Get setting as string - checks in-memory cache, then Kodi API, then window property fallback"""
-    is_svc = key in SERVICE_SETTING_IDS
-    if is_svc:
-        _sync_service_settings_epoch()
+    _sync_companion_epoch_for_key(key)
     ck = f's_{key}'
     if ck in _settings_cache:
         return _settings_cache[ck]
@@ -860,8 +981,7 @@ getString = getSetting
 
 def getBool(key, default=False):
     """Get setting as boolean - checks in-memory cache, then Kodi API, then window property fallback"""
-    if key in SERVICE_SETTING_IDS:
-        _sync_service_settings_epoch()
+    _sync_companion_epoch_for_key(key)
     ck = f'b_{key}'
     if ck in _settings_cache:
         return _settings_cache[ck]
@@ -883,8 +1003,7 @@ def getBool(key, default=False):
 
 def getInt(key, default=0):
     """Get setting as integer - checks in-memory cache, then Kodi API, then window property fallback"""
-    if key in SERVICE_SETTING_IDS:
-        _sync_service_settings_epoch()
+    _sync_companion_epoch_for_key(key)
     ck = f'i_{key}'
     if ck in _settings_cache:
         return _settings_cache[ck]
@@ -914,8 +1033,7 @@ def getStr(key):
 
 def getNumber(key, default=0.0):
     """Get setting as float/number - checks in-memory cache, then Kodi API, then window property fallback"""
-    if key in SERVICE_SETTING_IDS:
-        _sync_service_settings_epoch()
+    _sync_companion_epoch_for_key(key)
     ck = f'n_{key}'
     if ck in _settings_cache:
         return _settings_cache[ck]
@@ -940,8 +1058,7 @@ def getNumber(key, default=0.0):
 
 def getStringList(settingid):
     """Get setting as list of strings - checks in-memory cache, then Kodi API, then window property fallback"""
-    if settingid in SERVICE_SETTING_IDS:
-        _sync_service_settings_epoch()
+    _sync_companion_epoch_for_key(settingid)
     ck = f'sl_{settingid}'
     if ck in _settings_cache:
         return _settings_cache[ck]
@@ -966,8 +1083,7 @@ def getStringList(settingid):
 
 def getBoolList(settingid):
     """Get setting as list of booleans - checks in-memory cache, then Kodi API, then window property fallback"""
-    if settingid in SERVICE_SETTING_IDS:
-        _sync_service_settings_epoch()
+    _sync_companion_epoch_for_key(settingid)
     ck = f'bl_{settingid}'
     if ck in _settings_cache:
         return _settings_cache[ck]
@@ -992,8 +1108,7 @@ def getBoolList(settingid):
 
 def getIntList(settingid):
     """Get setting as list of integers - checks in-memory cache, then Kodi API, then window property fallback"""
-    if settingid in SERVICE_SETTING_IDS:
-        _sync_service_settings_epoch()
+    _sync_companion_epoch_for_key(settingid)
     ck = f'il_{settingid}'
     if ck in _settings_cache:
         return _settings_cache[ck]
@@ -1018,8 +1133,7 @@ def getIntList(settingid):
 
 def getNumberList(settingid):
     """Get setting as list of numbers - checks in-memory cache, then Kodi API, then window property fallback"""
-    if settingid in SERVICE_SETTING_IDS:
-        _sync_service_settings_epoch()
+    _sync_companion_epoch_for_key(settingid)
     ck = f'nl_{settingid}'
     if ck in _settings_cache:
         return _settings_cache[ck]
@@ -1062,8 +1176,7 @@ def setSetting(settingid, value):
     _evict_setting(sid_str)
     _settings_cache[f's_{sid_str}'] = val_str
     homeWindow.setProperty(f'{aid}_{sid_str}', val_str)
-    if aid == SERVICE_ADDON_ID:
-        bump_service_settings_epoch()
+    _bump_companion_epoch_for_addon(aid)
 
 
 def setBool(settingid, value):
@@ -1078,8 +1191,7 @@ def setBool(settingid, value):
     _evict_setting(sid_str)
     _settings_cache[f'b_{sid_str}'] = val_bool
     homeWindow.setProperty(f'{aid}_{sid_str}', 'true' if val_bool else 'false')
-    if aid == SERVICE_ADDON_ID:
-        bump_service_settings_epoch()
+    _bump_companion_epoch_for_addon(aid)
 
 
 def setInt(settingid, value):
@@ -1097,8 +1209,7 @@ def setInt(settingid, value):
     _evict_setting(sid_str)
     _settings_cache[f'i_{sid_str}'] = val_int
     homeWindow.setProperty(f'{aid}_{sid_str}', str(val_int))
-    if aid == SERVICE_ADDON_ID:
-        bump_service_settings_epoch()
+    _bump_companion_epoch_for_addon(aid)
 
 
 def setStr(settingid, value):
@@ -1113,8 +1224,7 @@ def setStr(settingid, value):
     _evict_setting(sid_str)
     _settings_cache[f's_{sid_str}'] = val_str
     homeWindow.setProperty(f'{aid}_{sid_str}', val_str)
-    if aid == SERVICE_ADDON_ID:
-        bump_service_settings_epoch()
+    _bump_companion_epoch_for_addon(aid)
 
 
 setString = setSetting
@@ -1135,8 +1245,7 @@ def setNumber(settingid, value):
     _evict_setting(sid_str)
     _settings_cache[f'n_{sid_str}'] = val_num
     homeWindow.setProperty(f'{aid}_{sid_str}', str(val_num))
-    if aid == SERVICE_ADDON_ID:
-        bump_service_settings_epoch()
+    _bump_companion_epoch_for_addon(aid)
 
 
 def setStringList(settingid, value):
@@ -1154,8 +1263,7 @@ def setStringList(settingid, value):
         homeWindow.setProperty(f'{aid}_{sid_str}', json.dumps(val_list))
     except Exception:
         pass
-    if aid == SERVICE_ADDON_ID:
-        bump_service_settings_epoch()
+    _bump_companion_epoch_for_addon(aid)
 
 
 def setBoolList(settingid, value):
@@ -1173,8 +1281,7 @@ def setBoolList(settingid, value):
         homeWindow.setProperty(f'{aid}_{sid_str}', json.dumps(val_list))
     except Exception:
         pass
-    if aid == SERVICE_ADDON_ID:
-        bump_service_settings_epoch()
+    _bump_companion_epoch_for_addon(aid)
 
 
 def setIntList(settingid, value):
@@ -1198,8 +1305,7 @@ def setIntList(settingid, value):
         homeWindow.setProperty(f'{aid}_{sid_str}', json.dumps(val_list))
     except Exception:
         pass
-    if aid == SERVICE_ADDON_ID:
-        bump_service_settings_epoch()
+    _bump_companion_epoch_for_addon(aid)
 
 
 def setNumberList(settingid, value):
@@ -1223,8 +1329,7 @@ def setNumberList(settingid, value):
         homeWindow.setProperty(f'{aid}_{sid_str}', json.dumps(val_list))
     except Exception:
         pass
-    if aid == SERVICE_ADDON_ID:
-        bump_service_settings_epoch()
+    _bump_companion_epoch_for_addon(aid)
 
 
 def clearSettingsCache():
@@ -1233,6 +1338,7 @@ def clearSettingsCache():
     _artwork_cache.clear()
     settings.cleanup()
     service_settings.cleanup()
+    subtitle_settings.cleanup()
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1562,10 +1668,11 @@ def clean_memory(trim_fn=None):
 
 
 def init_session():
-    """Refresh session state (HANDLE, _directory_ended, service_settings_epoch) on script entry."""
+    """Refresh session state (HANDLE, _directory_ended, companion settings epochs) on script entry."""
     global HANDLE, _directory_ended
     _directory_ended = False
     _sync_service_settings_epoch()
+    _sync_subtitle_settings_epoch(force_stat=True)
     try:
         HANDLE = int(sys.argv[1])
     except (IndexError, ValueError):
@@ -1726,7 +1833,7 @@ def cleanup():
         database.close_all_connections()
     except Exception:
         pass
-    for proxy in (progressDialog, homeWindow, playerWindow, playList, ADDON, CONTEXT_ADDON, SERVICE_ADDON, settings, service_settings, monitor):
+    for proxy in (progressDialog, homeWindow, playerWindow, playList, ADDON, CONTEXT_ADDON, SERVICE_ADDON, SUBTITLE_ADDON, settings, service_settings, subtitle_settings, monitor):
         try:
             proxy.cleanup()
         except Exception:

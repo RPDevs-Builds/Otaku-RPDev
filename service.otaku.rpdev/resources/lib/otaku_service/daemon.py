@@ -248,6 +248,9 @@ def _get_settings_schema_entries():
     svc_path = getattr(control, 'SERVICE_ADDON_PATH', '')
     if svc_path:
         schema_specs.append((control.SERVICE_ADDON_ID, os.path.join(svc_path, 'resources', 'settings.xml')))
+    sub_path = getattr(control, 'SUBTITLE_ADDON_PATH', '')
+    if sub_path:
+        schema_specs.append((control.SUBTITLE_ADDON_ID, os.path.join(sub_path, 'resources', 'settings.xml')))
 
     for aid, settings_path in schema_specs:
         if not settings_path or not os.path.exists(settings_path):
@@ -264,15 +267,22 @@ def _get_settings_schema_entries():
 
 
 def load_settings():
-    """Load plugin + service settings into Kodi window properties using cached settings.xml schemas."""
+    """Load plugin + service + subtitle settings into Kodi window properties using cached schemas."""
     try:
         entries = _get_settings_schema_entries()
     except Exception as e:
         control.log(f'Failed to parse settings.xml: {e}', 'error')
         return
 
+    svc_aid = getattr(control, 'SERVICE_ADDON_ID', 'service.otaku.rpdev')
+    sub_aid = getattr(control, 'SUBTITLE_ADDON_ID', 'service.subtitles.otaku.rpdev')
     for aid, s_id, s_type in entries:
-        proxy = control.service_settings if aid == getattr(control, 'SERVICE_ADDON_ID', 'service.otaku.rpdev') else control.settings
+        if aid == svc_aid:
+            proxy = control.service_settings
+        elif aid == sub_aid:
+            proxy = control.subtitle_settings
+        else:
+            proxy = control.settings
         prop_name = f"{aid}_{s_id}"
         try:
             if s_type == 'boolean':
@@ -337,6 +347,20 @@ def _stat_plugin_settings_xml():
         return None
 
 
+def _stat_subtitle_settings_xml():
+    """Return (st_mtime_ns, st_size) for service.subtitles.otaku.rpdev/settings.xml, or None."""
+    try:
+        sub_id = getattr(control, 'SUBTITLE_ADDON_ID', 'service.subtitles.otaku.rpdev')
+        sub_profile = control.xbmcvfs.translatePath(f'special://profile/addon_data/{sub_id}/')
+        if not sub_profile:
+            return None
+        p = os.path.join(sub_profile, 'settings.xml')
+        st = os.stat(p)
+        return (st.st_mtime_ns, st.st_size)
+    except Exception:
+        return None
+
+
 class Monitor(xbmc.Monitor):
     def __init__(self):
         super().__init__()
@@ -344,6 +368,7 @@ class Monitor(xbmc.Monitor):
         self._webpdb_enabled = control.getBool('webpdb.enabled')
         self._webpdb_port = control.get_webpdb_port()
         self._plugin_settings_stat = _stat_plugin_settings_xml()
+        self._subtitle_settings_stat = _stat_subtitle_settings_xml()
 
     def _sync_webpdb_state(self):
         current_webpdb_enabled = control.getBool('webpdb.enabled')
@@ -393,6 +418,20 @@ class Monitor(xbmc.Monitor):
         control.process_context()
         self._sync_webpdb_state()
         self._sync_menu_refresh()
+        return True
+
+    def check_subtitle_settings_changed(self, force=False):
+        """Detect changes to service.subtitles.otaku.rpdev/settings.xml via (st_mtime_ns, st_size)."""
+        cur_stat = _stat_subtitle_settings_xml()
+        if not force and cur_stat == self._subtitle_settings_stat:
+            return False
+        self._subtitle_settings_stat = cur_stat
+        control.log('Subtitle service settings.xml changed - refreshing settings cache & epoch')
+        if hasattr(control, 'bump_subtitle_settings_epoch'):
+            control.bump_subtitle_settings_epoch()
+        control.clearSettingsCache()
+        if control.getBool('general.kodi.cache'):
+            load_settings()
         return True
 
 

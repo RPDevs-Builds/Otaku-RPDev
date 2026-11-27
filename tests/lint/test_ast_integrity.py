@@ -640,13 +640,14 @@ class TestASTIntegrity(unittest.TestCase):
             if aid:
                 graph[aid] = deps
 
-        # service.otaku.rpdev must remain a leaf with ZERO intra-Otaku reverse dependencies
-        self.assertIn('service.otaku.rpdev', graph)
-        service_intra_deps = [d for d in graph['service.otaku.rpdev'] if d in graph]
-        self.assertEqual(
-            service_intra_deps, [],
-            f"service.otaku.rpdev must have zero intra-Otaku dependencies, found: {service_intra_deps}",
-        )
+        # service.otaku.rpdev and service.subtitles.otaku.rpdev must remain leaves with ZERO intra-Otaku reverse dependencies
+        for leaf_aid in ('service.otaku.rpdev', 'service.subtitles.otaku.rpdev'):
+            self.assertIn(leaf_aid, graph)
+            leaf_intra_deps = [d for d in graph[leaf_aid] if d in graph]
+            self.assertEqual(
+                leaf_intra_deps, [],
+                f"{leaf_aid} must have zero intra-Otaku dependencies, found: {leaf_intra_deps}",
+            )
 
         cycles = []
 
@@ -728,9 +729,9 @@ class TestASTIntegrity(unittest.TestCase):
             self.assertEqual(sha_dups, {}, f"{style_name} studio SHA-256 duplicates: {sha_dups}")
 
     def test_c36_indirect_and_template_setting_keys_resolve_in_settings_xml(self):
-        """P32-02 (C-36): Resolve f-string template setting keys (provider/flavor/embed) against settings.xml."""
+        """P32-02 (C-36): Resolve f-string template setting keys (provider/flavor/embed) against all 3 settings.xml files."""
         declared_ids = set()
-        for addon_dir in (ADDON_DIR, SERVICE_ADDON_DIR):
+        for addon_dir in (ADDON_DIR, SERVICE_ADDON_DIR, SUBTITLE_ADDON_DIR):
             settings_xml = os.path.join(addon_dir, 'resources', 'settings.xml')
             if os.path.isfile(settings_xml):
                 declared_ids.update(
@@ -738,7 +739,7 @@ class TestASTIntegrity(unittest.TestCase):
                     for e in ET.parse(settings_xml).getroot().findall('.//setting')
                     if e.attrib.get('id')
                 )
-        self.assertGreaterEqual(len(declared_ids), 500)
+        self.assertGreaterEqual(len(declared_ids), 520)
 
         setting_funcs = {'getSetting', 'getBool', 'getInt', 'getStr', 'getNumber', 'getStringList', 'setSetting', 'setBool', 'setInt'}
         template_domains = {

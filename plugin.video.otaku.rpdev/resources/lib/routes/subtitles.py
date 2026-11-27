@@ -52,3 +52,13 @@ def handle_open_subtitle_settings(payload, params):
     """Open Settings - Otaku RPDev (invoked from service.subtitles.otaku.rpdev Configure button)."""
     control.log("Subtitles Route: Opening Otaku RPDev settings", 'info')
     control.xbmc.executebuiltin(f'Addon.OpenSettings({control.ADDON_ID})')
+    return control.exit_code()
+
+
+@Route('open_subtitle_service_settings')
+def handle_open_subtitle_service_settings(payload, params):
+    """Open companion service.subtitles.otaku.rpdev settings (Subtitle Service & Providers)."""
+    sub_id = getattr(control, 'SUBTITLE_ADDON_ID', 'service.subtitles.otaku.rpdev')
+    control.log(f"Subtitles Route: Opening {sub_id} settings", 'info')
+    control.xbmc.executebuiltin(f'Addon.OpenSettings({sub_id})')
+    return control.exit_code()

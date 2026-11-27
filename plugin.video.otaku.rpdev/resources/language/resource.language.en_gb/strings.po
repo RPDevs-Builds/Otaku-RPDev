@@ -975,24 +975,12 @@ msgctxt "#30238"
 msgid "Series Playback Profile"
 msgstr ""
 
-msgctxt "#30239"
-msgid "Jimaku (Japanese Anime Subtitles)"
-msgstr ""
-
 msgctxt "#30240"
 msgid "Scrape Local Files"
 msgstr ""
 
-msgctxt "#30241"
-msgid "Jimaku API Key"
-msgstr ""
-
 msgctxt "#30242"
 msgid "GogoAnime Alternate Mirror (Anitaku.bz)"
-msgstr ""
-
-msgctxt "#30243"
-msgid "AnimeTosho (Native .ass/.srt Attachments)"
 msgstr ""
 
 msgctxt "#30244"
@@ -1135,14 +1123,6 @@ msgctxt "#30279"
 msgid "Dialog Theme (Use only if you're on the skin)"
 msgstr ""
 
-msgctxt "#30280"
-msgid "Enable Jimaku.cc native Japanese anime subtitles (requires a Jimaku API key; only queried when Japanese subtitles are requested)."
-msgstr ""
-
-msgctxt "#30281"
-msgid "Personal API key from jimaku.cc/account (sent via Authorization header; leave blank to skip Jimaku with zero network calls)."
-msgstr ""
-
 msgctxt "#30282"
 msgid "Force view types on menus"
 msgstr ""
@@ -1181,10 +1161,6 @@ msgstr ""
 
 msgctxt "#30291"
 msgid "Menu Customization"
-msgstr ""
-
-msgctxt "#30292"
-msgid "Enable AnimeTosho standalone .ass/.srt subtitle attachment search (no API key required)."
 msgstr ""
 
 msgctxt "#30293"
@@ -2171,14 +2147,6 @@ msgctxt "#30585"
 msgid "Automatically exclude episodes tagged as Filler or Recap when building the upcoming binge playlist (Default: Disabled)."
 msgstr ""
 
-msgctxt "#30586"
-msgid "Strip SDH Hearing-Impaired Bracket Tags"
-msgstr ""
-
-msgctxt "#30587"
-msgid "Remove bracketed sound-effect annotations ([sighs], (applause)) and speaker prefixes from downloaded external subtitles (Default: Disabled)."
-msgstr ""
-
 msgctxt "#30588"
 msgid "Multi-Tracker Watchlist Conflict Policy"
 msgstr ""
@@ -2219,120 +2187,28 @@ msgctxt "#30597"
 msgid "Browse by Year & Season (Offline)"
 msgstr ""
 
-msgctxt "#30598"
-msgid "Set as Kodi Default Subtitle Service"
-msgstr ""
-
-msgctxt "#30599"
-msgid "Configure Kodi's OSD Subtitle Settings > Download Subtitle service for TV shows and movies to use Otaku RPDev Subtitles."
-msgstr ""
-
 msgctxt "#30600"
 msgid "Subtitles"
 msgstr ""
 
 msgctxt "#30601"
-msgid "Enable Native Subtitles"
-msgstr ""
-
-msgctxt "#30602"
-msgid "Automatically Search Subtitles"
-msgstr ""
-
-msgctxt "#30603"
-msgid "Automatically query external subtitle providers when video streams have no matching subtitle tracks (Default: Enabled)."
-msgstr ""
-
-msgctxt "#30604"
-msgid "Automatically Download Best Match"
+msgid "Subtitle Service & Providers Settings"
 msgstr ""
 
 msgctxt "#30605"
 msgid "Download and attach the top-ranked subtitle automatically."
 msgstr ""
 
-msgctxt "#30606"
-msgid "Prefer Hearing Impaired (SDH)"
-msgstr ""
-
 msgctxt "#30607"
 msgid "Prioritize SDH / hearing impaired subtitles."
-msgstr ""
-
-msgctxt "#30608"
-msgid "Prefer Forced Subtitles"
 msgstr ""
 
 msgctxt "#30609"
 msgid "Prioritize forced / Signs & Songs subtitles."
 msgstr ""
 
-msgctxt "#30610"
-msgid "Auto Detect Charset (Chardet)"
-msgstr ""
-
 msgctxt "#30611"
 msgid "Detect non-UTF8 subtitle encodings and transcode to UTF-8."
-msgstr ""
-
-msgctxt "#30612"
-msgid "Subtitle Search Timeout (Seconds)"
-msgstr ""
-
-msgctxt "#30613"
-msgid "Maximum Results per Provider"
-msgstr ""
-
-msgctxt "#30614"
-msgid "Subtitle Providers"
-msgstr ""
-
-msgctxt "#30615"
-msgid "OpenSubtitles"
-msgstr ""
-
-msgctxt "#30616"
-msgid "OpenSubtitles Username"
-msgstr ""
-
-msgctxt "#30617"
-msgid "OpenSubtitles Password"
-msgstr ""
-
-msgctxt "#30618"
-msgid "SubDL"
-msgstr ""
-
-msgctxt "#30619"
-msgid "SubDL API Key"
-msgstr ""
-
-msgctxt "#30620"
-msgid "SubSource"
-msgstr ""
-
-msgctxt "#30621"
-msgid "SubSource API Key"
-msgstr ""
-
-msgctxt "#30622"
-msgid "Podnadpisi"
-msgstr ""
-
-msgctxt "#30623"
-msgid "BSPlayer"
-msgstr ""
-
-msgctxt "#30624"
-msgid "Addic7ed"
-msgstr ""
-
-msgctxt "#30625"
-msgid "Manual Subtitle Search"
-msgstr ""
-
-msgctxt "#30626"
-msgid "Search and download external subtitles for current playing video."
 msgstr ""
 
 msgctxt "#30627"
@@ -2441,26 +2317,6 @@ msgstr ""
 
 msgctxt "#30659"
 msgid "Maximum download size limit for episodes in Gigabytes. Streams larger than this will be filtered out."
-msgstr ""
-
-msgctxt "#30660"
-msgid "Auto-detect character encoding for downloaded subtitles to prevent garbled text on international tracks."
-msgstr ""
-
-msgctxt "#30661"
-msgid "Auto-download the highest-scoring matching subtitle if no embedded or local subtitle is present."
-msgstr ""
-
-msgctxt "#30662"
-msgid "Maximum time in seconds to wait for each subtitle provider API before displaying results (default: 8)."
-msgstr ""
-
-msgctxt "#30663"
-msgid "Prioritize SDH (Subtitles for the Deaf and Hard of Hearing) tracks when available."
-msgstr ""
-
-msgctxt "#30664"
-msgid "Prioritize Forced subtitle tracks (translations for foreign dialogue / songs only)."
 msgstr ""
 
 msgctxt "#30665"
@@ -2992,11 +2848,7 @@ msgid "Default action taken when the Next Episode dialog countdown expires (0=Pl
 msgstr ""
 
 msgctxt "#30806"
-msgid "Automatically search and download external subtitle tracks when embedded subtitles are absent."
-msgstr ""
-
-msgctxt "#30807"
-msgid "Maximum number of subtitle search results returned per provider in the subtitle selection dialog."
+msgid "Configure Otaku RPDev's native online subtitle service, auto-download behavior, and 8 subtitle providers (OpenSubtitles, SubDL, SubSource, Podnadpisi, BSPlayer, Addic7ed, Jimaku, AnimeTosho)."
 msgstr ""
 
 msgctxt "#30808"
@@ -3009,46 +2861,6 @@ msgstr ""
 
 msgctxt "#30810"
 msgid "Custom text keyword appended to external subtitle provider search queries for specialized matching."
-msgstr ""
-
-msgctxt "#30811"
-msgid "Enable searching and downloading subtitles from OpenSubtitles.com REST API. Credentials optional."
-msgstr ""
-
-msgctxt "#30812"
-msgid "OpenSubtitles.com account username. Improves download rate limits when authenticated."
-msgstr ""
-
-msgctxt "#30813"
-msgid "OpenSubtitles.com account password for authentication."
-msgstr ""
-
-msgctxt "#30814"
-msgid "Enable searching Subdl for anime subtitle releases across multiple languages. Requires API key."
-msgstr ""
-
-msgctxt "#30815"
-msgid "Personal Subdl API key required for subtitle search and download requests via subdl.com."
-msgstr ""
-
-msgctxt "#30816"
-msgid "Enable searching SubSource.net subtitle archive for community-synced anime subtitle files."
-msgstr ""
-
-msgctxt "#30817"
-msgid "Personal SubSource API key for authenticating requests to the SubSource REST API."
-msgstr ""
-
-msgctxt "#30818"
-msgid "Search Podnadpisi.net international subtitle repository for multi-language subtitles."
-msgstr ""
-
-msgctxt "#30819"
-msgid "Query BSPlayer hash-matched subtitle database using media file hash and byte size."
-msgstr ""
-
-msgctxt "#30820"
-msgid "Search Addic7ed for fast community-translated TV anime subtitles and multi-language subs."
 msgstr ""
 
 msgctxt "#30821"
@@ -3642,4 +3454,3 @@ msgstr ""
 msgctxt "#30999"
 msgid "32-Bit Memory Watermark (MB)"
 msgstr ""
-

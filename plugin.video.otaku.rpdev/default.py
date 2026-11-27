@@ -30,7 +30,9 @@ if __name__ == "__main__":
         plugin_params = control.get_plugin_params(sys.argv[2])
         _route_key = plugin_url.strip('/').split('/')[0] if plugin_url else ''
         _no_delay_routes = (
-            'open_settings', 'clear_cache', 'clear_history', 'change_log', 'instructions',
+            'open_settings', 'open_service_settings', 'open_subtitle_service_settings',
+            'open_subtitle_settings', 'set_kodi_subtitle_service',
+            'clear_cache', 'clear_history', 'change_log', 'instructions',
             'webpdb_trace', 'set_settings', 'probe_settings', 'setup_wizard', 'menu_order',
             'series_profile', 'manual_subtitles', 'scene_markers', 'watchlist_drift_audit',
             'source_filter', 'wlf_auth', 'play', 'play_movie', 'play_latest',

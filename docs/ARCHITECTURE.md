@@ -14,11 +14,11 @@ Detailed reference for developers and contributors working on `plugin.video.otak
 
 ```text
 Otaku-RPDev/
-├── plugin.video.otaku.rpdev/           # v6.8.0 primary video add-on
+├── plugin.video.otaku.rpdev/           # v6.9.0 primary video add-on
 │   ├── default.py                      # Plugin router dispatch (async changelog offload)
 │   ├── service.py                      # Thin backwards-compatible shim delegating to otaku_service.{daemon,sync}
 │   └── resources/
-│       ├── settings.xml                # 455 declared settings across 10 categories (336 user-visible levels 0-3, 119 internal level 4)
+│       ├── settings.xml                # 431 declared settings across 10 categories (312 user-visible levels 0-3, 119 internal level 4)
 │       ├── data/domains.json           # Dynamic provider domain registry & mirror lists
 │       ├── skins/Default/1080i/        # 41 custom 1080i WindowXML / WindowXMLDialog templates
 │       └── lib/
@@ -30,13 +30,13 @@ Otaku-RPDev/
 │           ├── endpoints/              # AniList, MAL, TMDb, TVDB, AniZip, AnimeFiller, AniSkip, IntroDB
 │           ├── WatchlistFlavor/        # AniList, MyAnimeList, Kitsu, Simkl sync, Conflict Engine & Drift Auditor
 │           └── windows/                # Custom WindowXML controllers (resolver, source_select, get_sources, filter_select, stats_window, anichart, etc.)
-├── service.otaku.rpdev/                # v1.1.0 background daemon (xbmc.service) + shared module (xbmc.python.module)
-│   ├── service.py                      # Startup readiness check, migration, standby-aware loop, <2s teardown
+├── service.otaku.rpdev/                # v1.2.0 background daemon (xbmc.service) + shared module (xbmc.python.module)
+│   ├── service.py                      # Startup readiness check, service+subtitle migration, standby-aware loop, <2s teardown
 │   └── resources/
 │       ├── settings.xml                # 61 declared settings across 3 categories (Cache, Maintenance, Solvers & Network)
 │       └── lib/otaku_service/          # Leaf modules (zero plugin imports): migration, metrics, safe_json, connectivity, circuit_breaker, sqlite_pool; daemon & sync
 ├── context.otaku.rpdev/                # v1.0.50 standalone widget-aware context menu add-on + 494 deduplicated PNGs per style (coloured/white)
-├── service.subtitles.otaku.rpdev/      # v1.0.3 native Kodi xbmc.subtitle.module companion add-on (OSD search & auto-download)
+├── service.subtitles.otaku.rpdev/      # v1.1.0 native Kodi xbmc.subtitle.module companion add-on (29 settings across SubtitleService & SubtitleProviders; OSD search & auto-download)
 ├── scripts/                            # verify_all.py, qa_fast.py, e2e_v630_suite.py, audit_onn_logs.py, release_addon.py, audit_function_coverage.py, test_kodi_installs.py
 ├── tests/                              # 1,119 discover tests + 145 E2E suite tests (dual Kodi 21/22 mocks, AST/quality/doc lints, 576-title dataset)
 └── docs/                               # README.md, FEATURES.md, INTEGRATIONS.md, ARCHITECTURE.md, PLANS.md, TESTING.md, TESTS.md, AUTOMATION.md, CONCERNS.md, CONFIGURATION_GUIDE.md, teamwork/

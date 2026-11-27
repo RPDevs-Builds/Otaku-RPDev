@@ -28,10 +28,31 @@ from resources.lib.subtitles.meta import (
 )
 
 SUBTITLE_SERVICE_ADDON_ID = 'service.subtitles.otaku.rpdev'
+_SUBTITLE_MIGRATION_CHECKED = False
+
+
+def _ensure_subtitle_settings_migrated() -> int:
+    """Idempotent lazy pre-prune migration fallback before reading subtitle service settings."""
+    global _SUBTITLE_MIGRATION_CHECKED
+    if _SUBTITLE_MIGRATION_CHECKED:
+        return 0
+    try:
+        if hasattr(control, '_ensure_otaku_service_on_path'):
+            control._ensure_otaku_service_on_path()
+        from otaku_service import migration
+        migrated = migration.migrate_subtitle_settings()
+        if migrated > 0 or control.getBool('subtitles.migrated_from_plugin_v1', False):
+            _SUBTITLE_MIGRATION_CHECKED = True
+            if migrated > 0 and hasattr(control, 'bump_subtitle_settings_epoch'):
+                control.bump_subtitle_settings_epoch()
+        return migrated
+    except (ImportError, RuntimeError, Exception):
+        return 0
 
 
 def get_subtitles_settings() -> Dict[str, Any]:
-    """Retrieve all subtitle settings from Settings - Otaku RPDev > Subtitles."""
+    """Retrieve all subtitle service settings from service.subtitles.otaku.rpdev (via control proxy)."""
+    _ensure_subtitle_settings_migrated()
     return {
         'subtitles.enabled': control.getBool('subtitles.enabled', True),
         'subtitles.auto_search': control.getBool('subtitles.auto_search', True),

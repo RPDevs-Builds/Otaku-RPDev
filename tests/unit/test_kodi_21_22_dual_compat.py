@@ -582,10 +582,12 @@ class TestStrictCAddonSettingsSchema(unittest.TestCase):
     def test_reset_settings_to_defaults_populates_all_393_keys(self):
         _, plugin_defaults = load_settings_schema('plugin.video.otaku.rpdev')
         _, service_defaults = load_settings_schema('service.otaku.rpdev')
+        _, subtitle_defaults = load_settings_schema('service.subtitles.otaku.rpdev')
         defaults = dict(plugin_defaults)
         defaults.update(service_defaults)
+        defaults.update(subtitle_defaults)
         expected_count = len(defaults)
-        self.assertGreaterEqual(expected_count, 393, "Expected at least 393 settings with defaults across plugin + service")
+        self.assertGreaterEqual(expected_count, 393, "Expected at least 393 settings with defaults across plugin + service + subtitles")
 
         # Test without test fixtures
         reset_settings_to_defaults(include_test_fixtures=False)

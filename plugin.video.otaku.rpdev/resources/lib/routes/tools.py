@@ -1233,6 +1233,8 @@ def PROBE_SETTINGS(payload, params):
         addon_pairs = [(control.ADDON_ID, control.ADDON_PATH)]
         if control.SERVICE_ADDON_PATH and os.path.isdir(control.SERVICE_ADDON_PATH):
             addon_pairs.append((control.SERVICE_ADDON_ID, control.SERVICE_ADDON_PATH))
+        if getattr(control, 'SUBTITLE_ADDON_PATH', '') and os.path.isdir(control.SUBTITLE_ADDON_PATH):
+            addon_pairs.append((control.SUBTITLE_ADDON_ID, control.SUBTITLE_ADDON_PATH))
 
         settings = []
         errors = []

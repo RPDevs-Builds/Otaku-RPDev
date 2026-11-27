@@ -1099,8 +1099,14 @@ def addon_side_effect(addon_id=None):
         effective_aid = addon_id or 'plugin.video.otaku.rpdev'
         addon_mock.getAddonInfo.side_effect = lambda k: {
             'id': effective_aid,
-            'name': 'Otaku RPDev Background Service' if effective_aid == 'service.otaku.rpdev' else 'Otaku RPDev',
-            'version': '1.0.0' if effective_aid == 'service.otaku.rpdev' else '6.7.0',
+            'name': (
+                'Otaku RPDev Background Service' if effective_aid == 'service.otaku.rpdev'
+                else ('Otaku RPDev Subtitles' if effective_aid == 'service.subtitles.otaku.rpdev' else 'Otaku RPDev')
+            ),
+            'version': (
+                '1.2.0' if effective_aid == 'service.otaku.rpdev'
+                else ('1.1.0' if effective_aid == 'service.subtitles.otaku.rpdev' else '6.9.0')
+            ),
             'icon': '',
             'fanart': '',
             'path': addon_paths.get(addon_id, ADDON_ROOT),

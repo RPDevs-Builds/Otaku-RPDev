@@ -1299,7 +1299,8 @@ class TestCR05AbortLoopsAndSanitizeLog(unittest.TestCase):
             keys = (
                 'realdebrid.token', 'mal.token', 'kitsu.token', 'simkl.token',
                 'subtitles.subdl.apikey', 'subtitles.subsource.apikey',
-                'subtitles.opensubtitles.password', 'animeskip.apikey', 'easynews.password',
+                'subtitles.jimaku.apikey', 'subtitles.opensubtitles.password',
+                'animeskip.apikey', 'easynews.password',
             )
             conftest.mock_xbmc.log.reset_mock()
             for idx, key in enumerate(keys):
@@ -1833,10 +1834,10 @@ class TestABITriAddonAndKodiParity(unittest.TestCase):
         ctx_ver = ctx_root.get('version')
         sub_ver = sub_root.get('version')
 
-        self.assertGreaterEqual(_parse_ver(plugin_ver), (6, 3, 0))
-        self.assertGreaterEqual(_parse_ver(svc_ver), (1, 0, 0))
-        self.assertGreaterEqual(_parse_ver(ctx_ver), (1, 0, 46))
-        self.assertGreaterEqual(_parse_ver(sub_ver), (1, 0, 3))
+        self.assertGreaterEqual(_parse_ver(plugin_ver), (6, 9, 0))
+        self.assertGreaterEqual(_parse_ver(svc_ver), (1, 2, 0))
+        self.assertGreaterEqual(_parse_ver(ctx_ver), (1, 0, 50))
+        self.assertGreaterEqual(_parse_ver(sub_ver), (1, 1, 0))
 
         imp_versions = {e.get('addon'): e.get('version') for e in plugin_root.findall('./requires/import')}
         self.assertEqual(imp_versions.get('service.otaku.rpdev'), svc_ver)

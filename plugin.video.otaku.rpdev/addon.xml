@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<addon id="plugin.video.otaku.rpdev" name="Otaku RPDev" provider-name="RPDev" version="6.8.0">
+<addon id="plugin.video.otaku.rpdev" name="Otaku RPDev" provider-name="RPDev" version="6.9.0">
   <requires>
     <import addon="xbmc.python" version="3.0.1"/>
     <import addon="script.module.beautifulsoup4"/>
@@ -8,8 +8,8 @@
     <import addon="script.module.inputstreamhelper"/>
     <import addon="script.module.pyqrcode"/>
     <import addon="context.otaku.rpdev" version="1.0.50"/>
-    <import addon="service.subtitles.otaku.rpdev" version="1.0.3"/>
-    <import addon="service.otaku.rpdev" version="1.1.0"/>
+    <import addon="service.subtitles.otaku.rpdev" version="1.1.0"/>
+    <import addon="service.otaku.rpdev" version="1.2.0"/>
   </requires>
   <extension library="default.py" point="xbmc.python.pluginsource">
         <provides>video</provides>
