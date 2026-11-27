@@ -16,17 +16,25 @@
 
 ---
 
-## 2. Current Production Baseline & Verification Metrics (`v6.4.11`)
+## 2. Current Baseline & Verification Metrics (`v6.4.11+` Core Hardening Sprint)
 
 - **Unified Offline Verification Gate (`python3 scripts/verify_all.py --fail-below 65`)**: **PASS**
   - **Silo 1 (`ruff`)**: `E9,F63,F7,F82,F811,F405,F541` across all 3 add-ons and `tests/` — **0 violations**.
   - **Silo 2 (`compileall`)**: Bytecode compilation across Python 3.11–3.14 — **0 errors**.
-  - **Silo 3 (`unittest`)**: **1,119 unit, integration, A/B parity, and lint tests passing** under strict project warnings-as-errors (`-W error::DeprecationWarning:resources -W error::ResourceWarning:resources`).
-  - **Silo 4 (`coverage`)**: **100.0% module coverage (`145/145` files)** and **`68.59%` function coverage (`1,524/2,222` functions)** via zero-overhead PEP 669 `sys.monitoring`.
-- **Opaque-Box E2E Suite (`python3 scripts/e2e_v630_suite.py`)**: **145/145 tests passing** across `suite_sp.py`, `suite_cr.py`, and `suite_nf.py` (see [TESTS.md](TESTS.md)).
+  - **Silo 3 (`unittest`)**: **1,160 unit, integration, A/B parity, and lint tests passing** under strict project warnings-as-errors (`-W error::DeprecationWarning:resources -W error::ResourceWarning:resources`).
+  - **Silo 4 (`coverage`)**: **100.0% module coverage (`145/145` files)** and **`75.7%` function coverage** (`>= 75.0%` sprint target achieved) via zero-overhead PEP 669 `sys.monitoring`.
+- **Opaque-Box E2E Suite (`python3 scripts/e2e_v630_suite.py`)**: **147/147 tests passing** across `suite_sp.py`, `suite_cr.py`, and `suite_nf.py` (see [TESTS.md](TESTS.md)).
 - **Live Read-Only ONN `10.13.0.16` Telemetry ([CONCERNS.md](CONCERNS.md) Review #27, `offset=309114`)**:
   - `R-01` through `R-58` verified resolved across production and local E2E.
-  - Only 3 passive/environmental watch items remain open (`C-14` external Premiumize CDN `peer(56)` TCP resets, `C-35` `wlf_auth` 300s idle timer monitoring, `C-37` initial 0-row cold load before episodes populate).
+  - `C-37` proactive 32-bit ARM RSS/VmSize memory guard (`900 MB` RSS / `2600 MB` VmSize + `<85%` hysteresis + `MultipageWorker` throttle + `filecache.memorysize > 64 MB` diagnostics warning) upgraded locally to `FIXED_VERIFIED_LOCAL_E2E`. Only passive watch items (`C-14`, `C-35`, `C-37` live marathon telemetry confirmation) remain.
+
+### 3.4 Core Hardening, `NF-17`, Subtitle Calibration & Coverage Expansion Sprint (`WS-1`–`WS-8`)
+- **`WS-1` (Proactive 32-Bit ARM Memory Watermark Guard, `C-37`)**: Lowered `general.memory_watermark_mb` default to `900 MB` (`512–2048 MB`), added `2600 MB` VmSize guard, `libc.so.6` `malloc_trim(0)` -> Bionic `libc.so` `mallopt(-101, 0)` native heap trim fallback, `<85%` hysteresis clearing (`otaku.memory_pressure`), `MultipageWorker` pause/throttle, and `tools.py` `filecache.memorysize > 64 MB` warning.
+- **`WS-2` (Shared 15s DNS/Connectivity Gate)**: Added thread-safe `ConnectivityGate` (`>= 2` distinct hostnames within 5s or failed internet probe) gating `client.request()` for `<= 15s` and protecting `AdaptiveCircuitBreaker` from false cooldown escalation during transient DNS drops.
+- **`WS-3` (Latency-Aware Adaptive Scrape Deadlines)**: Added bounded `<= 20`-sample per-provider latency ring buffer (`database.record_provider_latency` / `get_provider_p90_latencies`), granting a bounded embed grace (`+2s..+8s` p90 or `4.0s` cold-start) only when cached torrent yield is `0` while honoring `abort_requested()`.
+- **`WS-4` (`NF-17` Debrid Cloud Quota Guard & Opt-In Lazy Probe)**: Implemented `ensure_cloud_capacity()` across Real-Debrid, Premiumize, TorBox, and AllDebrid (`debrid.quota_guard=true`, preserving healthy items when `0` stalled exist), plus opt-in `debrid.lazy_cache_probe` (`false` default) probing top-3 Tier-3 candidates (`<= 6s` cap, persisting positive hits only).
+- **`WS-5` (Chapter-Aligned Auto Subtitle Calibration)**: Added SQLite `series_overrides.sub_offset_ms` (`SCHEMA_VERSION = '1.0.16'`, 9th `SeriesProfileDialog` row), opt-in `subtitles.auto_calibrate_chapters` (`false` default) requiring multi-boundary corroboration (`±3s..±12s` within `±1.5s`), and full `service.subtitles.otaku.rpdev` OSD parity.
+- **`WS-6`–`WS-8` (Coverage `75.7%`, Staged PNG Optimization & `OTAKU_METRIC` Telemetry)**: Added browser, debrid, Kitsu watchlist, embed extractor, `context.otaku.rpdev/addon.xml` visibility matrix, and `NF-17`/`C-37` E2E tests (`503` total settings verified); added `scripts/optimize_addon_assets.py` (scanning `1,440` PNGs across `8` icon themes) + staged `oxipng` hook in `.github/workflows/release.yml`; added `control.log_metric()` markers parsed by `scripts/audit_onn_logs.py --metrics-out`.
 
 ---
 
@@ -100,15 +108,13 @@ Every feature branch and release must satisfy all five gates before tag push:
 
 ## 7. Forward Strategic Roadmap (`v6.5.0+` Backlog)
 
-### 7.1 Feature Backlog (`NF-10`, `NF-13`, `NF-15`–`NF-17` & Companion `v1.1.0`)
+### 7.1 Forward Backlog (`NF-10`, `NF-13`, `NF-15`–`NF-16`)
 - **`NF-10` — Offline Watchlist & Metadata Snapshot Bundles**: Exportable/importable `.tar.xz` snapshot bundles containing `malSync.db`, `search.db`, and `series_overrides` for 1-click LAN migration between Kodi devices.
 - **`NF-13` — Local LAN Peer Cache Discovery (mDNS / ZeroConf)**: Opt-in read-only SQLite metadata & `mappings.db`/`anime_metadata.db` LAN peer sharing across secondary Kodi boxes on the same home subnet.
 - **`NF-15` — Embedded `ControlVideoWindow` Trailer Preview**: Render inline trailer previews inside `anichart.xml` and show info dialogs via Kodi 22 video control windows.
 - **`NF-16` — `getDevicePowerStatus()` Background Throttling**: Read Kodi 22/Android power-state hints in `service.py` to pause background precaching and WAL checkpoints during standby.
-- **`NF-17` — Debrid Cloud Quota & Active-Transfer Guard**: Pre-check debrid storage quota and active slot saturation before pinning season packs (`Real-Debrid`, `Premiumize`, `TorBox`, `AllDebrid`), auto-pruning oldest expired transfers when full.
-- **Companion Add-on `v1.1.0` Enhancements**:
-  - `context.otaku.rpdev`: *"Copy Diagnostics Summary"* and *"Pin Release Group for Series"* quick actions.
-  - `service.subtitles.otaku.rpdev`: Automatic ASS/SRT dialogue timing shift calibration (`±ms` chapter-boundary alignment) and dual-language (`jpn` + `eng` top/bottom ASS) subtitle muxing.
+- **`NF-17` — Debrid Cloud Quota & Active-Transfer Guard**: *Delivered in WS-4 (`debrid.quota_guard` & opt-in `debrid.lazy_cache_probe`).*
+- **Companion Add-on Enhancements**: `service.subtitles.otaku.rpdev` chapter-aligned auto calibration delivered in WS-5; dual-language (`jpn` + `eng`) ASS muxing & `context.otaku.rpdev` copy/pin quick actions remain on backlog.
 
 ### 7.2 Test & Coverage Expansion Priorities (`P1`–`P3` from [`docs/TESTS.md`](TESTS.md))
 - **Priority 1 (`routes/tools.py` & `ui/settings_manager.py`)**: Raise function coverage from ~45% to >=75% via parameterized hermetic route tests.

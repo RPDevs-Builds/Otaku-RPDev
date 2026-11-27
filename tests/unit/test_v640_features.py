@@ -178,7 +178,7 @@ class TestV640Features(unittest.TestCase):
             self.assertTrue(KodiProfile.is_strict_skin_controls())
             dlg = SeriesProfileDialog('series_profile.xml', control.ADDON_PATH, mal_id=52991)
             dlg.onInit()
-            self.assertEqual(dlg.list_control.size(), 8)
+            self.assertEqual(dlg.list_control.size(), 9)
 
             # In-place stepping on Episode Offset (idx 5) and Intro Offset (idx 6) updates badge without resetting list
             list_ref = dlg.list_control

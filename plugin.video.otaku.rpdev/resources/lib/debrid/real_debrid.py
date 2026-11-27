@@ -24,6 +24,7 @@ class RealDebrid:
         self.OauthUrl = 'https://api.real-debrid.com/oauth/v2'
         self.BaseUrl = "https://api.real-debrid.com/rest/1.0"
         self.dialog = None
+        self._checking_capacity = False
 
     def headers(self):
         if self.token and self.refresh:
@@ -217,7 +218,75 @@ class RealDebrid:
             r = getattr(client, method.lower())(url, **kwargs)
         return r
 
+    def ensure_cloud_capacity(self, max_active_slots=25):
+        """NF-17: Prune oldest stalled/error transfers before pinning if cloud slots are saturated."""
+        if self._checking_capacity or not control.getBool('debrid.quota_guard', default=True):
+            return {'pruned': 0, 'saturated': False}
+        self._checking_capacity = True
+        pruned_ids = []
+        saturated = False
+        try:
+            torrents = self.list_torrents()
+            if not isinstance(torrents, list) or not torrents:
+                return {'pruned': 0, 'saturated': False}
+            terminal_states = {'error', 'magnet_error', 'virus', 'dead', 'stalled', 'expired', 'timeout'}
+            stalled = [
+                t for t in torrents
+                if isinstance(t, dict) and t.get('id') and str(t.get('status') or '').lower() in terminal_states
+            ]
+            stalled.sort(key=lambda t: str(t.get('added') or t.get('id') or ''))
+            active_count = len(torrents)
+            saturated = active_count >= int(max_active_slots)
+            if stalled and (saturated or len(stalled) > 0):
+                for t in stalled:
+                    tid = t['id']
+                    if self.deleteTorrent(tid):
+                        pruned_ids.append(tid)
+                        active_count -= 1
+                    if active_count < int(max_active_slots) and not saturated:
+                        # Prune all stalled/error transfers safely when quota guard runs
+                        continue
+                if pruned_ids:
+                    control.log_metric(
+                        'debrid_quota_prune',
+                        level='info',
+                        provider='realdebrid',
+                        pruned_count=len(pruned_ids),
+                    )
+            if active_count >= int(max_active_slots) and not pruned_ids:
+                control.log(
+                    f"Real-Debrid Quota Guard: Active slots saturated ({active_count}/{max_active_slots}) "
+                    "with 0 stalled/error transfers; preserving healthy completed items.",
+                    'warning',
+                )
+            return {'pruned': len(pruned_ids), 'pruned_ids': pruned_ids, 'saturated': active_count >= int(max_active_slots)}
+        except Exception as e:
+            control.log(f"Real-Debrid quota guard notice: {e}", 'debug')
+            return {'pruned': len(pruned_ids), 'saturated': saturated}
+        finally:
+            self._checking_capacity = False
+
+    def probe_instant_cache(self, magnet):
+        """Opt-in Lazy Top-N probe: addMagnet -> selectFiles -> check status=='downloaded' -> delete if uncached."""
+        if control.abort_requested() or not magnet:
+            return False
+        torrent = self.addMagnet(magnet)
+        if not torrent or not torrent.get('id'):
+            return False
+        torrent_id = torrent['id']
+        is_cached = False
+        try:
+            self.torrentSelect(torrent_id, 'all')
+            info = self.torrentInfo(torrent_id)
+            if isinstance(info, dict) and str(info.get('status') or '').lower() == 'downloaded':
+                is_cached = True
+        finally:
+            if not is_cached or self.autodelete:
+                self.deleteTorrent(torrent_id)
+        return is_cached
+
     def addMagnet(self, magnet):
+        self.ensure_cloud_capacity()
         postData = {'magnet': magnet}
         response = self._request_with_backoff('post', f'{self.BaseUrl}/torrents/addMagnet', headers=self.headers(), data=postData)
         if response and response.ok:

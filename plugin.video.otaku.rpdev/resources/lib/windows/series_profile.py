@@ -145,6 +145,17 @@ _FIELD_SPECS = [
         'unit': 's',
         'default': 0,
     },
+    {
+        'key': 'sub_offset_ms',
+        'title': 'Subtitle Timing Offset (+/- ms)',
+        'description': 'Per-series external subtitle timing shift (-15000ms to +15000ms)',
+        'kind': 'int',
+        'min': -15000,
+        'max': 15000,
+        'step': 250,
+        'unit': 'ms',
+        'default': 0,
+    },
 ]
 
 
@@ -230,6 +241,7 @@ class SeriesProfileDialog(BaseWindow):
         ep_off = int(self.values.get('episode_offset') or 0)
         in_off = int(self.values.get('intro_offset_s') or 0)
         out_off = int(self.values.get('outro_offset_s') or 0)
+        sub_off = int(self.values.get('sub_offset_ms') or 0)
         ep1_mapped = max(1, 1 + ep_off)
         if ep_off < 0:
             src_ep = 1 - ep_off
@@ -244,6 +256,7 @@ class SeriesProfileDialog(BaseWindow):
             ep_line,
             f"OP Example (90-180s): {intro_demo} ({in_off:+d}s)",
             f"ED Example (21:30-23:00): {outro_demo} ({out_off:+d}s)",
+            f"Sub Offset: {sub_off:+d}ms",
         ]
         return "\n".join(lines)
 
@@ -333,7 +346,12 @@ class SeriesProfileDialog(BaseWindow):
         else:
             unit = spec.get('unit', '')
             cur_v = int(self.values.get(spec['key']) or 0)
-            deltas = (-12, -5, -1, None, 1, 5, 12) if spec['key'] == 'episode_offset' else (-10, -5, -1, None, 1, 5, 10)
+            if spec['key'] == 'episode_offset':
+                deltas = (-12, -5, -1, None, 1, 5, 12)
+            elif spec['key'] == 'sub_offset_ms':
+                deltas = (-5000, -1000, -250, None, 250, 1000, 5000)
+            else:
+                deltas = (-10, -5, -1, None, 1, 5, 10)
             step_opts = [
                 "0 (Reset to Global Default)" if d is None else f"{d:+d}{unit}"
                 for d in deltas
@@ -398,6 +416,7 @@ class SeriesProfileDialog(BaseWindow):
                     intro_offset_s=int(self.values.get('intro_offset_s') or 0),
                     outro_offset_s=int(self.values.get('outro_offset_s') or 0),
                     episode_offset=int(self.values.get('episode_offset') or 0),
+                    sub_offset_ms=int(self.values.get('sub_offset_ms') or 0),
                     skip_filler_mode=self.values.get('skip_filler_mode') or 'default',
                 )
                 control.notify(control.ADDON_NAME, f"Saved Series Profile for MAL #{self.mal_id}")

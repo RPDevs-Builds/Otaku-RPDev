@@ -27,7 +27,7 @@ class SyncDatabase:
     # Bump this whenever the metadata schema changes;
     # a mismatch triggers re_build_database(silent=True) and refreshes
     # embed host defaults (see check_database_version).
-    SCHEMA_VERSION = '1.0.15'
+    SCHEMA_VERSION = '1.0.16'
 
     def __init__(self):
         self.activites = None
@@ -290,6 +290,7 @@ class SyncDatabase:
                 'intro_offset_s INTEGER DEFAULT 0, '
                 'outro_offset_s INTEGER DEFAULT 0, '
                 'episode_offset INTEGER DEFAULT 0, '
+                'sub_offset_ms INTEGER DEFAULT 0, '
                 'skip_filler_mode TEXT DEFAULT "default", '
                 'updated_at INTEGER NOT NULL)')
             cur.connection.commit()
@@ -358,7 +359,7 @@ class SyncDatabase:
                     except Exception:
                         pass
 
-            # Check series_overrides table for episode_offset
+            # Check series_overrides table for episode_offset and sub_offset_ms
             cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='series_overrides'")
             if cur.fetchone():
                 cur.execute("PRAGMA table_info(series_overrides)")
@@ -366,6 +367,11 @@ class SyncDatabase:
                 if 'episode_offset' not in cols:
                     try:
                         cur.execute("ALTER TABLE series_overrides ADD COLUMN episode_offset INTEGER DEFAULT 0")
+                    except Exception:
+                        pass
+                if 'sub_offset_ms' not in cols:
+                    try:
+                        cur.execute("ALTER TABLE series_overrides ADD COLUMN sub_offset_ms INTEGER DEFAULT 0")
                     except Exception:
                         pass
 

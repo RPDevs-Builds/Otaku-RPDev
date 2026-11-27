@@ -1205,6 +1205,15 @@ def resolve_silent(sources, episode, mal_id=None):
                                 'media_type': 'episode',
                             },
                         )
+                    control.log_metric(
+                        'zero_wait_hit',
+                        level='info',
+                        mal_id=mal_id or 0,
+                        episode=episode,
+                        provider=s.get('provider') or 'unknown',
+                        attempts=idx + 1,
+                        pruned=len(failed_indices),
+                    )
                     return {
                         'url': linkinfo.get('url'),
                         'headers': linkinfo.get('headers', {}),
@@ -1223,5 +1232,12 @@ def resolve_silent(sources, episode, mal_id=None):
         )
 
     _persist_pruned_sources()
+    control.log_metric(
+        'zero_wait_miss',
+        level='warning',
+        mal_id=mal_id or 0,
+        episode=episode,
+        pruned=len(failed_indices),
+    )
     return None
 

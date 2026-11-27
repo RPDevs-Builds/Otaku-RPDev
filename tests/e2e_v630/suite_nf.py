@@ -120,6 +120,66 @@ class TestSuiteNFWave3Features(TestWave3FeaturesNF01ToNF08):
         super().test_p32_studio_dedup_aliases_and_context_inspectmappings_and_videodb_safety()
         self.assertTrue(callable(self.test_p32_studio_dedup_aliases_and_context_inspectmappings_and_videodb_safety))
 
+    @tier(2)
+    @feature('NF-17')
+    def test_nf17_debrid_quota_guard_and_lazy_probe_end_to_end(self):
+        """E2E NF-17: Quota guard prunes stalled slots before addMagnet & opt-in Lazy Top-N probe persists only cached hits."""
+        from unittest.mock import MagicMock, patch
+        from resources.lib.debrid import Debrid
+        from resources.lib.debrid.real_debrid import RealDebrid
+        from resources.lib.ui import control, database
+
+        control.setBool('debrid.quota_guard', True)
+        control.setBool('debrid.lazy_cache_probe', True)
+        try:
+            rd = RealDebrid()
+            rd.token = 'nf17_tok'
+            deleted_ids = []
+
+            def _fake_req(method, url, **kwargs):
+                resp = MagicMock()
+                resp.ok = True
+                resp.status_code = 200
+                resp.headers = {}
+                if url.endswith('/torrents') and method.lower() == 'get':
+                    resp.json.return_value = [
+                        {'id': 'stalled_old', 'status': 'magnet_error', 'added': '2026-10-01'},
+                        {'id': 'healthy_1', 'status': 'downloaded', 'added': '2026-11-20'},
+                    ]
+                elif '/torrents/delete/' in url:
+                    deleted_ids.append(url.rsplit('/', 1)[-1])
+                    resp.json.return_value = {}
+                elif '/torrents/addMagnet' in url:
+                    resp.json.return_value = {'id': 'probe_1'}
+                elif '/torrents/selectFiles/' in url:
+                    resp.json.return_value = {}
+                elif '/torrents/info/' in url:
+                    resp.json.return_value = {'id': 'probe_1', 'status': 'downloaded'}
+                else:
+                    resp.json.return_value = {}
+                return resp
+
+            with patch.object(rd, '_request_with_backoff', side_effect=_fake_req):
+                probe_ok = rd.probe_instant_cache('magnet:?xt=urn:btih:nf1700112233')
+                self.assertTrue(probe_ok)
+                self.assertIn('stalled_old', deleted_ids)
+                self.assertNotIn('healthy_1', deleted_ids)
+
+            deb = Debrid()
+            candidates = [
+                {'hash': 'nf17_hit', 'magnet': 'magnet:?xt=urn:btih:nf17_hit', 'seeders': 50, 'relevance': 155},
+                {'hash': 'nf17_miss', 'magnet': 'magnet:?xt=urn:btih:nf17_miss', 'seeders': 25, 'relevance': 145},
+            ]
+            with patch('resources.lib.debrid.real_debrid.RealDebrid.probe_instant_cache', side_effect=lambda m: 'nf17_hit' in m), \
+                 patch('resources.lib.debrid.debrid_cache.set_cached_hashes') as mock_set:
+                hits = deb.lazy_probe_cached_torrents('realdebrid', candidates)
+                self.assertEqual(hits, {'nf17_hit'})
+                mock_set.assert_called_once_with([('nf17_hit', 'True')], 'rd')
+        finally:
+            control.setBool('debrid.lazy_cache_probe', False)
+            control.setBool('debrid.quota_guard', True)
+            database.clear_cache() if hasattr(database, 'clear_cache') else None
+
 
 if __name__ == '__main__':
     unittest.main()

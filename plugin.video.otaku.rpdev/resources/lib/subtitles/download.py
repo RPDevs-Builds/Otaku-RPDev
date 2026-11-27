@@ -122,6 +122,154 @@ def rescale_subtitle_timestamps(sub_text: str, ext: str, ratio: float) -> str:
     return _SRT_VTT_TS_RE.sub(_rep_srt, sub_text)
 
 
+def shift_subtitle_timestamps(sub_text: str, ext: str, offset_ms: int) -> str:
+    """Shift all subtitle cue timestamps uniformly by *offset_ms* milliseconds, clamping >= 0."""
+    if not sub_text or not offset_ms:
+        return sub_text
+    delta_s = float(offset_ms) / 1000.0
+    if abs(delta_s) < 1e-4:
+        return sub_text
+    if str(ext or '').lower() in ('.ass', '.ssa'):
+        def _shift_ass(m):
+            s = int(m.group(1)) * 3600 + int(m.group(2)) * 60 + int(m.group(3)) + int(m.group(4)) / 100.0
+            return _fmt_ass(max(0.0, s + delta_s))
+        return _ASS_TS_RE.sub(_shift_ass, sub_text)
+
+    def _shift_srt(m):
+        s = int(m.group(1)) * 3600 + int(m.group(2)) * 60 + int(m.group(3)) + int(m.group(5)) / 1000.0
+        return _fmt_srt_vtt(max(0.0, s + delta_s), m.group(4))
+    return _SRT_VTT_TS_RE.sub(_shift_srt, sub_text)
+
+
+_ASS_DRAW_POS_RE = re.compile(r'\\(?:pos|move|org|clip|iclip|fad|fade|p[1-9]\d*)\b', re.IGNORECASE)
+_SIGN_STYLE_WORDS = ('sign', 'title', 'op', 'ed', 'lyric', 'kara', 'note', 'typeset', 'caption')
+
+
+def _parse_dialogue_cues_seconds(sub_text: str, ext: str):
+    """Extract clean non-signs dialogue intervals as sorted [(start_s, end_s), ...]."""
+    cues = []
+    norm_ext = str(ext or '').lower()
+    if norm_ext in ('.ass', '.ssa'):
+        for raw_line in sub_text.splitlines():
+            line = raw_line.strip()
+            if not line.startswith('Dialogue:'):
+                continue
+            parts = line[9:].split(',', 9)
+            if len(parts) < 10:
+                continue
+            style = parts[3].strip().lower()
+            text_body = parts[9]
+            if any(w in style for w in _SIGN_STYLE_WORDS):
+                continue
+            if _ASS_DRAW_POS_RE.search(text_body):
+                continue
+            m_s = _ASS_TS_RE.search(parts[1])
+            m_e = _ASS_TS_RE.search(parts[2])
+            if not (m_s and m_e):
+                continue
+            s_val = int(m_s.group(1)) * 3600 + int(m_s.group(2)) * 60 + int(m_s.group(3)) + int(m_s.group(4)) / 100.0
+            e_val = int(m_e.group(1)) * 3600 + int(m_e.group(2)) * 60 + int(m_e.group(3)) + int(m_e.group(4)) / 100.0
+            plain = re.sub(r'\{[^}]*\}', '', text_body).strip()
+            if plain and e_val > s_val:
+                cues.append((s_val, e_val))
+    else:
+        ts_line_re = re.compile(
+            r'(\d{1,2}):(\d{2}):(\d{2})([,\.])(\d{3})\s*-->\s*(\d{1,2}):(\d{2}):(\d{2})([,\.])(\d{3})'
+        )
+        blocks = re.split(r'\r?\n\s*\r?\n', sub_text.strip())
+        for blk in blocks:
+            m = ts_line_re.search(blk)
+            if not m:
+                continue
+            s_val = int(m.group(1)) * 3600 + int(m.group(2)) * 60 + int(m.group(3)) + int(m.group(5)) / 1000.0
+            e_val = int(m.group(6)) * 3600 + int(m.group(7)) * 60 + int(m.group(8)) + int(m.group(10)) / 1000.0
+            if (e_val - s_val) < 0.4:
+                continue
+            body_lines = [ln.strip() for ln in blk[m.end():].splitlines() if ln.strip()]
+            body = re.sub(r'<[^>]+>', '', ' '.join(body_lines)).strip()
+            if not body:
+                continue
+            if _ASS_DRAW_POS_RE.search(body):
+                continue
+            # Ignore bracketed sound/sign cues if enclosed
+            if body.startswith('[') and body.endswith(']'):
+                continue
+            if e_val > s_val:
+                cues.append((s_val, e_val))
+    cues.sort(key=lambda item: item[0])
+    return cues
+
+
+def detect_chapter_aligned_subtitle_offset_ms(sub_text: str, ext: str, scene_markers=None) -> int:
+    """
+    Detect bounded broadcast-vs-BD/commercial-bumper shift (+-3s..+-12s) requiring
+    multi-boundary corroboration between dialogue silence gaps and Kodi 22 / AniSkip chapter markers.
+    Returns 0 cleanly when ambiguous, out-of-range, or uncorroborated (guarding against post-OP title cards).
+    """
+    if not sub_text:
+        return 0
+    if scene_markers is None:
+        raw = control.playerWindow.getProperty('otaku.scene_markers')
+        scene_markers = control.loads_json(raw, default=[]) if raw else []
+    if not isinstance(scene_markers, list) or not scene_markers:
+        return 0
+
+    intro_marker = next((m for m in scene_markers if isinstance(m, dict) and m.get('type') in ('intro', 'op') and m.get('end')), None)
+    outro_marker = next((m for m in scene_markers if isinstance(m, dict) and m.get('type') in ('outro', 'ed') and m.get('start')), None)
+    if not intro_marker:
+        return 0
+
+    try:
+        intro_start = float(intro_marker.get('start') or 0.0)
+        intro_end = float(intro_marker.get('end') or 0.0)
+    except (TypeError, ValueError):
+        return 0
+    intro_dur = intro_end - intro_start
+    if intro_dur < 30.0:
+        return 0
+
+    cues = _parse_dialogue_cues_seconds(sub_text, ext)
+    if len(cues) < 3:
+        return 0
+
+    # Find OP-sized silence gaps in non-signs dialogue cues
+    min_gap_s = max(30.0, intro_dur * 0.65)
+    candidates = []
+    for idx in range(len(cues) - 1):
+        pre_end = cues[idx][1]
+        post_start = cues[idx + 1][0]
+        gap_len = post_start - pre_end
+        if gap_len < min_gap_s or post_start > (intro_end + 30.0) or pre_end < max(0.0, intro_start - 30.0):
+            continue
+        delta_s = intro_end - post_start
+        delta_ms = int(round(delta_s * 1000.0))
+        if not (3000 <= abs(delta_ms) <= 12000):
+            continue
+        # Multi-boundary corroboration (tolerance +-1500 ms = 1.5s):
+        # 1) intro_start + intro_end must both align with the shifted dialogue gap, OR
+        # 2) outro_start corroborates the same delta_s.
+        pre_aligned = abs((pre_end + delta_s) - intro_start) <= 1.5
+        post_aligned = abs((post_start + delta_s) - intro_end) <= 1.5
+        outro_corroborated = False
+        if outro_marker:
+            try:
+                outro_start = float(outro_marker.get('start') or 0.0)
+                if outro_start > intro_end + 60.0:
+                    outro_corroborated = any(
+                        abs((c_end + delta_s) - outro_start) <= 1.5
+                        for c_end in (c[1] for c in cues)
+                    )
+            except (TypeError, ValueError):
+                outro_corroborated = False
+        if (pre_aligned and post_aligned) or (post_aligned and outro_corroborated):
+            candidates.append((abs(delta_ms), delta_ms))
+
+    if len(candidates) != 1:
+        # Reject ambiguous/zero-match cases cleanly
+        return 0
+    return candidates[0][1]
+
+
 def _get_player_fps_and_duration():
     """Return (video_fps, total_seconds) for the active Kodi player, or (0.0, 0.0)."""
     try:
@@ -216,6 +364,59 @@ def download_and_prepare_subtitle(
                     f"(ratio={ratio:.5f}, max_sub={max_sub_s:.1f}s, video={total_time:.1f}s)",
                     'info',
                 )
+
+        # WS-5: Apply persisted per-series sub_offset_ms or opt-in chapter-aligned calibration
+        mal_id = getattr(meta, 'mal_id', None) or control.getGlobalProp('otaku.mal_id')
+        persisted_offset_ms = 0
+        if mal_id and str(mal_id).isdigit():
+            try:
+                from resources.lib.ui import database
+                ov = database.get_series_override(mal_id)
+                if isinstance(ov, dict):
+                    persisted_offset_ms = int(ov.get('sub_offset_ms') or 0)
+            except Exception:
+                persisted_offset_ms = 0
+
+        series_shift_ms = persisted_offset_ms
+        if series_shift_ms == 0 and (
+            settings.get('subtitles.auto_calibrate_chapters', False)
+            or control.getBool('subtitles.auto_calibrate_chapters', False)
+        ):
+            calibrated_ms = detect_chapter_aligned_subtitle_offset_ms(normalized_text, ext)
+            if calibrated_ms:
+                series_shift_ms = calibrated_ms
+                if mal_id and str(mal_id).isdigit():
+                    try:
+                        from resources.lib.ui import database
+                        existing_ov = database.get_series_override(mal_id) or {}
+                        database.set_series_override(
+                            mal_id,
+                            audio_lang=existing_ov.get('audio_lang'),
+                            sub_lang=existing_ov.get('sub_lang'),
+                            sub_mode=existing_ov.get('sub_mode'),
+                            preferred_provider=existing_ov.get('preferred_provider'),
+                            intro_offset_s=int(existing_ov.get('intro_offset_s') or 0),
+                            outro_offset_s=int(existing_ov.get('outro_offset_s') or 0),
+                            skip_filler_mode=existing_ov.get('skip_filler_mode') or 'default',
+                            episode_offset=int(existing_ov.get('episode_offset') or 0),
+                            sub_offset_ms=calibrated_ms,
+                        )
+                    except Exception:
+                        pass
+                control.log_metric(
+                    'sub_calibrate',
+                    level='info',
+                    mal_id=mal_id or 0,
+                    offset_ms=calibrated_ms,
+                    source='chapter_align',
+                )
+
+        if series_shift_ms != 0:
+            normalized_text = shift_subtitle_timestamps(normalized_text, ext, series_shift_ms)
+            control.log(
+                f"Native Subtitles: Applied {series_shift_ms:+d}ms per-series subtitle timing shift",
+                'info',
+            )
 
         # Construct sanitized filename with unique per-download sub_tag nonce
         # to avoid Kodi 22 special://temp/ g_directoryCache stale-file collisions

@@ -61,6 +61,7 @@ SUBTITLE_RE = re.compile(
 ADDON_VERSION_RE = re.compile(
     r"((?:plugin\.video|context|service\.subtitles)\.otaku\.rpdev)\s+v?(\d+\.\d+\.\d+)"
 )
+OTAKU_METRIC_RE = re.compile(r'OTAKU_METRIC\s+(.+)$')
 
 CONCERN_PATTERNS = {
     'C-06': re.compile(r'CHANGE_LOG.*(?:exit_code|directory|error)|exit_code.*CHANGE_LOG', re.IGNORECASE),
@@ -201,6 +202,119 @@ def _find_foreign_traceback_indices(lines):
     return foreign_indices
 
 
+def parse_otaku_metric_line(line):
+    """Parse structured OTAKU_METRIC key=value telemetry tokens from a single Kodi log line."""
+    if not line:
+        return None
+    m = OTAKU_METRIC_RE.search(line)
+    if not m:
+        return None
+    fields = {}
+    for token in m.group(1).strip().split():
+        if '=' not in token:
+            continue
+        k, v = token.split('=', 1)
+        if not k:
+            continue
+        lv = v.lower()
+        if lv == 'true':
+            fields[k] = True
+        elif lv == 'false':
+            fields[k] = False
+        else:
+            try:
+                if '.' in v:
+                    fields[k] = float(v)
+                else:
+                    fields[k] = int(v)
+            except ValueError:
+                fields[k] = v
+    if 'event' not in fields:
+        return None
+    return fields
+
+
+def compute_metrics_rollup(metric_events):
+    """Compute compact longitudinal reliability rollup statistics from parsed OTAKU_METRIC events."""
+    event_counts = {}
+    scrape_elapsed = []
+    zero_cached_scrapes = 0
+    embed_grace_triggers = 0
+    zero_wait_hits = 0
+    zero_wait_misses = 0
+    failover_success = 0
+    failover_failed = 0
+    memory_triggers = 0
+    memory_recoveries = 0
+    dns_tripped = 0
+    dns_cleared = 0
+    quota_pruned = 0
+    lazy_hits = 0
+    sub_calibrations = 0
+
+    for ev in metric_events:
+        name = str(ev.get('event') or 'unknown')
+        event_counts[name] = event_counts.get(name, 0) + 1
+        if name == 'scrape_summary':
+            if isinstance(ev.get('elapsed_ms'), (int, float)):
+                scrape_elapsed.append(float(ev['elapsed_ms']))
+            if ev.get('cached_torrents') == 0:
+                zero_cached_scrapes += 1
+            if isinstance(ev.get('embed_grace_s'), (int, float)) and float(ev['embed_grace_s']) > 0:
+                embed_grace_triggers += 1
+        elif name == 'zero_wait_hit':
+            zero_wait_hits += 1
+        elif name == 'zero_wait_miss':
+            zero_wait_misses += 1
+        elif name == 'failover':
+            if ev.get('success') is True:
+                failover_success += 1
+            elif ev.get('success') is False:
+                failover_failed += 1
+        elif name == 'memory_guard':
+            if ev.get('action') == 'hysteresis_cleared':
+                memory_recoveries += 1
+            else:
+                memory_triggers += 1
+        elif name == 'dns_gate':
+            if ev.get('state') == 'tripped':
+                dns_tripped += 1
+            elif ev.get('state') == 'cleared':
+                dns_cleared += 1
+        elif name == 'debrid_quota_prune':
+            if isinstance(ev.get('pruned_count'), (int, float)):
+                quota_pruned += int(ev['pruned_count'])
+        elif name == 'lazy_cache_probe':
+            if isinstance(ev.get('hits'), (int, float)):
+                lazy_hits += int(ev['hits'])
+        elif name == 'sub_calibrate':
+            sub_calibrations += 1
+
+    zw_total = zero_wait_hits + zero_wait_misses
+    avg_elapsed = round(sum(scrape_elapsed) / len(scrape_elapsed), 1) if scrape_elapsed else 0.0
+    return {
+        'total_metric_events': len(metric_events),
+        'event_counts': event_counts,
+        'scrape_summary': {
+            'count': len(scrape_elapsed),
+            'avg_elapsed_ms': avg_elapsed,
+            'zero_cached_scrapes': zero_cached_scrapes,
+            'embed_grace_triggers': embed_grace_triggers,
+        },
+        'zero_wait': {
+            'hits': zero_wait_hits,
+            'misses': zero_wait_misses,
+            'hit_rate_pct': round((zero_wait_hits / zw_total) * 100.0, 1) if zw_total else None,
+        },
+        'failover': {'success': failover_success, 'failed': failover_failed},
+        'memory_guard': {'triggers': memory_triggers, 'recoveries': memory_recoveries},
+        'dns_gate': {'tripped': dns_tripped, 'cleared': dns_cleared},
+        'debrid_quota_prune': {'events': event_counts.get('debrid_quota_prune', 0), 'total_pruned': quota_pruned},
+        'lazy_cache_probe': {'events': event_counts.get('lazy_cache_probe', 0), 'total_hits': lazy_hits},
+        'sub_calibrate': {'events': sub_calibrations},
+    }
+
+
 def analyze_log_text(text, requested_offset=0, x_seek_offset=None, raw_bytes_len=None, force_rotated=False):
     """Classify Otaku-RPDev log signals, non-Otaku noise, rotations, and open concerns."""
     requested_offset = int(requested_offset)
@@ -219,6 +333,7 @@ def analyze_log_text(text, requested_offset=0, x_seek_offset=None, raw_bytes_len
     zero_wait_hits = []
     subtitle_events = []
     clean_settings_lines = []
+    metric_events = []
     addon_versions = {}
     concerns_hits = {cid: [] for cid in CONCERN_PATTERNS}
 
@@ -228,6 +343,10 @@ def analyze_log_text(text, requested_offset=0, x_seek_offset=None, raw_bytes_len
         ver_match = ADDON_VERSION_RE.search(line)
         if ver_match:
             addon_versions[ver_match.group(1)] = ver_match.group(2)
+
+        parsed_metric = parse_otaku_metric_line(line)
+        if parsed_metric is not None:
+            metric_events.append(parsed_metric)
 
         if 'clean_settings' in line and OTAKU_RE.search(line):
             clean_settings_lines.append(line.strip())
@@ -252,6 +371,8 @@ def analyze_log_text(text, requested_offset=0, x_seek_offset=None, raw_bytes_len
             if pattern.search(line):
                 concerns_hits[cid].append(line.strip())
 
+    metrics_rollup = compute_metrics_rollup(metric_events)
+
     return {
         'status': 'ok',
         'requested_offset': int(requested_offset),
@@ -270,12 +391,14 @@ def analyze_log_text(text, requested_offset=0, x_seek_offset=None, raw_bytes_len
             'clean_settings': len(clean_settings_lines),
             'concerns': {cid: len(hits) for cid, hits in concerns_hits.items()},
         },
+        'metrics_rollup': metrics_rollup,
         'samples': {
             'otaku_errors': otaku_errors[:10],
             'otaku_warnings': otaku_warnings[:10],
             'zero_wait': zero_wait_hits[:10],
             'subtitles': subtitle_events[:10],
             'clean_settings': clean_settings_lines[:5],
+            'metrics': metric_events[:20],
             'concerns': {cid: hits[:5] for cid, hits in concerns_hits.items() if hits},
         },
     }
@@ -385,6 +508,7 @@ def main(argv=None):
             'total_lines': report['total_lines'],
             'bytes_read': report['bytes_read'],
             'counts': report['counts'],
+            'metrics_rollup': report['metrics_rollup'],
         }
         with open(args.metrics_out, 'a', encoding='utf-8') as mf:
             mf.write(json.dumps(metric_record, ensure_ascii=False) + '\n')
@@ -397,6 +521,7 @@ def main(argv=None):
             json.dump(report, jf, indent=2)
     else:
         c = report['counts']
+        mr = report['metrics_rollup']
         print(
             f"ONN Log Audit: lines={report['total_lines']} bytes={report['bytes_read']} "
             f"rotated={report['rotated']} next_offset={report['next_offset']}"
@@ -405,6 +530,12 @@ def main(argv=None):
             f"  otaku_errors={c['otaku_errors']} otaku_warnings={c['otaku_warnings']} "
             f"noise_filtered={c['non_otaku_noise_filtered']} zero_wait={c['zero_wait']} subtitles={c['subtitles']}"
         )
+        if mr['total_metric_events'] > 0:
+            print(
+                f"  telemetry_events={mr['total_metric_events']} scrape_avg_ms={mr['scrape_summary']['avg_elapsed_ms']} "
+                f"zw_hits={mr['zero_wait']['hits']} zw_misses={mr['zero_wait']['misses']} "
+                f"mem_triggers={mr['memory_guard']['triggers']} dns_tripped={mr['dns_gate']['tripped']}"
+            )
     return 0
 
 

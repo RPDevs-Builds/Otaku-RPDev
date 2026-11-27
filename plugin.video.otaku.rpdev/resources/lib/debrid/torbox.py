@@ -13,6 +13,8 @@ class TorBox:
         self.OauthTimeout = 0
         self.OauthTotalTimeout = 0
         self.dialog = None
+        self._bulk_blocked = False
+        self._checking_capacity = False
 
     def headers(self):
         return {'Authorization': f"Bearer {self.token}"}
@@ -163,6 +165,7 @@ class TorBox:
         return r
 
     def hash_check(self, hash_list):
+        self._bulk_blocked = False
         hashes = ','.join(hash_list)
         url = f'{self.BaseUrl}/torrents/checkcached'
         params = {
@@ -170,9 +173,76 @@ class TorBox:
             'format': 'list'
         }
         r = self._request_with_backoff('get', url, headers=self.headers(), params=params)
-        return (r.json() or {}).get('data') if r else None
+        if r and getattr(r, 'status_code', 0) in (403, 404, 451):
+            self._bulk_blocked = True
+            return None
+        return (r.json(default={}) or {}).get('data') if r else None
+
+    def ensure_cloud_capacity(self, max_active_slots=10):
+        """NF-17: Prune oldest stalled/error/expired TorBox transfers before pinning."""
+        if self._checking_capacity or not control.getBool('debrid.quota_guard', default=True):
+            return {'pruned': 0, 'saturated': False}
+        self._checking_capacity = True
+        pruned_ids = []
+        try:
+            torrents = self.list_torrents()
+            if not isinstance(torrents, list) or not torrents:
+                return {'pruned': 0, 'saturated': False}
+            terminal_states = {'error', 'stalled', 'metadl_error', 'missingfiles', 'expired', 'failed'}
+            stalled = [
+                t for t in torrents
+                if isinstance(t, dict) and t.get('id') is not None
+                and str(t.get('download_state') or '').lower() in terminal_states
+            ]
+            stalled.sort(key=lambda t: str(t.get('created_at') or t.get('id') or ''))
+            active_count = len(torrents)
+            saturated = active_count >= int(max_active_slots)
+            for t in stalled:
+                tid = t['id']
+                self.delete_torrent(tid)
+                pruned_ids.append(tid)
+                active_count -= 1
+            if pruned_ids:
+                control.log_metric(
+                    'debrid_quota_prune',
+                    level='info',
+                    provider='torbox',
+                    pruned_count=len(pruned_ids),
+                )
+            if active_count >= int(max_active_slots) and not pruned_ids:
+                control.log(
+                    f"TorBox Quota Guard: Active slots saturated ({active_count}/{max_active_slots}) "
+                    "with 0 stalled/error transfers; preserving healthy completed items.",
+                    'warning',
+                )
+            return {'pruned': len(pruned_ids), 'pruned_ids': pruned_ids, 'saturated': active_count >= int(max_active_slots)}
+        except Exception as e:
+            control.log(f"TorBox quota guard notice: {e}", 'debug')
+            return {'pruned': len(pruned_ids), 'saturated': False}
+        finally:
+            self._checking_capacity = False
+
+    def probe_instant_cache(self, magnet):
+        """Opt-in Lazy Top-N probe for TorBox; immediately removes uncached transfers."""
+        if control.abort_requested() or not magnet:
+            return False
+        torrent = self.addMagnet(magnet)
+        if not isinstance(torrent, dict) or 'torrent_id' not in torrent:
+            return False
+        tid = torrent['torrent_id']
+        is_cached = False
+        try:
+            info = self.get_torrent_info(tid)
+            if isinstance(info, dict):
+                dl_state = str(info.get('download_state') or '').lower()
+                is_cached = bool(info.get('download_finished') or info.get('cached') or dl_state in ('completed', 'cached', 'seeding'))
+        finally:
+            if not is_cached or self.autodelete:
+                self.delete_torrent(tid)
+        return is_cached
 
     def addMagnet(self, magnet):
+        self.ensure_cloud_capacity()
         url = f'{self.BaseUrl}/torrents/createtorrent'
         data = {
             'magnet': magnet

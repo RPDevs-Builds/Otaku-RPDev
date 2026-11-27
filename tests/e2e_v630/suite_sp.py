@@ -706,3 +706,51 @@ class TestSP03AuditOnnLogsAndHygiene(unittest.TestCase):
             self.assertEqual(report['total_lines'], 0)
             self.assertEqual(report['counts']['otaku_errors'], 0)
             self.assertEqual(report['counts']['zero_wait'], 0)
+
+    @tier(2)
+    @feature('C-37')
+    def test_c37_32bit_arm_memory_watermark_and_hysteresis_end_to_end(self):
+        """E2E C-37: Enforces 900 MB RSS / 2600 MB VmSize guard on 32-bit hosts, throttles workers & clears < 85%."""
+        from unittest.mock import MagicMock
+        from resources.lib.ui import control
+
+        control.clearGlobalProp('otaku.memory_pressure')
+        control.clearGlobalProp('otaku.memory_concurrency_limit')
+        control.setInt('general.memory_watermark_mb', 900)
+        worker = MagicMock()
+        try:
+            with tempfile.TemporaryDirectory(prefix='otaku_c37_') as td:
+                status_file = os.path.join(td, 'status')
+                # Step 1: Exceed VmRSS watermark (930 MB >= 900 MB)
+                with open(status_file, 'w', encoding='utf-8') as f:
+                    f.write(f"Name:\tkodi.bin\nVmSize:\t{1800 * 1024:8d} kB\nVmRSS:\t{930 * 1024:8d} kB\n")
+                r1 = control.enforce_memory_watermark(
+                    context='e2e_c37', multipage_worker=worker, status_path=status_file, force_32bit=True, trim_fn=lambda: True
+                )
+                self.assertTrue(r1['triggered'])
+                self.assertEqual(r1['action'], 'throttle_gc_trim')
+                self.assertEqual(control.getGlobalProp('otaku.memory_pressure'), 'true')
+                worker.set_memory_pressure.assert_called_with(True, max_workers=1)
+
+                # Step 2: Drop below 900 MB yet stay within 85% hysteresis band (810 MB >= 765 MB)
+                with open(status_file, 'w', encoding='utf-8') as f:
+                    f.write(f"Name:\tkodi.bin\nVmSize:\t{1800 * 1024:8d} kB\nVmRSS:\t{810 * 1024:8d} kB\n")
+                r2 = control.enforce_memory_watermark(
+                    context='e2e_c37', multipage_worker=worker, status_path=status_file, force_32bit=True
+                )
+                self.assertFalse(r2['recovered'])
+                self.assertEqual(control.getGlobalProp('otaku.memory_pressure'), 'true')
+
+                # Step 3: Drop below 85% hysteresis (680 MB < 765 MB) -> recovers & restores worker concurrency
+                with open(status_file, 'w', encoding='utf-8') as f:
+                    f.write(f"Name:\tkodi.bin\nVmSize:\t{1400 * 1024:8d} kB\nVmRSS:\t{680 * 1024:8d} kB\n")
+                r3 = control.enforce_memory_watermark(
+                    context='e2e_c37', multipage_worker=worker, status_path=status_file, force_32bit=True
+                )
+                self.assertTrue(r3['recovered'])
+                self.assertEqual(control.getGlobalProp('otaku.memory_pressure'), '')
+                worker.set_memory_pressure.assert_called_with(False, max_workers=None)
+        finally:
+            control.clearGlobalProp('otaku.memory_pressure')
+            control.clearGlobalProp('otaku.memory_concurrency_limit')
+            control.setInt('general.memory_watermark_mb', 900)

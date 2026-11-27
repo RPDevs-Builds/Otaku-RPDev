@@ -547,6 +547,7 @@ def import_settings(scope: str, filepath: str) -> tuple[bool, int]:
                         outro_offset_s=ov.get('outro_offset_s', 0),
                         skip_filler_mode=ov.get('skip_filler_mode', 'default'),
                         episode_offset=ov.get('episode_offset', 0),
+                        sub_offset_ms=ov.get('sub_offset_ms', 0),
                     )
         except Exception as e:
             control.log(f"import_settings: Could not restore series_overrides: {e}", 'warning')

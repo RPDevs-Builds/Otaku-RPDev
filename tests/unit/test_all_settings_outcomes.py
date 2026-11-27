@@ -217,6 +217,7 @@ SUBTITLES_SETTING_IDS = {
     "subtitles.prefer_sdh",
     "subtitles.prefer_forced",
     "subtitles.strip_sdh_tags",
+    "subtitles.auto_calibrate_chapters",
     "subtitles.use_chardet",
     "subtitles.timeout",
     "subtitles.results_limit",
@@ -327,6 +328,8 @@ ACCOUNTS_SETTING_IDS = {
     "easynews.auth.status",
     "easynews.auth_start",
     "easynews.moderation",
+    "debrid.quota_guard",
+    "debrid.lazy_cache_probe",
     "accounts.reset_category",
 }
 
@@ -503,6 +506,7 @@ MAINTENANCE_SETTING_IDS = {
     "http2.status",
     "import_settings",
     "export_settings",
+    "general.memory_watermark_mb",
     "webpdb.enabled",
     "webpdb.port",
     "webpdb.mode",
@@ -754,8 +758,8 @@ class TestAllSettingsOutcomes(unittest.TestCase):
         Assert that TESTED_SETTING_IDS contains exactly all 471 declared settings
         from resources/settings.xml, ensuring 0 omitted settings across all categories.
         """
-        self.assertEqual(len(self.declared_settings), 499, f"Expected 499 declared settings, got {len(self.declared_settings)}")
-        self.assertEqual(len(TESTED_SETTING_IDS), 499, f"Expected 499 tested settings in registry, got {len(TESTED_SETTING_IDS)}")
+        self.assertEqual(len(self.declared_settings), 503, f"Expected 503 declared settings, got {len(self.declared_settings)}")
+        self.assertEqual(len(TESTED_SETTING_IDS), 503, f"Expected 503 tested settings in registry, got {len(TESTED_SETTING_IDS)}")
         self.assertEqual(
             set(self.declared_settings.keys()), TESTED_SETTING_IDS,
             "TESTED_SETTING_IDS does not match declared_settings in resources/settings.xml"
@@ -767,13 +771,13 @@ class TestAllSettingsOutcomes(unittest.TestCase):
         self.assertEqual(len(SCRAPING_SETTING_IDS), 15)
         self.assertEqual(len(CACHE_SETTING_IDS), 16)
         self.assertEqual(len(PLAYBACK_SETTING_IDS), 46)
-        self.assertEqual(len(SUBTITLES_SETTING_IDS), 29)
+        self.assertEqual(len(SUBTITLES_SETTING_IDS), 30)
         self.assertEqual(len(SORT_AND_FILTER_SETTING_IDS), 43)
-        self.assertEqual(len(ACCOUNTS_SETTING_IDS), 40)
+        self.assertEqual(len(ACCOUNTS_SETTING_IDS), 42)
         self.assertEqual(len(WATCHLIST_SETTING_IDS), 38)
         self.assertEqual(len(MENU_CUSTOMIZATION_SETTING_IDS), 73)
         self.assertEqual(len(CONTEXT_CUSTOMIZATION_SETTING_IDS), 16)
-        self.assertEqual(len(MAINTENANCE_SETTING_IDS), 118)
+        self.assertEqual(len(MAINTENANCE_SETTING_IDS), 119)
 
     # ── Category 1: General (45 settings) ──────────────────────────────────────
 
@@ -1069,13 +1073,18 @@ class TestAllSettingsOutcomes(unittest.TestCase):
         control.setBool('subtitles.auto_download', False)
         control.setBool('subtitles.prefer_sdh', True)
         control.setBool('subtitles.prefer_forced', True)
+        control.setBool('subtitles.auto_calibrate_chapters', True)
         control.setSetting('subtitles.subdl.apikey', 'dl_key_999')
         cfg = sub_pkg.get_subtitles_settings()
         self.assertTrue(cfg['subtitles.enabled'])
         self.assertFalse(cfg['subtitles.auto_download'])
         self.assertTrue(cfg['subtitles.prefer_sdh'])
         self.assertTrue(cfg['subtitles.prefer_forced'])
+        self.assertTrue(cfg['subtitles.auto_calibrate_chapters'])
         self.assertEqual(cfg['subtitles.subdl.apikey'], 'dl_key_999')
+
+        control.setBool('subtitles.auto_calibrate_chapters', False)
+        self.assertFalse(sub_pkg.get_subtitles_settings()['subtitles.auto_calibrate_chapters'])
 
         # Behavioral outcome: subtitles.enabled=False short-circuits search_subtitles() to []
         from resources.lib.subtitles.models import VideoMeta
@@ -1161,6 +1170,43 @@ class TestAllSettingsOutcomes(unittest.TestCase):
         for k, v in meta_keys.items():
             control.setSetting(k, v)
             self.assertEqual(control.getSetting(k), v)
+
+        # Behavioral outcome: debrid.quota_guard gates RealDebrid.ensure_cloud_capacity()
+        from resources.lib.debrid.real_debrid import RealDebrid
+        from resources.lib.debrid import Debrid
+        rd = RealDebrid()
+        control.setBool('debrid.quota_guard', False)
+        with patch.object(rd, 'list_torrents') as mock_rd_list:
+            self.assertEqual(rd.ensure_cloud_capacity(), {'pruned': 0, 'saturated': False})
+            mock_rd_list.assert_not_called()
+        control.setBool('debrid.quota_guard', True)
+        with patch.object(rd, 'list_torrents', return_value=[{'id': 't1', 'status': 'magnet_error'}]), \
+             patch.object(rd, 'deleteTorrent', return_value=True) as mock_rd_del:
+            cap_res = rd.ensure_cloud_capacity()
+            self.assertEqual(cap_res['pruned'], 1)
+            mock_rd_del.assert_called_once_with('t1')
+
+        # Behavioral outcome: debrid.lazy_cache_probe gates Debrid.lazy_probe_cached_torrents() in real_debrid_worker
+        deb = Debrid()
+        sample_torrents = [{'hash': 'abc123', 'seeders': 40, 'relevance': 150, 'release_title': 'Frieren - 01'}]
+        control.setBool('debrid.lazy_cache_probe', False)
+        with patch('resources.lib.debrid.debrid_cache.get_cached_hashes', return_value=[]), \
+             patch('resources.lib.debrid.debrid_cache.acquire_in_flight', return_value=(['abc123'], [])), \
+             patch('resources.lib.debrid.debrid_cache.release_in_flight'), \
+             patch('resources.lib.debrid.Debrid._get_imdb_and_season', return_value=('tt001', 1)), \
+             patch('resources.lib.debrid.debrid_cache.check_rd_cache', return_value=[]), \
+             patch.object(deb, 'lazy_probe_cached_torrents', return_value={'abc123'}) as mock_probe:
+            deb.real_debrid_worker(list(sample_torrents), mal_id=52991, episode=1, media_type='tv')
+            mock_probe.assert_not_called()
+        control.setBool('debrid.lazy_cache_probe', True)
+        with patch('resources.lib.debrid.debrid_cache.get_cached_hashes', return_value=[]), \
+             patch('resources.lib.debrid.debrid_cache.acquire_in_flight', return_value=(['abc123'], [])), \
+             patch('resources.lib.debrid.debrid_cache.release_in_flight'), \
+             patch('resources.lib.debrid.Debrid._get_imdb_and_season', return_value=('tt001', 1)), \
+             patch('resources.lib.debrid.debrid_cache.check_rd_cache', return_value=[]), \
+             patch.object(deb, 'lazy_probe_cached_torrents', return_value={'abc123'}) as mock_probe:
+            deb.real_debrid_worker(list(sample_torrents), mal_id=52991, episode=1, media_type='tv')
+            mock_probe.assert_called_once()
 
     # ── Category 9: Watchlist (34 settings) ────────────────────────────────────
 
@@ -1315,6 +1361,22 @@ class TestAllSettingsOutcomes(unittest.TestCase):
         control.cleanup()
         self.assertEqual(len(database._all_thread_conns), 0)
 
+        # Behavioral outcome: general.memory_watermark_mb governs enforce_memory_watermark() pressure & hysteresis
+        control.setInt('general.memory_watermark_mb', 512)
+        with unittest.mock.patch('resources.lib.ui.control.get_process_memory_mb', return_value={'rss_mb': 600.0, 'vm_size_mb': 1500.0, 'vm_peak_mb': 1600.0}), \
+             unittest.mock.patch('resources.lib.ui.control._trim_native_heap', return_value='malloc_trim'):
+            res_high = control.enforce_memory_watermark(context='test', force_32bit=True)
+        self.assertTrue(res_high['triggered'])
+        self.assertEqual(res_high['watermark_mb'], 512.0)
+        self.assertEqual(control.homeWindow.getProperty('otaku.memory_pressure'), 'true')
+
+        control.setInt('general.memory_watermark_mb', 900)
+        with unittest.mock.patch('resources.lib.ui.control.get_process_memory_mb', return_value={'rss_mb': 600.0, 'vm_size_mb': 1500.0, 'vm_peak_mb': 1600.0}):
+            res_clear = control.enforce_memory_watermark(context='test', force_32bit=True)
+        self.assertFalse(res_clear['triggered'])
+        self.assertTrue(res_clear['recovered'])
+        self.assertEqual(control.homeWindow.getProperty('otaku.memory_pressure'), '')
+
     # ── Internal Level 4 State & Legacy Compatibility ──────────────────────────
 
     def test_internal_level_4_state_and_legacy_compatibility_keys(self):
@@ -1338,7 +1400,7 @@ class TestAllSettingsOutcomes(unittest.TestCase):
 
         # Verify clean_settings.get_active_setting_ids() keeps all declared settings (including legacy keys)
         active_ids = clean_settings.get_active_setting_ids(self.settings_xml_path)
-        self.assertEqual(len(active_ids), 499)
+        self.assertEqual(len(active_ids), 503)
         for legacy_key in LEGACY_LEVEL_4_KEYS:
             self.assertIn(legacy_key, active_ids)
 

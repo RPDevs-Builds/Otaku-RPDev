@@ -18,6 +18,8 @@ class Premiumize:
         self.OauthTimeout = 0
         self.OauthTotalTimeout = 0
         self.dialog = None
+        self._bulk_blocked = False
+        self._checking_capacity = False
 
     def headers(self):
         return {'Authorization': f"Bearer {self.token}"}
@@ -218,17 +220,74 @@ class Premiumize:
     def hash_check(self, hashlist):
         if not hashlist:
             return None
+        self._bulk_blocked = False
         all_responses = []
         chunk_size = 100
         for i in range(0, len(hashlist), chunk_size):
             chunk = hashlist[i:i + chunk_size]
             data = [('items[]', h) for h in chunk]
             r = self._request_with_backoff('post', f'{self.base_url}/cache/check', headers=self.headers(), data=data)
-            res = r.json() if r else None
+            if r and getattr(r, 'status_code', 0) in (403, 404, 451):
+                self._bulk_blocked = True
+                return None
+            res = r.json(default={}) if r else None
             if not res or 'response' not in res:
+                if res and str(res.get('status') or '').lower() == 'error':
+                    self._bulk_blocked = True
                 return None
             all_responses.extend(res['response'])
         return {'status': 'success', 'response': all_responses}
+
+    def probe_instant_cache(self, magnet):
+        """Opt-in Lazy Top-N probe for Premiumize using transfer/directdl without leaving uncached debris."""
+        if control.abort_requested() or not magnet:
+            return False
+        res = self.direct_download(magnet)
+        return isinstance(res, dict) and res.get('status') == 'success' and bool(res.get('content'))
+
+    def ensure_cloud_capacity(self, max_active_slots=25):
+        """NF-17: Prune oldest stalled/error transfers before pinning; preserve healthy items when 0 stalled exist."""
+        if self._checking_capacity or not control.getBool('debrid.quota_guard', default=True):
+            return {'pruned': 0, 'saturated': False}
+        self._checking_capacity = True
+        pruned_ids = []
+        try:
+            transfers = self.transfer_list()
+            storage_info = self.get_storage_info()
+            stalled_states = {'error', 'timeout', 'stalled', 'deleted'}
+            if isinstance(transfers, list):
+                stalled = [
+                    t for t in transfers
+                    if isinstance(t, dict) and t.get('id') and str(t.get('status') or '').lower() in stalled_states
+                ]
+                stalled.sort(key=lambda t: str(t.get('created_at') or t.get('id') or ''))
+                for t in stalled:
+                    self.delete_torrent(t['id'])
+                    pruned_ids.append(t['id'])
+                if pruned_ids:
+                    control.log_metric(
+                        'debrid_quota_prune',
+                        level='info',
+                        provider='premiumize',
+                        pruned_count=len(pruned_ids),
+                    )
+
+            active_count = max(0, (len(transfers) if isinstance(transfers, list) else 0) - len(pruned_ids))
+            limit_bytes = (storage_info or {}).get('limit_bytes') or 0
+            used_bytes = (storage_info or {}).get('space_used') or 0
+            quota_full = bool(limit_bytes and used_bytes >= (limit_bytes * 0.95))
+            if (quota_full or active_count >= int(max_active_slots)) and not pruned_ids:
+                control.log(
+                    "Premiumize Quota Guard: Cloud storage/slots saturated with 0 stalled/error transfers; "
+                    "preserving healthy items.",
+                    'warning',
+                )
+            return {'pruned': len(pruned_ids), 'pruned_ids': pruned_ids, 'saturated': quota_full or active_count >= int(max_active_slots)}
+        except Exception as e:
+            control.log(f"Premiumize quota guard notice: {e}", 'debug')
+            return {'pruned': len(pruned_ids), 'saturated': False}
+        finally:
+            self._checking_capacity = False
 
     def direct_download(self, src):
         postData = {'src': src}
@@ -236,6 +295,7 @@ class Premiumize:
         return r.json() if r else None
 
     def addMagnet(self, src):
+        self.ensure_cloud_capacity()
         postData = {'src': src}
         r = self._request_with_backoff('post', f'{self.base_url}/transfer/create', headers=self.headers(), data=postData)
         return r.json() if r else None
@@ -301,6 +361,7 @@ class Premiumize:
         folder_details = sorted(folder_details, key=lambda i: int(i['size']), reverse=True)
         folder_details = [i for i in folder_details if source_utils.is_file_ext_valid(i.get('path') or i.get('link', ''))]
         filter_list = [i for i in folder_details]
+        stream_link = None
 
         if pack_select:
             identified_file = source_utils.get_best_match('path', folder_details, episode, pack_select, filename)

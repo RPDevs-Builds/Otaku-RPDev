@@ -18,6 +18,7 @@ Helpers          - store / retrieve / byteify / strip_cookie_url
 # -*- coding: utf-8 -*-
 
 import gzip
+import errno
 import http.client
 import io
 import json
@@ -84,6 +85,204 @@ _CLEANUP_EVERY_N_REQUESTS = 128
 
 _VERIFIED_SSL_CONTEXT = None
 _UNVERIFIED_SSL_CONTEXT = None
+
+_DNS_ERROR_SUBSTRINGS = (
+    'temporary failure in name resolution',
+    'name or service not known',
+    'getaddrinfo failed',
+    'nodename nor servname',
+    'network is unreachable',
+    'no route to host',
+    'host is down',
+)
+_DNS_ERRNOS = frozenset(
+    getattr(errno, name, None)
+    for name in ('ENETUNREACH', 'EHOSTUNREACH', 'ENETDOWN', 'EHOSTDOWN', 'EAI_AGAIN')
+) | {-2, -3, -5}
+
+
+class ConnectivityGatedError(OSError):
+    """Raised or tagged when outbound calls fail fast during an active 15s DNS/connectivity gate."""
+
+    def __init__(self, message="Outbound request paused by shared connectivity/DNS gate"):
+        super().__init__(message)
+        self.is_connectivity_drop = True
+
+
+def is_dns_or_network_drop(exc) -> bool:
+    """Return True if *exc* (or its URLError reason/cause chain) represents a local DNS/network drop."""
+    visited = set()
+    curr = exc
+    while curr is not None and id(curr) not in visited:
+        visited.add(id(curr))
+        if isinstance(curr, (ConnectivityGatedError, socket.gaierror)):
+            return True
+        err_no = getattr(curr, 'errno', None)
+        if err_no is not None and err_no in _DNS_ERRNOS:
+            return True
+        msg = str(curr).lower()
+        if any(sub in msg for sub in _DNS_ERROR_SUBSTRINGS):
+            return True
+        next_reason = getattr(curr, 'reason', None)
+        if next_reason is not None and next_reason is not curr:
+            if isinstance(next_reason, BaseException):
+                curr = next_reason
+                continue
+            reason_msg = str(next_reason).lower()
+            if any(sub in reason_msg for sub in _DNS_ERROR_SUBSTRINGS):
+                return True
+        curr = getattr(curr, '__cause__', None) or getattr(curr, '__context__', None)
+    return False
+
+
+class ConnectivityGate:
+    """
+    Thread-safe 15s TTL shared DNS/connectivity gate protecting AdaptiveCircuitBreaker
+    from escalating cooldowns during transient router/Wi-Fi DNS dropouts.
+    Requires >= 2 distinct failing hostnames within 5s (or is_internet_available() == False)
+    so a single dead mirror never trips the global gate.
+    """
+    _PROP_KEY = 'otaku.dns_gate_until'
+
+    def __init__(self, ttl_seconds=15.0, distinct_window_s=5.0, min_distinct_hosts=2):
+        self.ttl_seconds = float(ttl_seconds)
+        self.distinct_window_s = float(distinct_window_s)
+        self.min_distinct_hosts = int(min_distinct_hosts)
+        self._lock = threading.Lock()
+        self._gate_until = 0.0
+        self._was_tripped = False
+        self._recent_host_failures = {}
+        self._probing_connectivity = False
+
+    def _read_window_until(self, now):
+        try:
+            raw = control.homeWindow.getProperty(self._PROP_KEY)
+            if not raw:
+                return 0.0
+            val = float(raw)
+            if val > now + self.ttl_seconds:
+                val = now + self.ttl_seconds
+            return val
+        except Exception:
+            return 0.0
+
+    def _write_window_until(self, until_ts):
+        try:
+            if until_ts > 0:
+                control.homeWindow.setProperty(self._PROP_KEY, f"{until_ts:.3f}")
+            else:
+                control.homeWindow.clearProperty(self._PROP_KEY)
+        except Exception:
+            pass
+
+    def is_tripped(self) -> bool:
+        now = time.time()
+        emit_cleared = False
+        with self._lock:
+            win_until = self._read_window_until(now)
+            effective_until = max(self._gate_until, win_until)
+            if effective_until > now:
+                self._gate_until = min(effective_until, now + self.ttl_seconds)
+                self._was_tripped = True
+                return True
+            if self._was_tripped or win_until > 0:
+                self._gate_until = 0.0
+                if self._was_tripped:
+                    self._was_tripped = False
+                    emit_cleared = True
+                self._write_window_until(0.0)
+        if emit_cleared:
+            control.log_metric('dns_gate', level='info', state='cleared', reason='ttl_expired')
+        return False
+
+    def record_failure(self, hostname, exc, verify_connectivity_fn=None) -> bool:
+        if not is_dns_or_network_drop(exc):
+            return False
+        host = str(hostname or '').lower().split(':', 1)[0].strip() or 'unknown'
+        now = time.time()
+        should_probe = False
+        distinct_hosts = 0
+
+        with self._lock:
+            cutoff = now - self.distinct_window_s
+            self._recent_host_failures = {
+                h: ts for h, ts in self._recent_host_failures.items() if ts >= cutoff
+            }
+            self._recent_host_failures[host] = now
+            distinct_hosts = len(self._recent_host_failures)
+            if distinct_hosts < self.min_distinct_hosts and not self._probing_connectivity:
+                self._probing_connectivity = True
+                should_probe = True
+
+        net_down = False
+        if should_probe:
+            try:
+                if verify_connectivity_fn is not None:
+                    net_down = not bool(verify_connectivity_fn())
+                else:
+                    from resources.lib.ui import domains
+                    net_down = not bool(domains.is_internet_available(timeout=1.0))
+            except Exception:
+                net_down = False
+            finally:
+                with self._lock:
+                    self._probing_connectivity = False
+
+        if distinct_hosts < self.min_distinct_hosts and not net_down:
+            return False
+
+        trip_reason = 'distinct_dns_hosts' if distinct_hosts >= self.min_distinct_hosts else 'internet_probe_failed'
+        emit_tripped = False
+        with self._lock:
+            until = min(now + self.ttl_seconds, now + 15.0)
+            self._gate_until = until
+            self._write_window_until(until)
+            if not self._was_tripped:
+                self._was_tripped = True
+                emit_tripped = True
+        if emit_tripped:
+            control.log_metric(
+                'dns_gate',
+                level='warning',
+                state='tripped',
+                ttl_s=int(self.ttl_seconds),
+                hosts=distinct_hosts,
+                reason=trip_reason,
+            )
+        return True
+
+    def record_success(self):
+        emit_cleared = False
+        with self._lock:
+            self._recent_host_failures.clear()
+            was = self._was_tripped or (self._gate_until > 0) or bool(control.homeWindow.getProperty(self._PROP_KEY))
+            self._gate_until = 0.0
+            if self._was_tripped:
+                self._was_tripped = False
+                emit_cleared = True
+            if was:
+                self._write_window_until(0.0)
+        if emit_cleared:
+            control.log_metric('dns_gate', level='info', state='cleared', reason='request_succeeded')
+
+    def reset(self):
+        with self._lock:
+            self._recent_host_failures.clear()
+            self._gate_until = 0.0
+            self._was_tripped = False
+            self._write_window_until(0.0)
+
+
+_connectivity_gate = ConnectivityGate()
+_tls_req_state = threading.local()
+
+
+def is_connectivity_gate_tripped() -> bool:
+    return _connectivity_gate.is_tripped()
+
+
+def clear_connectivity_gate():
+    _connectivity_gate.reset()
 
 
 def _validate_url_scheme(url: str) -> str:
@@ -185,7 +384,7 @@ class Response:
         cookies: Response cookies dict
         ok: True if status_code < 400
     """
-    def __init__(self, content, status_code=200, headers=None, url='', cookies=None, is_binary=False):
+    def __init__(self, content, status_code=200, headers=None, url='', cookies=None, is_binary=False, is_connectivity_drop=False):
         self._raw_content = content
         self._is_binary = is_binary
         self.status_code = status_code
@@ -193,6 +392,7 @@ class Response:
         self.url = url
         self.cookies = cookies or {}
         self.ok = 200 <= status_code < 400
+        self.is_connectivity_drop = bool(is_connectivity_drop)
 
     @property
     def text(self):
@@ -256,8 +456,10 @@ def request(
         params=None,
         method='',
         use_session=False,
-        tls_version=None
+        tls_version=None,
+        bypass_gate=False
 ):
+    _tls_req_state.last_connectivity_drop = False
     try:
         if not url:
             return
@@ -266,6 +468,11 @@ def request(
             url = _validate_url_scheme(url)
         except ValueError as e:
             control.log(f"client.request blocked URL: {e}", level='warning')
+            return None
+
+        if not bypass_gate and _connectivity_gate.is_tripped():
+            _tls_req_state.last_connectivity_drop = True
+            control.log(f"Request paused cleanly by active 15s DNS/connectivity gate: {url}", 'debug')
             return None
 
         global _request_count
@@ -653,6 +860,10 @@ def request(
                 if not error:
                     return None
         except urllib.error.URLError as e:
+            host = urllib.parse.urlparse(url).netloc
+            if is_dns_or_network_drop(e):
+                _tls_req_state.last_connectivity_drop = True
+                _connectivity_gate.record_failure(host, e)
             if output == '':
                 control.log('Request-Error (%s): %s' % (e.reason, url))
             if not error:
@@ -806,14 +1017,20 @@ def request(
             except (AttributeError, TypeError, KeyError) as e:
                 control.log(f"client response cookie parse error: {e}", 'debug')
 
+            _connectivity_gate.record_success()
             if close:
                 response.close()
             return (result, response_code, response_headers, _headers, cookie, response_url)
         else:
+            _connectivity_gate.record_success()
             if close:
                 response.close()
             return result
     except Exception as e:
+        host = urllib.parse.urlparse(url).netloc if url else ''
+        if is_dns_or_network_drop(e):
+            _tls_req_state.last_connectivity_drop = True
+            _connectivity_gate.record_failure(host, e)
         control.log('Request-Error: (%s) => %s' % (str(e), url))
         return
 
@@ -824,6 +1041,7 @@ def request(
 
 def _build_response(result, url):
     """Convert a raw request() result tuple into a Response object."""
+    is_drop = bool(getattr(_tls_req_state, 'last_connectivity_drop', False))
     if result and isinstance(result, tuple) and len(result) >= 5:
         content, status_code, response_headers, _req_headers, cookie, response_url = result
         content_type = response_headers.get('Content-Type', '').lower()
@@ -844,14 +1062,14 @@ def _build_response(result, url):
         )
     if result:
         return Response(content=result, status_code=200, url=url)
-    return Response(content=None, status_code=0, url=url)
+    return Response(content=None, status_code=0, url=url, is_connectivity_drop=is_drop)
 
 
-def get(url, headers=None, timeout=10, verify=True, cookies=None, params=None, redirect=True):
+def get(url, headers=None, timeout=10, verify=True, cookies=None, params=None, redirect=True, bypass_gate=False):
     """Requests-like GET.  Returns a Response object."""
     result = request(url, headers=headers or {}, timeout=timeout, verify=verify,
                      cookie=cookies, params=params, redirect=redirect,
-                     output='extended', use_session=True)
+                     output='extended', use_session=True, bypass_gate=bypass_gate)
     return _build_response(result, url)
 
 

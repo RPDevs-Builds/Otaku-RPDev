@@ -1,7 +1,26 @@
 ========================
+[B]OTAKU RPDEV v6.5.0[/B]
+NF-17, C-37 Guard & Hardening
+========================
+
+v6.5.0 Highlights:
+  * 32-bit ARM Memory Watermark Guard (C-37): 900 MB RSS / 2600 MB VmSize
+    guard with native heap trim fallback, <85% hysteresis, and FileCache
+    diagnostics check.
+  * 15s Shared DNS Gate & Adaptive Scrape Grace: Protect circuit breakers
+    from transient DNS drops and extend conditional p90 embed grace when
+    cached torrent yield is 0.
+  * NF-17 Debrid Quota Guard & Opt-In Lazy Probe: Auto-prune stalled
+    transfers before pinning across RD/PM/TB/AD cleanly plus opt-in Tier-3
+    lazy cache probing.
+  * Chapter-Aligned Subtitle Calibration & Telemetry: SQLite v1.0.16 per-
+    series sub_offset_ms, staged oxipng release optimization, OTAKU_METRIC
+    rollups, and 75.7% function coverage.
+
+--------------------------------
 [B]OTAKU RPDEV v6.4.11[/B]
 Fanart.tv URL Space Sanitization
-========================
+--------------------------------
 
 v6.4.11 Highlights:
   * Fixed unencoded spaces in Fanart.tv artwork URLs (e.g. B_74796 (0).jpg)

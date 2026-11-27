@@ -481,6 +481,15 @@ class WatchlistPlayer(player):
             failing_host=failing_host,
         )
         if not backup or not backup.get('url'):
+            control.log_metric(
+                'failover',
+                level='warning',
+                reason=reason,
+                mal_id=self.mal_id,
+                episode=ep_str,
+                attempt=attempts + 1,
+                success=False,
+            )
             return False
 
         self._failover_triggered = True
@@ -522,6 +531,16 @@ class WatchlistPlayer(player):
             control.playerWindow.setProperty('otaku.preResolved_malId', str(self.mal_id))
             control.playerWindow.setProperty('otaku.preResolved_episode', ep_str)
             control.playerWindow.setProperty('otaku.preResolved_data', pr_payload)
+        control.log_metric(
+            'failover',
+            level='info',
+            reason=reason,
+            mal_id=self.mal_id,
+            episode=ep_str,
+            attempt=attempts + 1,
+            success=True,
+            provider=b_prov,
+        )
 
         control.notify(
             control.ADDON_NAME,
@@ -623,7 +642,9 @@ class WatchlistPlayer(player):
             subtitles.clear_active_playback_meta()
         except Exception:
             pass
-        control.clean_memory()
+        mem_state = control.enforce_memory_watermark(context='playback_stopped')
+        if not mem_state.get('triggered'):
+            control.clean_memory()
         self._refresh_widgets_on_stop()
 
     def _refresh_widgets_on_stop(self):
@@ -716,7 +737,9 @@ class WatchlistPlayer(player):
             subtitles.clear_active_playback_meta()
         except Exception:
             pass
-        control.clean_memory()
+        mem_state = control.enforce_memory_watermark(context='playback_stopped')
+        if not mem_state.get('triggered'):
+            control.clean_memory()
         self._refresh_widgets_on_stop()
 
     # ── Playlist Building ─────────────────────────────────────────────────

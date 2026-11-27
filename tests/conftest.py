@@ -1310,3 +1310,20 @@ if pytest is not None:
         finally:
             restore_fixture_settings()
 
+    @pytest.fixture(autouse=True)
+    def _reset_transient_connectivity_gate():
+        """Prevent shared WS-2 DNS gate state from leaking across subsequent tests."""
+        def _clear():
+            _window_props.pop('otaku.dns_gate_until', None)
+            _window_props.pop('otaku.memory_pressure', None)
+            _window_props.pop('otaku.memory_concurrency_limit', None)
+            cmod = sys.modules.get('resources.lib.ui.client')
+            if cmod is not None and hasattr(cmod, 'clear_connectivity_gate'):
+                cmod.clear_connectivity_gate()
+
+        _clear()
+        try:
+            yield
+        finally:
+            _clear()
+

@@ -1540,6 +1540,14 @@
 						<dependency type="visible" setting="subtitles.enabled">true</dependency>
 					</dependencies>
 				</setting>
+				<setting id="subtitles.auto_calibrate_chapters" type="boolean" label="30066" help="30067" parent="subtitles.enabled">
+					<level>2</level>
+					<default>false</default>
+					<control type="toggle" />
+					<dependencies>
+						<dependency type="visible" setting="subtitles.enabled">true</dependency>
+					</dependencies>
+				</setting>
 				<setting id="subtitles.use_chardet" type="boolean" label="30610" help="30660" parent="subtitles.enabled">
 					<level>2</level>
 					<default>true</default>
@@ -2812,6 +2820,16 @@
 					<dependencies>
 						<dependency type="visible" setting="easynews.enabled">true</dependency>
 					</dependencies>
+				</setting>
+				<setting id="debrid.quota_guard" type="boolean" label="30062" help="30063">
+					<level>2</level>
+					<default>true</default>
+					<control type="toggle" />
+				</setting>
+				<setting id="debrid.lazy_cache_probe" type="boolean" label="30064" help="30065">
+					<level>3</level>
+					<default>false</default>
+					<control type="toggle" />
 				</setting>
 				<setting id="accounts.reset_category" type="action" label="30985" help="30986">
 					<level>1</level>
@@ -4539,6 +4557,18 @@
 					<data>RunPlugin(plugin://plugin.video.otaku.rpdev/sync_mappings?setting=true)</data>
 					<control type="button" format="action">
 						<close>true</close>
+					</control>
+				</setting>
+				<setting id="general.memory_watermark_mb" type="integer" label="30999" help="30061">
+					<level>3</level>
+					<default>900</default>
+					<constraints>
+						<minimum>512</minimum>
+						<step>64</step>
+						<maximum>2048</maximum>
+					</constraints>
+					<control type="slider" format="integer">
+						<popup>false</popup>
 					</control>
 				</setting>
 			</group>

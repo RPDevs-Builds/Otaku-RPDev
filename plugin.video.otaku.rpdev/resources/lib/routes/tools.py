@@ -355,6 +355,31 @@ def generate_diagnostics_report():
     import sqlite3
     lines.append(f"  • SQLite Version:  {sqlite3.sqlite_version}")
     lines.append(f"  • Low-RAM Mode:    {'YES' if control.is_low_memory() else 'NO'}")
+    is_32 = control.is_32bit_process()
+    mem_stats = control.get_process_memory_mb()
+    wm_mb = control.getInt('general.memory_watermark_mb', default=900) or 900
+    pressure_active = control.getGlobalProp('otaku.memory_pressure') == 'true'
+    if mem_stats:
+        lines.append(
+            f"  • Process Memory:  VmRSS {mem_stats['rss_mb']:.1f} MB / VmSize {mem_stats['vmsize_mb']:.1f} MB "
+            f"(32-bit={'YES' if is_32 else 'NO'}, Watermark={wm_mb} MB, Pressure={'ACTIVE' if pressure_active else 'NORMAL'})"
+        )
+    else:
+        lines.append(f"  • Process Memory:  Unavailable on host (32-bit={'YES' if is_32 else 'NO'}, Watermark={wm_mb} MB)")
+
+    try:
+        fc_resp = control.jsonrpc({'jsonrpc': '2.0', 'method': 'Settings.GetSettingValue', 'params': {'setting': 'filecache.memorysize'}, 'id': 1})
+        fc_val = (fc_resp or {}).get('result', {}).get('value')
+        if isinstance(fc_val, (int, float)):
+            # Kodi filecache.memorysize can be MB (Kodi 21/22 GUI) or bytes depending on schema
+            fc_mb = (fc_val / (1024.0 * 1024.0)) if fc_val > 4096 else float(fc_val)
+            lines.append(f"  • Kodi File Cache: {fc_mb:.0f} MB")
+            if is_32 and fc_mb > 64:
+                lines.append(
+                    f"  ! [WARNING] filecache.memorysize={fc_mb:.0f} MB > 64 MB on 32-bit ARM risks std::bad_alloc OOM (C-37). Lower Kodi Video Cache to <= 64 MB."
+                )
+    except Exception:
+        pass
     lines.append("")
 
     # 2. Debrid Services
@@ -1158,7 +1183,7 @@ def SERIES_PROFILE(payload, params):
         return control.exit_code()
 
     if params and (
-        any(k in params for k in ('audio_lang', 'sub_lang', 'sub_mode', 'preferred_provider', 'intro_offset_s', 'outro_offset_s', 'episode_offset', 'skip_filler_mode', 'reset'))
+        any(k in params for k in ('audio_lang', 'sub_lang', 'sub_mode', 'preferred_provider', 'intro_offset_s', 'outro_offset_s', 'episode_offset', 'sub_offset_ms', 'skip_filler_mode', 'reset'))
     ):
         if str(params.get('reset', '')).lower() == 'true':
             database.delete_series_override(mal_id)
@@ -1174,6 +1199,7 @@ def SERIES_PROFILE(payload, params):
             intro_offset_s=int(params.get('intro_offset_s', existing.get('intro_offset_s') or 0)),
             outro_offset_s=int(params.get('outro_offset_s', existing.get('outro_offset_s') or 0)),
             episode_offset=int(params.get('episode_offset', existing.get('episode_offset') or 0)),
+            sub_offset_ms=int(params.get('sub_offset_ms', existing.get('sub_offset_ms') or 0)),
             skip_filler_mode=params.get('skip_filler_mode', existing.get('skip_filler_mode') or 'default'),
         )
         control.notify(control.ADDON_NAME, f'Saved Series Profile for MAL #{mal_id}')

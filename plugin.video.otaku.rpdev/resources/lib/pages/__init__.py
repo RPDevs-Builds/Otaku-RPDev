@@ -239,11 +239,36 @@ class Sources(GetSources):
                         self.remainingProviders.remove(pid)
 
         timeout = 30 if (rescrape or source_select) else min(30, max(5, control.getInt('general.timeout') or 20))
+        effective_deadline = float(timeout)
+        embed_grace_s = 0.0
+        embed_grace_applied = False
+        embed_provider_ids = {row[0] for row in _EMBED_MODULES}
         start_time = time.perf_counter()
-        runtime = 0
+        runtime = 0.0
 
         try:
-            while runtime < timeout:
+            while True:
+                if runtime >= effective_deadline:
+                    if not (rescrape or source_select) and not embed_grace_applied:
+                        with self._results_lock:
+                            cached_yield = len(self.torrentCacheSources) + len(self.cloud_files) + len(self.local_files)
+                            remaining_embeds = [p for p in self.remainingProviders if p in embed_provider_ids]
+                        if cached_yield == 0 and remaining_embeds and not (self.canceled or control.abort_requested()):
+                            embed_grace_applied = True
+                            p90_map = database.get_provider_p90_latencies(min_samples=3)
+                            p90_vals = [p90_map[p] for p in remaining_embeds if p in p90_map]
+                            if p90_vals:
+                                embed_grace_s = min(max(max(p90_vals) - runtime, 2.0), 8.0)
+                            else:
+                                embed_grace_s = 4.0
+                            effective_deadline = runtime + embed_grace_s
+                            control.log(
+                                f"LatencyGrace: cached_torrents=0, extending deadline +{embed_grace_s:.2f}s for {remaining_embeds}",
+                                'info',
+                            )
+                            continue
+                    break
+
                 if not self.silent:
                     self.updateProgress()
                     self.update_properties("4K: %s | 1080: %s | 720: %s | SD: %s| EQ: %s" % (
@@ -260,9 +285,11 @@ class Sources(GetSources):
                     has_cloud = len(self.cloud_files) > 0
                     has_local = len(self.local_files) > 0
                     has_torrent = len(self.torrentSources) > 0
+                    remaining_embeds = [p for p in self.remainingProviders if p in embed_provider_ids]
 
                 early_terminate = (
                     not (rescrape or source_select)
+                    and not embed_grace_applied
                     and (
                         (control.getBool('general.terminate.oncloud') and has_cloud)
                         or (control.getBool('general.terminate.onlocal') and has_local)
@@ -274,11 +301,24 @@ class Sources(GetSources):
                     or control.abort_requested()
                     or no_remaining
                     or early_terminate
+                    or (embed_grace_applied and not remaining_embeds)
                 ):
                     break
 
                 runtime = time.perf_counter() - start_time
-                self.progress = runtime / timeout * 100
+                self.progress = min(100.0, runtime / max(1.0, effective_deadline) * 100.0)
+
+            elapsed_ms = int((time.perf_counter() - start_time) * 1000)
+            control.log_metric(
+                'scrape_summary',
+                level='info',
+                elapsed_ms=elapsed_ms,
+                cached_torrents=len(self.torrentCacheSources),
+                uncached_torrents=len(self.torrentUnCacheSources),
+                embeds=len(self.embedSources),
+                embed_grace_s=round(embed_grace_s, 2),
+                rescrape=bool(rescrape or source_select),
+            )
 
             if len(self.torrentSources) + len(self.hosterSources) + len(self.embedSources) + len(self.cloud_files) + len(self.local_files) == 0:
                 self.return_data = []
@@ -300,6 +340,7 @@ class Sources(GetSources):
     def _torrent_sources_worker(self, provider, query, mal_id, episode, status, media_type, rescrape, season, part, hints=None):
         if self.canceled or control.abort_requested():
             return
+        t0 = time.perf_counter()
         try:
             import inspect
             mod, cache_key = _TORRENT_MODULES[provider]
@@ -337,9 +378,10 @@ class Sources(GetSources):
                 self.torrentCacheSources += cached_list
                 self.torrentSources += cached_list + uncached_list
         except Exception as e:
-            circuit_breaker.record_failure(provider)
+            circuit_breaker.record_failure(provider, exc=e)
             control.log(f"Error in torrent worker '{provider}': {e}", 'error')
         finally:
+            database.record_provider_latency(provider, time.perf_counter() - t0)
             with self._results_lock:
                 if provider in self.remainingProviders:
                     self.remainingProviders.remove(provider)
@@ -347,6 +389,7 @@ class Sources(GetSources):
     def _hoster_sources_worker(self, hoster, query, mal_id, episode, status, media_type, rescrape, season, part, hints=None):
         if self.canceled or control.abort_requested():
             return
+        t0 = time.perf_counter()
         try:
             import inspect
             mod, cache_key, _, merge_mode = _HOSTER_MODULES[hoster]
@@ -382,9 +425,10 @@ class Sources(GetSources):
                     self.torrentSources += all_sources.get('cached', []) + all_sources.get('uncached', [])
         except Exception as e:
             status_code = getattr(e, 'code', None) or getattr(getattr(e, 'response', None), 'status_code', None)
-            circuit_breaker.record_failure(hoster, status_code=status_code)
+            circuit_breaker.record_failure(hoster, status_code=status_code, exc=e)
             control.log(f"Error in hoster worker '{hoster}': {e}", 'error')
         finally:
+            database.record_provider_latency(hoster, time.perf_counter() - t0)
             with self._results_lock:
                 if hoster in self.remainingProviders:
                     self.remainingProviders.remove(hoster)
@@ -392,6 +436,7 @@ class Sources(GetSources):
     def _embed_sources_worker(self, pid, mod, cache_key, skip_prefix, needs_media_type, mal_id, episode, media_type, rescrape):
         if self.canceled or control.abort_requested():
             return
+        t0 = time.perf_counter()
         try:
             get_sources = mod.Sources().get_sources
             if needs_media_type:
@@ -428,9 +473,10 @@ class Sources(GetSources):
                 self._apply_embed_skip(skip_prefix, src)
         except Exception as e:
             status_code = getattr(e, 'code', None) or getattr(getattr(e, 'response', None), 'status_code', None)
-            circuit_breaker.record_failure(pid, status_code=status_code)
+            circuit_breaker.record_failure(pid, status_code=status_code, exc=e)
             control.log(f"Error in embed worker '{pid}': {e}", 'error')
         finally:
+            database.record_provider_latency(pid, time.perf_counter() - t0)
             with self._results_lock:
                 if pid in self.remainingProviders:
                     self.remainingProviders.remove(pid)

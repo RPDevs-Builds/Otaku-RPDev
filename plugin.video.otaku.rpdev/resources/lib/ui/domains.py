@@ -360,7 +360,7 @@ def is_internet_available(timeout=3):
 
     try:
         from resources.lib.ui import client
-        resp = client.get("https://cloudflare-dns.com", timeout=sock_timeout)
+        resp = client.get("https://cloudflare-dns.com", timeout=sock_timeout, bypass_gate=True)
         return resp is not None and resp.status_code in (200, 204, 301, 302, 403)
     except Exception:
         return False
@@ -573,7 +573,27 @@ class AdaptiveCircuitBreaker:
             self._half_open.discard(provider)
             self._save_locked()
 
-    def record_failure(self, provider: str, category: str = None, status_code: int = None):
+    def record_failure(self, provider: str, category: str = None, status_code: int = None, is_connectivity_drop: bool = False, exc: BaseException = None):
+        drop = bool(is_connectivity_drop)
+        if not drop and exc is not None:
+            try:
+                from resources.lib.ui import client
+                drop = bool(getattr(exc, 'is_connectivity_drop', False)) or client.is_dns_or_network_drop(exc)
+            except Exception:
+                drop = bool(getattr(exc, 'is_connectivity_drop', False))
+        if not drop:
+            try:
+                from resources.lib.ui import client
+                drop = bool(client.is_connectivity_gate_tripped())
+            except Exception:
+                pass
+        if drop:
+            control.log(
+                f"CircuitBreaker: Skipping cooldown escalation for '{provider}' due to transient DNS/connectivity drop",
+                'debug',
+            )
+            return
+
         with self._lock:
             self._load_locked()
             if category:

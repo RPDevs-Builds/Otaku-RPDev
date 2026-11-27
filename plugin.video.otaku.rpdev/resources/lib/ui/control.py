@@ -648,6 +648,31 @@ def log(msg, level="debug"):
     xbmc.log(f'{ADDON_NAME.upper()} ({HANDLE}): {sanitized}', level)
 
 
+_METRIC_TOKEN_RE = re.compile(r'[^A-Za-z0-9_.\-/:]+')
+
+
+def log_metric(event, level='info', **fields):
+    """Emit a single-line structured OTAKU_METRIC key=value telemetry marker via log()."""
+    clean_event = _METRIC_TOKEN_RE.sub('_', str(event or 'unknown').strip()) or 'unknown'
+    parts = [f"OTAKU_METRIC event={clean_event}"]
+    for k in sorted(fields.keys()):
+        v = fields[k]
+        if v is None:
+            continue
+        clean_k = _METRIC_TOKEN_RE.sub('_', str(k).strip())
+        if not clean_k:
+            continue
+        if isinstance(v, bool):
+            clean_v = 'true' if v else 'false'
+        elif isinstance(v, float):
+            clean_v = f"{v:.3f}".rstrip('0').rstrip('.') if '.' in f"{v:.3f}" else str(v)
+        else:
+            raw_v = str(v).replace('\r', ' ').replace('\n', ' ').strip()
+            clean_v = _METRIC_TOKEN_RE.sub('_', raw_v) if raw_v else 'none'
+        parts.append(f"{clean_k}={clean_v}")
+    log(' '.join(parts), level=level)
+
+
 def bin(s):
     return s.encode('latin-1')
 
@@ -1193,8 +1218,165 @@ def wait_loop(step: int, timeout: int, path: str, path2: str = '', *, require_it
         log(f"Waited ({step * max_loop}ms) for path {xbmc.getInfoLabel('Container.FolderPath')}")
 
 
-def clean_memory():
-    """Trigger Python garbage collection, close idle connections, and release heap via malloc_trim."""
+_32BIT_VMSIZE_GUARD_MB = 2600.0
+_MEMORY_PRESSURE_PROP = 'otaku.memory_pressure'
+_MEMORY_CONCURRENCY_PROP = 'otaku.memory_concurrency_limit'
+
+
+def is_32bit_process(force_override=None) -> bool:
+    """Return True when running in a 32-bit process (or when explicitly overridden in tests)."""
+    if force_override is not None:
+        return bool(force_override)
+    return sys.maxsize <= (2**32)
+
+
+def get_process_memory_mb(status_path='/proc/self/status'):
+    """Read Linux /proc/self/status VmRSS and VmSize in MB, returning None on unsupported platforms."""
+    try:
+        with open(status_path, 'r', encoding='utf-8', errors='replace') as f:
+            rss_kb = None
+            vmsize_kb = None
+            for line in f:
+                if line.startswith('VmRSS:'):
+                    parts = line.split()
+                    if len(parts) >= 2:
+                        rss_kb = int(parts[1])
+                elif line.startswith('VmSize:'):
+                    parts = line.split()
+                    if len(parts) >= 2:
+                        vmsize_kb = int(parts[1])
+                if rss_kb is not None and vmsize_kb is not None:
+                    break
+            if rss_kb is None and vmsize_kb is None:
+                return None
+            return {
+                'rss_mb': round((rss_kb or 0) / 1024.0, 2),
+                'vmsize_mb': round((vmsize_kb or 0) / 1024.0, 2),
+            }
+    except (OSError, ValueError, TypeError, IndexError):
+        return None
+
+
+def _trim_native_heap(trim_fn=None) -> bool:
+    """Release freed native heap pages via glibc malloc_trim(0) or Android Bionic mallopt(-101, 0)."""
+    if trim_fn is not None:
+        try:
+            return bool(trim_fn())
+        except Exception:
+            return False
+    try:
+        import ctypes
+        for lib_name in ('libc.so.6', 'libc.so', None):
+            try:
+                libc = ctypes.CDLL(lib_name)
+                trim_func = getattr(libc, 'malloc_trim', None)
+                if trim_func:
+                    trim_func.argtypes = [ctypes.c_size_t]
+                    trim_func.restype = ctypes.c_int
+                    trim_func(0)
+                    return True
+                mallopt_func = getattr(libc, 'mallopt', None)
+                if mallopt_func and lib_name == 'libc.so':
+                    mallopt_func.argtypes = [ctypes.c_int, ctypes.c_int]
+                    mallopt_func.restype = ctypes.c_int
+                    if mallopt_func(-101, 0):
+                        return True
+            except (OSError, AttributeError, TypeError, ValueError):
+                continue
+    except Exception as e:
+        log(f"malloc_trim warning: {e}", 'debug')
+    return False
+
+
+def enforce_memory_watermark(
+    context='service',
+    multipage_worker=None,
+    status_path='/proc/self/status',
+    force_32bit=None,
+    trim_fn=None,
+):
+    """Enforce C-37 32-bit Android ARM RSS/VmSize watermark guard with hysteresis recovery."""
+    is_32bit = is_32bit_process(force_override=force_32bit)
+    mem = get_process_memory_mb(status_path=status_path)
+    watermark_mb = float(getInt('general.memory_watermark_mb', default=900) or 900)
+    if watermark_mb <= 0:
+        watermark_mb = 900.0
+    vmsize_guard_mb = _32BIT_VMSIZE_GUARD_MB
+
+    result = {
+        'is_32bit': is_32bit,
+        'rss_mb': mem.get('rss_mb', 0.0) if mem else None,
+        'vmsize_mb': mem.get('vmsize_mb', 0.0) if mem else None,
+        'watermark_mb': watermark_mb,
+        'vmsize_guard_mb': vmsize_guard_mb,
+        'triggered': False,
+        'recovered': False,
+        'action': 'none',
+    }
+    if not is_32bit or mem is None:
+        return result
+
+    rss_mb = mem.get('rss_mb', 0.0)
+    vmsize_mb = mem.get('vmsize_mb', 0.0)
+    rss_hit = rss_mb >= watermark_mb
+    vmsize_hit = vmsize_mb >= vmsize_guard_mb
+
+    if rss_hit or vmsize_hit:
+        setGlobalProp(_MEMORY_PRESSURE_PROP, 'true')
+        setGlobalProp(_MEMORY_CONCURRENCY_PROP, '1')
+        if multipage_worker is not None and hasattr(multipage_worker, 'set_memory_pressure'):
+            try:
+                multipage_worker.set_memory_pressure(True, max_workers=1)
+            except Exception:
+                pass
+        clean_memory(trim_fn=trim_fn)
+        trimmed = _trim_native_heap(trim_fn=trim_fn)
+        action = 'throttle_gc_trim' if trimmed else 'throttle_gc_only'
+        result['triggered'] = True
+        result['action'] = action
+        log(
+            f"MemoryWatermarkGuard: 32-bit memory pressure ({context}) "
+            f"VmRSS={rss_mb:.1f}MB (watermark={watermark_mb:.0f}MB), "
+            f"VmSize={vmsize_mb:.1f}MB (guard={vmsize_guard_mb:.0f}MB) -> {action}",
+            'warning',
+        )
+        log_metric(
+            'memory_guard',
+            level='warning',
+            context=context,
+            rss_mb=rss_mb,
+            vmsize_mb=vmsize_mb,
+            watermark_mb=watermark_mb,
+            action=action,
+        )
+        return result
+
+    # Hysteresis clear when pressure flag is currently active and both RSS & VmSize drop < 85%
+    if getGlobalProp(_MEMORY_PRESSURE_PROP) == 'true':
+        if rss_mb < (watermark_mb * 0.85) and vmsize_mb < (vmsize_guard_mb * 0.85):
+            clearGlobalProp(_MEMORY_PRESSURE_PROP)
+            clearGlobalProp(_MEMORY_CONCURRENCY_PROP)
+            if multipage_worker is not None and hasattr(multipage_worker, 'set_memory_pressure'):
+                try:
+                    multipage_worker.set_memory_pressure(False, max_workers=None)
+                except Exception:
+                    pass
+            result['recovered'] = True
+            result['action'] = 'hysteresis_cleared'
+            log_metric(
+                'memory_guard',
+                level='info',
+                context=context,
+                rss_mb=rss_mb,
+                vmsize_mb=vmsize_mb,
+                watermark_mb=watermark_mb,
+                action='hysteresis_cleared',
+            )
+    return result
+
+
+def clean_memory(trim_fn=None):
+    """Trigger Python garbage collection, close idle connections, and release heap via malloc_trim/mallopt."""
     # 1. Clear excessive in-memory artwork cache
     global _artwork_cache
     if len(_artwork_cache) > 200:
@@ -1220,20 +1402,8 @@ def clean_memory():
     except Exception as e:
         log(f"gc.collect warning: {e}", 'debug')
 
-    # 4. Release freed heap pages to OS (Android Bionic & Linux glibc)
-    try:
-        import ctypes
-        for lib_name in ('libc.so', 'libc.so.6', None):
-            try:
-                libc = ctypes.CDLL(lib_name)
-                trim_func = getattr(libc, 'malloc_trim', None)
-                if trim_func:
-                    trim_func(0)
-                    break
-            except (OSError, AttributeError):
-                continue
-    except Exception as e:
-        log(f"malloc_trim warning: {e}", 'debug')
+    # 4. Release freed heap pages to OS (Linux glibc & Android Bionic)
+    _trim_native_heap(trim_fn=trim_fn)
 
 
 def init_session():

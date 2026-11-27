@@ -15,6 +15,7 @@ class AllDebrid:
         self.OauthTimeout = 0
         self.OauthTotalTimeout = 0
         self.dialog = None
+        self._checking_capacity = False
 
     def auth(self):
         import os
@@ -131,7 +132,85 @@ class AllDebrid:
             r = getattr(client, method.lower())(url, **kwargs)
         return r
 
+    def ensure_cloud_capacity(self, max_active_slots=25):
+        """NF-17: Prune oldest stalled/error AllDebrid magnets before pinning."""
+        if self._checking_capacity or not control.getBool('debrid.quota_guard', default=True):
+            return {'pruned': 0, 'saturated': False}
+        self._checking_capacity = True
+        pruned_ids = []
+        try:
+            params = {'agent': self.agent_identifier, 'apikey': self.token}
+            r = self._request_with_backoff('get', f'{self.base_url}/magnet/status', params=params)
+            data = (r.json(default={}) or {}).get('data') if r and r.ok else None
+            magnets = (data or {}).get('magnets', []) if isinstance(data, dict) else []
+            if isinstance(magnets, dict):
+                magnets = list(magnets.values())
+            if not isinstance(magnets, list) or not magnets:
+                return {'pruned': 0, 'saturated': False}
+            terminal_states = {'error', 'expired', 'dead', 'stalled', 'failed'}
+            stalled = [
+                m for m in magnets
+                if isinstance(m, dict) and m.get('id') is not None
+                and (
+                    str(m.get('status') or '').lower() in terminal_states
+                    or int(m.get('statusCode') or 0) >= 5
+                )
+            ]
+            stalled.sort(key=lambda m: str(m.get('uploadDate') or m.get('id') or ''))
+            active_count = len(magnets)
+            saturated = active_count >= int(max_active_slots)
+            for m in stalled:
+                mid = m['id']
+                if self.delete_magnet(mid):
+                    pruned_ids.append(mid)
+                    active_count -= 1
+            if pruned_ids:
+                control.log_metric(
+                    'debrid_quota_prune',
+                    level='info',
+                    provider='alldebrid',
+                    pruned_count=len(pruned_ids),
+                )
+            if active_count >= int(max_active_slots) and not pruned_ids:
+                control.log(
+                    f"AllDebrid Quota Guard: Active slots saturated ({active_count}/{max_active_slots}) "
+                    "with 0 stalled/error transfers; preserving healthy completed items.",
+                    'warning',
+                )
+            return {'pruned': len(pruned_ids), 'pruned_ids': pruned_ids, 'saturated': active_count >= int(max_active_slots)}
+        except Exception as e:
+            control.log(f"AllDebrid quota guard notice: {e}", 'debug')
+            return {'pruned': len(pruned_ids), 'saturated': False}
+        finally:
+            self._checking_capacity = False
+
+    def probe_instant_cache(self, magnet):
+        """Opt-in Lazy Top-N probe for AllDebrid; immediately removes uncached magnets."""
+        if control.abort_requested() or not magnet:
+            return False
+        magnet_data = self.addMagnet(magnet)
+        if not isinstance(magnet_data, dict) or not magnet_data.get('magnets'):
+            return False
+        m0 = magnet_data['magnets'][0]
+        mid = m0.get('id')
+        if not mid:
+            return False
+        is_cached = bool(m0.get('ready'))
+        try:
+            if not is_cached:
+                st_data = self.magnet_status(mid)
+                m_info = (st_data or {}).get('magnets') if isinstance(st_data, dict) else None
+                if isinstance(m_info, list):
+                    m_info = m_info[0] if m_info else {}
+                if isinstance(m_info, dict) and (str(m_info.get('status') or '').lower() == 'ready' or m_info.get('statusCode') == 4):
+                    is_cached = True
+        finally:
+            if not is_cached or self.autodelete:
+                self.delete_magnet(mid)
+        return is_cached
+
     def addMagnet(self, magnet_hash):
+        self.ensure_cloud_capacity()
         params = {
             'agent': self.agent_identifier,
             'apikey': self.token,

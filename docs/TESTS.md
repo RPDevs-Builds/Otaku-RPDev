@@ -11,10 +11,10 @@ Complete audit and reference map of the **Otaku-RPDev** test suite (**1,232 `tes
 | Gate / Runner | Command | Scope & What It Executes | Runtime / Threshold |
 |---|---|---|---|
 | **Fast QA Gate** | `python3 scripts/qa_fast.py` (or `pytest -m lint`) | Ruff (`E9,F63,F7,F82,F811,F405,F541`), `compileall`, `tests/lint/` (`46` tests) | ~22s; zero warnings/errors |
-| **Unified Full Gate** | `python3 scripts/verify_all.py --fail-below 65` | Ruff, `compileall`, all `tests/lint/` + `tests/unit/` + `tests/integration/` (`1,135` tests via `pytest` default / `unittest` fallback) + single-pass PEP 669 function coverage | ~95–115s; `>= 65.0%` (`68.59%` live) |
-| **Pytest Direct & Parallel** | `pytest -q` / `pytest -n auto --dist loadfile` | All `test_*.py` + `suite_*.py` (`1,270` collected items; filterable by `-m "lint\|unit\|integration\|e2e\|property\|benchmark"`) | Multi-core via `pytest-xdist` |
-| **Opaque E2E Suite** | `python3 scripts/e2e_v630_suite.py` (or `pytest -m e2e`) | `tests/e2e_v630/` (`suite_sp.py`, `suite_cr.py`, `suite_nf.py` — `145` executed tests across `v6.3.0+` stories) | ~70–90s; strict offline harness |
-| **Coverage Audit** | `python3 scripts/audit_function_coverage.py --fail-below 65` | Live-traced function & module coverage across `145` source files | `100.0%` files (`145/145`), `68.59%` functions (`1524/2222`) |
+| **Unified Full Gate** | `python3 scripts/verify_all.py --fail-below 65` | Ruff, `compileall`, all `tests/lint/` + `tests/unit/` + `tests/integration/` (`1,160` tests via `pytest` default / `unittest` fallback) + single-pass PEP 669 function coverage | ~105s; `>= 65.0%` (`75.7%` live) |
+| **Pytest Direct & Parallel** | `pytest -q` / `pytest -n auto --dist loadfile` | All `test_*.py` + `suite_*.py` (filterable by `-m "lint\|unit\|integration\|e2e\|property\|benchmark"`) | Multi-core via `pytest-xdist` |
+| **Opaque E2E Suite** | `python3 scripts/e2e_v630_suite.py` (or `pytest -m e2e`) | `tests/e2e_v630/` (`suite_sp.py`, `suite_cr.py`, `suite_nf.py` — `147` executed tests across `v6.3.0+`, `NF-17`, and `C-37` stories) | ~73s; strict offline harness |
+| **Coverage Audit** | `python3 scripts/audit_function_coverage.py --fail-below 65` | Live-traced function & module coverage across `145` source files | `100.0%` files (`145/145`), `75.7%` functions |
 | **Headless Real Kodi** | `python3 scripts/test_kodi_installs.py` | Flatpak Kodi 21.3 & 22.0 under `xvfb-run` + `scripts/kodi_e2e_mock_server.py` | Manual / local E2E verification |
 | **ONN Log Audit** | `python3 scripts/audit_onn_logs.py --concerns docs/CONCERNS.md` | Read-only `10.13.0.16` Kodi log pattern & concern regression check | Read-only HTTP `/tail` |
 
@@ -45,7 +45,8 @@ Enforces invariants across `plugin.video.otaku.rpdev`, `service.subtitles.otaku.
 ### A. `plugin.video.otaku.rpdev` (Core Video Add-on — `~1,130+` `test_*` defs)
 
 #### 1. Core UI, Router, WindowXML & Settings
-- **Settings & Schema**: `test_all_settings_outcomes.py` (`14`), `test_settings_schema_and_code_references.py` (`14`), `test_settings_manager.py` (`13`), `test_settings_routes_audit.py` (`2`), `test_setup_wizard.py` (`11`), `test_clean_settings.py` (`3`).
+- **Settings & Schema**: `test_all_settings_outcomes.py` (`14` — `503` declared settings), `test_settings_schema_and_code_references.py` (`14`), `test_settings_manager.py` (`13`), `test_settings_routes_audit.py` (`2`), `test_setup_wizard.py` (`11`), `test_clean_settings.py` (`3`).
+- **Sprint Hardening & Coverage Expansion**: `test_ws1_to_ws5_sprint_features.py` (WS-1..WS-5), `test_browsers_mal_and_otaku_coverage.py`, `test_debrid_providers_deep_coverage.py`, `test_watchlist_kitsu_and_flavors_coverage.py`, `test_embed_extractor_and_context_xml_coverage.py`, `test_audit_onn_logs.py`.
 - **WindowXML & UI Events**: `test_windows_dialogs.py` (`4`), `test_windowxml_event_dispatch.py` (`12`), `test_end_user_ui_and_routes.py` (`6`), `test_ui_core_engine.py` (`10`), `test_clear_cache_dialog.py` (`11`), `test_menu_order.py` (`23`), `test_menu_auto_refresh.py` (`6`), `test_colors.py` (`3`), `test_changelog_dismissal.py` (`4`), `test_v640_features.py` (`4` — NF-12 `SeriesProfileDialog` save/cancel/back close & overrides).
 
 #### 2. Scrapers, Candidate Scoring & Filtering

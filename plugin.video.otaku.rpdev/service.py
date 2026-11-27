@@ -762,6 +762,16 @@ class MultipageWorker(threading.Thread):
         super().__init__(name="Otaku-MultipageWorker", daemon=True)
         self.monitor = monitor or xbmc.Monitor()
         self._stop_event = threading.Event()
+        self.max_concurrency = 1 if control.getGlobalProp('otaku.memory_pressure') == 'true' else 2
+        self._memory_throttled = control.getGlobalProp('otaku.memory_pressure') == 'true'
+
+    def set_memory_pressure(self, throttled, max_workers=None):
+        """Throttle or restore MultipageWorker concurrency under 32-bit memory pressure."""
+        self._memory_throttled = bool(throttled)
+        if throttled:
+            self.max_concurrency = max(1, int(max_workers or 1))
+        else:
+            self.max_concurrency = int(max_workers or 2)
 
     def stop(self):
         """Signal the worker thread to stop cleanly."""
@@ -819,6 +829,8 @@ class MultipageWorker(threading.Thread):
                 return True
         except Exception:
             pass
+        if getattr(self, '_memory_throttled', False) or control.getGlobalProp('otaku.memory_pressure') == 'true':
+            return True
         return False
 
     @staticmethod
@@ -1066,10 +1078,16 @@ if __name__ == "__main__":
             except Exception:
                 pass
             control.setInt('update.time.1', now_ts)
-    # Prefetch watchlist in background thread (non-blocking)
-    threading.Thread(target=prefetch_watchlist, daemon=True).start()
-    # Prefetch airing calendar in background thread (non-blocking)
-    threading.Thread(target=prefetch_calendar, daemon=True).start()
+    # Startup 32-bit memory watermark guard prior to aggressive background prefetches (WS-1)
+    mem_state = control.enforce_memory_watermark(context='service_startup')
+    skip_startup_prefetch = bool(mem_state.get('triggered') or control.getGlobalProp('otaku.memory_pressure') == 'true')
+    if not skip_startup_prefetch:
+        # Prefetch watchlist in background thread (non-blocking)
+        threading.Thread(target=prefetch_watchlist, daemon=True).start()
+        # Prefetch airing calendar in background thread (non-blocking)
+        threading.Thread(target=prefetch_calendar, daemon=True).start()
+    else:
+        control.log("Service: Skipping background pre-caching due to 32-bit memory pressure", 'warning')
     # Refresh dynamic domains from mirror (non-blocking)
     from resources.lib.ui import domains
     threading.Thread(target=domains.refresh_domains, daemon=True).start()
@@ -1077,6 +1095,8 @@ if __name__ == "__main__":
     monitor = Monitor()
     # Start persistent multipage pre-caching worker
     multipage_worker = MultipageWorker(monitor=monitor)
+    if skip_startup_prefetch:
+        multipage_worker.set_memory_pressure(True, max_workers=1)
     multipage_worker.start()
     # Periodic background maintenance & memory trimming loop (every 15 minutes)
     while not monitor.abortRequested():
@@ -1085,7 +1105,9 @@ if __name__ == "__main__":
         if control.is_device_in_standby():
             control.log('Device display is in standby - pausing periodic memory trim')
             continue
-        control.clean_memory()
+        loop_mem_state = control.enforce_memory_watermark(context='service_loop', multipage_worker=multipage_worker)
+        if not loop_mem_state.get('triggered'):
+            control.clean_memory()
         try:
             refresh_apis()
         except Exception as e:

@@ -2962,6 +2962,67 @@ def get_database_stats():
     return "\n".join(lines)
 
 
+_SCRAPER_LATENCY_CACHE_KEY = 'scraper_latency_samples_v1'
+_SCRAPER_LATENCY_MAX_SAMPLES = 20
+_SCRAPER_LATENCY_LOCK = threading.Lock() if 'threading' in globals() else __import__('threading').Lock()
+
+
+def record_provider_latency(provider: str, elapsed_s: float):
+    """Record a bounded (<= 20 samples) per-provider scrape latency ring buffer sample in cache.db."""
+    if not provider or elapsed_s is None:
+        return
+    try:
+        val = max(0.0, float(elapsed_s))
+    except (TypeError, ValueError):
+        return
+    with _SCRAPER_LATENCY_LOCK:
+        try:
+            raw = cache_get(_SCRAPER_LATENCY_CACHE_KEY)
+            if raw and isinstance(raw.get('value'), str):
+                data = control.loads_json(raw['value'], default={})
+            elif raw and isinstance(raw.get('value'), dict):
+                data = dict(raw['value'])
+            else:
+                data = {}
+            if not isinstance(data, dict):
+                data = {}
+            samples = list(data.get(provider) or [])
+            samples.append(round(val, 4))
+            if len(samples) > _SCRAPER_LATENCY_MAX_SAMPLES:
+                samples = samples[-_SCRAPER_LATENCY_MAX_SAMPLES:]
+            data[provider] = samples
+            cache_insert(_SCRAPER_LATENCY_CACHE_KEY, json.dumps(data, separators=(',', ':')))
+        except Exception:
+            pass
+
+
+def get_provider_p90_latencies(min_samples: int = 3) -> dict:
+    """Return rolling p90 latency (seconds) per provider from bounded <=20-sample ring buffer."""
+    with _SCRAPER_LATENCY_LOCK:
+        try:
+            raw = cache_get(_SCRAPER_LATENCY_CACHE_KEY)
+            if not raw:
+                return {}
+            raw_val = raw.get('value')
+            data = control.loads_json(raw_val, default={}) if isinstance(raw_val, str) else raw_val
+            if not isinstance(data, dict):
+                return {}
+        except Exception:
+            return {}
+
+    p90_map = {}
+    for prov, samples in data.items():
+        if not isinstance(samples, list) or len(samples) < int(min_samples):
+            continue
+        clean = sorted(float(s) for s in samples if isinstance(s, (int, float)) and s >= 0)
+        if len(clean) < int(min_samples):
+            continue
+        # Nearest-rank 90th percentile
+        idx = max(0, min(len(clean) - 1, int((0.90 * len(clean)) + 0.999999) - 1))
+        p90_map[str(prov)] = round(clean[idx], 3)
+    return p90_map
+
+
 def get_scraper_metrics_report():
     """
     Generate telemetry dashboard report for scrapers, circuit breakers,
@@ -3016,7 +3077,14 @@ def get_scraper_metrics_report():
         lines.append(f"   Domain Mirror Error: {e}")
     lines.append("")
 
-    # 3. Provider Cache Statistics
+    # 3. Provider Latency & Cache Statistics
+    p90_latencies = get_provider_p90_latencies(min_samples=1)
+    if p90_latencies:
+        lines.append("▶ Rolling Per-Provider p90 Latencies (<=20 samples)")
+        for prov, p90_s in sorted(p90_latencies.items()):
+            lines.append(f"   • {prov:<16}: {p90_s:.2f}s (p90)")
+        lines.append("")
+
     lines.append("▶ Scraper & Provider Cache Health")
     try:
         if control.cacheFile and os.path.exists(control.cacheFile):
@@ -3051,13 +3119,19 @@ def get_scraper_metrics_report():
 
 
 def clear_scraper_metrics():
-    """Reset scraper circuit breakers and clear scraper cache entries."""
+    """Reset scraper circuit breakers, rolling latency ring buffers, and clear scraper cache entries."""
     try:
         from resources.lib.pages import circuit_breaker
         circuit_breaker.reset()
         control.log("ScraperCircuitBreaker: All circuits and counters reset", 'info')
     except Exception as e:
         control.log(f"Error resetting scraper circuit breaker: {e}", 'warning')
+
+    with _SCRAPER_LATENCY_LOCK:
+        try:
+            cache_insert(_SCRAPER_LATENCY_CACHE_KEY, '{}')
+        except Exception:
+            pass
 
     cache_clear_providers()
 
@@ -3362,8 +3436,6 @@ def prune_stale_multipage_jobs(max_age_seconds=86400, running_timeout=300):
 
 def _ensure_series_overrides_table():
     cache_key = f"{control.malSyncDB}:series_overrides"
-    if cache_key in _tables_ready:
-        return
     with SQL(control.malSyncDB) as cur:
         cur.execute(
             'CREATE TABLE IF NOT EXISTS series_overrides ('
@@ -3375,6 +3447,7 @@ def _ensure_series_overrides_table():
             'intro_offset_s INTEGER DEFAULT 0, '
             'outro_offset_s INTEGER DEFAULT 0, '
             'episode_offset INTEGER DEFAULT 0, '
+            'sub_offset_ms INTEGER DEFAULT 0, '
             'skip_filler_mode TEXT DEFAULT "default", '
             'updated_at INTEGER NOT NULL)'
         )
@@ -3383,6 +3456,11 @@ def _ensure_series_overrides_table():
         if 'episode_offset' not in cols:
             try:
                 cur.execute("ALTER TABLE series_overrides ADD COLUMN episode_offset INTEGER DEFAULT 0")
+            except Exception:
+                pass
+        if 'sub_offset_ms' not in cols:
+            try:
+                cur.execute("ALTER TABLE series_overrides ADD COLUMN sub_offset_ms INTEGER DEFAULT 0")
             except Exception:
                 pass
         cur.connection.commit()
@@ -3397,7 +3475,10 @@ def get_series_override(mal_id):
     try:
         with SQL(control.malSyncDB) as cur:
             cur.execute('SELECT * FROM series_overrides WHERE mal_id=?', (int(mal_id),))
-            return cur.fetchone()
+            row = cur.fetchone()
+            if isinstance(row, dict) and 'sub_offset_ms' not in row:
+                row['sub_offset_ms'] = 0
+            return row
     except Exception as e:
         control.log(f"get_series_override error for {mal_id}: {e}", level='warning')
         return None
@@ -3413,11 +3494,15 @@ def set_series_override(
     outro_offset_s=0,
     skip_filler_mode='default',
     episode_offset=0,
+    sub_offset_ms=None,
 ):
     """Create or update per-series playback/scraper overrides for a MAL ID."""
     if not mal_id or not str(mal_id).isdigit():
         return False
     _ensure_series_overrides_table()
+    if sub_offset_ms is None:
+        existing = get_series_override(mal_id)
+        sub_offset_ms = int(existing.get('sub_offset_ms') or 0) if isinstance(existing, dict) else 0
     now = int(time.time())
     try:
         with SQL(control.malSyncDB) as cur:
@@ -3425,8 +3510,8 @@ def set_series_override(
                 cur,
                 'INSERT OR REPLACE INTO series_overrides '
                 '(mal_id, audio_lang, sub_lang, sub_mode, preferred_provider, '
-                'intro_offset_s, outro_offset_s, episode_offset, skip_filler_mode, updated_at) '
-                'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                'intro_offset_s, outro_offset_s, episode_offset, sub_offset_ms, skip_filler_mode, updated_at) '
+                'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
                 (
                     int(mal_id),
                     str(audio_lang or '').strip() or None,
@@ -3436,6 +3521,7 @@ def set_series_override(
                     int(intro_offset_s or 0),
                     int(outro_offset_s or 0),
                     int(episode_offset or 0),
+                    int(sub_offset_ms or 0),
                     str(skip_filler_mode or 'default').strip(),
                     now,
                 ),

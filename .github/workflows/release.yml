@@ -120,6 +120,15 @@ jobs:
               out.write(body + "\n")
           EOF
 
+      - name: Optimize Staged Release PNG Assets (WS-7)
+        run: |
+          mkdir -p dist/stage
+          cp -r plugin.video.otaku.rpdev context.otaku.rpdev service.subtitles.otaku.rpdev dist/stage/
+          if ! command -v oxipng >/dev/null 2>&1; then
+            (sudo apt-get update -qq && sudo apt-get install -y -qq oxipng) || true
+          fi
+          python3 scripts/optimize_addon_assets.py --apply --target-dir dist/stage
+
       - name: Package Add-on Zip
         run: |
           VERSION="${{ steps.version_info.outputs.version }}"
@@ -129,23 +138,28 @@ jobs:
           python3 - << EOF
           import os, zipfile
 
+          stage_root = "dist/stage"
+
           def package_addon(addon_id, version, extra_excludes=()):
               zip_name = f"dist/{addon_id}-{version}.zip"
               exclude_dirs = {'__pycache__', 'tests', 'docs', 'teamwork', 'scratch', *extra_excludes}
+              src_dir = os.path.join(stage_root, addon_id)
               with zipfile.ZipFile(zip_name, 'w', compression=zipfile.ZIP_DEFLATED) as zf:
-                  for root, dirs, files in os.walk(addon_id):
+                  for root, dirs, files in os.walk(src_dir):
                       dirs[:] = [d for d in dirs if d not in exclude_dirs and not d.startswith('.')]
                       for f in files:
                           if f.endswith(('.pyc', '.pyo')) or f.startswith('.'):
                               continue
                           full_p = os.path.join(root, f)
-                          zf.write(full_p, full_p)
+                          arc_p = os.path.relpath(full_p, stage_root)
+                          zf.write(full_p, arc_p)
               print(f"Created {zip_name}: {os.path.getsize(zip_name):,} bytes")
 
           package_addon("plugin.video.otaku.rpdev", "$VERSION")
           package_addon("context.otaku.rpdev", "$CTX_VERSION", extra_excludes=('scripts',))
           package_addon("service.subtitles.otaku.rpdev", "$SUB_VERSION")
           EOF
+          rm -rf dist/stage
 
           # Checksums
           cd dist

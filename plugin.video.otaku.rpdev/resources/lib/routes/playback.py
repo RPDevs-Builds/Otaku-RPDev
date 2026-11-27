@@ -115,6 +115,14 @@ def _try_preresolved_handoff(mal_id, episode, params, resume, media_type='episod
         return False
 
     control.log(f"Playback: Zero-Wait Pre-Resolved Stream Hit for {mal_id} Ep {episode} ({media_type})!", 'info')
+    control.log_metric(
+        'zero_wait_hit',
+        level='info',
+        mal_id=mal_id,
+        episode=episode,
+        media_type=media_type,
+        stage='handoff',
+    )
     _clear_preresolved_handoff()
 
     preresolved_data = control.loads_json(preresolved_data_str, default={}) if preresolved_data_str else {}
@@ -135,6 +143,13 @@ def _try_preresolved_handoff(mal_id, episode, params, resume, media_type='episod
                 'warning',
             )
             _mark_candidate_mirror_failure(preresolved_data.get('source') or {}, preresolved_url, cooldown=900)
+            control.log_metric(
+                'zero_wait_miss',
+                level='warning',
+                mal_id=mal_id,
+                episode=episode,
+                reason='stale_expired',
+            )
             return False
 
     import xbmc, xbmcgui, xbmcplugin

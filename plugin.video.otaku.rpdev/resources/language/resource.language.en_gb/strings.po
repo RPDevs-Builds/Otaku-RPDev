@@ -266,31 +266,31 @@ msgid "Search Both"
 msgstr ""
 
 msgctxt "#30061"
-msgid "Search Movies"
+msgid "Target RSS memory watermark on 32-bit Android ARM devices before throttling background pre-caching and trimming native heap (Default: 900 MB)."
 msgstr ""
 
 msgctxt "#30062"
-msgid "Search TV Shows"
+msgid "Pre-Pin Debrid Quota & Slot Guard"
 msgstr ""
 
 msgctxt "#30063"
-msgid "Search TV Shorts"
+msgid "Automatically prune oldest stalled or error transfers before pinning new magnets when cloud slots or storage quota are saturated (Default: Enabled)."
 msgstr ""
 
 msgctxt "#30064"
-msgid "Search Specials"
+msgid "Lazy Top-N Instant Cache Probe"
 msgstr ""
 
 msgctxt "#30065"
-msgid "Search OVAs"
+msgid "Opt-in fallback when a debrid bulk availability endpoint is blocked: probes top 3 Tier-3 candidates on demand and deletes uncached debris immediately (Default: Disabled)."
 msgstr ""
 
 msgctxt "#30066"
-msgid "Search ONAs"
+msgid "Auto-Calibrate Subtitle Bumper Offset"
 msgstr ""
 
 msgctxt "#30067"
-msgid "Search Music Videos"
+msgid "Automatically detect bounded 3s to 12s commercial bumper shifts by corroborating OP/ED dialogue silence gaps with chapter markers (Default: Disabled)."
 msgstr ""
 
 msgctxt "#30068"
@@ -4025,6 +4025,10 @@ msgstr ""
 
 msgctxt "#30597"
 msgid "Browse by Year & Season (Offline)"
+msgstr ""
+
+msgctxt "#30999"
+msgid "32-Bit Memory Watermark (MB)"
 msgstr ""
 
 

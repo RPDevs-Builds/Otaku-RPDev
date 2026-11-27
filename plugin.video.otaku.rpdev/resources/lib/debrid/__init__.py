@@ -1,4 +1,5 @@
 import threading
+import time
 
 from resources.lib.debrid import premiumize, torbox, easydebrid, debrid_cache
 from resources.lib.ui import control
@@ -95,6 +96,78 @@ class Debrid:
             control.log(f'Failed to get IMDB ID for cache check: {e}', 'warning')
         return imdb_id, season
 
+    def lazy_probe_cached_torrents(self, provider_key, torrent_list, max_candidates=3, max_total_s=6.0):
+        """
+        Opt-in Lazy Top-N instant availability probe (debrid.lazy_cache_probe) when a bulk
+        endpoint is blocked/deprecated. Probes <=3 Tier-3 highest-seeder candidates within <=6s,
+        immediately deletes uncached transfers, and persists ONLY positive hits to debrid_cache.
+        """
+        if not torrent_list or not control.getBool('debrid.lazy_cache_probe', default=False):
+            return set()
+
+        cache_code_map = {
+            'realdebrid': 'rd',
+            'alldebrid': 'ad',
+            'premiumize': 'pm',
+            'torbox': 'tb',
+        }
+        cache_code = cache_code_map.get(provider_key, provider_key)
+
+        tier3 = [
+            t for t in torrent_list
+            if isinstance(t, dict) and t.get('hash') and float(t.get('relevance') or 0) >= 140
+        ]
+        seen_hashes = set()
+        deduped = []
+        for t in sorted(tier3, key=lambda x: int(x.get('seeders') or 0), reverse=True):
+            h = str(t['hash']).strip().lower()
+            if h not in seen_hashes:
+                seen_hashes.add(h)
+                deduped.append(t)
+            if len(deduped) >= int(max_candidates):
+                break
+
+        if not deduped:
+            return set()
+
+        if provider_key == 'realdebrid':
+            from resources.lib.debrid import real_debrid
+            client_inst = real_debrid.RealDebrid()
+        elif provider_key == 'alldebrid':
+            from resources.lib.debrid import all_debrid
+            client_inst = all_debrid.AllDebrid()
+        elif provider_key == 'premiumize':
+            client_inst = premiumize.Premiumize()
+        elif provider_key == 'torbox':
+            client_inst = torbox.TorBox()
+        else:
+            return set()
+
+        confirmed = set()
+        t_start = time.monotonic()
+        for candidate in deduped:
+            if (time.monotonic() - t_start) >= float(max_total_s) or control.abort_requested():
+                break
+            h = str(candidate['hash']).strip().lower()
+            magnet = candidate.get('magnet') or f"magnet:?xt=urn:btih:{h}"
+            try:
+                if client_inst.probe_instant_cache(magnet):
+                    confirmed.add(h)
+            except Exception as e:
+                control.log(f"Lazy cache probe ({provider_key}) error for {h[:8]}: {e}", 'debug')
+
+        if confirmed:
+            # Persist ONLY confirmed positive hashes (never poison cache with negatives)
+            debrid_cache.set_cached_hashes([(h, 'True') for h in confirmed], cache_code)
+            control.log_metric(
+                'lazy_cache_probe',
+                level='info',
+                provider=provider_key,
+                probed=len(deduped),
+                confirmed=len(confirmed),
+            )
+        return confirmed
+
     def all_debrid_worker(self, torrent_list, mal_id=None, episode=None, media_type=None, rescrape=False):
         if not torrent_list:
             return
@@ -129,6 +202,9 @@ class Debrid:
                         if external_cached:
                             hashes_to_cache = [(h, 'True') for h in external_cached]
                             debrid_cache.set_cached_hashes(hashes_to_cache, 'ad')
+                    if not external_cached and control.getBool('debrid.lazy_cache_probe', default=False):
+                        unknown_torrents = [t for t in torrent_list if t.get('hash', '').lower() in ready_hashes]
+                        external_cached = self.lazy_probe_cached_torrents('alldebrid', unknown_torrents)
             finally:
                 debrid_cache.release_in_flight(ready_hashes, 'ad')
 
@@ -181,6 +257,9 @@ class Debrid:
                         if external_cached:
                             hashes_to_cache = [(h, 'True') for h in external_cached]
                             debrid_cache.set_cached_hashes(hashes_to_cache, 'rd')
+                    if not external_cached and control.getBool('debrid.lazy_cache_probe', default=False):
+                        unknown_torrents = [t for t in torrent_list if t.get('hash', '').lower() in ready_hashes]
+                        external_cached = self.lazy_probe_cached_torrents('realdebrid', unknown_torrents)
             finally:
                 debrid_cache.release_in_flight(ready_hashes, 'rd')
 
@@ -195,11 +274,16 @@ class Debrid:
     def premiumize_worker(self, torrent_list):
         hash_list = [i['hash'] for i in torrent_list]
         if len(hash_list) > 0:
-            premiumizeCache = premiumize.Premiumize().hash_check(hash_list)
+            pm = premiumize.Premiumize()
+            premiumizeCache = pm.hash_check(hash_list)
             if not premiumizeCache or 'response' not in premiumizeCache:
+                probed = self.lazy_probe_cached_torrents('premiumize', torrent_list) if pm._bulk_blocked else set()
                 for torrent in torrent_list:
                     torrent['debrid_provider'] = 'Premiumize'
-                    self.premiumizeUnCached.append(torrent)
+                    if str(torrent.get('hash') or '').lower() in probed:
+                        self.premiumizeCached.append(torrent)
+                    else:
+                        self.premiumizeUnCached.append(torrent)
                 return
             premiumizeCache = premiumizeCache['response']
 
@@ -213,11 +297,16 @@ class Debrid:
     def torbox_worker(self, torrent_list):
         hash_list = [i['hash'].lower() for i in torrent_list if i.get('hash')]
         if len(hash_list) > 0:
-            torbox_result = torbox.TorBox().hash_check(hash_list)
+            tb = torbox.TorBox()
+            torbox_result = tb.hash_check(hash_list)
             if not torbox_result:
+                probed = self.lazy_probe_cached_torrents('torbox', torrent_list) if tb._bulk_blocked else set()
                 for torrent in torrent_list:
                     torrent['debrid_provider'] = 'TorBox'
-                    self.torboxUnCached.append(torrent)
+                    if str(torrent.get('hash') or '').lower() in probed:
+                        self.torboxCached.append(torrent)
+                    else:
+                        self.torboxUnCached.append(torrent)
                 return
             cache_check = {i['hash'].lower() for i in torbox_result if isinstance(i, dict) and i.get('hash')}
             for torrent in torrent_list:
