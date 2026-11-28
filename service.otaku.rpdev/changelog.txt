@@ -1,3 +1,8 @@
+Changelog v1.2.1 (2026-11-27):
+- Upgrade-Time Registration Guard & Clean SWIG Shutdown:
+  - Updated `_locate_otaku_plugin_path(require_registered=True)` in `service.py` so startup waits until `xbmcaddon.Addon('plugin.video.otaku.rpdev')` succeeds in Kodi's `AddonManager`, preventing `Unknown addon id` exceptions during simultaneous upgrades.
+  - Updated `otaku_service/daemon.py:_shutdown_cleanup()` to call `control.release_kodi_proxies()` and release `svc_monitor` cleanly on exit, eliminating lingering `XBMCAddon` SWIG wrapper warnings.
+
 Changelog v1.2.0 (2026-11-27):
 - Companion Subtitle Service Settings Split Integration (service.subtitles.otaku.rpdev v1.1.0):
   - Added self-contained pre-prune raw-XML migration (`migrate_subtitle_settings()`) with on-disk v1.1.0+ schema readiness guard inside `otaku_service/migration.py`, executed at startup prior to orphaned-settings pruning.

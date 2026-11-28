@@ -1105,7 +1105,7 @@ def addon_side_effect(addon_id=None):
                 else ('Otaku RPDev Subtitles' if effective_aid == 'service.subtitles.otaku.rpdev' else 'Otaku RPDev')
             ),
             'version': (
-                '1.2.0' if effective_aid == 'service.otaku.rpdev'
+                '1.2.1' if effective_aid == 'service.otaku.rpdev'
                 else ('1.1.0' if effective_aid == 'service.subtitles.otaku.rpdev' else '6.9.0')
             ),
             'icon': '',

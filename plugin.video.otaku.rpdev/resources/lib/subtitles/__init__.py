@@ -220,12 +220,13 @@ def auto_download_subtitles(meta: Optional[VideoMeta] = None, settings: Optional
 
     # Attempt download on highest ranking candidates matching preferred language.
     # Prioritize non-Season-Pack candidates first so unverified packs cannot exhaust MAX_AUTO_ATTEMPTS.
-    MAX_AUTO_ATTEMPTS = 6
+    MAX_AUTO_ATTEMPTS = 10
     MAX_PACK_ATTEMPTS = 3
     non_pack_candidates = [c for c in results if getattr(c, 'match_reason', '') != 'Season Pack']
     pack_candidates = [c for c in results if getattr(c, 'match_reason', '') == 'Season Pack']
     ordered_candidates = non_pack_candidates + pack_candidates[:MAX_PACK_ATTEMPTS]
     attempts = 0
+    seen_urls = set()
     for candidate in ordered_candidates:
         if getattr(candidate, 'match_reason', '') in ('Mismatch', 'Title Mismatch'):
             control.log(
@@ -233,6 +234,11 @@ def auto_download_subtitles(meta: Optional[VideoMeta] = None, settings: Optional
                 'debug',
             )
             continue
+        cand_key = (getattr(candidate, 'service_name', ''), getattr(candidate, 'download_url', ''))
+        if cand_key[1] and cand_key in seen_urls:
+            continue
+        if cand_key[1]:
+            seen_urls.add(cand_key)
         if attempts >= MAX_AUTO_ATTEMPTS:
             break
 

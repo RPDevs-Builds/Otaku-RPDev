@@ -243,7 +243,8 @@ class BrowserBase(object):
 
     def _get_request(self, url, data=None, headers=None):
         if data:
-            url = "%s?%s" % (url, urllib.parse.urlencode(data))
+            sep = '&' if '?' in url else '?'
+            url = f"{url}{sep}{urllib.parse.urlencode(data)}"
         return self._send_request(url, data=None, headers=headers)
 
     @staticmethod

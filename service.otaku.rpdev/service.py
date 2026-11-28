@@ -30,17 +30,26 @@ if _SERVICE_LIB_DIR not in sys.path:
 from otaku_service import migration  # noqa: E402
 
 
-def _locate_otaku_plugin_path():
-    """Return filesystem path of plugin.video.otaku.rpdev if installed, else None."""
+def _locate_otaku_plugin_path(require_registered=False):
+    """Return filesystem path of plugin.video.otaku.rpdev if installed, else None.
+    When *require_registered* is True, requires xbmcaddon.Addon(PLUGIN_ADDON_ID) to
+    succeed so service startup waits for Kodi AddonManager registration during upgrades."""
     try:
         addon = xbmcaddon.Addon(PLUGIN_ADDON_ID)
-        raw_path = addon.getAddonInfo('path')
+        try:
+            raw_path = addon.getAddonInfo('path')
+        finally:
+            del addon
         if raw_path:
             translated = xbmcvfs.translatePath(raw_path)
             if translated and os.path.isdir(translated):
                 return translated
     except Exception:
-        pass
+        if require_registered:
+            return None
+
+    if require_registered:
+        return None
 
     repo_sibling = os.path.join(
         os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
@@ -83,10 +92,10 @@ def _plugin_supports_service_addon(plugin_path):
 
 
 def _wait_for_compatible_plugin(monitor, max_wait_s=30.0):
-    """Wait up to max_wait_s in 1.0s abort-responsive ticks for v6.7.0+ plugin on disk."""
+    """Wait up to max_wait_s in 1.0s abort-responsive ticks for v6.7.0+ plugin registered in Kodi."""
     deadline = time.monotonic() + float(max_wait_s)
     while not monitor.abortRequested():
-        path = _locate_otaku_plugin_path()
+        path = _locate_otaku_plugin_path(require_registered=True)
         if path and _plugin_supports_service_addon(path):
             if path not in sys.path:
                 sys.path.insert(0, path)
@@ -210,6 +219,15 @@ def run_service_loop(monitor=None, max_wait_s=30.0):
                 break
     finally:
         daemon._shutdown_cleanup(multipage_worker)
+        try:
+            del svc_monitor
+        except Exception:
+            pass
+        if monitor is None:
+            try:
+                del mon
+            except Exception:
+                pass
 
     return True
 

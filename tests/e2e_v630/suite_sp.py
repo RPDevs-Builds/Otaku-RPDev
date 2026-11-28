@@ -719,7 +719,8 @@ class TestSP03AuditOnnLogsAndHygiene(unittest.TestCase):
         control.setInt('general.memory_watermark_mb', 900)
         worker = MagicMock()
         try:
-            with tempfile.TemporaryDirectory(prefix='otaku_c37_') as td:
+            with tempfile.TemporaryDirectory(prefix='otaku_c37_') as td, \
+                 patch.object(control, 'get_device_ram_mb', return_value=2048):
                 status_file = os.path.join(td, 'status')
                 # Step 1: Exceed VmRSS watermark (930 MB >= 900 MB)
                 with open(status_file, 'w', encoding='utf-8') as f:

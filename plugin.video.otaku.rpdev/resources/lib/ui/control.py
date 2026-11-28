@@ -1563,6 +1563,12 @@ def enforce_memory_watermark(
     if watermark_mb <= 0:
         watermark_mb = 900.0
     vmsize_guard_mb = _32BIT_VMSIZE_GUARD_MB
+    ram_mb = get_device_ram_mb()
+    if ram_mb is not None and ram_mb > 2500:
+        # Scale 32-bit Android guards on 3GB+ RAM devices (e.g. 2912 MB) when user keeps 900 MB default
+        if watermark_mb == 900.0:
+            watermark_mb = 1152.0
+        vmsize_guard_mb = 3200.0
 
     result = {
         'is_32bit': is_32bit,
@@ -1822,6 +1828,15 @@ def webpdb_post_mortem_context(port=None):
     return _NullContext()
 
 
+def release_kodi_proxies():
+    """Release cached Kodi SWIG proxy handles (Window, Addon, Settings, PlayList, Monitor)."""
+    for proxy in (progressDialog, homeWindow, playerWindow, playList, ADDON, CONTEXT_ADDON, SERVICE_ADDON, SUBTITLE_ADDON, settings, service_settings, subtitle_settings, monitor):
+        try:
+            proxy.cleanup()
+        except Exception:
+            pass
+
+
 def cleanup():
     """Explicitly release Kodi GUI dialogs, SQLite connections, and C++ resources on script shutdown."""
     global _directory_ended
@@ -1833,11 +1848,7 @@ def cleanup():
         database.close_all_connections()
     except Exception:
         pass
-    for proxy in (progressDialog, homeWindow, playerWindow, playList, ADDON, CONTEXT_ADDON, SERVICE_ADDON, SUBTITLE_ADDON, settings, service_settings, subtitle_settings, monitor):
-        try:
-            proxy.cleanup()
-        except Exception:
-            pass
+    release_kodi_proxies()
     try:
         from resources.lib.windows.base_window import BaseWindow
         BaseWindow.cleanup_all()
@@ -2133,9 +2144,9 @@ def set_videotags(li, info):
                     vinfo.setHdrType(val)
                 except Exception:
                     pass
-            li.setProperty('hdr_type', hdr_type)
-            li.setProperty('hdr_badge', hdr_badge)
-            li.setProperty('VideoResolution.HDRType', str(raw_hdr_hint or hdr_type))
+            li.setProperty('hdr_type', str(hdr_type or ''))
+            li.setProperty('hdr_badge', str(hdr_badge or ''))
+            li.setProperty('VideoResolution.HDRType', str(raw_hdr_hint or hdr_type or ''))
 
 
 def jsonrpc(json_data):
@@ -2283,25 +2294,26 @@ def clean_art_dict(art):
 
 
 def xbmc_add_dir(name, url, art, info, draw_cm, bulk_add, isfolder, isplayable, bulk_prefs=None):
-    u = addon_url(url)
+    u = addon_url(str(url or ''))
     liz = xbmcgui.ListItem(str(name or ''), offscreen=True)
     if info:
         set_videotags(liz, info)
         # Upcoming dub release: render in Label2 (right-aligned between title and watch indicator)
         _code = info.get('code')
-        if isinstance(_code, str) and _code.startswith(('Dub ', 'Sub ')):
-            liz.setLabel2(_code)
+        if isinstance(_code, str) and _code.startswith(('Dub ', 'Sub ')) and _code:
+            liz.setLabel2(str(_code))
     if draw_cm:
         cm = [
             (
-                x[0],
-                x[1]
-                if x[1].startswith(('RunPlugin(', 'PlayMedia(', 'Container.', 'ActivateWindow('))
-                else f'RunPlugin(plugin://{ADDON_ID}/{x[1]}/{url})'
+                str(x[0] or ''),
+                str(x[1] or '')
+                if str(x[1] or '').startswith(('RunPlugin(', 'PlayMedia(', 'Container.', 'ActivateWindow('))
+                else f"RunPlugin(plugin://{ADDON_ID}/{str(x[1] or '')}/{str(url or '')})"
             )
-            for x in draw_cm
+            for x in draw_cm if x and len(x) >= 2 and x[0] is not None and x[1] is not None
         ]
-        liz.addContextMenuItems(cm)
+        if cm:
+            liz.addContextMenuItems(cm)
     # Check new artwork.fanart setting (inverted logic from old fanart_disable)
     if bulk_prefs is not None:
         artwork_fanart_enabled = bulk_prefs['artwork_fanart_enabled']

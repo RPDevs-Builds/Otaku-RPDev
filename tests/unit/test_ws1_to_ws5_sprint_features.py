@@ -52,7 +52,8 @@ class TestWS1MemoryWatermarkGuard(unittest.TestCase):
     def test_ws1_happy_rss_trigger_and_hysteresis_recovery(self):
         """Happy path + hysteresis: >= 900 MB RSS trips throttle_gc_trim; < 85% clears pressure."""
         worker = MagicMock()
-        with tempfile.TemporaryDirectory() as tmpdir:
+        with tempfile.TemporaryDirectory() as tmpdir, \
+             patch.object(control, 'get_device_ram_mb', return_value=2048):
             high_status = self._write_proc_status(tmpdir, rss_kb=920 * 1024, vmsize_kb=1500 * 1024)
             res = control.enforce_memory_watermark(
                 context='unit_test',
@@ -95,14 +96,15 @@ class TestWS1MemoryWatermarkGuard(unittest.TestCase):
             worker.set_memory_pressure.assert_called_with(False, max_workers=None)
 
     def test_ws1_negative_vmsize_2600mb_guard_and_64bit_skip(self):
-        """Negative/Edge: VmSize >= 2600 MB trips guard even at low RSS; 64-bit host returns no-op."""
+        """Negative/Edge: VmSize >= 2600 MB trips guard even at low RSS on <=2GB sticks; 64-bit host returns no-op."""
         with tempfile.TemporaryDirectory() as tmpdir:
             vmsize_high = self._write_proc_status(tmpdir, rss_kb=450 * 1024, vmsize_kb=2650 * 1024)
-            res_32 = control.enforce_memory_watermark(
-                status_path=vmsize_high,
-                force_32bit=True,
-                trim_fn=lambda: False,
-            )
+            with patch.object(control, 'get_device_ram_mb', return_value=2048):
+                res_32 = control.enforce_memory_watermark(
+                    status_path=vmsize_high,
+                    force_32bit=True,
+                    trim_fn=lambda: False,
+                )
             self.assertTrue(res_32['triggered'])
             self.assertEqual(res_32['action'], 'throttle_gc_only')
 

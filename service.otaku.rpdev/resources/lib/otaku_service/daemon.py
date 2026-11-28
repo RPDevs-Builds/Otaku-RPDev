@@ -702,7 +702,7 @@ class MultipageWorker(threading.Thread):
 
 
 def _shutdown_cleanup(multipage_worker=None):
-    """Enforce deterministic <2s shutdown: abort/stop -> 1s worker join -> passive WAL checkpoint -> close pools."""
+    """Enforce deterministic <2s shutdown: abort/stop -> 1s worker join -> passive WAL checkpoint -> close pools -> release SWIG proxies."""
     if multipage_worker is not None:
         try:
             multipage_worker.stop()
@@ -713,6 +713,11 @@ def _shutdown_cleanup(multipage_worker=None):
         from resources.lib.ui import database
         database.checkpoint_databases(truncate=False)
         database.close_all_connections()
+    except Exception:
+        pass
+    try:
+        from resources.lib.ui import control
+        control.release_kodi_proxies()
     except Exception:
         pass
 

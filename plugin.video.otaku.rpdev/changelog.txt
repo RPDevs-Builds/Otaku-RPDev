@@ -1,3 +1,11 @@
+Changelog v6.9.2 (2026-11-27):
+- Production Log Hardening, Scraper & Memory Tuning (service.otaku.rpdev v1.2.1):
+  - Service Upgrade Race & SWIG Cleanup: `service.otaku.rpdev` now waits for Kodi `AddonManager` registration of `plugin.video.otaku.rpdev` before starting the service loop and releases all Kodi SWIG proxy handles cleanly via `control.release_kodi_proxies()`.
+  - AnimePahe Mirror & Proxy Fallback: Rotates across healthy `animepahe_mirrors` and `translate.goog` (`BrowserBase._get_request()` query-param safe) with a 900s per-mirror cooldown instead of a 60-minute single-host lock, while preserving FlareSolverr solving on Cloudflare 403 when enabled.
+  - Subtitle Auto-Download Resilience: Raised `MAX_AUTO_ATTEMPTS` from 6 to 10, deduplicated candidate URLs, and added clear per-candidate rejection diagnostics.
+  - Mid-Stream Buffer Stall Guard: Raised `keepAlive()` `stagnant_cycles` threshold from 4 (20s) to 6 (30s) and skipped tripping `adaptive_circuit_breaker` when `buffer_stall` has 0 backup candidates.
+  - Kodi 22 String Coercion & 3GB+ 32-Bit Memory Scaling: Coerced remaining `None` strings in `xbmc_add_dir()` / `set_videotags()`, and scaled `MemoryWatermarkGuard` to 1152 MB RSS / 3200 MB VmSize on > 2500 MB RAM hosts when using the 900 MB default (preserving 900 / 2600 MB on <= 2 GB devices).
+
 Changelog v6.9.1 (2026-11-27):
 - Subtitle Timing & Sync + Skin Shortcuts Modal Protection:
   - Chapter-Aligned Subtitle Calibration: Fixed `otaku.scene_markers` `'kind'`/`'type'` schema mismatch, added `intro_start <= 2.0s` OP-end calibration (positive shifts accepted directly; negative shifts require outro, pre-OP, or duration-overflow corroboration with ASS Title/Sign false-positive guards), and added abort-safe async `AniSkip` / chapter wait before auto-subtitle calibration.

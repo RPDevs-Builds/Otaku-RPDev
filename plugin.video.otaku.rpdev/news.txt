@@ -1,7 +1,24 @@
 ========================
+[B]OTAKU RPDEV v6.9.2[/B]
+Reliability & Memory Tuning
+========================
+
+v6.9.2 Highlights:
+  * Hardware-Aware 32-Bit Memory Guard: Keeps 900 MB RSS / 2600 MB VmSize
+    on <= 2 GB sticks and scales to 1152 MB RSS / 3200 MB VmSize on 3 GB+
+    devices so background pre-caching stays active without OOM risk.
+  * AnimePahe & Subtitle Resilience: Added AnimePahe mirror + proxy
+    rotation with 900s cooldowns (and FlareSolverr CF support), raised
+    subtitle auto-download retries to 10 with URL deduplication, and
+    hardened mid-stream buffer-stall failover.
+  * Clean Service Upgrades & Shutdown: Eliminated upgrade-time Unknown
+    Addon ID noise, lingering SWIG handle warnings, and browse None
+    string warnings.
+
+--------------------------------
 [B]OTAKU RPDEV v6.9.1[/B]
 Subtitle Sync & Skin Shortcuts
-========================
+--------------------------------
 
 v6.9.1 Highlights:
   * Subtitle Timing Persistence: Adjustments made with Kodi's in-player

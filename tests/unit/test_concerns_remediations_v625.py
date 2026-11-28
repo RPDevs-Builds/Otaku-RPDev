@@ -156,7 +156,7 @@ class TestConcernsRemediationsV625(unittest.TestCase):
             with patch('resources.lib.endpoints.malsync.get_title', return_value='Blue Exorcist'):
                 results = scraper.get_sources(11737, 1)
                 self.assertEqual(results, [])
-                mock_mark.assert_called_with(scraper._BASE_URL, cooldown=3600)
+                mock_mark.assert_any_call(scraper._BASE_URL, cooldown=900)
 
     @patch('resources.lib.ui.database.get', return_value=None)
     def test_hianime_resolve_anime_id_fast_fails_on_dead_mirror(self, mock_db_get):

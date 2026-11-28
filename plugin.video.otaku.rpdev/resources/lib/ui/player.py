@@ -697,11 +697,6 @@ class WatchlistPlayer(player):
                 active_src_url = str(ctx.get('active_url') or self.path or '')
             if active_src_url and active_src_url.lower().startswith(('http://', 'https://')):
                 failing_host = urllib.parse.urlparse(active_src_url.split('|', 1)[0]).netloc.lower()
-        if failing_host:
-            domains.adaptive_circuit_breaker.record_failure(failing_host, category='debrid')
-        elif ctx.get('debrid_provider'):
-            domains.adaptive_circuit_breaker.record_failure(str(ctx['debrid_provider']).lower(), category='debrid')
-
         from resources.lib.windows import resolver as resolver_mod
         sources_list = list(ctx.get('sources') or [])
         try:
@@ -723,16 +718,31 @@ class WatchlistPlayer(player):
             failing_host=failing_host,
         )
         if not backup or not backup.get('url'):
-            control.log_metric(
-                'failover',
-                level='warning',
-                reason=reason,
-                mal_id=self.mal_id,
-                episode=ep_str,
-                attempt=attempts + 1,
-                success=False,
-            )
+            if reason != 'buffer_stall':
+                if failing_host:
+                    domains.adaptive_circuit_breaker.record_failure(failing_host, category='debrid')
+                elif ctx.get('debrid_provider'):
+                    domains.adaptive_circuit_breaker.record_failure(str(ctx['debrid_provider']).lower(), category='debrid')
+                control.log_metric(
+                    'failover',
+                    level='warning',
+                    reason=reason,
+                    mal_id=self.mal_id,
+                    episode=ep_str,
+                    attempt=attempts + 1,
+                    success=False,
+                )
+            else:
+                control.log(
+                    f"Player: Mid-stream buffer stall at {int(self.current_time or 0)}s; no backup candidate available, allowing Kodi reconnect",
+                    'info',
+                )
             return False
+
+        if failing_host:
+            domains.adaptive_circuit_breaker.record_failure(failing_host, category='debrid')
+        elif ctx.get('debrid_provider'):
+            domains.adaptive_circuit_breaker.record_failure(str(ctx['debrid_provider']).lower(), category='debrid')
 
         self._failover_triggered = True
         control.playerWindow.setProperty(fail_key, str(attempts + 1))
@@ -1316,7 +1326,7 @@ class WatchlistPlayer(player):
             paused = bool(xbmc.getCondVisibility("Player.Paused"))
             if not paused and (self.total_time or 0) > 120 and abs(cur_pos - last_pos) < 1:
                 stagnant_cycles += 1
-                if stagnant_cycles >= 4:
+                if stagnant_cycles >= 6:
                     control.log(f"Player: Mid-stream buffer stall detected at {cur_pos}s (stagnant_cycles={stagnant_cycles}); attempting failover", 'info')
                     if self._attempt_midstream_failover('buffer_stall'):
                         break
