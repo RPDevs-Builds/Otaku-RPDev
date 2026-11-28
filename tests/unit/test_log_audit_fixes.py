@@ -14,6 +14,7 @@ Covers:
 """
 
 import importlib.util
+import json
 import os
 import sys
 import tempfile
@@ -375,6 +376,48 @@ class TestSeriesPlaybackProfilePrecedenceAndFillerSkip(unittest.TestCase):
             ok = wp._trigger_auto_subtitle_download(preferred_subtitle_lang='eng', is_eng_audio=True)
         self.assertTrue(ok)
         mock_auto.assert_called_once()
+
+    def test_ensure_otaku_playlist_replaces_kodi_autoplaynextitem_playlist(self):
+        wp = player.WatchlistPlayer()
+        wp.mal_id = 269
+        wp.episode = 63
+        wp.media_type = 'episode'
+        wp.episodes = [{'number': 63}, {'number': 64}, {'number': 65}]
+
+        props = {}
+        rpc_calls = []
+
+        def fake_jsonrpc(payload_str):
+            rpc_calls.append(json.loads(payload_str))
+            return '{"id":1,"jsonrpc":"2.0","result":"OK"}'
+
+        with patch.object(player.playList, 'size', return_value=3), \
+             patch.object(player.playList, 'getposition', return_value=0), \
+             patch.object(control.playerWindow, 'getProperty', side_effect=lambda k: props.get(k, '')), \
+             patch.object(control.playerWindow, 'setProperty', side_effect=lambda k, v: props.__setitem__(k, v)), \
+             patch.object(player.xbmc, 'executeJSONRPC', side_effect=fake_jsonrpc), \
+             patch.object(wp, 'build_playlist') as mock_build:
+            wp._ensure_otaku_playlist()
+
+        self.assertEqual(
+            [c['params']['position'] for c in rpc_calls if c['method'] == 'Playlist.Remove'],
+            [2, 1],
+        )
+        mock_build.assert_called_once()
+
+        # Once otaku.playlist.built_mal_id matches, subsequent episodes must not trim/rebuild
+        props['otaku.playlist.built_mal_id'] = '269'
+        rpc_calls.clear()
+        mock_build.reset_mock()
+        with patch.object(player.playList, 'size', return_value=2), \
+             patch.object(player.playList, 'getposition', return_value=1), \
+             patch.object(control.playerWindow, 'getProperty', side_effect=lambda k: props.get(k, '')), \
+             patch.object(player.xbmc, 'executeJSONRPC', side_effect=fake_jsonrpc), \
+             patch.object(wp, 'build_playlist') as mock_build2:
+            wp._ensure_otaku_playlist()
+
+        self.assertEqual(rpc_calls, [])
+        mock_build2.assert_not_called()
 
 
 if __name__ == '__main__':

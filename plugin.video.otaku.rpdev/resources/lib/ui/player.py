@@ -852,6 +852,7 @@ class WatchlistPlayer(player):
         clear_trakt_ids()
         control.closeAllDialogs()
         playList.clear()
+        control.playerWindow.clearProperty('otaku.playlist.built_mal_id')
         try:
             from resources.lib.ui import embed_extractor
             embed_extractor.del_subs()
@@ -988,6 +989,7 @@ class WatchlistPlayer(player):
         clear_trakt_ids()
         control.closeAllDialogs()
         playList.clear()
+        control.playerWindow.clearProperty('otaku.playlist.built_mal_id')
         try:
             from resources.lib.ui import embed_extractor
             embed_extractor.del_subs()
@@ -1085,7 +1087,46 @@ class WatchlistPlayer(player):
                     return current_ep + 1
         return current_ep + 1
 
+    def _ensure_otaku_playlist(self):
+        """Build or rebuild the Otaku playlist when Kodi's autoplaynextitem pre-populated it."""
+        if not self.episodes or self.media_type != 'episode':
+            return
+        pl_size = playList.size()
+        if pl_size == 1:
+            self.build_playlist()
+            return
+        if pl_size <= 1:
+            return
+        built_mal = control.playerWindow.getProperty('otaku.playlist.built_mal_id')
+        if built_mal == str(self.mal_id or ''):
+            return
+        pos = playList.getposition()
+        if pos < 0:
+            return
+        removed = 0
+        for idx in range(pl_size - 1, pos, -1):
+            try:
+                payload = json.dumps({
+                    'jsonrpc': '2.0',
+                    'method': 'Playlist.Remove',
+                    'params': {'playlistid': 1, 'position': idx},
+                    'id': 1,
+                })
+                resp = xbmc.executeJSONRPC(payload)
+                if resp and '"error"' not in str(resp):
+                    removed += 1
+            except Exception as e:
+                control.log(f"Player: Playlist.Remove failed at pos {idx}: {e}", 'debug')
+                break
+        if removed > 0 or pos == pl_size - 1:
+            control.log(
+                f"Player: Replaced Kodi pre-populated playlist (trimmed {removed} item(s) after pos {pos}) for MAL {self.mal_id}",
+                'info'
+            )
+            self.build_playlist()
+
     def build_playlist(self):
+        control.playerWindow.setProperty('otaku.playlist.built_mal_id', str(self.mal_id or ''))
         def _ep_num(ep):
             try:
                 return int(ep.get('number') or 0)
@@ -1334,8 +1375,7 @@ class WatchlistPlayer(player):
             self._ensure_subtitles_available()
 
         # Handle different media types
-        if self.episodes and self.media_type == 'episode' and playList.size() == 1:
-            self.build_playlist()
+        self._ensure_otaku_playlist()
 
         if self.media_type != 'movie':
             # Demuxer Chapter Fallback Chain:

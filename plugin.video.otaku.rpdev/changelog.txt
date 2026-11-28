@@ -1,3 +1,7 @@
+Changelog v6.9.5 (2026-11-27):
+- Kodi Autoplay-Next Playlist Replacement for Filler Auto-Skip:
+  - Added `WatchlistPlayer._ensure_otaku_playlist()` so when Kodi's "Play next video automatically" (`videoplayer.autoplaynextitem`) pre-populates `PLAYLIST_VIDEO` with unfiltered directory episodes (`playList.size() > 1`), trailing items after the current position are trimmed via `Playlist.Remove` JSON-RPC and rebuilt through `build_playlist()` with Series Playback Profile / global filler-skipping applied.
+
 Changelog v6.9.4 (2026-11-27):
 - Series Playback Profile Precedence & Filler Auto-Skip Fix:
   - Filler Auto-Skip Parity: Updated `WatchlistPlayer.build_playlist()` and `_trigger_background_prescrape()` to share `_load_merged_filler_map()` (combining `mappings.db` `filler_ranges` + `indexers.get_show_filler_data()`) and `_get_next_playable_episode()`, ensuring skipped filler episodes are excluded from both the playback queue and background pre-scrape / Zero-Wait pre-resolve.
