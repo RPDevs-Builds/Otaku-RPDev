@@ -299,5 +299,83 @@ class TestSubtitleServiceHlsNudge(unittest.TestCase):
         mock_pl.seekTime.assert_called_once_with(319.75)
 
 
+class TestSeriesPlaybackProfilePrecedenceAndFillerSkip(unittest.TestCase):
+    """Verify Series Playback Profile overrides global settings and filler skipping applies to playlist + pre-scrape."""
+
+    def test_build_playlist_and_next_playable_episode_skip_bleach_ep64_filler_via_indexers_fallback(self):
+        wp = player.WatchlistPlayer()
+        wp.mal_id = 269
+        wp.episode = 63
+        wp.series_override = {'skip_filler_mode': 'skip'}
+        # Episode rows lack inline 'filler' tag; mappings.db is empty; indexers.get_show_filler_data supplies it
+        wp.episodes = [
+            {'number': 63, 'kodi_meta': {}},
+            {'number': 64, 'kodi_meta': {}},
+            {'number': 65, 'kodi_meta': {}},
+        ]
+
+        added_urls = []
+        with patch.object(database, 'get_mapping_filler_map', return_value={}), \
+             patch.object(database, 'get_show', return_value={'kodi_meta': '{}'}), \
+             patch.object(player.indexers, 'get_show_filler_data', return_value={63: 'Canon', 64: 'Filler', 65: 'Canon'}), \
+             patch.object(player.indexers, 'process_episodes', side_effect=lambda eps, _: [{'name': f"Ep {e['number']}", 'url': f"play/269/{e['number']}", 'image': {}, 'info': {}, 'cm': [], 'isfolder': False, 'isplayable': True} for e in eps]), \
+             patch.object(control, 'bulk_dir_list', side_effect=lambda vd, *a: [(f"plugin://{it['url']}", MagicMock()) for it in vd]), \
+             patch.object(control.playList, 'add', side_effect=lambda url, listitem=None: added_urls.append(url)), \
+             patch.object(control, 'getBool', side_effect=lambda k, default=False: k == 'playlist.unaired'):
+            self.assertEqual(wp._get_next_playable_episode(63), 65)
+            wp.build_playlist()
+
+        self.assertEqual(added_urls, ['plugin://play/269/65'])
+
+    def test_series_override_keep_overrides_global_skip_filler(self):
+        wp = player.WatchlistPlayer()
+        wp.mal_id = 269
+        wp.series_override = {'skip_filler_mode': 'keep'}
+        with patch.object(control, 'getBool', return_value=True):
+            skip_f, skip_m = wp._resolve_filler_skip_flags()
+        self.assertFalse(skip_f)
+        self.assertFalse(skip_m)
+
+    def test_sort_sources_series_overrides_and_fallbacks_when_no_matches(self):
+        from resources.lib import pages
+
+        sources = [
+            {'release_title': '[Judas] Bleach - 63 (1080p)', 'provider': 'nyaa', 'type': 'torrent', 'relevance': 150, 'quality': 3, 'size': '300 MB', 'byte_size': 300},
+            {'release_title': '[SubsPlease] Bleach - 63 (1080p)', 'provider': 'animetosho', 'type': 'torrent', 'relevance': 150, 'quality': 3, 'size': '400 MB', 'byte_size': 400},
+        ]
+
+        # 1) Series preferred_provider + preferred_group override global settings when sources exist
+        ov_hit = {'preferred_provider': 'animetosho', 'preferred_group': 'SubsPlease', 'excluded_groups': ''}
+        with patch.object(database, 'get_series_override', return_value=ov_hit), \
+             patch.object(database, 'get_last_played_source', return_value=None), \
+             patch.object(control, 'getSetting', side_effect=lambda k, *a, **kw: 'Judas' if k == 'general.release_group.preferred' else ''), \
+             patch.object(control, 'getBool', return_value=False), \
+             patch.object(control, 'getInt', side_effect=lambda k, *a, **kw: 4 if k == 'general.maxResolution' else 0):
+            ranked = pages.Sources.sortSources(list(sources), [], [], [], [], 'tv', 1440, mal_id=269, show_title='Bleach')
+        self.assertEqual(ranked[0]['provider'], 'animetosho')
+
+        # 2) Series preferred_provider + preferred_group with NO matching sources fall back cleanly to available sources & SmartPlay
+        ov_miss = {'preferred_provider': 'nekobt', 'preferred_group': 'NonExistentGroup', 'excluded_groups': ''}
+        with patch.object(database, 'get_series_override', return_value=ov_miss), \
+             patch.object(database, 'get_last_played_source', return_value={'provider': 'nyaa', 'type': 'embed', 'lang': 2}), \
+             patch.object(control, 'getSetting', return_value=''), \
+             patch.object(control, 'getBool', side_effect=lambda k, *a, **kw: k in ('general.smartplay', 'smartplay.prefer_same_embed')), \
+             patch.object(control, 'getInt', side_effect=lambda k, *a, **kw: 4 if k == 'general.maxResolution' else 0):
+            embed_sources = [dict(s, type='embed', lang=2) for s in sources]
+            fallback = pages.Sources.sortSources(embed_sources, [], [], [], [], 'tv', 1440, mal_id=269, show_title='Bleach')
+        self.assertEqual(len(fallback), 2)
+        self.assertEqual(fallback[0]['provider'], 'nyaa')
+
+    def test_series_sub_override_allows_autodownload_over_english_dub(self):
+        wp = player.WatchlistPlayer()
+        wp._series_sub_override = True
+        wp._series_sub_mode_override = False
+        with patch.object(control, 'getBool', side_effect=lambda k, default=False: k in ('subtitles.enabled', 'subtitles.auto_search')), \
+             patch('resources.lib.subtitles.auto_download_subtitles', return_value=True) as mock_auto:
+            ok = wp._trigger_auto_subtitle_download(preferred_subtitle_lang='eng', is_eng_audio=True)
+        self.assertTrue(ok)
+        mock_auto.assert_called_once()
+
+
 if __name__ == '__main__':
     unittest.main()

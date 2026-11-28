@@ -1,7 +1,21 @@
 ========================
+[B]OTAKU RPDEV v6.9.4[/B]
+Series Profile & Filler Skip
+========================
+
+v6.9.4 Highlights:
+  * Series Playback Profile Filler Auto-Skip Fix: Playlist queueing and
+    background Zero-Wait pre-scraping now share the full filler map so
+    filler episodes are cleanly skipped during binge playback.
+  * Series Profile Precedence & Fallbacks: Per-series audio, subtitle,
+    provider, release group, and filler overrides take precedence over
+    global settings, falling back safely whenever a preferred provider
+    or release group has no available sources.
+
+--------------------------------
 [B]OTAKU RPDEV v6.9.3[/B]
 HLS Subtitle Flush & Tuning
-========================
+--------------------------------
 
 v6.9.3 Highlights:
   * Instant Manual Subtitle Display (service.subtitles.otaku.rpdev

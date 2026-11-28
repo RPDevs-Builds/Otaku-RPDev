@@ -870,6 +870,7 @@ class Sources(GetSources):
 
         # Multi-group intra-tier boost (strictly inside same relevance tier; never promotes Tier 1/2/3
         # derivatives over Tier 0 exact match and never hard-drops non-matching groups)
+        pref_group_matched = False
         if preferred_groups and sortedList:
             tiebreak_mode = control.getInt('general.release_group.tiebreak', 0)
             rank_map = {g.lower(): idx for idx, g in enumerate(effective_pref_list)}
@@ -886,12 +887,18 @@ class Sources(GetSources):
                     return (tier, -group_pin_bonus, rank_map.get(cand_group, non_match_rank))
                 return (tier, -group_pin_bonus)
 
+            pref_group_matched = any(
+                source_utils.normalize_release_group(
+                    source_utils.extract_release_group(it.get('release_title') or it.get('filename') or '')
+                ) in preferred_groups
+                for it in sortedList
+            )
             sortedList.sort(key=_tier_and_group_key)
         else:
             sortedList.sort(key=_get_relevance_tier)
 
         override_prov = (series_override.get('preferred_provider') or '').strip().lower() if isinstance(series_override, dict) else ''
-        override_applied = bool(preferred_groups)
+        override_applied = pref_group_matched
         if override_prov and override_prov not in ('auto', 'default', 'none'):
             match_idx = -1
             for idx, src in enumerate(sortedList):

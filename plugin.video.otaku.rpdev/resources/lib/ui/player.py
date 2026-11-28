@@ -1005,6 +1005,86 @@ class WatchlistPlayer(player):
 
     # ── Playlist Building ─────────────────────────────────────────────────
 
+    def _resolve_filler_skip_flags(self):
+        """Return (should_skip_filler, should_skip_mixed) honoring Series Playback Profile over global settings."""
+        ov_skip_filler = ''
+        if isinstance(getattr(self, 'series_override', None), dict):
+            ov_skip_filler = (self.series_override.get('skip_filler_mode') or '').lower()
+        if ov_skip_filler in ('skip_mixed', 'mixed', 'all'):
+            return True, True
+        if ov_skip_filler in ('skip', 'skip_strict', 'true', 'on', 'enabled'):
+            return True, False
+        if ov_skip_filler in ('off', 'false', 'disabled', 'keep'):
+            return False, False
+        return (
+            control.getBool('smartplay.skip_filler', default=False),
+            control.getBool('smartplay.skip_mixed_filler', default=False),
+        )
+
+    def _load_merged_filler_map(self, upcoming_episodes):
+        """Return {ep_num: filler_tag} combining DB filler_ranges and indexers.get_show_filler_data."""
+        merged = {}
+        try:
+            merged.update(database.get_mapping_filler_map(self.mal_id) or {})
+        except Exception:
+            pass
+        if any(not ep.get('filler') and int(ep.get('number') or 0) not in merged for ep in (upcoming_episodes or [])):
+            try:
+                show_row = database.get_show(self.mal_id)
+                kodi_meta = database.loads(show_row.get('kodi_meta')) if isinstance(show_row, dict) and show_row.get('kodi_meta') else {}
+                idx_map = indexers.get_show_filler_data(self.mal_id, kodi_meta if isinstance(kodi_meta, dict) else {}) or {}
+                for k, v in idx_map.items():
+                    try:
+                        ep_k = int(k)
+                    except (TypeError, ValueError):
+                        continue
+                    if ep_k not in merged and v:
+                        merged[ep_k] = v
+            except Exception:
+                pass
+        return merged
+
+    @staticmethod
+    def _is_skipped_filler_episode(ep_row, filler_map, should_skip_filler, should_skip_mixed):
+        """Return True if *ep_row* is a filler/recap (or mixed when enabled) episode that should be skipped."""
+        if not should_skip_filler:
+            return False
+        try:
+            ep_num = int(ep_row.get('number') or 0)
+        except (TypeError, ValueError, AttributeError):
+            ep_num = 0
+        tag = str(ep_row.get('filler') or '').strip()
+        if not tag and filler_map and ep_num:
+            tag = str(filler_map.get(ep_num) or '').strip()
+        low = re.sub(r'\[/?COLOR[^\]]*\]|\[/?B\]', '', tag).strip().lower()
+        if not low:
+            return False
+        if 'mixed' in low or 'canon/filler' in low:
+            return should_skip_mixed
+        if 'recap' in low or 'filler' in low:
+            return True
+        return False
+
+    def _get_next_playable_episode(self, current_ep: int) -> int:
+        """Return the next non-skipped episode number after *current_ep* honoring skip_filler_mode."""
+        should_skip_filler, should_skip_mixed = self._resolve_filler_skip_flags()
+        if not should_skip_filler or not self.episodes:
+            return current_ep + 1
+        upcoming = sorted(
+            [ep for ep in self.episodes if int(ep.get('number') or 0) > current_ep],
+            key=lambda ep: int(ep.get('number') or 0),
+        )
+        if not upcoming:
+            return current_ep + 1
+        filler_map = self._load_merged_filler_map(upcoming)
+        for ep in upcoming:
+            if not self._is_skipped_filler_episode(ep, filler_map, should_skip_filler, should_skip_mixed):
+                try:
+                    return int(ep.get('number') or (current_ep + 1))
+                except (TypeError, ValueError):
+                    return current_ep + 1
+        return current_ep + 1
+
     def build_playlist(self):
         def _ep_num(ep):
             try:
@@ -1028,42 +1108,14 @@ class WatchlistPlayer(player):
 
         upcoming_episodes = [ep for ep in sorted_episodes if _ep_num(ep) > current_ep]
 
-        # NF-03: Binge Auto-Skip Filler Episodes (per-series override or global Filler sub-settings)
-        ov_skip_filler = ''
-        if isinstance(getattr(self, 'series_override', None), dict):
-            ov_skip_filler = (self.series_override.get('skip_filler_mode') or '').lower()
-        if ov_skip_filler in ('skip_mixed', 'mixed', 'all'):
-            should_skip_filler = True
-            should_skip_mixed = True
-        elif ov_skip_filler in ('skip', 'skip_strict', 'true', 'on', 'enabled'):
-            should_skip_filler = True
-            should_skip_mixed = False
-        elif ov_skip_filler in ('off', 'false', 'disabled', 'keep'):
-            should_skip_filler = False
-            should_skip_mixed = False
-        else:
-            should_skip_filler = control.getBool('smartplay.skip_filler', default=False)
-            should_skip_mixed = control.getBool('smartplay.skip_mixed_filler', default=False)
-
+        # NF-03: Binge Auto-Skip Filler Episodes (Series Playback Profile overrides global Filler sub-settings)
+        should_skip_filler, should_skip_mixed = self._resolve_filler_skip_flags()
         if should_skip_filler and upcoming_episodes:
-            offline_filler = None
-            if any(not ep.get('filler') for ep in upcoming_episodes):
-                offline_filler = database.get_mapping_filler_map(self.mal_id) or {}
-
-            def _is_skipped_filler(ep_row):
-                tag = str(ep_row.get('filler') or '').strip()
-                if not tag and offline_filler:
-                    tag = str(offline_filler.get(_ep_num(ep_row)) or '').strip()
-                low = re.sub(r'\[/?COLOR[^\]]*\]|\[/?B\]', '', tag).strip().lower()
-                if not low:
-                    return False
-                if 'mixed' in low or 'canon/filler' in low:
-                    return should_skip_mixed
-                if 'recap' in low or 'filler' in low:
-                    return True
-                return False
-
-            non_filler = [ep for ep in upcoming_episodes if not _is_skipped_filler(ep)]
+            filler_map = self._load_merged_filler_map(upcoming_episodes)
+            non_filler = [
+                ep for ep in upcoming_episodes
+                if not self._is_skipped_filler_episode(ep, filler_map, should_skip_filler, should_skip_mixed)
+            ]
             if non_filler:
                 skipped_cnt = len(upcoming_episodes) - len(non_filler)
                 if skipped_cnt > 0:
@@ -1464,7 +1516,7 @@ class WatchlistPlayer(player):
                 current_ep = int(self.episode)
             except (ValueError, TypeError):
                 return
-            next_ep = current_ep + 1
+            next_ep = self._get_next_playable_episode(current_ep)
 
             # Skip pre-scraping when playing a movie or the final episode of a series
             if self.episodes and next_ep > len(self.episodes):
@@ -1608,8 +1660,12 @@ class WatchlistPlayer(player):
             return False
         if preferred_subtitle_lang and str(preferred_subtitle_lang).lower() == 'none':
             return False
-        # Do not auto-download unwanted full dialogue subs over English Dub unless dubsubtitles or prefer_forced is enabled
-        if is_eng_audio and not control.getBool('general.dubsubtitles') and not control.getBool('subtitles.prefer_forced'):
+        # Do not auto-download unwanted full dialogue subs over English Dub unless dubsubtitles, prefer_forced,
+        # or an explicit Series Playback Profile subtitle override is configured.
+        has_series_sub_override = bool(
+            getattr(self, '_series_sub_override', False) or getattr(self, '_series_sub_mode_override', False)
+        )
+        if is_eng_audio and not has_series_sub_override and not control.getBool('general.dubsubtitles') and not control.getBool('subtitles.prefer_forced'):
             control.log("Player: English audio active with dubsubtitles disabled; skipping external subtitle auto-download", 'debug')
             return False
         try:

@@ -1,3 +1,8 @@
+Changelog v6.9.4 (2026-11-27):
+- Series Playback Profile Precedence & Filler Auto-Skip Fix:
+  - Filler Auto-Skip Parity: Updated `WatchlistPlayer.build_playlist()` and `_trigger_background_prescrape()` to share `_load_merged_filler_map()` (combining `mappings.db` `filler_ranges` + `indexers.get_show_filler_data()`) and `_get_next_playable_episode()`, ensuring skipped filler episodes are excluded from both the playback queue and background pre-scrape / Zero-Wait pre-resolve.
+  - Series Playback Profile Precedence & Safe Fallbacks: Updated `sortSources()` so `preferred_group` and `preferred_provider` overrides take top precedence over global/SmartPlay rules when matching sources exist, and fall back cleanly to available sources when either override has zero matches; updated `_trigger_auto_subtitle_download()` to honor explicit Series Playback Profile subtitle overrides over English Dub.
+
 Changelog v6.9.3 (2026-11-27):
 - Immediate Manual HLS Subtitle Display & 3 GB+ VmSize Guard Tuning (service.subtitles.otaku.rpdev v1.1.1):
   - Manual Subtitle HLS Flush: Updated `service.subtitles.otaku.rpdev` `action=download` to trigger `showSubtitles(True)` + a `-0.25s` micro-seek after Kodi attaches manually downloaded subtitles, so `inputstream.adaptive` HLS streams render them immediately instead of waiting for buffered segments to advance.
