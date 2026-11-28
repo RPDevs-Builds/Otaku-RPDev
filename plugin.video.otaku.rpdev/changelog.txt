@@ -1,3 +1,8 @@
+Changelog v6.9.6 (2026-11-27):
+- EOF Seek RuntimeError Guard & Binge Next-Episode Parity:
+  - Added `WatchlistPlayer._safe_seek_time()` in `player.py` to check active playback and catch `RuntimeError: Kodi is not playing any media file` across intro/outro auto-skip seeks in `_run_unified_episode_monitor()`, preventing aborted `keepAlive()` cleanup and `CPythonInvoker` thread leaks.
+  - Updated binge-mode `Up Next` notification to display `self._get_next_playable_episode(cur_ep)` so skipped filler episodes are reflected accurately.
+
 Changelog v6.9.5 (2026-11-27):
 - Kodi Autoplay-Next Playlist Replacement for Filler Auto-Skip:
   - Added `WatchlistPlayer._ensure_otaku_playlist()` so when Kodi's "Play next video automatically" (`videoplayer.autoplaynextitem`) pre-populates `PLAYLIST_VIDEO` with unfiltered directory episodes (`playList.size() > 1`), trailing items after the current position are trimmed via `Playlist.Remove` JSON-RPC and rebuilt through `build_playlist()` with Series Playback Profile / global filler-skipping applied.

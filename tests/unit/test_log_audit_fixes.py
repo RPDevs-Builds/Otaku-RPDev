@@ -419,6 +419,27 @@ class TestSeriesPlaybackProfilePrecedenceAndFillerSkip(unittest.TestCase):
         self.assertEqual(rpc_calls, [])
         mock_build2.assert_not_called()
 
+    def test_safe_seek_time_handles_eof_runtime_error(self):
+        wp = player.WatchlistPlayer()
+        wp._playback_stopped = False
+
+        # 1) RuntimeError from Kodi when playback ended right before seekTime()
+        with patch.object(wp, 'isPlaying', return_value=True), \
+             patch.object(wp, 'seekTime', side_effect=RuntimeError('Kodi is not playing any media file')):
+            self.assertFalse(wp._safe_seek_time(1442))
+
+        # 2) Not playing -> skips seekTime altogether
+        with patch.object(wp, 'isPlaying', return_value=False), \
+             patch.object(wp, 'seekTime') as mock_seek:
+            self.assertFalse(wp._safe_seek_time(1442))
+            mock_seek.assert_not_called()
+
+        # 3) Active playback -> performs seekTime and returns True
+        with patch.object(wp, 'isPlaying', return_value=True), \
+             patch.object(wp, 'seekTime') as mock_seek:
+            self.assertTrue(wp._safe_seek_time(1442))
+            mock_seek.assert_called_once_with(1442)
+
 
 if __name__ == '__main__':
     unittest.main()

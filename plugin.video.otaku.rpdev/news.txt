@@ -1,7 +1,19 @@
 ========================
+[B]OTAKU RPDEV v6.9.6[/B]
+EOF Seek & Leak Fix
+========================
+
+v6.9.6 Highlights:
+  * EOF Seek & Thread-Leak Fix: Guarded intro/outro auto-skip seeks
+    against Kodi's "not playing any media file" RuntimeError at EOF,
+    preventing aborted player cleanup and CPythonInvoker thread leaks.
+  * Binge Notification Parity: Binge-mode "Up Next" notifications now
+    show the next non-filler episode number.
+
+--------------------------------
 [B]OTAKU RPDEV v6.9.5[/B]
 Filler Autoplay Fix
-========================
+--------------------------------
 
 v6.9.5 Highlights:
   * Kodi Autoplay-Next Filler Skip Fix: When Kodi's "Play next video

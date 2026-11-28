@@ -1444,6 +1444,17 @@ class WatchlistPlayer(player):
 
     # ── Skip Intro / Outro / Playing Next ──────────────────────────────
 
+    def _safe_seek_time(self, target_pos):
+        """Seek only while playback is active, absorbing Kodi EOF RuntimeError."""
+        if self._playback_stopped or not self.isPlaying():
+            return False
+        try:
+            self.seekTime(target_pos)
+            return True
+        except RuntimeError as e:
+            control.log(f'Player: seekTime({target_pos}) skipped after playback ended: {e}', 'debug')
+            return False
+
     def _run_unified_episode_monitor(self):
         """Unified monitoring loop for intro skip, watched percent, and outro/playing next."""
         intro_enabled = control.getBool('smartplay.skipintrodialog') or self.skipintro_aniskip_auto
@@ -1495,8 +1506,10 @@ class WatchlistPlayer(player):
                 elif self.current_time >= intro_start:
                     next_end = self._contiguous_skip_end(intro_end) if control.getBool('smartplay.scene_markers', default=True) else None
                     if self.skipintro_aniskip_auto and self.skipintro_aniskip:
-                        self.seekTime(next_end or intro_end)
-                        control.log(f'Auto-skipped intro: {intro_start}-{next_end or intro_end}', 'info')
+                        if self._safe_seek_time(next_end or intro_end):
+                            control.log(f'Auto-skipped intro: {intro_start}-{next_end or intro_end}', 'info')
+                        else:
+                            break
                     else:
                         PlayerDialogs().show_skip_intro(self.skipintro_aniskip, intro_end, next_marker_end=next_end)
                     intro_handled = True
@@ -1516,8 +1529,10 @@ class WatchlistPlayer(player):
                 time_remaining = self.total_time - self.current_time
                 if self.skipoutro_aniskip_auto and self.skipoutro_aniskip and self.current_time >= self.skipoutro_start and self.skipoutro_start > 0:
                     if self.skipoutro_end > 0:
-                        self.seekTime(self.skipoutro_end)
-                        control.log(f'Auto-skipped outro: {self.skipoutro_start}-{self.skipoutro_end}', 'info')
+                        if self._safe_seek_time(self.skipoutro_end):
+                            control.log(f'Auto-skipped outro: {self.skipoutro_start}-{self.skipoutro_end}', 'info')
+                        else:
+                            break
                     outro_handled = True
                 elif self._should_show_dialog(time_remaining, playnext_time):
                     if not self._check_still_watching():
@@ -1525,13 +1540,16 @@ class WatchlistPlayer(player):
                     if control.getBool('smartplay.binge_mode', default=False):
                         try:
                             cur_ep = int(self.episode)
-                            next_ep_str = f"Episode {cur_ep + 1}"
+                            next_ep = self._get_next_playable_episode(cur_ep)
+                            next_ep_str = f"Episode {next_ep}"
                         except (ValueError, TypeError):
                             next_ep_str = "Next Episode"
                         control.notify(control.ADDON_NAME, f"Up Next: {next_ep_str}...", sound=False)
                         if self.skipoutro_aniskip and self.skipoutro_end > 0:
-                            self.seekTime(self.skipoutro_end)
-                            control.log(f'Auto-skipped outro (binge mode): {self.skipoutro_start}-{self.skipoutro_end}', 'info')
+                            if self._safe_seek_time(self.skipoutro_end):
+                                control.log(f'Auto-skipped outro (binge mode): {self.skipoutro_start}-{self.skipoutro_end}', 'info')
+                            else:
+                                break
                         outro_handled = True
                     else:
                         if self.skipoutro_aniskip and not self.skipoutro_aniskip_auto:
