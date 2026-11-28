@@ -1,3 +1,8 @@
+Changelog v6.9.3 (2026-11-27):
+- Immediate Manual HLS Subtitle Display & 3 GB+ VmSize Guard Tuning (service.subtitles.otaku.rpdev v1.1.1):
+  - Manual Subtitle HLS Flush: Updated `service.subtitles.otaku.rpdev` `action=download` to trigger `showSubtitles(True)` + a `-0.25s` micro-seek after Kodi attaches manually downloaded subtitles, so `inputstream.adaptive` HLS streams render them immediately instead of waiting for buffered segments to advance.
+  - 3 GB+ `VmSize` Guard: Raised the `> 2500 MB` RAM `VmSize` guard in `control.enforce_memory_watermark()` from `3200 MB` to `3400 MB` (preserving `2600 MB` on `<= 2 GB` sticks) so 3 GB Android TV devices keep background pre-caching enabled at startup.
+
 Changelog v6.9.2 (2026-11-27):
 - Production Log Hardening, Scraper & Memory Tuning (service.otaku.rpdev v1.2.1):
   - Service Upgrade Race & SWIG Cleanup: `service.otaku.rpdev` now waits for Kodi `AddonManager` registration of `plugin.video.otaku.rpdev` before starting the service loop and releases all Kodi SWIG proxy handles cleanly via `control.release_kodi_proxies()`.

@@ -1568,7 +1568,7 @@ def enforce_memory_watermark(
         # Scale 32-bit Android guards on 3GB+ RAM devices (e.g. 2912 MB) when user keeps 900 MB default
         if watermark_mb == 900.0:
             watermark_mb = 1152.0
-        vmsize_guard_mb = 3200.0
+        vmsize_guard_mb = 3400.0
 
     result = {
         'is_32bit': is_32bit,

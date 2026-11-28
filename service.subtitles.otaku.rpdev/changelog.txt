@@ -1,3 +1,7 @@
+Changelog v1.1.1 (2026-11-27):
+- Immediate HLS Subtitle Render Nudge on Manual Download:
+  - Added `_nudge_hls_subtitle_render(delay_s=0.35)` to `action=download` so Kodi's `DialogSubtitles.xml` manual downloads trigger `showSubtitles(True)` and a `-0.25s` micro-seek (`cur_t > 5.0`), flushing `inputstream.adaptive` HLS subtitle buffers immediately instead of waiting for the next segment boundary.
+
 Changelog v1.1.0 (2026-11-27):
 - Dedicated Subtitle Service & Providers Settings Split:
   - Moved all 23 online subtitle engine settings, provider toggles (OpenSubtitles, SubDL, SubSource, Podnadpisi, BSPlayer, Addic7ed, Jimaku, AnimeTosho), credentials, and service actions into dedicated SubtitleService and SubtitleProviders categories with #30000-#30999 localization.

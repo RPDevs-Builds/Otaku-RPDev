@@ -341,7 +341,7 @@ class TestSubtitleSettingsSplit(unittest.TestCase):
             self.assertEqual(cnt, 30)  # 7 plugin + 10 engine + 13 providers (excludes migration marker)
             with open(bpath, 'r', encoding='utf-8') as f:
                 payload = json.load(f)
-            self.assertEqual(payload['addon_versions']['service.subtitles.otaku.rpdev'], '1.1.0')
+            self.assertEqual(payload['addon_versions']['service.subtitles.otaku.rpdev'], '1.1.1')
             self.assertNotIn('subtitles.migrated_from_plugin_v1', payload['settings'])
             self.assertNotIn('service.migrated_from_plugin_v1', payload['settings'])
 

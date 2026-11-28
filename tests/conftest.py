@@ -1106,7 +1106,7 @@ def addon_side_effect(addon_id=None):
             ),
             'version': (
                 '1.2.1' if effective_aid == 'service.otaku.rpdev'
-                else ('1.1.0' if effective_aid == 'service.subtitles.otaku.rpdev' else '6.9.0')
+                else ('1.1.1' if effective_aid == 'service.subtitles.otaku.rpdev' else '6.9.3')
             ),
             'icon': '',
             'fanart': '',

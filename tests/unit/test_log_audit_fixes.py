@@ -244,7 +244,7 @@ class TestSubtitleAutoAttemptsAndFailoverAndCoercion(unittest.TestCase):
 
 
 class TestMemoryWatermarkHardwareScaling(unittest.TestCase):
-    """Item #6: 900/2600 on <=2GB sticks; 1152/3200 on >2500MB RAM devices when default 900."""
+    """Item #6: 900/2600 on <=2GB sticks; 1152/3400 on >2500MB RAM devices when default 900."""
 
     def _write_status(self, tmpdir, rss_mb, vmsize_mb):
         p = os.path.join(tmpdir, 'status')
@@ -252,24 +252,51 @@ class TestMemoryWatermarkHardwareScaling(unittest.TestCase):
             fh.write(f"VmSize:\t{int(vmsize_mb * 1024)} kB\nVmRSS:\t{int(rss_mb * 1024)} kB\n")
         return p
 
-    def test_scales_to_1152_and_3200_on_3gb_device_without_triggering_at_1050_or_3100(self):
+    def test_scales_to_1152_and_3400_on_3gb_device_without_triggering_at_1050_or_3250(self):
         control.clearGlobalProp('otaku.memory_pressure')
         with tempfile.TemporaryDirectory() as tmpdir:
-            p = self._write_status(tmpdir, rss_mb=1050, vmsize_mb=3100)
+            p = self._write_status(tmpdir, rss_mb=1050, vmsize_mb=3250)
             with patch.object(control, 'get_device_ram_mb', return_value=2912), \
                  patch.object(control, 'getInt', return_value=900):
                 res = control.enforce_memory_watermark(status_path=p, force_32bit=True, trim_fn=lambda: False)
             self.assertFalse(res['triggered'])
             self.assertEqual(res['watermark_mb'], 1152.0)
-            self.assertEqual(res['vmsize_guard_mb'], 3200.0)
+            self.assertEqual(res['vmsize_guard_mb'], 3400.0)
 
             # Still triggers if RSS >= 1152 MB
-            p_high = self._write_status(tmpdir, rss_mb=1180, vmsize_mb=3100)
+            p_high = self._write_status(tmpdir, rss_mb=1180, vmsize_mb=3250)
             with patch.object(control, 'get_device_ram_mb', return_value=2912), \
                  patch.object(control, 'getInt', return_value=900):
                 res_high = control.enforce_memory_watermark(status_path=p_high, force_32bit=True, trim_fn=lambda: False)
             self.assertTrue(res_high['triggered'])
         control.clearGlobalProp('otaku.memory_pressure')
+
+
+class TestSubtitleServiceHlsNudge(unittest.TestCase):
+    """Verify service.subtitles.otaku.rpdev nudges HLS subtitle rendering after manual download."""
+
+    def test_nudge_hls_subtitle_render_shows_subtitles_and_micro_seeks(self):
+        sub_svc_path = os.path.join(_REPO_ROOT, 'service.subtitles.otaku.rpdev', 'service.py')
+        spec = importlib.util.spec_from_file_location('otaku_sub_service_test', sub_svc_path)
+        sub_svc = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(sub_svc)
+
+        mock_mon = MagicMock()
+        mock_mon.waitForAbort.return_value = False
+        mock_pl = MagicMock()
+        mock_pl.isPlaying.return_value = True
+        mock_pl.getTime.return_value = 320.0
+
+        with patch.object(sub_svc.xbmc, 'Monitor', return_value=mock_mon), \
+             patch.object(sub_svc.xbmc, 'Player', return_value=mock_pl):
+            sub_svc._nudge_hls_subtitle_render(delay_s=0.0)
+            import time
+            deadline = time.monotonic() + 1.0
+            while not mock_pl.seekTime.called and time.monotonic() < deadline:
+                time.sleep(0.01)
+
+        mock_pl.showSubtitles.assert_called_once_with(True)
+        mock_pl.seekTime.assert_called_once_with(319.75)
 
 
 if __name__ == '__main__':

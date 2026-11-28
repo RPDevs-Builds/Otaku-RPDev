@@ -1,7 +1,21 @@
 ========================
+[B]OTAKU RPDEV v6.9.3[/B]
+HLS Subtitle Flush & Tuning
+========================
+
+v6.9.3 Highlights:
+  * Instant Manual Subtitle Display (service.subtitles.otaku.rpdev
+    v1.1.1): Manually downloading a subtitle via Kodi's Subtitle dialog
+    now flushes the HLS overlay buffer immediately instead of waiting for
+    buffered segments to advance.
+  * 3 GB+ VmSize Guard Tuning: Raised the 3 GB+ device VmSize guard from
+    3200 MB to 3400 MB (keeping 2600 MB on <= 2 GB devices) so background
+    pre-caching stays enabled on 3 GB Android TV boxes.
+
+--------------------------------
 [B]OTAKU RPDEV v6.9.2[/B]
 Reliability & Memory Tuning
-========================
+--------------------------------
 
 v6.9.2 Highlights:
   * Hardware-Aware 32-Bit Memory Guard: Keeps 900 MB RSS / 2600 MB VmSize

@@ -15,9 +15,11 @@ Supports:
 import json
 import os
 import sys
+import threading
 import urllib.parse
 from typing import Dict, Any, List, Optional
 
+import xbmc
 import xbmcaddon
 import xbmcgui
 import xbmcplugin
@@ -188,6 +190,36 @@ def _emit_search_results(handle: int, results, subtitles_mod) -> int:
     return count
 
 
+def _nudge_hls_subtitle_render(delay_s: float = 0.35) -> None:
+    """After Kodi DialogSubtitles.xml attaches a manually downloaded external subtitle,
+    perform a brief -0.25s micro-seek so inputstream.adaptive HLS flushes & renders it immediately."""
+    def _worker():
+        mon = xbmc.Monitor()
+        try:
+            if mon.waitForAbort(delay_s):
+                return
+            pl = xbmc.Player()
+            if not pl.isPlaying():
+                return
+            try:
+                pl.showSubtitles(True)
+            except Exception:
+                pass
+            cur_t = float(pl.getTime() or 0.0)
+            if cur_t > 5.0:
+                pl.seekTime(max(0.0, cur_t - 0.25))
+        except Exception:
+            pass
+        finally:
+            try:
+                del mon
+            except Exception:
+                pass
+
+    t = threading.Thread(target=_worker, daemon=True)
+    t.start()
+
+
 def handle_request(handle: int, param_string: str) -> int:
     """
     Main Kodi xbmc.subtitle.module request dispatcher.
@@ -276,6 +308,7 @@ def handle_request(handle: int, param_string: str) -> int:
                 control.setGlobalProp('otaku.subtitle.auto_loaded', 'true' if result.auto_identified else 'false')
                 control.setGlobalProp('otaku.subtitle.auto_label', f"[{reason}] {result.name[:32]} ({result.display_name})")
                 emitted = 1
+                _nudge_hls_subtitle_render()
                 control.log(f"Subtitle Service: action=download prepared {local_path}", 'info')
             else:
                 control.notify(control.ADDON_NAME, f"Failed downloading subtitle from {result.display_name}", time=3000)
